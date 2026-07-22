@@ -1,17 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ur" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#070b10" />
+  <meta name="theme-color" content="#0b1220" />
   <title>SwiftGo - Super Admin Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/admin-style.css?v=20260722a" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Nastaliq+Urdu:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/admin-style.css?v=20260722b" />
 </head>
 <body>
-  <main class="admin-shell">
+  <!-- Login gate -->
+  <main class="admin-shell" id="adminLoginScreen">
     <section class="admin-hero">
       <div class="admin-card">
         <div class="admin-card__mark" aria-hidden="true">SG</div>
@@ -34,6 +35,113 @@
     </section>
   </main>
 
-  <script type="module" src="js/admin-app.js?v=20260722a"></script>
+  <!-- Access denied overlay -->
+  <div
+    class="access-denied"
+    id="accessDeniedOverlay"
+    hidden
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="accessDeniedTitle"
+  >
+    <div class="access-denied__panel">
+      <div class="access-denied__icon" aria-hidden="true">!</div>
+      <h2 id="accessDeniedTitle">Access Denied: You are not authorized as a Super Admin.</h2>
+      <p class="access-denied__ur" dir="rtl" lang="ur">رسائی سے انکار: آپ سپر ایڈمن نہیں ہیں</p>
+      <button type="button" class="access-denied__btn" id="accessDeniedDismissBtn">Close / بند کریں</button>
+    </div>
+  </div>
+
+  <!-- Enterprise dashboard -->
+  <div class="admin-layout" id="adminDashboard" hidden>
+    <aside class="admin-sidebar" aria-label="Super Admin navigation">
+      <div class="admin-sidebar__brand">
+        <span class="admin-sidebar__mark" aria-hidden="true">SG</span>
+        <div>
+          <strong>SwiftGo</strong>
+          <span>Super Admin</span>
+        </div>
+      </div>
+      <nav class="admin-sidebar__nav">
+        <button type="button" class="admin-nav-item is-active" data-view="dashboard">
+          ڈیش بورڈ
+          <span class="admin-nav-item__en">Dashboard</span>
+        </button>
+        <button type="button" class="admin-nav-item" data-view="approvals">
+          ڈرائیورز کی منظوری
+          <span class="admin-nav-item__en">Driver Approvals</span>
+        </button>
+        <button type="button" class="admin-nav-item" data-view="users">
+          صارفین اور گاڑیاں
+          <span class="admin-nav-item__en">Users &amp; Vehicles</span>
+        </button>
+        <button type="button" class="admin-nav-item" data-view="finance">
+          مالی کنٹرول
+          <span class="admin-nav-item__en">Financial Controls</span>
+        </button>
+      </nav>
+    </aside>
+
+    <div class="admin-main">
+      <header class="admin-topbar">
+        <div class="admin-topbar__title">
+          <p class="admin-topbar__eyebrow">Command Center</p>
+          <h1 id="adminViewTitle">ڈیش بورڈ</h1>
+        </div>
+        <div class="admin-topbar__user">
+          <div class="admin-topbar__identity">
+            <strong id="adminDisplayName">—</strong>
+            <span id="adminDisplayEmail">—</span>
+          </div>
+          <button type="button" class="admin-logout-btn" id="adminLogoutBtn">Logout</button>
+        </div>
+      </header>
+
+      <section class="admin-content" id="adminContent" data-active-view="dashboard">
+        <div class="admin-view is-active" data-view-panel="dashboard">
+          <div class="stat-grid" aria-label="Dashboard statistics">
+            <article class="stat-card">
+              <p class="stat-card__label">Total Rides</p>
+              <p class="stat-card__value" id="statTotalRides">—</p>
+              <p class="stat-card__hint">کل رائیڈز · placeholder</p>
+            </article>
+            <article class="stat-card">
+              <p class="stat-card__label">Active Drivers</p>
+              <p class="stat-card__value" id="statActiveDrivers">—</p>
+              <p class="stat-card__hint">فعال ڈرائیورز · placeholder</p>
+            </article>
+            <article class="stat-card">
+              <p class="stat-card__label">Total Revenue</p>
+              <p class="stat-card__value" id="statTotalRevenue">—</p>
+              <p class="stat-card__hint">کل آمدنی · placeholder</p>
+            </article>
+          </div>
+        </div>
+
+        <div class="admin-view" data-view-panel="approvals" hidden>
+          <div class="placeholder-panel">
+            <h2>ڈرائیورز کی منظوری</h2>
+            <p>Driver Approvals workspace — coming in a later phase.</p>
+          </div>
+        </div>
+
+        <div class="admin-view" data-view-panel="users" hidden>
+          <div class="placeholder-panel">
+            <h2>صارفین اور گاڑیاں</h2>
+            <p>Users &amp; Vehicles workspace — coming in a later phase.</p>
+          </div>
+        </div>
+
+        <div class="admin-view" data-view-panel="finance" hidden>
+          <div class="placeholder-panel">
+            <h2>مالی کنٹرول</h2>
+            <p>Financial Controls workspace — coming in a later phase.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module" src="js/admin-app.js?v=20260722b"></script>
 </body>
 </html>
