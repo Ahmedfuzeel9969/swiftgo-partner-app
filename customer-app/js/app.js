@@ -1,0 +1,374 @@
+import {
+  initI18n,
+  setLang,
+  getLang,
+  syncLangButtons,
+  applyTranslations,
+  t,
+  subscribe,
+  paymentMethodLabel,
+} from "./i18n.js";
+import { initMap, locateUser, resizeMap } from "./map.js";
+import {
+  initSheet,
+  setSheetVisible,
+  setPickupLabel,
+  refreshSheetLabels,
+  collapseSheet,
+  expandSheet,
+  resetSheetForNewRide,
+} from "./sheet.js";
+import { initLocationModule, refreshLocationLabels } from "./location.js";
+import {
+  initScreens,
+  refreshScreens,
+  setBookingsData,
+  setWalletBalanceUi,
+} from "./screens.js";
+import { initAuth, onUserChange, openAuthModal, getCurrentUser } from "./auth.js";
+import { watchUserProfile, watchBookings, createBooking } from "./data.js";
+import { isFirebaseConfigured } from "./firebase.js";
+import {
+  initDashboard,
+  refreshDashboardLabels,
+  getPaymentMethod,
+  closePaySheet,
+} from "./dashboard.js";
+import {
+  initDriverOnboarding,
+  refreshDriverOnboardingLabels,
+} from "./driver-onboarding.js";
+import {
+  initUtilityDrawer,
+  closeUtilityDrawer,
+  refreshUtilityDrawerLabels,
+  isUtilityDrawerOpen,
+} from "./utility-drawer.js";
+import { getRouteInfo } from "./routing.js";
+import { initFareCalculation } from "./fare.js";
+import { initRideFlow, startRideRequest } from "./ride-flow.js";
+
+const els = {
+  app: document.getElementById("app"),
+  sidebar: document.getElementById("sidebar"),
+  overlay: document.getElementById("drawerOverlay"),
+  menuBtn: document.getElementById("menuBtn"),
+  shell: document.getElementById("shell"),
+  locateBtn: document.getElementById("locateBtn"),
+  fabLocate: document.getElementById("fabLocate"),
+  profileName: document.getElementById("profileName"),
+  profileSub: document.getElementById("profileSub"),
+  signOutBtn: document.getElementById("signOutBtn"),
+};
+
+let drawerOpen = false;
+let mapReady = false;
+let unsubProfile = () => {};
+let unsubBookings = () => {};
+
+function openDrawer() {
+  closeUtilityDrawer();
+  drawerOpen = true;
+  els.sidebar.classList.add("is-open");
+  els.sidebar.setAttribute("aria-hidden", "false");
+  els.overlay.hidden = false;
+  requestAnimationFrame(() => els.overlay.classList.add("is-visible"));
+  els.menuBtn.setAttribute("aria-label", t("closeMenu"));
+  els.menuBtn.setAttribute("aria-expanded", "true");
+  document.body.classList.add("drawer-open");
+}
+
+function closeDrawer() {
+  drawerOpen = false;
+  els.sidebar.classList.remove("is-open");
+  els.sidebar.setAttribute("aria-hidden", "true");
+  els.menuBtn.setAttribute("aria-label", t("openMenu"));
+  els.menuBtn.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("drawer-open");
+  if (!isUtilityDrawerOpen()) {
+    els.overlay.classList.remove("is-visible");
+    window.setTimeout(() => {
+      if (!drawerOpen && !isUtilityDrawerOpen()) els.overlay.hidden = true;
+    }, 280);
+  }
+}
+
+function toggleDrawer() {
+  if (drawerOpen) closeDrawer();
+  else openDrawer();
+}
+
+function ensureMap() {
+  if (mapReady) {
+    resizeMap();
+    return;
+  }
+  initMap("map");
+  mapReady = true;
+}
+
+async function goToMyLocation() {
+  ensureMap();
+  await locateUser({ fly: true });
+  setPickupLabel(t("currentLocation"));
+}
+
+function navigate(route) {
+  document.querySelectorAll(".screen").forEach((screen) => {
+    const match = screen.dataset.screen === route;
+    screen.classList.toggle("is-active", match);
+    if (match) screen.removeAttribute("hidden");
+    else screen.setAttribute("hidden", "");
+  });
+
+  document.querySelectorAll(".nav-item").forEach((item) => {
+    item.classList.toggle("is-active", item.dataset.route === route);
+  });
+
+  const onHome = route === "home";
+  setSheetVisible(onHome);
+  els.shell.classList.toggle("on-home", onHome);
+
+  if (onHome) {
+    requestAnimationFrame(() => {
+      ensureMap();
+      resizeMap();
+    });
+  } else {
+    collapseSheet();
+  }
+
+  closeDrawer();
+  closeUtilityDrawer();
+}
+
+function bookNow() {
+  navigate("home");
+  requestAnimationFrame(() => {
+    expandSheet();
+    document.getElementById("destInput")?.focus();
+  });
+}
+
+function showToast(message) {
+  let toast = document.getElementById("appToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "appToast";
+    toast.className = "app-toast";
+    document.getElementById("app")?.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add("is-visible");
+  window.clearTimeout(showToast._t);
+  showToast._t = window.setTimeout(() => toast.classList.remove("is-visible"), 2600);
+}
+
+async function handleBookRide(state) {
+  if (!state.pickup?.trim() || !state.destination?.trim()) {
+    showToast(t("bookingNeedPickup"));
+    return;
+  }
+
+  const user = getCurrentUser();
+  if (!user || !isFirebaseConfigured()) {
+    showToast(t("bookingNeedSignIn"));
+    openAuthModal("signin");
+    return;
+  }
+
+  try {
+    await createBooking({
+      service: state.vehicle || state.service || "ride",
+      pickup: state.pickup || t("currentLocation"),
+      destination: state.destination,
+      status: "scheduled",
+      fare: state.price || 0,
+      paymentMethod: getPaymentMethod(),
+      promoCode: state.promoCode || "",
+    });
+    // Phase 16: write rides/{id} then swap the sheet to "searching driver".
+    await startRideRequest(state);
+    showToast(`${t("bookingCreated")} · ${paymentMethodLabel(getPaymentMethod())}`);
+  } catch (err) {
+    console.warn("[SwiftGo] ride request", err);
+    showToast(t("rideRequestFailed"));
+  }
+}
+
+function updateProfileUi(user, profile) {
+  if (user) {
+    const name = profile?.displayName || user.displayName || user.email?.split("@")[0] || t("signedInAs");
+    if (els.profileName) {
+      els.profileName.removeAttribute("data-i18n");
+      els.profileName.textContent = name;
+    }
+    if (els.profileSub) {
+      els.profileSub.removeAttribute("data-i18n");
+      els.profileSub.textContent = user.email || t("signedInAs");
+    }
+    if (els.signOutBtn) els.signOutBtn.hidden = false;
+    setWalletBalanceUi(profile?.walletBalance ?? 0);
+  } else {
+    if (els.profileName) {
+      els.profileName.setAttribute("data-i18n", "profileName");
+      els.profileName.textContent = t("profileName");
+    }
+    if (els.profileSub) {
+      els.profileSub.setAttribute("data-i18n", "profileSub");
+      els.profileSub.textContent = t("profileSub");
+    }
+    if (els.signOutBtn) els.signOutBtn.hidden = true;
+    setWalletBalanceUi(0);
+    setBookingsData([]);
+  }
+}
+
+function bindUserData() {
+  onUserChange((user) => {
+    unsubProfile();
+    unsubBookings();
+    unsubProfile = () => {};
+    unsubBookings = () => {};
+
+    if (!user) {
+      updateProfileUi(null, null);
+      return;
+    }
+
+    updateProfileUi(user, null);
+    unsubProfile = watchUserProfile(user.uid, (profile) => {
+      updateProfileUi(user, profile);
+    });
+    unsubBookings = watchBookings(user.uid, (rows) => {
+      setBookingsData(rows);
+    });
+  });
+}
+
+function bindEvents() {
+  els.menuBtn.addEventListener("click", toggleDrawer);
+  els.overlay.addEventListener("click", closeDrawer);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && drawerOpen) closeDrawer();
+    if (e.key === "Escape") closePaySheet();
+  });
+
+  document.getElementById("profileTap")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (!getCurrentUser()) openAuthModal("signin");
+    }
+  });
+
+  document.querySelectorAll(".nav-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const route = btn.dataset.route;
+      if (route) navigate(route);
+    });
+  });
+
+  document.querySelectorAll("[data-lang]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const lang = btn.getAttribute("data-lang");
+      if (lang === "en" || lang === "ur") {
+        setLang(lang);
+        syncLangButtons();
+        refreshSheetLabels();
+        refreshScreens();
+        refreshDashboardLabels();
+        refreshDriverOnboardingLabels();
+        refreshLocationLabels();
+        refreshUtilityDrawerLabels();
+        const user = getCurrentUser();
+        if (!user) {
+          if (els.profileName) els.profileName.textContent = t("profileName");
+          if (els.profileSub) els.profileSub.textContent = t("profileSub");
+        }
+        els.menuBtn.setAttribute(
+          "aria-label",
+          drawerOpen ? t("closeMenu") : t("openMenu")
+        );
+      }
+    });
+  });
+
+  const locate = () => goToMyLocation();
+  els.locateBtn?.addEventListener("click", locate);
+  els.fabLocate?.addEventListener("click", locate);
+
+  window.addEventListener("resize", () => {
+    if (mapReady) resizeMap();
+  });
+
+  const sheet = document.getElementById("sheet");
+  if (sheet) {
+    const ro = new ResizeObserver(() => {
+      if (mapReady) resizeMap();
+    });
+    ro.observe(sheet);
+  }
+
+  subscribe(() => {
+    refreshSheetLabels();
+    refreshScreens();
+    refreshDashboardLabels();
+    refreshDriverOnboardingLabels();
+    refreshLocationLabels();
+    refreshUtilityDrawerLabels();
+  });
+}
+
+async function boot() {
+  initI18n();
+  initDriverOnboarding({ onToast: showToast });
+  initUtilityDrawer({
+    onToast: showToast,
+    onNavClose: closeDrawer,
+  });
+  initSheet({ onBookRide: handleBookRide });
+  initFareCalculation();
+  initRideFlow({
+    onToast: showToast,
+    onReset: resetSheetForNewRide,
+  });
+  initLocationModule({
+    ensureMap,
+    navigateHome: () => navigate("home"),
+  });
+  initScreens({ onBookNow: bookNow });
+  initDashboard({
+    onNavigate: navigate,
+    onCloseDrawer: closeDrawer,
+    onToast: showToast,
+  });
+  await initAuth();
+  bindUserData();
+  bindEvents();
+  els.menuBtn.setAttribute("aria-expanded", "false");
+  els.shell.classList.add("on-home");
+  navigate("home");
+  closeDrawer();
+  setPickupLabel(t("currentLocation"));
+  console.info(
+    `[SwiftGo] Phase 17 live ride status ready · firebase=${isFirebaseConfigured()} · lang=${getLang()}`
+  );
+}
+
+boot();
+
+window.SwiftGo = {
+  navigate,
+  openDrawer,
+  closeDrawer,
+  setLang,
+  getLang,
+  t,
+  applyTranslations,
+  locateUser: goToMyLocation,
+  resizeMap,
+  bookNow,
+  openAuthModal,
+  getRouteInfo,
+};

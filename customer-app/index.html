@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b7a4b" />
+  <title data-i18n="appTitle">SwiftGo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="css/styles.css?v=20260721f" />
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="drawer-overlay" id="drawerOverlay" hidden></div>
+
+    <aside class="sidebar" id="sidebar" aria-hidden="true" aria-label="Main menu" data-i18n-aria="mainMenuAria">
+      <div class="sidebar__inner glass">
+        <header class="sidebar__profile" id="profileTap" role="button" tabindex="0">
+          <div class="avatar" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="24" r="24" fill="url(#avatarGrad)" />
+              <circle cx="24" cy="18" r="8" fill="#fff" opacity="0.95" />
+              <ellipse cx="24" cy="38" rx="14" ry="10" fill="#fff" opacity="0.95" />
+              <defs>
+                <linearGradient id="avatarGrad" x1="8" y1="4" x2="40" y2="44">
+                  <stop stop-color="#14b86a" />
+                  <stop offset="1" stop-color="#0b7a4b" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="sidebar__profile-text">
+            <p class="sidebar__name" id="profileName" data-i18n="profileName">Guest User</p>
+            <p class="sidebar__sub" id="profileSub" data-i18n="profileSub">Tap to sign in</p>
+          </div>
+        </header>
+
+        <div class="quick-actions" role="navigation" aria-label="Quick actions" data-i18n-aria="quickActionsAria">
+          <button type="button" class="quick-action" data-quick="settings">
+            <span class="quick-action__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            </span>
+            <span class="quick-action__label" data-i18n="qaSettings">Settings</span>
+          </button>
+          <button type="button" class="quick-action" data-quick="addresses">
+            <span class="quick-action__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s7-5.5 7-12a7 7 0 1 0-14 0c0 6.5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            </span>
+            <span class="quick-action__label" data-i18n="qaAddresses">Addresses</span>
+          </button>
+          <button type="button" class="quick-action" data-quick="support">
+            <span class="quick-action__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a7 7 0 0 0-7 7v2a3 3 0 0 0 3 3h1v-6H7a5 5 0 0 1 10 0h-2v6h1a3 3 0 0 0 3-3v-2a7 7 0 0 0-7-7z"/><path d="M9 20h6"/></svg>
+            </span>
+            <span class="quick-action__label" data-i18n="qaSupport">Support</span>
+          </button>
+          <button type="button" class="quick-action" data-quick="history">
+            <span class="quick-action__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </span>
+            <span class="quick-action__label" data-i18n="qaHistory">History</span>
+          </button>
+        </div>
+
+        <button type="button" class="earn-driver-btn" id="earnDriverBtn">
+          <span class="earn-driver-btn__badge" aria-hidden="true"></span>
+          <span data-i18n="earnAsDriver">Earn as a Driver</span>
+        </button>
+
+        <div class="sidebar-settings" id="sidebarSettings" hidden>
+          <p class="sidebar-settings__title" data-i18n="qaSettings">Settings</p>
+          <label class="setting-row">
+            <span data-i18n="showTraffic">Show Traffic</span>
+            <input type="checkbox" id="trafficToggle" class="toggle-input" />
+            <span class="toggle-ui" aria-hidden="true"></span>
+          </label>
+          <label class="setting-row">
+            <span data-i18n="appLanguage">App Language</span>
+            <input type="checkbox" id="langToggle" class="toggle-input" />
+            <span class="toggle-ui" aria-hidden="true"></span>
+          </label>
+          <p class="sidebar-settings__hint" id="langToggleHint" data-i18n="langToggleHint">Off = English · On = Urdu</p>
+        </div>
+
+        <nav class="sidebar__nav" aria-label="App sections" data-i18n-aria="appSectionsAria">
+          <button type="button" class="nav-item is-active" data-route="home">
+            <span class="nav-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11.5 12 4l9 7.5"/><path d="M6 10.5V20h12v-9.5"/></svg>
+            </span>
+            <span data-i18n="navHome">Home</span>
+          </button>
+          <button type="button" class="nav-item" data-route="missed-call">
+            <span class="nav-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15.5 3.5 18 6l-2.2 2.2a8.5 8.5 0 0 0-2.1-2.1L15.5 3.5z"/><path d="M8.5 15.5c1.2 1.8 2.9 3.3 4.8 4.3l2.4-2.4a1.2 1.2 0 0 1 1.2-.3c1.3.4 2.7.7 4.1.7a1.2 1.2 0 0 1 1.2 1.2V22a1.2 1.2 0 0 1-1.2 1.2C10.8 23.2 1 13.4 1 1.2A1.2 1.2 0 0 1 2.2 0h3a1.2 1.2 0 0 1 1.2 1.2c0 1.4.2 2.8.7 4.1a1.2 1.2 0 0 1-.3 1.2L4.4 8.9"/></svg>
+            </span>
+            <span data-i18n="navMissedCall">Missed Call</span>
+          </button>
+          <button type="button" class="nav-item" data-route="bookings">
+            <span class="nav-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+            </span>
+            <span data-i18n="navBookings">Bookings</span>
+          </button>
+          <button type="button" class="nav-item" data-route="wallet">
+            <span class="nav-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="17" cy="15" r="1.5" fill="currentColor"/></svg>
+            </span>
+            <span data-i18n="navWallet">Wallet</span>
+          </button>
+          <button type="button" class="nav-item" data-route="contact">
+            <span class="nav-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </span>
+            <span data-i18n="navContact">Contact Us</span>
+          </button>
+        </nav>
+
+        <footer class="sidebar__footer">
+          <button type="button" class="signout-btn" id="signOutBtn" hidden data-i18n="signOut">Sign out</button>
+          <div class="lang-toggle glass-soft">
+            <span class="lang-toggle__label" data-i18n="language">Language</span>
+            <div class="lang-switch" role="group" aria-label="Language" data-i18n-aria="language">
+              <button type="button" class="lang-switch__btn is-active" data-lang="en" aria-pressed="true">EN</button>
+              <button type="button" class="lang-switch__btn" data-lang="ur" aria-pressed="false">اردو</button>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </aside>
+
+    <main class="shell" id="shell">
+      <!-- Phase 13.1: 50/50 location header only — map stays clear (no floating cards) -->
+      <header class="topbar location-header glass" id="topbar">
+        <div class="location-header__row">
+          <div class="location-header__half location-header__half--pickup" data-location-role="pickup">
+            <button type="button" class="location-header__menu" id="menuBtn" aria-label="Open menu" data-i18n-aria="openMenu">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+            </button>
+            <span class="loc-field__dot loc-field__dot--pickup" aria-hidden="true"></span>
+            <label class="location-header__field" for="pickupInput">
+              <span class="location-header__label" data-i18n="headerPickupLabel">Pickup Location</span>
+              <input
+                id="pickupInput"
+                class="location-header__input"
+                type="text"
+                autocomplete="off"
+                data-i18n-placeholder="pickupPlaceholder"
+                placeholder="Pick up · Current location"
+              />
+            </label>
+          </div>
+
+          <div class="location-header__half location-header__half--dropoff" data-location-role="dropoff">
+            <span class="loc-field__dot loc-field__dot--dest" aria-hidden="true"></span>
+            <label class="location-header__field" for="destInput">
+              <span class="location-header__label" data-i18n="headerDropoffLabel">Drop-off Location</span>
+              <input
+                id="destInput"
+                class="location-header__input"
+                type="text"
+                autocomplete="off"
+                data-i18n-placeholder="destPlaceholder"
+                placeholder="Select destination"
+              />
+            </label>
+            <button
+              type="button"
+              class="location-header__add-stop"
+              id="addStopBtn"
+              aria-label="Add stop"
+              data-i18n-aria="addStop"
+              data-i18n-title="addStop"
+              title="Add stop"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="location-header__stops extra-stops" id="extraStops" aria-live="polite"></div>
+      </header>
+
+      <section class="viewport" id="viewport">
+        <div class="screen is-active" data-screen="home" id="screen-home">
+          <div id="map" class="map" role="application" aria-label="Map" data-i18n-aria="mapAria"></div>
+
+          <div class="map-pick" id="mapPickOverlay" hidden aria-hidden="true">
+            <div class="map-pick__crosshair" aria-hidden="true">
+              <span class="map-pick__pin"></span>
+            </div>
+            <div class="map-pick__bar glass">
+              <p class="map-pick__eyebrow" id="mapPickEyebrow" data-i18n="mapPickTitle">Choose on map</p>
+              <p class="map-pick__address" id="mapPickAddress" data-i18n="mapPickSearching">Finding address…</p>
+              <div class="map-pick__actions">
+                <button type="button" class="map-pick__btn map-pick__btn--ghost" id="mapPickCancel" data-i18n="mapPickCancel">Cancel</button>
+                <button type="button" class="map-pick__btn map-pick__btn--primary" id="mapPickConfirm" data-i18n="mapPickConfirm">Confirm</button>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="fab-locate glass" id="fabLocate" data-i18n-aria="myLocation" aria-label="My location">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="screen" data-screen="missed-call" id="screen-missed-call" hidden>
+          <div class="panel panel--missed">
+            <header class="panel__head">
+              <h1 class="panel__title" data-i18n="navMissedCall">Missed Call</h1>
+            </header>
+
+            <div class="support-card glass">
+              <div class="support-card__art" aria-hidden="true">
+                <svg class="empty-svg empty-svg--clock" viewBox="0 0 180 160" fill="none">
+                  <circle class="empty-pulse" cx="90" cy="78" r="58" fill="url(#clkGrad)" opacity=".95" />
+                  <circle cx="90" cy="78" r="48" fill="#fff" opacity=".2" />
+                  <circle cx="90" cy="78" r="6" fill="#fff" />
+                  <line class="clock-hand clock-hand--hour" x1="90" y1="78" x2="90" y2="52" stroke="#fff" stroke-width="5" stroke-linecap="round" />
+                  <line class="clock-hand clock-hand--minute" x1="90" y1="78" x2="118" y2="78" stroke="#e8fff2" stroke-width="4" stroke-linecap="round" />
+                  <path class="empty-dash" d="M148 36c10 8 14 22 10 34" stroke="#0b7a4b" stroke-width="3" stroke-linecap="round" opacity=".45" />
+                  <rect class="empty-bob" x="62" y="138" width="56" height="10" rx="5" fill="#0b7a4b" opacity=".25" />
+                  <defs>
+                    <linearGradient id="clkGrad" x1="40" y1="28" x2="140" y2="130">
+                      <stop stop-color="#3dd68c" />
+                      <stop offset="1" stop-color="#0b7a4b" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+
+              <h2 class="support-card__title" data-i18n="missedTitle">We're here when you need us</h2>
+              <p class="support-card__text" data-i18n="missedText">Give us a missed call and we will call you back during service hours.</p>
+
+              <div class="hours-badge">
+                <span class="hours-badge__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                </span>
+                <div class="hours-badge__text">
+                  <span class="hours-badge__label" data-i18n="hoursLabel">Service hours</span>
+                  <strong data-i18n="hoursValue">7 AM – 11 PM</strong>
+                </div>
+              </div>
+            </div>
+
+            <a class="cta-btn cta-btn--block" id="missedCallBtn" href="tel:+923001234567">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M22 16.9v2.2a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h2.2a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L7.1 9.9a16 16 0 0 0 6 6l1.5-1.2a2 2 0 0 1 2.1-.4c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z"/>
+              </svg>
+              <span data-i18n="callNow">Call</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="screen" data-screen="bookings" id="screen-bookings" hidden>
+          <div class="panel panel--bookings">
+            <header class="panel__head">
+              <h1 class="panel__title" data-i18n="navBookings">Bookings</h1>
+            </header>
+
+            <div class="tabs" role="tablist" aria-label="Booking status" data-i18n-aria="bookingStatusAria">
+              <button type="button" class="tab is-active" role="tab" aria-selected="true" data-booking-tab="scheduled" id="tab-scheduled">
+                <span data-i18n="tabScheduled">Scheduled</span>
+              </button>
+              <button type="button" class="tab" role="tab" aria-selected="false" data-booking-tab="current" id="tab-current">
+                <span data-i18n="tabCurrent">Current</span>
+              </button>
+              <button type="button" class="tab" role="tab" aria-selected="false" data-booking-tab="completed" id="tab-completed">
+                <span data-i18n="tabCompleted">Completed</span>
+              </button>
+            </div>
+
+            <div class="tab-panels">
+              <div class="tab-panel is-active" role="tabpanel" data-booking-panel="scheduled" id="panel-scheduled">
+                <div class="booking-list" data-booking-list hidden></div>
+                <div class="empty-state glass">
+                  <div class="empty-state__art" aria-hidden="true">
+                    <svg class="empty-svg empty-svg--calendar" viewBox="0 0 160 140" fill="none">
+                      <rect class="empty-float" x="28" y="28" width="104" height="90" rx="16" fill="url(#calGrad)" />
+                      <rect x="28" y="28" width="104" height="28" rx="16" fill="#0b7a4b" />
+                      <circle class="empty-bob" cx="52" cy="42" r="5" fill="#fff" opacity=".9" />
+                      <circle class="empty-bob empty-bob--delay" cx="108" cy="42" r="5" fill="#fff" opacity=".9" />
+                      <rect x="44" y="72" width="18" height="14" rx="4" fill="#fff" opacity=".85" />
+                      <rect x="71" y="72" width="18" height="14" rx="4" fill="#fff" opacity=".55" />
+                      <rect x="98" y="72" width="18" height="14" rx="4" fill="#fff" opacity=".55" />
+                      <rect x="44" y="94" width="18" height="14" rx="4" fill="#fff" opacity=".55" />
+                      <rect x="71" y="94" width="18" height="14" rx="4" fill="#14b86a" opacity=".95" />
+                      <path class="empty-dash" d="M118 18c12 4 18 14 16 26" stroke="#14b86a" stroke-width="3" stroke-linecap="round" opacity=".5" />
+                      <defs>
+                        <linearGradient id="calGrad" x1="28" y1="28" x2="132" y2="118">
+                          <stop stop-color="#3dd68c" />
+                          <stop offset="1" stop-color="#0b7a4b" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  </div>
+                  <h2 class="empty-state__title" data-i18n="emptyBookingsTitle">No bookings yet</h2>
+                  <p class="empty-state__text" data-i18n="emptyBookingsText">Your scheduled rides will show up here.</p>
+                  <button type="button" class="cta-btn" data-action="book-now" data-i18n="bookNow">Book Now</button>
+                </div>
+              </div>
+
+              <div class="tab-panel" role="tabpanel" data-booking-panel="current" id="panel-current" hidden>
+                <div class="booking-list" data-booking-list hidden></div>
+                <div class="empty-state glass">
+                  <div class="empty-state__art" aria-hidden="true">
+                    <svg class="empty-svg empty-svg--bike" viewBox="0 0 160 140" fill="none">
+                      <circle class="empty-spin" cx="48" cy="92" r="26" stroke="#0b7a4b" stroke-width="5" fill="none" opacity=".35" />
+                      <circle class="empty-spin empty-spin--rev" cx="112" cy="92" r="26" stroke="#14b86a" stroke-width="5" fill="none" opacity=".35" />
+                      <circle cx="48" cy="92" r="10" fill="#0b7a4b" />
+                      <circle cx="112" cy="92" r="10" fill="#0b7a4b" />
+                      <path class="empty-float" d="M48 92h28l14-28h18l8 16H86" stroke="#065c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                      <circle class="empty-bob" cx="86" cy="48" r="8" fill="#14b86a" />
+                    </svg>
+                  </div>
+                  <h2 class="empty-state__title" data-i18n="emptyCurrentTitle">No active trip</h2>
+                  <p class="empty-state__text" data-i18n="emptyCurrentText">When a ride is in progress, it appears here.</p>
+                  <button type="button" class="cta-btn" data-action="book-now" data-i18n="bookNow">Book Now</button>
+                </div>
+              </div>
+
+              <div class="tab-panel" role="tabpanel" data-booking-panel="completed" id="panel-completed" hidden>
+                <div class="booking-list" data-booking-list hidden></div>
+                <div class="empty-state glass">
+                  <div class="empty-state__art" aria-hidden="true">
+                    <svg class="empty-svg empty-svg--check" viewBox="0 0 160 140" fill="none">
+                      <circle class="empty-pulse" cx="80" cy="70" r="48" fill="url(#chkGrad)" opacity=".9" />
+                      <path class="empty-draw" d="M54 72l18 18 36-40" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                      <defs>
+                        <linearGradient id="chkGrad" x1="32" y1="22" x2="128" y2="118">
+                          <stop stop-color="#3dd68c" />
+                          <stop offset="1" stop-color="#0b7a4b" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  </div>
+                  <h2 class="empty-state__title" data-i18n="emptyCompletedTitle">No past bookings</h2>
+                  <p class="empty-state__text" data-i18n="emptyCompletedText">Completed trips will be listed here.</p>
+                  <button type="button" class="cta-btn" data-action="book-now" data-i18n="bookNow">Book Now</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="screen" data-screen="wallet" id="screen-wallet" hidden>
+          <div class="panel panel--wallet">
+            <header class="wallet-hero">
+              <div class="wallet-hero__row">
+                <div>
+                  <p class="wallet-hero__label" data-i18n="walletLabel">Wallet balance</p>
+                  <p class="wallet-hero__balance">
+                    <span data-i18n="balancePrefix">Balance:</span>
+                    <strong id="walletBalance">Rs. 0</strong>
+                  </p>
+                </div>
+                <button type="button" class="wallet-receipt" id="receiptBtn" aria-label="Print receipt" data-i18n-aria="printReceipt">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M7 8V4h10v4" />
+                    <path d="M6 17H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                    <rect x="6" y="14" width="12" height="7" rx="1" />
+                  </svg>
+                </button>
+              </div>
+              <div class="wallet-hero__glow" aria-hidden="true"></div>
+            </header>
+
+            <div class="empty-state glass empty-state--wallet">
+              <div class="empty-state__art" aria-hidden="true">
+                <svg class="empty-svg empty-svg--wallet" viewBox="0 0 160 140" fill="none">
+                  <rect class="empty-float" x="26" y="40" width="108" height="72" rx="14" fill="url(#walGrad)" />
+                  <path d="M26 58h108" stroke="#fff" stroke-width="2" opacity=".25" />
+                  <circle class="empty-bob" cx="118" cy="78" r="10" fill="#fff" opacity=".95" />
+                  <circle cx="118" cy="78" r="4" fill="#14b86a" />
+                  <rect class="empty-bob empty-bob--delay" x="42" y="72" width="40" height="10" rx="5" fill="#fff" opacity=".55" />
+                  <path class="empty-dash" d="M40 28c10-10 28-12 40-4" stroke="#0b7a4b" stroke-width="3" stroke-linecap="round" opacity=".4" />
+                  <defs>
+                    <linearGradient id="walGrad" x1="26" y1="40" x2="134" y2="112">
+                      <stop stop-color="#22c55e" />
+                      <stop offset="1" stop-color="#15803d" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <h2 class="empty-state__title" data-i18n="emptyWalletTitle">No transactions yet</h2>
+              <p class="empty-state__text" data-i18n="emptyWalletText">Top up or book a ride to see activity here.</p>
+              <button type="button" class="cta-btn" data-action="book-now" data-i18n="bookNow">Book Now</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="screen" data-screen="contact" id="screen-contact" hidden>
+          <div class="panel panel--contact">
+            <header class="panel__head">
+              <h1 class="panel__title" data-i18n="navContact">Contact Us</h1>
+              <p class="panel__subtitle" data-i18n="contactSub">Reach support instantly</p>
+            </header>
+
+            <div class="contact-actions">
+              <a class="contact-btn contact-btn--call glass" id="contactCallBtn" href="tel:+923001234567">
+                <span class="contact-btn__icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" fill="none">
+                    <rect width="48" height="48" rx="16" fill="url(#callGrad)" />
+                    <path d="M33 30.5v2.2a1.8 1.8 0 0 1-2 1.8c-7.8-.8-14-7-14.8-14.8a1.8 1.8 0 0 1 1.8-2H20a1.8 1.8 0 0 1 1.8 1.5c.1.7.3 1.4.5 2a1.8 1.8 0 0 1-.4 1.8l-1.1 1.1a12.5 12.5 0 0 0 5.2 5.2l1.1-1.1a1.8 1.8 0 0 1 1.8-.4c.6.2 1.3.4 2 .5A1.8 1.8 0 0 1 33 30.5z" fill="#fff"/>
+                    <defs>
+                      <linearGradient id="callGrad" x1="8" y1="4" x2="44" y2="44">
+                        <stop stop-color="#34d399" />
+                        <stop offset="1" stop-color="#0b7a4b" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </span>
+                <span class="contact-btn__body">
+                  <span class="contact-btn__title" data-i18n="phoneCall">Phone Call</span>
+                  <span class="contact-btn__hint" data-i18n="phoneCallHint">Talk to an agent</span>
+                </span>
+                <span class="contact-btn__chev" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
+                </span>
+              </a>
+
+              <a class="contact-btn contact-btn--wa glass" id="contactWaBtn" href="https://wa.me/923001234567" target="_blank" rel="noopener noreferrer">
+                <span class="contact-btn__icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" fill="none">
+                    <rect width="48" height="48" rx="16" fill="url(#waGrad)" />
+                    <path d="M24 12.5a10.5 10.5 0 0 0-9.1 15.8L13.5 35l6.9-1.4A10.5 10.5 0 1 0 24 12.5zm5.9 15.1c-.2.7-1.3 1.2-2.1 1.4-.6.1-1.3.2-3.8-.8-3.1-1.3-5.1-4.5-5.3-4.7-.2-.2-1.5-2-1.5-3.8s1-2.7 1.3-3.1c.3-.3.7-.4 1-.4h.7c.2 0 .5 0 .7.6.2.7.8 2.4.9 2.6.1.2.1.4 0 .6-.1.3-.2.4-.4.6l-.6.7c-.2.2-.4.4-.2.8.2.4 1 1.6 2.1 2.6 1.4 1.3 2.6 1.7 3 .1.9.2.6 0 .8-.1.2-.1.9-.3 1.1-.6.2-.3.4-.5.6-.4.2.1 1.4.7 1.6.8.2.1.4.2.4.3.1.4-.1 1.1-.3 1.8z" fill="#fff"/>
+                    <defs>
+                      <linearGradient id="waGrad" x1="6" y1="6" x2="42" y2="42">
+                        <stop stop-color="#4ade80" />
+                        <stop offset="1" stop-color="#128C7E" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </span>
+                <span class="contact-btn__body">
+                  <span class="contact-btn__title" data-i18n="whatsappSupport">WhatsApp Support</span>
+                  <span class="contact-btn__hint" data-i18n="whatsappHint">Chat with us anytime</span>
+                </span>
+                <span class="contact-btn__chev" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
+                </span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bottom 10% — expandable sheet (home only) -->
+      <footer class="sheet glass" id="sheet" data-state="collapsed" aria-expanded="false">
+        <button type="button" class="sheet__handle" id="sheetHandle" aria-label="Expand sheet" data-i18n-aria="expandSheet">
+          <span class="sheet__grip" aria-hidden="true"></span>
+        </button>
+
+        <!-- Redesigned Phase 13.2: three primary categories only -->
+        <div class="sheet__peek" id="sheetPeek">
+          <div
+            class="service-rail service-rail--primary"
+            id="serviceRail"
+            role="list"
+            aria-label="Services"
+            data-i18n-aria="serviceRailLabel"
+          >
+            <button type="button" class="service-rail__item" data-category="ride" role="listitem">
+              <span class="service-rail__icon service-rail__icon--ride" aria-hidden="true">
+                <svg viewBox="0 0 48 48" fill="none">
+                  <path d="M10 30h28l-2-10a4 4 0 0 0-4-3H16a4 4 0 0 0-4 3l-2 10z" fill="url(#srRide)" />
+                  <circle cx="16" cy="32" r="4" fill="#065c38" />
+                  <circle cx="32" cy="32" r="4" fill="#065c38" />
+                  <path d="M18 17h12l2 4H16l2-4z" fill="#fff" opacity=".9" />
+                  <defs><linearGradient id="srRide" x1="10" y1="17" x2="38" y2="34"><stop stop-color="#5ee4a4"/><stop offset="1" stop-color="#0b7a4b"/></linearGradient></defs>
+                </svg>
+              </span>
+              <span class="service-rail__label" data-i18n="catRide">Ride</span>
+            </button>
+
+            <button type="button" class="service-rail__item" data-category="cargo" role="listitem">
+              <span class="service-rail__icon service-rail__icon--cargo" aria-hidden="true">
+                <svg viewBox="0 0 48 48" fill="none">
+                  <rect x="6" y="18" width="26" height="14" rx="2.5" fill="url(#srCargo)" />
+                  <path d="M32 22h8l2 7H32V22z" fill="#14b86a" />
+                  <circle cx="14" cy="35" r="3.5" fill="#065c38" />
+                  <circle cx="30" cy="35" r="3.5" fill="#065c38" />
+                  <path d="M12 18v-3h10v3" stroke="#fff" stroke-width="1.8" opacity=".7" />
+                  <defs><linearGradient id="srCargo" x1="6" y1="18" x2="34" y2="34"><stop stop-color="#3dd68c"/><stop offset="1" stop-color="#0b7a4b"/></linearGradient></defs>
+                </svg>
+              </span>
+              <span class="service-rail__label" data-i18n="catCargo">Cargo</span>
+            </button>
+
+            <button type="button" class="service-rail__item" data-category="rent" role="listitem">
+              <span class="service-rail__icon service-rail__icon--rent" aria-hidden="true">
+                <svg viewBox="0 0 48 48" fill="none">
+                  <path d="M8 30h26l-2-9a4 4 0 0 0-4-3H14a4 4 0 0 0-4 3L8 30z" fill="url(#srRent)" />
+                  <circle cx="14" cy="32" r="3.5" fill="#065c38" />
+                  <circle cx="28" cy="32" r="3.5" fill="#065c38" />
+                  <path d="M34 18c2.8 0 5 2.2 5 5v2h-3.2l-.8-2.4A3 3 0 0 0 32.2 20H34z" fill="#14b86a" />
+                  <circle cx="39" cy="28" r="5.5" fill="#0b7a4b" />
+                  <path d="M37.2 28h3.6M39 26.2v3.6" stroke="#fff" stroke-width="1.6" stroke-linecap="round" />
+                  <defs><linearGradient id="srRent" x1="8" y1="18" x2="34" y2="34"><stop stop-color="#86efac"/><stop offset="1" stop-color="#0b7a4b"/></linearGradient></defs>
+                </svg>
+              </span>
+              <span class="service-rail__label" data-i18n="catRent">Rent</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="sheet__body">
+          <div class="chips" id="savedChips" role="list" aria-label="Saved locations" data-i18n-aria="savedLocationsAria">
+            <button type="button" class="chip" data-place="home" role="listitem">
+              <span class="chip__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5"/><path d="M6 10.5V20h12v-9.5"/></svg>
+              </span>
+              <span data-i18n="chipHome">Home</span>
+            </button>
+            <button type="button" class="chip" data-place="work" role="listitem">
+              <span class="chip__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </span>
+              <span data-i18n="chipWork">Work</span>
+            </button>
+            <button type="button" class="chip" data-place="airport" role="listitem">
+              <span class="chip__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v7l8 4v2l-8-2.5V21l-2-1-2 1v-7.5L2 16v-2l8-4V3a1.5 1.5 0 0 1 3 0z"/></svg>
+              </span>
+              <span data-i18n="chipAirport">Airport</span>
+            </button>
+            <button type="button" class="chip" data-place="mall" role="listitem">
+              <span class="chip__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16l-1.2 11H5.2L4 9z"/><path d="M8 9a4 4 0 0 1 8 0"/></svg>
+              </span>
+              <span data-i18n="chipMall">Mall</span>
+            </button>
+          </div>
+
+          <!-- Phase 13.2: Ride / Cargo filtered vehicles (old Delivery/Shops/Rentals cards removed) -->
+          <div class="ride-panel" id="ridePanel" hidden>
+            <p class="ride-panel__label" data-i18n="chooseVehicle">Choose a vehicle</p>
+            <div class="vehicle-rail" id="vehicleRail" role="list">
+              <button type="button" class="vehicle-card" data-vehicle="bike" data-category="ride" data-eta="2" data-price="142" role="listitem" aria-pressed="false" hidden>
+                <span class="vehicle-card__art" aria-hidden="true">
+                  <svg class="vehicle-silhouette" viewBox="0 0 120 64" fill="none">
+                    <ellipse cx="60" cy="56" rx="47" ry="4" fill="#0F172A" opacity=".08"/>
+                    <circle cx="27" cy="46" r="12" fill="#111827"/><circle cx="27" cy="46" r="6" fill="#D1D5DB"/>
+                    <circle cx="91" cy="46" r="12" fill="#111827"/><circle cx="91" cy="46" r="6" fill="#D1D5DB"/>
+                    <path d="M27 45h25l14-25h21" stroke="#111827" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="m52 45-9-24h18M64 22l16 23" stroke="#1F2937" stroke-width="4" stroke-linecap="round"/>
+                    <path d="M78 18h15" stroke="#111827" stroke-width="4" stroke-linecap="round"/>
+                    <path d="M39 18h18" stroke="#374151" stroke-width="5" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="vehicle-card__name" data-i18n="vehBike">Bike</span>
+                <span class="vehicle-card__eta">2 min</span>
+                <span class="vehicle-card__price">Rs. 142</span>
+              </button>
+
+              <button type="button" class="vehicle-card" data-vehicle="go" data-category="ride" data-eta="4" data-price="220" role="listitem" aria-pressed="false" hidden>
+                <span class="vehicle-card__art" aria-hidden="true">
+                  <svg class="vehicle-silhouette" viewBox="0 0 120 64" fill="none">
+                    <ellipse cx="60" cy="55" rx="50" ry="4" fill="#0F172A" opacity=".08"/>
+                    <path d="M11 43c2-7 7-11 15-13l14-3 12-14h29l16 16 10 3c3 1 5 4 5 8v7H9l2-4Z" fill="#20242B"/>
+                    <path d="m57 17-10 11h43L78 17H57Z" fill="#DDE7EC"/>
+                    <path d="M61 17v11" stroke="#94A3B8" stroke-width="2"/>
+                    <circle cx="31" cy="46" r="11" fill="#111827"/><circle cx="31" cy="46" r="5" fill="#CBD5E1"/>
+                    <circle cx="91" cy="46" r="11" fill="#111827"/><circle cx="91" cy="46" r="5" fill="#CBD5E1"/>
+                    <path d="M15 37h12M101 35h8" stroke="#F8FAFC" stroke-width="3" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="vehicle-card__name" data-i18n="vehGo">Go</span>
+                <span class="vehicle-card__eta">4 min</span>
+                <span class="vehicle-card__price">Rs. 220</span>
+              </button>
+
+              <button type="button" class="vehicle-card" data-vehicle="go-plus" data-category="ride" data-eta="5" data-price="340" role="listitem" aria-pressed="false" hidden>
+                <span class="vehicle-card__art" aria-hidden="true">
+                  <svg class="vehicle-silhouette" viewBox="0 0 120 64" fill="none">
+                    <ellipse cx="60" cy="55" rx="50" ry="4" fill="#0F172A" opacity=".08"/>
+                    <path d="M8 42c2-7 8-11 17-13l15-3 13-15h34l13 17 10 4c3 1 5 5 4 9l-1 6H8v-5Z" fill="#111827"/>
+                    <path d="m58 15-11 12h46L84 15H58Z" fill="#D7E2E8"/>
+                    <path d="M65 15v12M45 31h50" stroke="#64748B" stroke-width="2"/>
+                    <circle cx="29" cy="46" r="11" fill="#090C11"/><circle cx="29" cy="46" r="5" fill="#CBD5E1"/>
+                    <circle cx="94" cy="46" r="11" fill="#090C11"/><circle cx="94" cy="46" r="5" fill="#CBD5E1"/>
+                    <path d="M12 37h12M104 36h7" stroke="#F8FAFC" stroke-width="3" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="vehicle-card__name" data-i18n="vehGoPlus">Go Plus</span>
+                <span class="vehicle-card__eta">5 min</span>
+                <span class="vehicle-card__price">Rs. 340</span>
+              </button>
+
+              <button type="button" class="vehicle-card" data-vehicle="business" data-category="ride" data-eta="6" data-price="520" role="listitem" aria-pressed="false" hidden>
+                <span class="vehicle-card__art" aria-hidden="true">
+                  <svg class="vehicle-silhouette" viewBox="0 0 120 64" fill="none">
+                    <ellipse cx="60" cy="55" rx="51" ry="4" fill="#0F172A" opacity=".08"/>
+                    <path d="M6 42c3-7 9-11 19-13l18-3 14-16h35l10 18 10 5c3 2 4 5 3 9l-1 5H6v-5Z" fill="#05070A"/>
+                    <path d="m62 14-12 13h44L88 14H62Z" fill="#B9C7D0"/>
+                    <path d="M70 14v13M47 31h51" stroke="#475569" stroke-width="2"/>
+                    <circle cx="29" cy="46" r="11" fill="#050505"/><circle cx="29" cy="46" r="5" fill="#94A3B8"/>
+                    <circle cx="96" cy="46" r="11" fill="#050505"/><circle cx="96" cy="46" r="5" fill="#94A3B8"/>
+                    <path d="M10 37h13M106 37h6" stroke="#FFF" stroke-width="3" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="vehicle-card__name" data-i18n="vehBusiness">Business</span>
+                <span class="vehicle-card__eta">6 min</span>
+                <span class="vehicle-card__price">Rs. 520</span>
+              </button>
+
+              <button type="button" class="vehicle-card" data-vehicle="bike-cargo" data-category="cargo" data-eta="5" data-price="180" role="listitem" aria-pressed="false" hidden>
+                <span class="vehicle-card__art" aria-hidden="true">
+                  <svg class="vehicle-silhouette" viewBox="0 0 120 64" fill="none">
+                    <ellipse cx="60" cy="56" rx="49" ry="4" fill="#0F172A" opacity=".08"/>
+                    <circle cx="24" cy="47" r="11" fill="#111827"/><circle cx="24" cy="47" r="5" fill="#CBD5E1"/>
+                    <circle cx="91" cy="47" r="11" fill="#111827"/><circle cx="91" cy="47" r="5" fill="#CBD5E1"/>
+                    <path d="M24 46h31l14-25h18" stroke="#171B21" stroke-width="5" stroke-linecap="round"/>
+                    <path d="m55 46-9-23h19M67 23l14 23" stroke="#374151" stroke-width="4" stroke-linecap="round"/>
+                    <rect x="73" y="9" width="33" height="22" rx="4" fill="#1F2937"/>
+                    <path d="M78 15h23M78 21h16" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="vehicle-card__name" data-i18n="vehBikeCargo">Bike Cargo</span>
+                <span class="vehicle-card__eta">5 min</span>
+                <span class="vehicle-card__price">Rs. 180</span>
+              </button>
+
+              <button type="button" class="vehicle-card" data-vehicle="suzuki" data-category="cargo" data-eta="8" data-price="450" role="listitem" aria-pressed="false" hidden>
+                <span class="vehicle-card__art" aria-hidden="true">
+                  <svg class="vehicle-silhouette" viewBox="0 0 120 64" fill="none">
+                    <ellipse cx="60" cy="55" rx="51" ry="4" fill="#0F172A" opacity=".08"/>
+                    <path d="M8 18h64v29H8V18Z" fill="#252A31"/>
+                    <path d="M72 28h26l14 13v6H72V28Z" fill="#161A20"/>
+                    <path d="M78 31h16l9 10H78V31Z" fill="#B8C7D0"/>
+                    <path d="M15 24h49M15 30h37" stroke="#64748B" stroke-width="2"/>
+                    <circle cx="28" cy="47" r="11" fill="#111827"/><circle cx="28" cy="47" r="5" fill="#CBD5E1"/>
+                    <circle cx="91" cy="47" r="11" fill="#111827"/><circle cx="91" cy="47" r="5" fill="#CBD5E1"/>
+                    <path d="M105 41h6" stroke="#FFF" stroke-width="3" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="vehicle-card__name" data-i18n="vehSuzuki">Suzuki</span>
+                <span class="vehicle-card__eta">8 min</span>
+                <span class="vehicle-card__price">Rs. 450</span>
+              </button>
+
+              <button type="button" class="vehicle-card" data-vehicle="truck" data-category="cargo" data-eta="12" data-price="890" role="listitem" aria-pressed="false" hidden>
+                <span class="vehicle-card__art" aria-hidden="true">
+                  <svg class="vehicle-silhouette" viewBox="0 0 120 64" fill="none">
+                    <ellipse cx="60" cy="56" rx="53" ry="4" fill="#0F172A" opacity=".08"/>
+                    <rect x="5" y="11" width="68" height="36" rx="3" fill="#1F242B"/>
+                    <path d="M73 24h25l17 17v6H73V24Z" fill="#0F1318"/>
+                    <path d="M79 28h15l11 12H79V28Z" fill="#B8C6CE"/>
+                    <path d="M12 18h54M12 25h42" stroke="#64748B" stroke-width="2"/>
+                    <circle cx="27" cy="47" r="11" fill="#111827"/><circle cx="27" cy="47" r="5" fill="#CBD5E1"/>
+                    <circle cx="91" cy="47" r="11" fill="#111827"/><circle cx="91" cy="47" r="5" fill="#CBD5E1"/>
+                    <path d="M108 41h6" stroke="#FFF" stroke-width="3" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="vehicle-card__name" data-i18n="vehTruck">Truck</span>
+                <span class="vehicle-card__eta">12 min</span>
+                <span class="vehicle-card__price">Rs. 890</span>
+              </button>
+            </div>
+
+            <div class="promo-control" id="promoControl">
+              <button
+                type="button"
+                class="promo-trigger"
+                id="promoTrigger"
+                aria-expanded="false"
+                aria-controls="promoForm"
+              >
+                <span class="promo-trigger__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                    <path d="M4 10h16v10H4zM3 7h18v3H3zM12 7v13"/>
+                    <path d="M12 7H8.7A2.7 2.7 0 1 1 12 3.7V7Zm0 0h3.3A2.7 2.7 0 1 0 12 3.7V7Z"/>
+                  </svg>
+                </span>
+                <span class="promo-trigger__text" data-i18n="promoTitle">Discounts / Promo Code</span>
+                <span class="promo-trigger__status" id="promoStatus"></span>
+                <svg class="promo-trigger__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="m9 6 6 6-6 6"/>
+                </svg>
+              </button>
+              <div class="promo-form" id="promoForm" hidden>
+                <label class="sr-only" for="promoInput" data-i18n="promoTitle">Discounts / Promo Code</label>
+                <input
+                  id="promoInput"
+                  class="promo-input"
+                  type="text"
+                  autocomplete="off"
+                  maxlength="20"
+                  data-i18n-placeholder="promoPlaceholder"
+                  placeholder="Enter promo code"
+                />
+                <button type="button" class="promo-apply-btn" id="promoApplyBtn" data-i18n="promoApply">Apply</button>
+              </div>
+              <p class="promo-message" id="promoMessage" aria-live="polite" hidden></p>
+            </div>
+
+            <div class="book-row">
+              <button type="button" class="pay-cash-btn" id="payMethodBtn" aria-label="Payment method" data-i18n-aria="paymentMethod">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="2" y="6" width="20" height="14" rx="3" fill="#16a34a"/>
+                  <path d="M2 10h20" stroke="#fff" stroke-width="1.5" opacity=".35"/>
+                  <circle cx="17" cy="15" r="2.2" fill="#bbf7d0"/>
+                  <text x="6" y="16.5" fill="#fff" font-size="7" font-family="Manrope,sans-serif" font-weight="800">Rs</text>
+                </svg>
+              </button>
+              <button type="button" class="cta-btn book-ride-btn" id="bookRideBtn">
+                <span id="bookRideLabel">Book Bike · Rs. 142</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Phase 16.2: "Searching for driver" state (replaces vehicle list after booking) -->
+          <div class="searching-panel" id="searchingPanel" role="status" aria-live="polite" hidden>
+            <div class="searching-spinner" aria-hidden="true">
+              <span class="searching-spinner__ring"></span>
+              <span class="searching-spinner__pulse"></span>
+            </div>
+            <p class="searching-panel__text" data-i18n="searchingDriver">Searching for your nearest driver...</p>
+            <button type="button" class="cancel-ride-btn" id="cancelRideBtn" data-i18n="cancelRide">Cancel Ride</button>
+          </div>
+
+          <!-- Phase 17.2: accepted ride / driver details -->
+          <section class="active-ride-panel" id="activeRidePanel" aria-labelledby="activeRideTitle" hidden>
+            <div class="active-ride-panel__status">
+              <span class="active-ride-panel__status-dot" aria-hidden="true"></span>
+              <span data-i18n="rideAccepted">Ride accepted</span>
+            </div>
+            <div class="active-ride-driver">
+              <div class="active-ride-driver__avatar" aria-hidden="true">م ع</div>
+              <div class="active-ride-driver__details">
+                <h3 id="activeRideTitle">محمد علی</h3>
+                <p><span class="active-ride-driver__rating">4.8 ★</span></p>
+                <p id="activeRideVehicle">Go · KHI-1234</p>
+              </div>
+            </div>
+            <div class="active-ride-panel__actions">
+              <a class="active-ride-call-btn" id="activeRideCallLink" href="tel:+923001234567" data-i18n="activeRideCallDirect">Call directly</a>
+              <button type="button" class="active-ride-complete-btn" id="completeRideBtn" data-i18n="completeRide">Complete Ride</button>
+            </div>
+          </section>
+        </div>
+      </footer>
+    </main>
+
+    <!-- Phase 8: Payments bottom sheet -->
+    <div class="pay-sheet" id="paySheet" hidden aria-hidden="true">
+      <div class="pay-sheet__backdrop" id="paySheetBackdrop"></div>
+      <div class="pay-sheet__panel glass" role="dialog" aria-modal="true" aria-labelledby="paySheetTitle">
+        <button type="button" class="sheet__handle" id="paySheetHandle" aria-label="Close" data-i18n-aria="closeSheet">
+          <span class="sheet__grip" aria-hidden="true"></span>
+        </button>
+        <h2 id="paySheetTitle" class="pay-sheet__title" data-i18n="paymentTitle">Payment method</h2>
+        <div class="pay-methods" role="radiogroup" aria-labelledby="paySheetTitle">
+          <label class="pay-method">
+            <input type="radio" name="payMethod" value="easypaisa" />
+            <span class="pay-method__logo pay-method__logo--ep" aria-hidden="true">EP</span>
+            <span class="pay-method__text">
+              <span class="pay-method__name" data-i18n="payEasypaisa">Easypaisa</span>
+              <span class="pay-method__hint" data-i18n="payWalletHint">Mobile wallet</span>
+            </span>
+            <span class="pay-method__radio" aria-hidden="true"></span>
+          </label>
+          <label class="pay-method">
+            <input type="radio" name="payMethod" value="jazzcash" />
+            <span class="pay-method__logo pay-method__logo--jc" aria-hidden="true">JC</span>
+            <span class="pay-method__text">
+              <span class="pay-method__name" data-i18n="payJazzCash">JazzCash</span>
+              <span class="pay-method__hint" data-i18n="payWalletHint">Mobile wallet</span>
+            </span>
+            <span class="pay-method__radio" aria-hidden="true"></span>
+          </label>
+          <label class="pay-method">
+            <input type="radio" name="payMethod" value="cash" checked />
+            <span class="pay-method__logo pay-method__logo--cash" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="2" y="6" width="20" height="14" rx="2" fill="#16a34a"/><circle cx="12" cy="13" r="3.5" fill="#bbf7d0"/></svg>
+            </span>
+            <span class="pay-method__text">
+              <span class="pay-method__name" data-i18n="payCash">Cash</span>
+              <span class="pay-method__hint" data-i18n="payCashHint">Pay the driver</span>
+            </span>
+            <span class="pay-method__radio" aria-hidden="true"></span>
+          </label>
+          <label class="pay-method">
+            <input type="radio" name="payMethod" value="business" />
+            <span class="pay-method__logo pay-method__logo--business" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                <rect x="3" y="7" width="18" height="13" rx="2"/>
+                <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v2h4v-2"/>
+              </svg>
+            </span>
+            <span class="pay-method__text">
+              <span class="pay-method__name" data-i18n="payBusiness">Business Account</span>
+              <span class="pay-method__hint" data-i18n="payBusinessHint">Charge your organization</span>
+            </span>
+            <span class="pay-method__radio" aria-hidden="true"></span>
+          </label>
+        </div>
+        <button type="button" class="cta-btn cta-btn--block" id="payConfirmBtn" data-i18n="payConfirm">Confirm</button>
+      </div>
+    </div>
+
+    <div class="demo-banner" id="firebaseDemoBanner" hidden>
+      <span data-i18n="demoBanner">Demo mode — add Firebase keys in js/firebase-config.js</span>
+    </div>
+
+    <div class="loc-suggest" id="locSuggest" hidden role="listbox" aria-label="Location suggestions" data-i18n-aria="locSuggestAria"></div>
+
+    <!-- Phase 11.1: Driver onboarding UI + camera -->
+    <div class="driver-onboarding" id="driverOnboarding" hidden aria-hidden="true">
+      <div class="driver-onboarding__backdrop" id="driverOnboardingBackdrop"></div>
+      <section
+        class="driver-onboarding__panel glass"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="driverOnboardingTitle"
+      >
+        <header class="driver-onboarding__header">
+          <div>
+            <p class="driver-onboarding__eyebrow" data-i18n="driverEyebrow">Drive with SwiftGo</p>
+            <h2 id="driverOnboardingTitle" data-i18n="driverTitle">Driver application</h2>
+            <p data-i18n="driverIntro">Add your details and identity documents to get started.</p>
+          </div>
+          <button
+            type="button"
+            class="driver-onboarding__close"
+            id="driverOnboardingClose"
+            data-i18n-aria="driverClose"
+            aria-label="Close driver application"
+          >×</button>
+        </header>
+
+        <form class="driver-form" id="driverApplicationForm">
+          <div class="driver-form__grid">
+            <label class="driver-field" data-config-key="requireFullName">
+              <span class="driver-field__label">
+                <span data-i18n="driverFullName">Full Name</span>
+                <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
+              </span>
+              <input id="driverFullName" name="fullName" type="text" autocomplete="name" required />
+            </label>
+            <label class="driver-field" data-config-key="requireCnic">
+              <span class="driver-field__label">
+                <span data-i18n="driverCnic">CNIC Number</span>
+                <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
+              </span>
+              <input
+                id="driverCnic"
+                name="cnic"
+                type="text"
+                inputmode="numeric"
+                maxlength="15"
+                placeholder="00000-0000000-0"
+                required
+              />
+            </label>
+            <label class="driver-field" data-config-key="requireLicense">
+              <span class="driver-field__label">
+                <span data-i18n="driverLicense">Driving License Number</span>
+                <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
+              </span>
+              <input id="driverLicense" name="licenseNumber" type="text" maxlength="30" required />
+            </label>
+            <label class="driver-field" data-config-key="requireVehicleType">
+              <span class="driver-field__label">
+                <span data-i18n="driverVehicleType">Vehicle Type</span>
+                <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
+              </span>
+              <select id="driverVehicleType" name="vehicleType" required>
+                <option value="" data-i18n="driverVehicleChoose">Choose vehicle</option>
+                <option value="bike" data-i18n="vehBike">Bike</option>
+                <option value="economy" data-i18n="vehEconomy">Economy</option>
+                <option value="comfort" data-i18n="vehComfort">Comfort</option>
+                <option value="cargo" data-i18n="vehCargo">Cargo</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="driver-section">
+            <div class="driver-section__heading">
+              <h3 data-i18n="driverDocuments">Identity documents</h3>
+              <p data-i18n="driverDocumentsHint">Upload clear JPG, PNG or WebP images.</p>
+            </div>
+            <div class="driver-upload-grid">
+              <label class="driver-upload" data-upload-zone="cnicFront" data-config-key="requireCnicFront">
+                <input
+                  id="driverCnicFront"
+                  name="cnicFront"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  required
+                />
+                <span class="driver-upload__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <rect x="3" y="5" width="18" height="14" rx="3"/>
+                    <path d="m7 15 3-3 2.5 2.5L15 12l3 3M8 9h.01"/>
+                  </svg>
+                </span>
+                <span class="driver-upload__title" data-i18n="driverCnicFront">CNIC Front</span>
+                <span class="driver-upload__optional" data-i18n="driverOptional" hidden>Optional</span>
+                <span class="driver-upload__hint" data-i18n="driverUploadHint">Click or drop image</span>
+                <span class="driver-upload__file" aria-live="polite"></span>
+                <span class="driver-upload__scan" id="driverCnicScan" hidden aria-live="polite">
+                  <span class="driver-upload__scan-spinner" aria-hidden="true"></span>
+                  <span class="driver-upload__scan-text" data-i18n="driverScanning">Scanning Card…</span>
+                </span>
+              </label>
+
+              <label class="driver-upload" data-upload-zone="cnicBack" data-config-key="requireCnicBack">
+                <input
+                  id="driverCnicBack"
+                  name="cnicBack"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  required
+                />
+                <span class="driver-upload__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <rect x="3" y="5" width="18" height="14" rx="3"/>
+                    <path d="M7 10h10M7 14h6"/>
+                  </svg>
+                </span>
+                <span class="driver-upload__title" data-i18n="driverCnicBack">CNIC Back</span>
+                <span class="driver-upload__optional" data-i18n="driverOptional" hidden>Optional</span>
+                <span class="driver-upload__hint" data-i18n="driverUploadHint">Click or drop image</span>
+                <span class="driver-upload__file" aria-live="polite"></span>
+              </label>
+
+              <label class="driver-upload" data-upload-zone="license" data-config-key="requireLicenseImage">
+                <input
+                  id="driverLicenseFile"
+                  name="licenseImage"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  required
+                />
+                <span class="driver-upload__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <rect x="4" y="3" width="16" height="18" rx="3"/>
+                    <circle cx="9" cy="10" r="2"/>
+                    <path d="M7 16h10M13 9h4M13 12h4"/>
+                  </svg>
+                </span>
+                <span class="driver-upload__title" data-i18n="driverLicenseUpload">Driving License</span>
+                <span class="driver-upload__optional" data-i18n="driverOptional" hidden>Optional</span>
+                <span class="driver-upload__hint" data-i18n="driverUploadHint">Click or drop image</span>
+                <span class="driver-upload__file" aria-live="polite"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="driver-section driver-selfie" data-config-key="requireSelfie">
+            <div class="driver-section__heading">
+              <h3 data-i18n="driverSelfieTitle">Live selfie</h3>
+              <p data-i18n="driverSelfieHint">Use your front camera in good lighting.</p>
+              <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
+            </div>
+            <div class="driver-selfie__stage" id="driverSelfieStage">
+              <video id="driverSelfieVideo" playsinline muted hidden></video>
+              <canvas id="driverSelfieCanvas" hidden></canvas>
+              <img id="driverSelfiePreview" alt="" hidden />
+              <div class="driver-selfie__empty" id="driverSelfieEmpty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                  <circle cx="12" cy="8" r="4"/>
+                  <path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>
+                </svg>
+                <span data-i18n="driverSelfieEmpty">Your selfie will appear here</span>
+              </div>
+            </div>
+            <input id="driverSelfieFile" name="selfie" type="file" accept="image/jpeg" hidden />
+            <div class="driver-selfie__actions">
+              <button type="button" class="driver-camera-btn" id="driverCameraBtn">
+                <span data-i18n="driverTakeSelfie">Take Selfie</span>
+              </button>
+              <button type="button" class="driver-camera-btn driver-camera-btn--capture" id="driverCaptureBtn" hidden>
+                <span data-i18n="driverCapture">Capture Photo</span>
+              </button>
+              <button type="button" class="driver-camera-btn driver-camera-btn--retake" id="driverRetakeBtn" hidden>
+                <span data-i18n="driverRetake">Retake</span>
+              </button>
+            </div>
+            <p class="driver-camera-status" id="driverCameraStatus" aria-live="polite"></p>
+          </div>
+
+          <p class="driver-form-message" id="driverFormMessage" hidden aria-live="polite"></p>
+          <button type="submit" class="cta-btn cta-btn--block driver-submit" id="driverSubmitBtn">
+            <span data-i18n="driverSubmit">Submit application</span>
+          </button>
+          <p class="driver-submit-note" id="driverConfigSource" data-i18n="driverConfigFallback">
+            Form requirements load from Super Admin settings (with local fallback).
+          </p>
+        </form>
+      </section>
+    </div>
+
+    <!-- Phase 13.3: universal utility drawer (forms + active ride) -->
+    <aside
+      class="utility-drawer"
+      id="utilityDrawer"
+      aria-hidden="true"
+      aria-labelledby="utilityDrawerTitle"
+    >
+      <div class="utility-drawer__panel glass" role="dialog" aria-modal="true">
+        <header class="utility-drawer__head">
+          <h2 class="utility-drawer__title" id="utilityDrawerTitle" data-i18n="utilityDrawerTitle">Details</h2>
+          <button
+            type="button"
+            class="utility-drawer__close"
+            id="utilityDrawerClose"
+            aria-label="Close"
+            data-i18n-aria="closeMenu"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="utility-drawer__body">
+          <!-- Rent form -->
+          <section class="utility-panel utility-panel--rent" id="utilityPanelRent" hidden>
+            <p class="utility-panel__lead" data-i18n="rentFormLead">Choose duration and vehicle type</p>
+
+            <fieldset class="utility-fieldset utility-fieldset--premium">
+              <legend data-i18n="rentDuration">Time Duration</legend>
+              <div class="utility-choice-grid utility-choice-grid--duration" role="radiogroup" aria-label="Duration" data-i18n-aria="rentDuration">
+                <label class="utility-choice-card">
+                  <input type="radio" name="rentDuration" value="1h" checked />
+                  <span class="utility-choice-card__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>
+                  </span>
+                  <span class="utility-choice-card__label" data-i18n="rentDur1h">1 hour</span>
+                  <span class="utility-choice-card__check" aria-hidden="true">✓</span>
+                </label>
+                <label class="utility-choice-card">
+                  <input type="radio" name="rentDuration" value="4h" />
+                  <span class="utility-choice-card__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8"/><path d="M12 7v5h4"/></svg>
+                  </span>
+                  <span class="utility-choice-card__label" data-i18n="rentDur4h">4 hours</span>
+                  <span class="utility-choice-card__check" aria-hidden="true">✓</span>
+                </label>
+                <label class="utility-choice-card">
+                  <input type="radio" name="rentDuration" value="1d" />
+                  <span class="utility-choice-card__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
+                  </span>
+                  <span class="utility-choice-card__label" data-i18n="rentDur1d">1 day</span>
+                  <span class="utility-choice-card__check" aria-hidden="true">✓</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset class="utility-fieldset utility-fieldset--premium">
+              <legend data-i18n="rentVehicleType">Vehicle Type</legend>
+              <div class="utility-choice-grid utility-choice-grid--vehicle" role="radiogroup" aria-label="Vehicle type" data-i18n-aria="rentVehicleType">
+                <label class="utility-choice-card utility-choice-card--vehicle">
+                  <input type="radio" name="rentVehicle" value="sedan" checked />
+                  <span class="utility-choice-card__vehicle" aria-hidden="true">
+                    <svg viewBox="0 0 72 36" fill="none"><path d="M5 24c2-5 6-7 12-8l10-2 8-9h18l10 10 5 2v9H5v-2Z"/><circle cx="19" cy="26" r="6"/><circle cx="56" cy="26" r="6"/></svg>
+                  </span>
+                  <span class="utility-choice-card__label" data-i18n="rentVehSedan">Sedan</span>
+                  <span class="utility-choice-card__check" aria-hidden="true">✓</span>
+                </label>
+                <label class="utility-choice-card utility-choice-card--vehicle">
+                  <input type="radio" name="rentVehicle" value="suv" />
+                  <span class="utility-choice-card__vehicle" aria-hidden="true">
+                    <svg viewBox="0 0 72 36" fill="none"><path d="M4 23c2-5 6-7 12-8l9-2 7-9h23l8 10 6 3v9H4v-3Z"/><circle cx="18" cy="26" r="6"/><circle cx="57" cy="26" r="6"/></svg>
+                  </span>
+                  <span class="utility-choice-card__label" data-i18n="rentVehSuv">SUV</span>
+                  <span class="utility-choice-card__check" aria-hidden="true">✓</span>
+                </label>
+                <label class="utility-choice-card utility-choice-card--vehicle">
+                  <input type="radio" name="rentVehicle" value="van" />
+                  <span class="utility-choice-card__vehicle" aria-hidden="true">
+                    <svg viewBox="0 0 72 36" fill="none"><path d="M5 7h45l16 11v8H5V7Z"/><path d="M51 10v9h12"/><circle cx="19" cy="26" r="6"/><circle cx="55" cy="26" r="6"/></svg>
+                  </span>
+                  <span class="utility-choice-card__label" data-i18n="rentVehVan">Van</span>
+                  <span class="utility-choice-card__check" aria-hidden="true">✓</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <button type="button" class="cta-btn cta-btn--block" id="rentConfirmBtn" data-i18n="rentConfirm">
+              Confirm rental
+            </button>
+          </section>
+
+          <!-- Cargo delivery details -->
+          <section class="utility-panel" id="utilityPanelCargo" hidden>
+            <p class="utility-panel__lead" data-i18n="cargoFormLead">Add delivery details for your cargo</p>
+
+            <label class="utility-label" for="cargoPackageSize" data-i18n="cargoPackageSize">Package size</label>
+            <select id="cargoPackageSize" class="utility-select">
+              <option value="small" data-i18n="cargoSizeSmall">Small</option>
+              <option value="medium" data-i18n="cargoSizeMedium" selected>Medium</option>
+              <option value="large" data-i18n="cargoSizeLarge">Large</option>
+            </select>
+
+            <label class="utility-check">
+              <input type="checkbox" id="cargoFragile" />
+              <span data-i18n="cargoFragile">Fragile item</span>
+            </label>
+
+            <label class="utility-label" for="cargoNotes" data-i18n="cargoNotes">Notes</label>
+            <textarea
+              id="cargoNotes"
+              class="utility-textarea"
+              rows="3"
+              data-i18n-placeholder="cargoNotesPlaceholder"
+              placeholder="Gate code, floor, handling notes…"
+            ></textarea>
+
+            <button type="button" class="cta-btn cta-btn--block" id="cargoConfirmBtn" data-i18n="cargoConfirm">
+              Save details
+            </button>
+          </section>
+
+          <!-- Active ride / driver -->
+          <section class="utility-panel" id="utilityPanelRide" hidden>
+            <p class="utility-panel__eyebrow" data-i18n="activeRideEyebrow">Active ride</p>
+            <div class="active-ride-card">
+              <div class="active-ride-card__avatar" aria-hidden="true">
+                <svg viewBox="0 0 48 48" fill="none">
+                  <circle cx="24" cy="24" r="24" fill="#e8f8ef"/>
+                  <circle cx="24" cy="18" r="8" fill="#0b7a4b"/>
+                  <ellipse cx="24" cy="36" rx="12" ry="8" fill="#14b86a"/>
+                </svg>
+              </div>
+              <div class="active-ride-card__meta">
+                <p class="active-ride-card__name" id="activeDriverName">—</p>
+                <p class="active-ride-card__vehicle" id="activeDriverVehicle">—</p>
+                <p class="active-ride-card__plate" id="activeDriverPlate">—</p>
+              </div>
+            </div>
+            <dl class="active-ride-stats">
+              <div>
+                <dt data-i18n="activeRideDriver">Driver</dt>
+                <dd id="activeRideDriverLabel">—</dd>
+              </div>
+              <div>
+                <dt data-i18n="activeRideModel">Vehicle</dt>
+                <dd id="activeRideModelLabel">—</dd>
+              </div>
+              <div>
+                <dt data-i18n="activeRidePlate">Plate</dt>
+                <dd id="activeRidePlateLabel">—</dd>
+              </div>
+            </dl>
+            <a class="cta-btn cta-btn--block active-ride-call" id="activeRideCallBtn" href="tel:+923001234567">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.5-1.2a2 2 0 0 1 2.1-.4c.8.3 1.7.5 2.6.6A2 2 0 0 1 22 16.9z"/>
+              </svg>
+              <span data-i18n="activeRideCall">Call</span>
+            </a>
+          </section>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Auth modal -->
+    <div class="auth-modal" id="authModal" hidden>
+      <div class="auth-modal__backdrop" id="authBackdrop"></div>
+      <div class="auth-modal__card glass" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <button type="button" class="auth-modal__close" id="authClose" aria-label="Close" data-i18n-aria="closeMenu">×</button>
+        <h2 id="authTitle" data-i18n="authSignIn">Sign in</h2>
+        <p class="auth-modal__sub" data-i18n="authSub">Sign in with Google or email to sync wallet &amp; bookings.</p>
+        <p class="auth-error" id="authError" hidden></p>
+
+        <button type="button" class="google-btn" id="googleSignInBtn">
+          <span class="google-btn__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="#EA4335" d="M12 10.2v3.6h5.1c-.2 1.2-.9 2.3-1.9 3l3.1 2.4c1.8-1.7 2.9-4.1 2.9-7 0-.7-.1-1.3-.2-1.9H12z"/>
+              <path fill="#34A853" d="M5.3 14.3l-.8.6-2.5 1.9C3.5 19.5 7.4 22 12 22c2.7 0 5-.9 6.7-2.4l-3.1-2.4c-.9.6-2 1-3.6 1-2.8 0-5.1-1.9-5.9-4.4z"/>
+              <path fill="#4A90E2" d="M3.9 5.2A9.9 9.9 0 0 0 2 12c0 1.6.4 3.1 1.1 4.4l3.4-2.6C6.1 12.7 6 12.4 6 12c0-1.5.5-2.8 1.4-3.8L3.9 5.2z"/>
+              <path fill="#FBBC05" d="M12 6c1.5 0 2.9.5 4 1.5l3-3C17 2.9 14.7 2 12 2 7.4 2 3.5 4.5 1.9 8.2l3.5 2.7C6.9 7.9 9.2 6 12 6z"/>
+            </svg>
+          </span>
+          <span data-i18n="authGoogle">Continue with Google</span>
+        </button>
+
+        <div class="auth-divider" role="separator" aria-hidden="true">
+          <span data-i18n="authOr">or</span>
+        </div>
+
+        <form id="authForm" data-mode="signin" autocomplete="on">
+          <div id="authNameWrap" hidden>
+            <label class="auth-label" for="authName" data-i18n="authName">Name</label>
+            <input id="authName" class="auth-input" type="text" name="name" autocomplete="name" />
+          </div>
+          <label class="auth-label" for="authEmail" data-i18n="authEmail">Email</label>
+          <input id="authEmail" class="auth-input" type="email" name="email" required autocomplete="email" />
+          <label class="auth-label" for="authPassword" data-i18n="authPassword">Password</label>
+          <input id="authPassword" class="auth-input" type="password" name="password" required minlength="6" autocomplete="current-password" />
+          <button type="submit" class="cta-btn cta-btn--block" id="authSubmit" data-i18n="authSignIn">Sign in</button>
+        </form>
+        <button type="button" class="auth-toggle" id="authToggleMode" data-i18n="authNeedAccount">Need an account? Sign up</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script type="module" src="js/app.js?v=20260721f"></script>
+</body>
+</html>

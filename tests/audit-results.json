@@ -1,0 +1,1571 @@
+{
+  "generatedAt": "2026-07-21T19:56:06.946Z",
+  "baseUrl": "https://swiftgo-ride-app.web.app",
+  "total": 248,
+  "passed": 248,
+  "failed": 0,
+  "passRate": 100,
+  "bySuite": {
+    "structure": {
+      "passed": 35,
+      "failed": 0,
+      "total": 35
+    },
+    "html": {
+      "passed": 79,
+      "failed": 0,
+      "total": 79
+    },
+    "css": {
+      "passed": 12,
+      "failed": 0,
+      "total": 12
+    },
+    "i18n": {
+      "passed": 23,
+      "failed": 0,
+      "total": 23
+    },
+    "firebase": {
+      "passed": 8,
+      "failed": 0,
+      "total": 8
+    },
+    "security": {
+      "passed": 17,
+      "failed": 0,
+      "total": 17
+    },
+    "wiring": {
+      "passed": 51,
+      "failed": 0,
+      "total": 51
+    },
+    "a11y": {
+      "passed": 7,
+      "failed": 0,
+      "total": 7
+    },
+    "http": {
+      "passed": 16,
+      "failed": 0,
+      "total": 16
+    }
+  },
+  "findings": [
+    {
+      "sev": "Low",
+      "area": "Frontend",
+      "title": "Placeholder support number",
+      "detail": "js/support.js uses +923001234567. Replace before production (tel: / WhatsApp)."
+    },
+    {
+      "sev": "Low",
+      "area": "Security",
+      "title": "No Content-Security-Policy",
+      "detail": "Hosting headers may exist but CSP is not configured."
+    },
+    {
+      "sev": "Info",
+      "area": "Testing",
+      "title": "No browser E2E yet",
+      "detail": "Suite is static analysis + HTTP smoke. Add Playwright/Cypress for map, RTL, auth modal flows."
+    },
+    {
+      "sev": "Info",
+      "area": "Firebase",
+      "title": "Production keys active",
+      "detail": "project swiftgo-ride-app configured for Auth, Firestore, and Hosting."
+    }
+  ],
+  "results": [
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/index.html",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/css/styles.css",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/app.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/i18n.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/map.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/sheet.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/location.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/screens.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/auth.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/data.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/firebase.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/firebase-config.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/support.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/dashboard.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/driver-onboarding.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/utility-drawer.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/routing.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/fare.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: customer-app/js/ride-flow.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: partner-app/index.html",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: partner-app/css/partner-style.css",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: partner-app/js/partner-app.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: partner-app/js/firebase.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: partner-app/js/firebase-config.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: super-admin-panel/index.html",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: super-admin-panel/css/admin-style.css",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: super-admin-panel/js/admin-app.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: super-admin-panel/js/firebase.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: super-admin-panel/js/firebase-config.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: tools/build-hosting.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: firebase.json",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: firestore.rules",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: firestore.indexes.json",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: .firebaserc",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#app\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#sidebar\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#menuBtn\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#map\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#sheet\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#authModal\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#authForm\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#screen-home\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#screen-bookings\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#screen-wallet\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#screen-contact\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#screen-missed-call\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#walletBalance\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#pickupInput\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#destInput\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#topbar\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#fabLocate\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#ridePanel\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#bookRideBtn\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#paySheet\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#payMethodBtn\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#extraStops\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#addStopBtn\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#earnDriverBtn\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#trafficToggle\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#langToggle\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#promoTrigger\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#promoInput\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#promoApplyBtn\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#mapPickOverlay\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#mapPickConfirm\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#locSuggest\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#driverOnboarding\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#driverApplicationForm\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#driverCnicFront\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#driverCnicBack\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#driverLicenseFile\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#driverSelfieVideo\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#driverSelfieCanvas\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#driverSelfieFile\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#driverCameraBtn\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#driverCaptureBtn\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#utilityDrawer\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#utilityPanelRent\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#utilityPanelCargo\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#utilityPanelRide\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#activeRideCallBtn\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Nav route data-route=\"home\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Screen data-screen=\"home\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Nav route data-route=\"missed-call\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Screen data-screen=\"missed-call\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Nav route data-route=\"bookings\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Screen data-screen=\"bookings\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Nav route data-route=\"wallet\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Screen data-screen=\"wallet\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Nav route data-route=\"contact\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Screen data-screen=\"contact\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Leaflet CSS linked",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Leaflet JS linked",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "App module entry",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "10-80-10 sheet present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Primary categories ×3",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Legacy service cards removed",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Vehicle cards ×7",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Booking tabs ×3",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Auth email+password fields",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Contact tel + WhatsApp",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "RTL-ready html root",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Viewport meta present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Title is SwiftGo",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Quick actions ×4",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Payment methods include Business Account",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Promo code control above booking row",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Business account briefcase icon",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "css",
+      "name": "Glass utility",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "css",
+      "name": "RTL sidebar rules",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "css",
+      "name": "Sheet expanded layout",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "css",
+      "name": "Auth modal styles",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "css",
+      "name": "Reduced motion",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "css",
+      "name": "Vehicle card styles",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "css",
+      "name": "Pay sheet styles",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "css",
+      "name": "Quick action styles",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "css",
+      "name": "Live driver marker styles",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "css",
+      "name": "Extra stops styles",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "css",
+      "name": "Mobile-first + desktop @media (min-width)",
+      "status": "PASS",
+      "detail": "base styles target mobile; desktop via min-width: 900px"
+    },
+    {
+      "suite": "css",
+      "name": "CSS custom properties (:root)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "i18n EN keys > 60",
+      "status": "PASS",
+      "detail": "count=270"
+    },
+    {
+      "suite": "i18n",
+      "name": "i18n UR keys > 60",
+      "status": "PASS",
+      "detail": "count=270"
+    },
+    {
+      "suite": "i18n",
+      "name": "i18n EN⊆UR parity",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "suite": "i18n",
+      "name": "i18n UR⊆EN parity",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "suite": "i18n",
+      "name": "HTML data-i18n keys exist in EN dict",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: qaSettings",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: earnAsDriver",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: showTraffic",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: appLanguage",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: paymentMethod",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: payEasypaisa",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: payJazzCash",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: payCash",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: addStop",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: chooseVehicle",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: vehBike",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase key present: bookRideCta",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "setLang / applyTranslations exported",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "RTL dir switch for Urdu",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "firebase",
+      "name": "isFirebaseConfigured() === true (real keys)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "firebase",
+      "name": "projectId is swiftgo-ride-app",
+      "status": "PASS",
+      "detail": "swiftgo-ride-app"
+    },
+    {
+      "suite": "firebase",
+      "name": "apiKey present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "firebase",
+      "name": "authDomain matches project",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "firebase",
+      "name": "Hosting packages from hosting-dist",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "firebase",
+      "name": ".firebaserc default is swiftgo-ride-app",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "firebase",
+      "name": "firebase.js imports initializeApp + getAuth + getFirestore",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "firebase",
+      "name": "firebase.js exports app, auth, db",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "Firestore users scoped to auth.uid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "Bookings create requires own userId",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "Bookings read requires own userId",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "Unauthenticated writes not open",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "Hosting SPA rewrite to index.html",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "Booking list HTML escaped",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "createBooking rejects unsigned",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "Auth maps Firebase error codes",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Google auth popup-first with limited redirect fallback",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "Demo banner when unconfigured",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "walletBalance read-only for client (Phase 9)",
+      "status": "PASS",
+      "detail": "create must be 0; updates may not touch walletBalance"
+    },
+    {
+      "suite": "security",
+      "name": "booking.status constrained to enum (Phase 9)",
+      "status": "PASS",
+      "detail": "isValidStatus enum enforced on create + update"
+    },
+    {
+      "suite": "security",
+      "name": "Booking payload shape validated (Phase 9)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "Default deny catch-all (Phase 9)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "Support phone is configurable module",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "app boots Phase 17 live ride status",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Book ride → createBooking",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Profile/bookings watchers wired",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "initAuth wired",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "initMap + locateUser wired",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "initSheet wired",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "initDashboard wired",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "initScreens wired",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Sheet vehicle selection",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Sheet multi-stop support",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 13.1 limits header to one extra stop",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Map live drivers",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Dashboard payment + traffic + lang",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Legacy delivery tiers and service cards removed",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Promo codes interactive and affect price",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Business Account persists as payment method",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Booking persists fare, payment and promo",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Booking requires sign-in gate",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Earn as Driver opens onboarding overlay",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Driver uploads support click + drag/drop",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Front camera uses getUserMedia",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Selfie captured to canvas and File",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "CNIC Front OCR simulation auto-fills name + CNIC",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "OCR insert point documented for Cloud Vision",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Driver form loads settings/driverForm with fallback",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Driver application uploads Storage then Firestore",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "firebase.js exports storage",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "settings readable, client write denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "driver_applications create scoped to auth.uid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: storage.rules",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "security",
+      "name": "Storage rules scope driver uploads to owner",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Phase 13.1 uses a 50/50 pickup and drop-off header",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Phase 13.2 three primary categories only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase 13.2 Ride/Cargo/Rent labels EN/UR",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 13.2 smart filters + rent drawer hook",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 13.3 utility drawer for rent/cargo/active ride",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase 13.4 formatMoney + title/aria helpers",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase 13.4 EN has no Arabic script in values",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "i18n",
+      "name": "Phase 13.4 UR promo/GPS/Firebase strings are script-pure",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 14.1 OSRM polyline + auto fitBounds",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 14.2 distance/time state for fare math",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 15 dynamic fare matrix and route listener",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 16.1 rides collection write + searching_driver status",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 16.2 searching-for-driver UI state",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 17.1 real-time ride document listener",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 17.2 accepted ride panel and driver details",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 17.3 complete ride clears route and resets sheet",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 17.4 declined ride returns to vehicle selection",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Phase 18 driver app RTL shell and premium header",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 18 partner map, online toggle, and local Firebase config",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 25 real PIN verification and vehicle linking",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Partner auth routes strictly by saved role",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 26 owner live ride tracking and history",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Phase 22 super admin command center shell",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 22 apps are physically independent",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Map stays clean without floating location controls",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Dynamic stops use same universal location component",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Location quick actions emit future-proof hook",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Map pick mode reverse-geocodes on drag",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Location autocomplete uses Nominatim search",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "GPS and map actions wired through location module",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Smart Maps link paste extracts coordinates",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 12.4 colored pins + pickup/dropoff radius zones",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "a11y",
+      "name": "Auth modal aria-modal dialog",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "a11y",
+      "name": "Pay sheet role=dialog",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "a11y",
+      "name": "Map role=application",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "a11y",
+      "name": "Booking tabs role=tab",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "a11y",
+      "name": "Payment radiogroup",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "a11y",
+      "name": "Icon buttons have aria-label / i18n-aria",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "a11y",
+      "name": "FAB has aria-label",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "http",
+      "name": "HTTP GET / → 200 (https://swiftgo-ride-app.web.app)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "http",
+      "name": "HTTP GET /js/app.js → 200",
+      "status": "PASS",
+      "detail": "status=200"
+    },
+    {
+      "suite": "http",
+      "name": "HTTP GET /js/i18n.js → 200",
+      "status": "PASS",
+      "detail": "status=200"
+    },
+    {
+      "suite": "http",
+      "name": "HTTP GET /js/auth.js → 200",
+      "status": "PASS",
+      "detail": "status=200"
+    },
+    {
+      "suite": "http",
+      "name": "HTTP GET /js/data.js → 200",
+      "status": "PASS",
+      "detail": "status=200"
+    },
+    {
+      "suite": "http",
+      "name": "HTTP GET /js/firebase.js → 200",
+      "status": "PASS",
+      "detail": "status=200"
+    },
+    {
+      "suite": "http",
+      "name": "HTTP GET /js/firebase-config.js → 200",
+      "status": "PASS",
+      "detail": "status=200"
+    },
+    {
+      "suite": "http",
+      "name": "HTTP GET /js/dashboard.js → 200",
+      "status": "PASS",
+      "detail": "status=200"
+    },
+    {
+      "suite": "http",
+      "name": "HTTP GET /js/sheet.js → 200",
+      "status": "PASS",
+      "detail": "status=200"
+    },
+    {
+      "suite": "http",
+      "name": "HTTP GET /js/map.js → 200",
+      "status": "PASS",
+      "detail": "status=200"
+    },
+    {
+      "suite": "http",
+      "name": "HTTP GET /css/styles.css → 200",
+      "status": "PASS",
+      "detail": "status=200"
+    },
+    {
+      "suite": "http",
+      "name": "Served HTML has SwiftGo title",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "http",
+      "name": "Served HTML has auth modal",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "http",
+      "name": "Served HTML has pay sheet",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "http",
+      "name": "Served HTML has ride panel",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "http",
+      "name": "Live config projectId = swiftgo-ride-app",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

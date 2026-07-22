@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "swiftgo-ride-app",
+    "auth": "ravo-44c4c",
+    "ravo": "ravo-44c4c",
+    "swiftgo": "swiftgo-ride-app"
+  }
+}

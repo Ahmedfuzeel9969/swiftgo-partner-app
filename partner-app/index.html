@@ -1,0 +1,305 @@
+﻿<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#087747" />
+  <title>سوئفٹ گو پارٹنر</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Nastaliq+Urdu:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <link rel="stylesheet" href="css/partner-style.css?v=20260722e" />
+</head>
+<body>
+  <main class="driver-app">
+    <!-- Phase 20: intentionally simplified driver authentication for dev testing. -->
+    <section class="driver-auth-overlay" id="driverAuthOverlay" aria-labelledby="driverAuthTitle">
+      <div class="driver-auth-card">
+        <div class="driver-auth-card__logo" aria-hidden="true">S</div>
+        <p class="driver-auth-card__eyebrow">SwiftGo Partner</p>
+        <h2 id="driverAuthTitle">ڈرائیور اکاؤنٹ</h2>
+        <p class="driver-auth-card__copy">
+          آن لائن ہونے اور سواری کی درخواستیں حاصل کرنے کے لیے لاگ اِن کریں۔
+        </p>
+        <button type="button" class="google-login-btn" id="driverGoogleLoginBtn">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.91h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.4Z"/>
+            <path fill="#34A853" d="M12 22c2.7 0 4.97-.9 6.62-2.37l-3.24-2.54c-.9.6-2.05.96-3.38.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.62A10 10 0 0 0 12 22Z"/>
+            <path fill="#FBBC05" d="M6.39 13.92A6.01 6.01 0 0 1 6.08 12c0-.67.11-1.32.31-1.92V7.46H3.04A10 10 0 0 0 2 12c0 1.61.38 3.14 1.04 4.54l3.35-2.62Z"/>
+            <path fill="#EA4335" d="M12 5.95c1.47 0 2.79.51 3.82 1.5l2.87-2.87A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.96 5.46l3.35 2.62C7.18 7.71 9.39 5.95 12 5.95Z"/>
+          </svg>
+          <span>Google سے لاگ ان کریں</span>
+        </button>
+        <p class="driver-auth-card__status" id="driverAuthStatus" role="status" aria-live="polite"></p>
+        <p class="driver-auth-card__dev">Dev Mode · دستاویزات درکار نہیں</p>
+      </div>
+    </section>
+
+    <section
+      class="driver-auth-overlay is-hidden"
+      id="roleSelectionOverlay"
+      aria-labelledby="roleSelectionTitle"
+      hidden
+    >
+      <div class="driver-auth-card">
+        <div class="driver-auth-card__logo" aria-hidden="true">S</div>
+        <p class="driver-auth-card__eyebrow">Choose your role</p>
+        <h2 id="roleSelectionTitle">اپنا کردار منتخب کریں</h2>
+        <p class="driver-auth-card__copy">
+          سوئفٹ گو پارٹنر استعمال کرنے کے لیے ڈرائیور یا مالک منتخب کریں۔
+        </p>
+        <div class="role-selection-actions">
+          <button type="button" class="pin-verify-btn" id="selectDriverRoleBtn">میں ڈرائیور ہوں</button>
+          <button type="button" class="role-owner-btn" id="selectOwnerRoleBtn">میں گاڑی کا مالک ہوں</button>
+        </div>
+        <p class="driver-auth-card__status" id="roleSelectionMessage" role="status" aria-live="polite"></p>
+        <button type="button" class="partner-logout-btn" id="roleSelectionLogoutBtn">لاگ آؤٹ</button>
+      </div>
+    </section>
+
+    <header class="driver-header" id="partnerHeader" hidden>
+      <div class="driver-brand">
+        <span class="driver-brand__mark" aria-hidden="true">S</span>
+        <div>
+          <p class="driver-brand__eyebrow">SwiftGo</p>
+          <h1>سوئفٹ گو پارٹنر</h1>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="driver-status"
+        id="driverStatusToggle"
+        role="switch"
+        aria-checked="false"
+        aria-label="ڈرائیور آن لائن کریں"
+      >
+        <span class="driver-status__dot" aria-hidden="true"></span>
+        <span id="driverStatusText">آف لائن</span>
+      </button>
+    </header>
+
+    <nav class="partner-mode-switch" id="partnerModeSwitch" aria-label="پارٹنر موڈ" hidden>
+      <button type="button" class="partner-mode-btn is-active" data-partner-mode="driver" aria-pressed="true">
+        ڈرائیور
+      </button>
+      <button type="button" class="partner-mode-btn" data-partner-mode="owner" aria-pressed="false">
+        مالک
+      </button>
+    </nav>
+
+    <section
+      class="driver-map"
+      id="driverMap"
+      role="application"
+      aria-label="ڈرائیور کا لائیو نقشہ"
+      hidden
+    ></section>
+
+    <div class="location-state" id="locationState" role="status" aria-live="polite" hidden>
+      آن لائن ہونے پر آپ کا موجودہ مقام یہاں دکھائی دے گا
+    </div>
+
+    <!-- Phase 25: real vehicle PIN verification gate (driver mode) -->
+    <section class="pin-gate" id="vehiclePinGate" aria-labelledby="pinGateTitle" hidden>
+      <div class="pin-gate__card">
+        <div class="pin-gate__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="4" y="10" width="16" height="10" rx="2.4" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="12" cy="15" r="1.6" fill="currentColor"/>
+          </svg>
+        </div>
+        <p class="pin-gate__eyebrow">Vehicle PIN</p>
+        <h2 id="pinGateTitle">گاڑی کا PIN درج کریں</h2>
+        <p class="pin-gate__copy">
+          مالک سے ملا ہوا 4 ہندسوں کا PIN درج کریں تاکہ گاڑی آپ کے اکاؤنٹ سے منسلک ہو جائے۔
+        </p>
+        <form id="vehiclePinForm" novalidate>
+          <input
+            id="vehiclePinInput"
+            class="pin-gate__input"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="4"
+            pattern="[0-9]{4}"
+            placeholder="• • • •"
+            aria-label="گاڑی کا 4 ہندسوں کا PIN"
+            required
+          />
+          <p class="pin-gate__message" id="vehiclePinMessage" role="status" aria-live="polite"></p>
+          <button type="submit" class="pin-verify-btn" id="vehiclePinVerifyBtn">تصدیق کریں</button>
+        </form>
+        <button type="button" class="partner-logout-btn" id="pinGateLogoutBtn">لاگ آؤٹ</button>
+      </div>
+    </section>
+
+    <!-- Phase 19: latest searching_driver request -->
+    <section
+      class="incoming-ride-sheet"
+      id="incomingRideSheet"
+      aria-live="polite"
+      aria-label="نئی سواری کی درخواست"
+      hidden
+    >
+      <div class="incoming-ride-sheet__handle" aria-hidden="true"></div>
+      <div class="incoming-ride-alert">
+        <span class="incoming-ride-alert__pulse" aria-hidden="true"></span>
+        <div>
+          <p class="incoming-ride-alert__eyebrow">New Ride Request</p>
+          <h2>نئی سواری دستیاب ہے</h2>
+        </div>
+      </div>
+
+      <div class="incoming-route">
+        <div class="incoming-route__row">
+          <span class="incoming-route__dot incoming-route__dot--pickup" aria-hidden="true"></span>
+          <div>
+            <span class="incoming-route__label">پک اپ</span>
+            <strong id="incomingPickup">—</strong>
+          </div>
+        </div>
+        <div class="incoming-route__line" aria-hidden="true"></div>
+        <div class="incoming-route__row">
+          <span class="incoming-route__dot incoming-route__dot--dropoff" aria-hidden="true"></span>
+          <div>
+            <span class="incoming-route__label">ڈراپ آف</span>
+            <strong id="incomingDropoff">—</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="incoming-ride-stats">
+        <div>
+          <span>فاصلہ</span>
+          <strong id="incomingDistance">— km</strong>
+        </div>
+        <div>
+          <span>وقت</span>
+          <strong id="incomingTime">— min</strong>
+        </div>
+        <div>
+          <span>متوقع کرایہ</span>
+          <strong id="incomingFare">Rs. —</strong>
+        </div>
+      </div>
+
+      <div class="incoming-ride-actions">
+        <button type="button" class="ride-accept-btn" id="acceptRideBtn">قبول کریں</button>
+        <button type="button" class="ride-decline-btn" id="declineRideBtn">مسترد کریں</button>
+      </div>
+    </section>
+
+    <!-- Phase 24: Owner Fleet Management Dashboard -->
+    <section class="owner-dashboard" id="ownerDashboard" aria-labelledby="ownerDashboardTitle" hidden>
+      <div class="owner-dashboard__inner">
+        <header class="owner-dashboard__header">
+          <div>
+            <p class="owner-dashboard__eyebrow">Fleet Management</p>
+            <h2 id="ownerDashboardTitle">میری گاڑیاں</h2>
+          </div>
+          <button type="button" class="add-vehicle-btn" id="addVehicleBtn">
+            <span aria-hidden="true">+</span>
+            نئی گاڑی شامل کریں
+          </button>
+        </header>
+
+        <div class="owner-fleet-summary">
+          <div>
+            <span>کل گاڑیاں</span>
+            <strong id="ownerVehicleCount">0</strong>
+          </div>
+          <div>
+            <span>آن لائن</span>
+            <strong id="ownerOnlineCount">0</strong>
+          </div>
+          <div>
+            <span>آف لائن</span>
+            <strong id="ownerOfflineCount">0</strong>
+          </div>
+        </div>
+
+        <p class="owner-dashboard__message" id="ownerDashboardMessage" role="status" aria-live="polite"></p>
+        <div class="vehicle-grid" id="ownerVehicleGrid" aria-live="polite"></div>
+
+        <div class="owner-empty-state" id="ownerVehicleEmpty">
+          <div class="owner-empty-state__icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none">
+              <path d="M7 29l4-10c1-3 3-5 7-5h13c4 0 6 2 8 5l3 10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M5 29h38v9c0 2-2 4-4 4H9c-2 0-4-2-4-4v-9Z" stroke="currentColor" stroke-width="2.6"/>
+              <circle cx="13" cy="34" r="3" fill="currentColor"/><circle cx="35" cy="34" r="3" fill="currentColor"/>
+            </svg>
+          </div>
+          <h3>ابھی کوئی گاڑی شامل نہیں</h3>
+          <p>اپنی پہلی گاڑی شامل کریں اور ڈرائیور کے ساتھ PIN شیئر کریں۔</p>
+        </div>
+
+        <!-- Phase 26: real-time rides attached to this fleet owner -->
+        <section class="owner-ride-history" aria-labelledby="ownerRideHistoryTitle">
+          <header class="owner-ride-history__header">
+            <div>
+              <p class="owner-dashboard__eyebrow">Live Fleet Activity</p>
+              <h2 id="ownerRideHistoryTitle">آج کی سواریاں اور ہسٹری</h2>
+            </div>
+            <span class="owner-ride-history__count" id="ownerRideCount">0 سواریاں</span>
+          </header>
+
+          <p class="owner-ride-history__message" id="ownerRideHistoryMessage" role="status" aria-live="polite"></p>
+          <div class="owner-ride-history__head" aria-hidden="true">
+            <span>وقت</span>
+            <span>ڈرائیور</span>
+            <span>گاڑی</span>
+            <span>فاصلہ / کرایہ</span>
+            <span>اسٹیٹس</span>
+          </div>
+          <div class="owner-ride-list" id="ownerRideList" aria-live="polite"></div>
+          <div class="owner-ride-empty" id="ownerRideEmpty">
+            <strong>ابھی کوئی سواری ریکارڈ نہیں ہوئی</strong>
+            <span>ڈرائیور کے سواری قبول کرتے ہی تفصیل یہاں ظاہر ہو گی۔</span>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <div class="vehicle-modal" id="vehicleModal" aria-hidden="true" hidden>
+      <button class="vehicle-modal__backdrop" id="vehicleModalBackdrop" type="button" aria-label="بند کریں"></button>
+      <section class="vehicle-modal__panel" role="dialog" aria-modal="true" aria-labelledby="vehicleModalTitle">
+        <div class="vehicle-modal__heading">
+          <div>
+            <p>Fleet Vehicle</p>
+            <h2 id="vehicleModalTitle">نئی گاڑی شامل کریں</h2>
+          </div>
+          <button type="button" class="vehicle-modal__close" id="vehicleModalClose" aria-label="بند کریں">×</button>
+        </div>
+
+        <form id="vehicleForm">
+          <label class="vehicle-field">
+            <span>گاڑی کا ماڈل</span>
+            <input id="vehicleModelInput" type="text" maxlength="80" autocomplete="off" placeholder="مثلاً Suzuki Alto 2024" required />
+          </label>
+          <label class="vehicle-field">
+            <span>نمبر پلیٹ</span>
+            <input id="vehiclePlateInput" type="text" maxlength="20" autocomplete="off" placeholder="مثلاً KHI-1234" required />
+          </label>
+          <p class="vehicle-form__message" id="vehicleFormMessage" role="status" aria-live="polite"></p>
+          <button type="submit" class="vehicle-save-btn" id="vehicleSaveBtn">گاڑی محفوظ کریں</button>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script type="module" src="js/partner-app.js?v=20260722e"></script>
+</body>
+</html>

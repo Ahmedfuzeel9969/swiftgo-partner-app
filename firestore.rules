@@ -1,0 +1,232 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Allowed booking lifecycle states (audit: enum was unconstrained).
+    function isValidStatus(status) {
+      return status in ['scheduled', 'current', 'completed', 'cancelled'];
+    }
+
+    // Booking payload shape shared by create + update.
+    // Note: .size() on a non-string or >= on a non-number raises an
+    // evaluation error, which Firestore treats as a deny — so these
+    // checks also enforce field types.
+    function isValidBooking(data) {
+      return data.keys().hasAll(['userId', 'service', 'pickup', 'destination', 'status', 'fare'])
+        && data['service'].size() > 0 && data['service'].size() <= 40
+        && data.pickup.size() <= 300
+        && data.destination.size() <= 500
+        && isValidStatus(data.status)
+        && data.fare >= 0;
+    }
+
+    function isValidDriverApplication(data) {
+      return data.keys().hasAll([
+          'userId', 'fullName', 'cnic', 'licenseNumber', 'vehicleType',
+          'status', 'cnicFrontUrl', 'cnicBackUrl', 'licenseImageUrl', 'selfieUrl',
+          'createdAt'
+        ])
+        && data.userId == request.auth.uid
+        && data.fullName.size() > 0 && data.fullName.size() <= 120
+        && data.cnic.size() > 0 && data.cnic.size() <= 20
+        && data.licenseNumber.size() <= 40
+        && data.vehicleType.size() > 0 && data.vehicleType.size() <= 40
+        && data.status == 'pending'
+        && data.cnicFrontUrl.size() <= 2000
+        && data.cnicBackUrl.size() <= 2000
+        && data.licenseImageUrl.size() <= 2000
+        && data.selfieUrl.size() <= 2000;
+    }
+
+    // ── users/{uid} ──
+    // walletBalance is read-only for the client (audit: was client-writable):
+    //  - on create it must be exactly 0
+    //  - on update it must not be touched at all
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+
+      allow create: if isOwner(userId)
+        && request.resource.data.walletBalance == 0
+        && request.resource.data.keys().hasAll(['displayName', 'email', 'walletBalance']);
+
+      allow update: if isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['walletBalance']);
+
+      allow delete: if false;
+    }
+
+    // ── bookings/{id} ──
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && isValidBooking(request.resource.data);
+
+      // Owner may update, but cannot reassign the booking to another user
+      // and the new payload must still pass shape + status-enum validation.
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && isValidBooking(request.resource.data);
+
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── rides/{id} ── (Phase 16: live ride requests)
+    // Create: owner only, must start in 'searching_driver' with full payload.
+    // Update: owner may cancel while searching, or complete an accepted ride.
+    // Driver-side accepted/declined transitions belong to a backend/admin.
+    function isValidRide(data) {
+      return data.keys().hasAll([
+          'userId', 'pickupLocation', 'dropoffLocation', 'vehicleType',
+          'distanceKm', 'timeMins', 'farePkr', 'status', 'createdAt'
+        ])
+        && data.userId == request.auth.uid
+        && data.pickupLocation.keys().hasAll(['lat', 'lng', 'address'])
+        && data.dropoffLocation.keys().hasAll(['lat', 'lng', 'address'])
+        && data.pickupLocation.address.size() <= 500
+        && data.dropoffLocation.address.size() <= 500
+        && data.vehicleType.size() > 0 && data.vehicleType.size() <= 40
+        && data.distanceKm >= 0
+        && data.timeMins >= 0
+        && data.farePkr >= 0
+        && data.status == 'searching_driver';
+    }
+
+    match /rides/{rideId} {
+      // Customer watches own ride. Drivers may list/get open requests and
+      // accept/decline them; assigned driver may also read after accept.
+      allow get: if isSignedIn() && (
+        resource.data.userId == request.auth.uid
+        || resource.data.status == 'searching_driver'
+        || resource.data.driverId == request.auth.uid
+        || resource.data.ownerId == request.auth.uid
+      );
+      allow list: if isSignedIn() && (
+        resource.data.status == 'searching_driver'
+        || resource.data.ownerId == request.auth.uid
+      );
+
+      allow create: if isSignedIn()
+        && isValidRide(request.resource.data);
+
+      allow update: if isSignedIn()
+        && (
+          (
+            resource.data.userId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+            && (
+              (resource.data.status == 'searching_driver'
+                && request.resource.data.status == 'cancelled_by_user')
+              ||
+              (resource.data.status == 'accepted'
+                && request.resource.data.status == 'completed')
+            )
+          )
+          ||
+          (
+            resource.data.status == 'searching_driver'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'driverId'])
+            && request.resource.data.driverId == request.auth.uid
+            && request.resource.data.status == 'declined'
+          )
+          ||
+          (
+            // Phase 26: accepting driver must attach the vehicle's real owner.
+            resource.data.status == 'searching_driver'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly([
+                   'status', 'driverId', 'vehicleId', 'ownerId',
+                   'driverName', 'vehiclePlate'
+                 ])
+            && request.resource.data.status == 'accepted'
+            && request.resource.data.driverId == request.auth.uid
+            && request.resource.data.driverName
+                 == request.auth.token.get('name', 'SwiftGo Driver')
+            && get(
+                 /databases/$(database)/documents/vehicles/$(request.resource.data.vehicleId)
+               ).data.driverId == request.auth.uid
+            && request.resource.data.ownerId == get(
+                 /databases/$(database)/documents/vehicles/$(request.resource.data.vehicleId)
+               ).data.ownerId
+            && request.resource.data.vehiclePlate == get(
+                 /databases/$(database)/documents/vehicles/$(request.resource.data.vehicleId)
+               ).data.plate
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // ── drivers/{driverId} ── (Phase 20: auto-approved driver profiles)
+    match /drivers/{driverId} {
+      allow read, write: if request.auth != null && request.auth.uid == driverId;
+    }
+
+    // ── vehicles/{id} ── (Phase 24: owner fleet, Phase 25: PIN linking)
+    match /vehicles/{vehicleId} {
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid;
+
+      // Signed-in partners may read vehicles so drivers can query by PIN.
+      allow read: if isSignedIn();
+
+      // Owner manages own vehicles freely (ownerId itself is immutable).
+      allow update: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      // Phase 25: a driver may claim a vehicle by setting themselves as the
+      // driver. Only driverId/status change, and never over another active
+      // driver's session.
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['driverId', 'status'])
+        && request.resource.data.driverId == request.auth.uid
+        && request.resource.data.status == 'online'
+        && (resource.data.status != 'online' || resource.data.driverId == request.auth.uid);
+
+      allow delete: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ── partners/{uid} ── (Phase 25: driver ↔ vehicle assignment)
+    match /partners/{partnerId} {
+      allow read, write: if isSignedIn() && request.auth.uid == partnerId;
+    }
+
+    // ── settings/{docId} ──
+    // Super Admin edits via Console / Admin SDK. Clients may only read.
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ── driver_applications/{id} ──
+    match /driver_applications/{appId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && isValidDriverApplication(request.resource.data);
+
+      allow update, delete: if false;
+    }
+
+    // Everything else: deny.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
