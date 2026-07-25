@@ -1,0 +1,22 @@
+{
+  "label": "MODELLED",
+  "assumption": {
+    "VEHICLE_LOCATION_WRITE_MS": 8000,
+    "stationaryStillWrites": true,
+    "offlineWrites": false,
+    "usdPer100kWrites": 0.18
+  },
+  "inputs": {
+    "drivers": 50,
+    "hoursPerDay": 12,
+    "days": 30
+  },
+  "outputs": {
+    "writesPerSecond": 6.25,
+    "writesPerHour": 22500,
+    "writesPerDay": 270000,
+    "writesPerMonth": 8100000,
+    "modelledFirestoreWriteUsdPerMonth": 14.58
+  },
+  "note": "Excludes listener read fan-out, Auth, Hosting, Storage, and map provider cost."
+}

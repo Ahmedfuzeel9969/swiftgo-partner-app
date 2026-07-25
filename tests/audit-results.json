@@ -1,29 +1,29 @@
 {
-  "generatedAt": "2026-07-21T19:56:06.946Z",
+  "generatedAt": "2026-07-23T04:15:08.753Z",
   "baseUrl": "https://swiftgo-ride-app.web.app",
-  "total": 248,
-  "passed": 248,
-  "failed": 0,
-  "passRate": 100,
+  "total": 256,
+  "passed": 237,
+  "failed": 19,
+  "passRate": 92.6,
   "bySuite": {
     "structure": {
-      "passed": 35,
+      "passed": 40,
       "failed": 0,
-      "total": 35
+      "total": 40
     },
     "html": {
-      "passed": 79,
-      "failed": 0,
-      "total": 79
+      "passed": 76,
+      "failed": 5,
+      "total": 81
     },
     "css": {
-      "passed": 12,
-      "failed": 0,
+      "passed": 11,
+      "failed": 1,
       "total": 12
     },
     "i18n": {
-      "passed": 23,
-      "failed": 0,
+      "passed": 22,
+      "failed": 1,
       "total": 23
     },
     "firebase": {
@@ -32,18 +32,18 @@
       "total": 8
     },
     "security": {
-      "passed": 17,
-      "failed": 0,
+      "passed": 15,
+      "failed": 2,
       "total": 17
     },
     "wiring": {
-      "passed": 51,
-      "failed": 0,
-      "total": 51
+      "passed": 43,
+      "failed": 9,
+      "total": 52
     },
     "a11y": {
-      "passed": 7,
-      "failed": 0,
+      "passed": 6,
+      "failed": 1,
       "total": 7
     },
     "http": {
@@ -195,31 +195,61 @@
     },
     {
       "suite": "structure",
-      "name": "File exists: partner-app/index.html",
+      "name": "File exists: driver-app/index.html",
       "status": "PASS",
       "detail": ""
     },
     {
       "suite": "structure",
-      "name": "File exists: partner-app/css/partner-style.css",
+      "name": "File exists: driver-app/css/driver-style.css",
       "status": "PASS",
       "detail": ""
     },
     {
       "suite": "structure",
-      "name": "File exists: partner-app/js/partner-app.js",
+      "name": "File exists: driver-app/js/driver-app.js",
       "status": "PASS",
       "detail": ""
     },
     {
       "suite": "structure",
-      "name": "File exists: partner-app/js/firebase.js",
+      "name": "File exists: driver-app/js/firebase.js",
       "status": "PASS",
       "detail": ""
     },
     {
       "suite": "structure",
-      "name": "File exists: partner-app/js/firebase-config.js",
+      "name": "File exists: driver-app/js/firebase-config.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: owner-app/index.html",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: owner-app/css/owner-style.css",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: owner-app/js/owner-app.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: owner-app/js/firebase.js",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "structure",
+      "name": "File exists: owner-app/js/firebase-config.js",
       "status": "PASS",
       "detail": ""
     },
@@ -333,7 +363,19 @@
     },
     {
       "suite": "html",
-      "name": "HTML id=\"#screen-bookings\"",
+      "name": "HTML id=\"#historySection\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#historyChatList\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "HTML id=\"#historyEmpty\"",
       "status": "PASS",
       "detail": ""
     },
@@ -424,18 +466,12 @@
     {
       "suite": "html",
       "name": "HTML id=\"#earnDriverBtn\"",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "html",
       "name": "HTML id=\"#trafficToggle\"",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "suite": "html",
-      "name": "HTML id=\"#langToggle\"",
       "status": "PASS",
       "detail": ""
     },
@@ -460,14 +496,14 @@
     {
       "suite": "html",
       "name": "HTML id=\"#mapPickOverlay\"",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "html",
       "name": "HTML id=\"#mapPickConfirm\"",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "html",
@@ -579,6 +615,18 @@
     },
     {
       "suite": "html",
+      "name": "Nav route data-route=\"history\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "Screen data-screen=\"history\"",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
       "name": "Nav route data-route=\"missed-call\"",
       "status": "PASS",
       "detail": ""
@@ -586,18 +634,6 @@
     {
       "suite": "html",
       "name": "Screen data-screen=\"missed-call\"",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "suite": "html",
-      "name": "Nav route data-route=\"bookings\"",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "suite": "html",
-      "name": "Screen data-screen=\"bookings\"",
       "status": "PASS",
       "detail": ""
     },
@@ -669,7 +705,13 @@
     },
     {
       "suite": "html",
-      "name": "Booking tabs ×3",
+      "name": "Booking tabs removed",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "html",
+      "name": "History chat list present",
       "status": "PASS",
       "detail": ""
     },
@@ -705,7 +747,7 @@
     },
     {
       "suite": "html",
-      "name": "Quick actions ×4",
+      "name": "Quick actions removed",
       "status": "PASS",
       "detail": ""
     },
@@ -784,8 +826,8 @@
     {
       "suite": "css",
       "name": "Extra stops styles",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "css",
@@ -803,13 +845,13 @@
       "suite": "i18n",
       "name": "i18n EN keys > 60",
       "status": "PASS",
-      "detail": "count=270"
+      "detail": "count=301"
     },
     {
       "suite": "i18n",
       "name": "i18n UR keys > 60",
       "status": "PASS",
-      "detail": "count=270"
+      "detail": "count=301"
     },
     {
       "suite": "i18n",
@@ -994,8 +1036,8 @@
     {
       "suite": "security",
       "name": "Booking list HTML escaped",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "security",
@@ -1059,13 +1101,13 @@
     },
     {
       "suite": "wiring",
-      "name": "Book ride → createBooking",
+      "name": "Book ride → startRideRequest",
       "status": "PASS",
       "detail": ""
     },
     {
       "suite": "wiring",
-      "name": "Profile/bookings watchers wired",
+      "name": "Profile + history watchers wired",
       "status": "PASS",
       "detail": ""
     },
@@ -1126,8 +1168,8 @@
     {
       "suite": "wiring",
       "name": "Dashboard payment + traffic + lang",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
@@ -1138,8 +1180,8 @@
     {
       "suite": "wiring",
       "name": "Promo codes interactive and affect price",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
@@ -1150,8 +1192,8 @@
     {
       "suite": "wiring",
       "name": "Booking persists fare, payment and promo",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
@@ -1216,8 +1258,8 @@
     {
       "suite": "security",
       "name": "settings readable, client write denied",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "security",
@@ -1240,8 +1282,8 @@
     {
       "suite": "html",
       "name": "Phase 13.1 uses a 50/50 pickup and drop-off header",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "html",
@@ -1282,8 +1324,8 @@
     {
       "suite": "i18n",
       "name": "Phase 13.4 UR promo/GPS/Firebase strings are script-pure",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
@@ -1300,8 +1342,8 @@
     {
       "suite": "wiring",
       "name": "Phase 15 dynamic fare matrix and route listener",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
@@ -1330,8 +1372,8 @@
     {
       "suite": "wiring",
       "name": "Phase 17.3 complete ride clears route and resets sheet",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
@@ -1365,7 +1407,13 @@
     },
     {
       "suite": "wiring",
-      "name": "Phase 26 owner live ride tracking and history",
+      "name": "Owner app is separate with fleet + ride history",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Build hosts driver at /partner and owner at /owner",
       "status": "PASS",
       "detail": ""
     },
@@ -1384,14 +1432,14 @@
     {
       "suite": "html",
       "name": "Map stays clean without floating location controls",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
       "name": "Dynamic stops use same universal location component",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
@@ -1402,14 +1450,14 @@
     {
       "suite": "wiring",
       "name": "Map pick mode reverse-geocodes on drag",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
       "name": "Location autocomplete uses Nominatim search",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
@@ -1420,8 +1468,8 @@
     {
       "suite": "wiring",
       "name": "Smart Maps link paste extracts coordinates",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
@@ -1450,8 +1498,8 @@
     {
       "suite": "a11y",
       "name": "Booking tabs role=tab",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "a11y",

@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "targetConcurrentSessions": 100000,
+  "sessionMix": {
+    "customer": 80000,
+    "driver": 19000,
+    "owner": 900,
+    "admin": 100
+  },
+  "profiles": {
+    "LIGHT": {
+      "riderActiveFraction": 0.05,
+      "driverOnlineFraction": 0.4,
+      "ownerDashboardOpenFraction": 0.3,
+      "adminSessionsActive": 20,
+      "reconnectStormFraction": 0.0
+    },
+    "REALISTIC_PEAK": {
+      "riderActiveFraction": 0.15,
+      "driverOnlineFraction": 0.7,
+      "ownerDashboardOpenFraction": 0.6,
+      "adminSessionsActive": 50,
+      "reconnectStormFraction": 0.1
+    },
+    "SURGE": {
+      "riderActiveFraction": 0.3,
+      "driverOnlineFraction": 0.9,
+      "ownerDashboardOpenFraction": 0.8,
+      "adminSessionsActive": 100,
+      "reconnectStormFraction": 0.5,
+      "spikeSessions": 125000
+    }
+  },
+  "currentAppInvariants": {
+    "gpsWriteIntervalMs": 8000,
+    "gpsWritesPerOnlineDriverPerSecond": 0.125,
+    "searchingDriverQuery": "rides where status==searching_driver orderBy createdAt desc limit(1)",
+    "cloudFunctions": false,
+    "fcmClientImplemented": false,
+    "appCheck": false,
+    "geoMatching": false
+  },
+  "forbiddenProjects": ["swiftgo-ride-app"],
+  "notes": "Mix is provisional until business forecast replaces it. Update sessionMix without changing runners."
+}

@@ -3,13 +3,7 @@
 import { t, applyTranslations, formatMoney } from "./i18n.js";
 import { clearLocationCue } from "./map.js";
 import { isSearchingDriver } from "./ride-flow.js";
-
-const SAVED = {
-  home: { en: "Home", ur: "گھر" },
-  work: { en: "Work", ur: "دفتر" },
-  airport: { en: "Jinnah Airport", ur: "جناح ایئرپورٹ" },
-  mall: { en: "Dolmen Mall", ur: "ڈولمین مال" },
-};
+import { validatePromoCode } from "./data.js";
 
 const VEHICLE_META = {
   bike: { nameKey: "vehBike", eta: 2, price: 142 },
@@ -43,10 +37,12 @@ const CATEGORY_CONFIG = {
   },
 };
 
-const PROMOS = {
-  SWIFT10: { type: "percent", value: 10 },
-  SAVE50: { type: "fixed", value: 50 },
-};
+function computePromoDiscount(price, promo) {
+  if (!promo) return 0;
+  return promo.type === "percent"
+    ? Math.round((price * promo.value) / 100)
+    : Math.min(price, promo.value);
+}
 
 /**
  * Keep booking/CTA state aligned with Phase 15 prices shown on vehicle cards.
@@ -60,19 +56,15 @@ export function setDynamicVehicleFares(fares, eta) {
     if (Number.isFinite(eta)) VEHICLE_META[id].eta = Math.max(0, Math.round(eta));
   }
 
-  if (sheetState.promoCode) {
-    const promo = PROMOS[sheetState.promoCode];
+  if (sheetState.promoCode && sheetState.promoMeta) {
     const meta = VEHICLE_META[sheetState.vehicle] || VEHICLE_META.bike;
-    sheetState.discount =
-      promo?.type === "percent"
-        ? Math.round((meta.price * promo.value) / 100)
-        : Math.min(meta.price, promo?.value || 0);
+    sheetState.discount = computePromoDiscount(meta.price, sheetState.promoMeta);
   }
 
   updateBookRideCta();
 }
 
-/** @type {{ pickup: string, destination: string, stops: string[], service: string | null, category: string | null, vehicle: string, promoCode: string, discount: number, expanded: boolean, rideReady: boolean }} */
+/** @type {{ pickup: string, destination: string, stops: string[], service: string | null, category: string | null, vehicle: string, promoCode: string, promoMeta: { type: string, value: number } | null, discount: number, expanded: boolean, rideReady: boolean }} */
 const sheetState = {
   pickup: "",
   destination: "",
@@ -81,6 +73,7 @@ const sheetState = {
   category: null,
   vehicle: "bike",
   promoCode: "",
+  promoMeta: null,
   discount: 0,
   expanded: false,
   rideReady: false,
@@ -130,8 +123,6 @@ export function initSheet(handlers = {}) {
     handle: document.getElementById("sheetHandle"),
     pickup: document.getElementById("pickupInput"),
     dest: document.getElementById("destInput"),
-    swap: document.getElementById("swapBtn"),
-    search: document.getElementById("searchInput"),
     shell: document.getElementById("shell"),
     ridePanel: document.getElementById("ridePanel"),
     bookRideBtn: document.getElementById("bookRideBtn"),
@@ -152,74 +143,38 @@ export function initSheet(handlers = {}) {
 
   if (!els.sheet) return;
 
-  els.handle.addEventListener("click", toggleSheet);
+  els.handle?.addEventListener("click", toggleSheet);
   // Phase 13.2: bottom-rail categories drive expand + strict vehicle filters.
   document.addEventListener("click", handleLocationQuickAction);
 
   let startY = 0;
   let dragging = false;
-  els.handle.addEventListener("pointerdown", (e) => {
+  els.handle?.addEventListener("pointerdown", (e) => {
     dragging = true;
     startY = e.clientY;
     els.handle.setPointerCapture(e.pointerId);
   });
-  els.handle.addEventListener("pointermove", (e) => {
+  els.handle?.addEventListener("pointermove", (e) => {
     if (!dragging) return;
     const dy = startY - e.clientY;
     if (dy > 40) expandSheet();
     if (dy < -40) collapseSheet();
   });
-  els.handle.addEventListener("pointerup", () => {
+  els.handle?.addEventListener("pointerup", () => {
     dragging = false;
-  });
-
-  els.swap?.addEventListener("click", () => {
-    const a = els.pickup.value;
-    els.pickup.value = els.dest.value;
-    els.dest.value = a;
-    sheetState.pickup = els.pickup.value;
-    sheetState.destination = els.dest.value;
-    syncRideReady();
   });
 
   const onLocInput = () => {
     sheetState.pickup = els.pickup?.value || "";
     sheetState.destination = els.dest?.value || "";
-    if (els.search && els.dest) els.search.value = els.dest.value;
     syncRideReady();
   };
 
-  els.pickup.addEventListener("input", onLocInput);
-  els.dest.addEventListener("input", onLocInput);
+  els.pickup?.addEventListener("input", onLocInput);
+  els.dest?.addEventListener("input", onLocInput);
 
   els.addStopBtn?.addEventListener("click", () => {
     addStopField();
-  });
-
-  if (els.search) {
-    els.search.addEventListener("focus", () => {
-      if (hasBothLocations()) expandSheet();
-    });
-    els.search.addEventListener("input", () => {
-      if (!els.dest) return;
-      els.dest.value = els.search.value;
-      sheetState.destination = els.search.value;
-      syncRideReady();
-    });
-  }
-
-  document.querySelectorAll(".chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      const key = chip.dataset.place;
-      const place = SAVED[key];
-      if (!place) return;
-      const label = place[document.documentElement.lang === "ur" ? "ur" : "en"] || place.en;
-      els.dest.value = label;
-      sheetState.destination = label;
-      if (els.search) els.search.value = label;
-      document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("is-active", c === chip));
-      syncRideReady();
-    });
   });
 
   els.serviceRail?.addEventListener("click", (event) => {
@@ -342,13 +297,13 @@ function setPromoMessage(key, isError = false) {
   els.promoMessage.textContent = t(key);
 }
 
-function applyPromo() {
+async function applyPromo() {
   const code = (els.promoInput?.value || "").trim().toUpperCase();
-  const promo = PROMOS[code];
   const meta = VEHICLE_META[sheetState.vehicle] || VEHICLE_META.bike;
 
-  if (!promo) {
+  if (!code) {
     sheetState.promoCode = "";
+    sheetState.promoMeta = null;
     sheetState.discount = 0;
     els.promoControl?.classList.remove("is-applied");
     if (els.promoStatus) els.promoStatus.textContent = "";
@@ -357,19 +312,37 @@ function applyPromo() {
     return;
   }
 
-  sheetState.promoCode = code;
-  sheetState.discount =
-    promo.type === "percent"
-      ? Math.round((meta.price * promo.value) / 100)
-      : Math.min(meta.price, promo.value);
-  els.promoControl?.classList.add("is-applied");
-  if (els.promoStatus) els.promoStatus.textContent = code;
-  setPromoMessage("promoApplied");
-  updateBookRideCta();
+  if (els.promoApplyBtn) els.promoApplyBtn.disabled = true;
+  setPromoMessage("promoChecking");
+
+  try {
+    const promo = await validatePromoCode(code);
+
+    if (!promo) {
+      sheetState.promoCode = "";
+      sheetState.promoMeta = null;
+      sheetState.discount = 0;
+      els.promoControl?.classList.remove("is-applied");
+      if (els.promoStatus) els.promoStatus.textContent = "";
+      setPromoMessage("promoInvalid", true);
+      updateBookRideCta();
+      return;
+    }
+
+    sheetState.promoCode = promo.code;
+    sheetState.promoMeta = { type: promo.type, value: promo.value };
+    sheetState.discount = computePromoDiscount(meta.price, sheetState.promoMeta);
+    els.promoControl?.classList.add("is-applied");
+    if (els.promoStatus) els.promoStatus.textContent = promo.code;
+    setPromoMessage("promoApplied");
+    updateBookRideCta();
+  } finally {
+    if (els.promoApplyBtn) els.promoApplyBtn.disabled = false;
+  }
 }
 
 function stopCount() {
-  return els.extraStops?.querySelectorAll(".loc-field--stop").length || 0;
+  return els.extraStops?.querySelectorAll(".route-search__stop").length || 0;
 }
 
 function updateAddStopBtn() {
@@ -386,48 +359,29 @@ export function addStopField() {
   stopSeq += 1;
   const id = `stopInput-${stopSeq}`;
   const row = document.createElement("div");
-  row.className = "loc-field loc-field--smart loc-field--stop";
+  row.className = "route-search__stop";
   row.dataset.stopId = String(stopSeq);
   row.dataset.locationRole = "stop";
   row.innerHTML = `
-    <span class="loc-field__dot loc-field__dot--stop" aria-hidden="true"></span>
     <input
       id="${id}"
-      class="loc-field__input stop-input"
+      class="route-search__input stop-input"
       type="text"
       autocomplete="off"
+      enterkeyhint="next"
       data-i18n-placeholder="stopPlaceholder"
       placeholder="${t("stopPlaceholder")}"
     />
-    <div class="loc-field__actions" aria-label="${t("stopActions")}" data-i18n-aria="stopActions">
-      <button
-        type="button"
-        class="loc-action-btn"
-        data-location-action="gps"
-        data-location-target="${id}"
-        aria-label="${t("useGpsStop")}"
-        data-i18n-aria="useGpsStop"
-        title="${t("useLiveGps")}"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-          <circle cx="12" cy="12" r="5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-        </svg>
-      </button>
-      <button
-        type="button"
-        class="loc-action-btn"
-        data-location-action="map"
-        data-location-target="${id}"
-        aria-label="${t("chooseStopMap")}"
-        data-i18n-aria="chooseStopMap"
-        title="${t("chooseOnMap")}"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-          <path d="M12 21s7-6.1 7-12A7 7 0 1 0 5 9c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.4"/>
-        </svg>
-      </button>
-    </div>
-    <button type="button" class="remove-stop-btn" aria-label="${t("removeStop")}" data-i18n-aria="removeStop">
+    <button
+      type="button"
+      class="route-search__voice-btn"
+      data-location-action="voice"
+      data-location-target="${id}"
+      aria-label="${t("voiceInput")}"
+      data-i18n-aria="voiceInput"
+      title="${t("voiceInput")}"
+    >🎤</button>
+    <button type="button" class="route-search__remove remove-stop-btn" aria-label="${t("removeStop")}" data-i18n-aria="removeStop">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
         <path d="M6 6l12 12M18 6 6 18"/>
       </svg>
@@ -437,6 +391,11 @@ export function addStopField() {
   const input = row.querySelector(".stop-input");
   input?.addEventListener("input", () => {
     sheetState.stops = collectStops();
+    document.dispatchEvent(
+      new CustomEvent("swiftgo:locations-changed", {
+        detail: { inputId: id, pickup: sheetState.pickup, destination: sheetState.destination },
+      })
+    );
   });
 
   row.querySelector(".remove-stop-btn")?.addEventListener("click", () => {
@@ -445,6 +404,11 @@ export function addStopField() {
     row.remove();
     sheetState.stops = collectStops();
     updateAddStopBtn();
+    document.dispatchEvent(
+      new CustomEvent("swiftgo:locations-changed", {
+        detail: { inputId: id, pickup: sheetState.pickup, destination: sheetState.destination },
+      })
+    );
   });
 
   els.extraStops.appendChild(row);
@@ -457,7 +421,8 @@ export function addStopField() {
  */
 function handleLocationQuickAction(event) {
   const button = event.target.closest("[data-location-action]");
-  if (!button || !document.getElementById("topbar")?.contains(button)) return;
+  const routeRoot = document.getElementById("routeSearchCard");
+  if (!button || !routeRoot?.contains(button)) return;
 
   const input = document.getElementById(button.dataset.locationTarget || "");
   const field = button.closest("[data-location-role]");
@@ -512,13 +477,11 @@ export function selectVehicle(id, opts = {}) {
   const key = VEHICLE_META[id] ? id : "bike";
   sheetState.vehicle = key;
 
-  if (sheetState.promoCode) {
-    const promo = PROMOS[sheetState.promoCode];
-    const meta = VEHICLE_META[key];
-    sheetState.discount =
-      promo?.type === "percent"
-        ? Math.round((meta.price * promo.value) / 100)
-        : Math.min(meta.price, promo?.value || 0);
+  if (sheetState.promoCode && sheetState.promoMeta) {
+    const meta = VEHICLE_META[key] || VEHICLE_META.bike;
+    sheetState.discount = computePromoDiscount(meta.price, sheetState.promoMeta);
+  } else if (!sheetState.promoMeta) {
+    sheetState.discount = 0;
   }
 
   document.querySelectorAll(".vehicle-card").forEach((card) => {
@@ -529,6 +492,12 @@ export function selectVehicle(id, opts = {}) {
 
   updateBookRideCta();
   if (!opts.silent) expandSheet();
+
+  window.SwiftGo = window.SwiftGo || {};
+  window.SwiftGo.selectedVehicleKey = key;
+  document.dispatchEvent(
+    new CustomEvent("swiftgo:vehicle-selected", { detail: { vehicle: key } })
+  );
 }
 
 export function updateBookRideCta() {
@@ -593,7 +562,6 @@ export function resetSheetForNewRide() {
 
   if (els.pickup) els.pickup.value = "";
   if (els.dest) els.dest.value = "";
-  if (els.search) els.search.value = "";
   if (els.promoInput) els.promoInput.value = "";
   if (els.promoForm) els.promoForm.hidden = true;
   if (els.promoMessage) els.promoMessage.hidden = true;
@@ -608,6 +576,7 @@ export function resetSheetForNewRide() {
   syncRideReady({ autoExpand: false });
   updateAddStopBtn();
   collapseSheet();
+  document.dispatchEvent(new CustomEvent("swiftgo:reset-route-ui"));
 }
 
 export function setPickupLabel(text) {
@@ -631,13 +600,22 @@ export function setLocationFieldValue(inputId, text, opts = {}) {
     sheetState.pickup = value;
   } else if (inputId === "destInput") {
     sheetState.destination = value;
-    if (els.search) els.search.value = value;
   } else if (input.classList.contains("stop-input")) {
     sheetState.stops = collectStops();
   }
 
   syncRideReady({ autoExpand: opts.autoExpand === true });
   input.dispatchEvent(new Event("input", { bubbles: true }));
+  document.dispatchEvent(
+    new CustomEvent("swiftgo:locations-changed", {
+      detail: {
+        pickup: sheetState.pickup,
+        destination: sheetState.destination,
+        ready: hasBothLocations(),
+        inputId,
+      },
+    })
+  );
 }
 
 export function getLocationFieldValue(inputId) {

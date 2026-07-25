@@ -12,21 +12,21 @@ import { initMap, locateUser, resizeMap } from "./map.js";
 import {
   initSheet,
   setSheetVisible,
-  setPickupLabel,
   refreshSheetLabels,
   collapseSheet,
   expandSheet,
   resetSheetForNewRide,
 } from "./sheet.js";
 import { initLocationModule, refreshLocationLabels } from "./location.js";
+import { initStepUi, refreshStepUiLabels } from "./step-ui.js";
+
 import {
   initScreens,
   refreshScreens,
-  setBookingsData,
   setWalletBalanceUi,
 } from "./screens.js";
 import { initAuth, onUserChange, openAuthModal, getCurrentUser } from "./auth.js";
-import { watchUserProfile, watchBookings, createBooking } from "./data.js";
+import { watchUserProfile } from "./data.js";
 import { isFirebaseConfigured } from "./firebase.js";
 import {
   initDashboard,
@@ -44,9 +44,15 @@ import {
   refreshUtilityDrawerLabels,
   isUtilityDrawerOpen,
 } from "./utility-drawer.js";
-import { getRouteInfo } from "./routing.js";
+import { getRouteInfo, initRoutingUi } from "./routing.js";
 import { initFareCalculation } from "./fare.js";
 import { initRideFlow, startRideRequest } from "./ride-flow.js";
+import {
+  initRideHistory,
+  refreshRideHistory,
+  startCustomerRideHistory,
+  stopCustomerRideHistory,
+} from "./history.js";
 
 const els = {
   app: document.getElementById("app"),
@@ -64,7 +70,6 @@ const els = {
 let drawerOpen = false;
 let mapReady = false;
 let unsubProfile = () => {};
-let unsubBookings = () => {};
 
 function openDrawer() {
   closeUtilityDrawer();
@@ -105,12 +110,16 @@ function ensureMap() {
   }
   initMap("map");
   mapReady = true;
+  // Layout may still be settling after floating topbar grid fix.
+  window.requestAnimationFrame(() => {
+    resizeMap();
+    window.setTimeout(() => resizeMap(), 120);
+  });
 }
 
 async function goToMyLocation() {
   ensureMap();
   await locateUser({ fly: true });
-  setPickupLabel(t("currentLocation"));
 }
 
 function navigate(route) {
@@ -134,12 +143,14 @@ function navigate(route) {
       ensureMap();
       resizeMap();
     });
-  } else {
-    collapseSheet();
   }
 
   closeDrawer();
   closeUtilityDrawer();
+
+  if (route === "history") {
+    refreshRideHistory();
+  }
 }
 
 function bookNow() {
@@ -178,16 +189,6 @@ async function handleBookRide(state) {
   }
 
   try {
-    await createBooking({
-      service: state.vehicle || state.service || "ride",
-      pickup: state.pickup || t("currentLocation"),
-      destination: state.destination,
-      status: "scheduled",
-      fare: state.price || 0,
-      paymentMethod: getPaymentMethod(),
-      promoCode: state.promoCode || "",
-    });
-    // Phase 16: write rides/{id} then swap the sheet to "searching driver".
     await startRideRequest(state);
     showToast(`${t("bookingCreated")} · ${paymentMethodLabel(getPaymentMethod())}`);
   } catch (err) {
@@ -220,19 +221,18 @@ function updateProfileUi(user, profile) {
     }
     if (els.signOutBtn) els.signOutBtn.hidden = true;
     setWalletBalanceUi(0);
-    setBookingsData([]);
+    stopCustomerRideHistory();
   }
 }
 
 function bindUserData() {
   onUserChange((user) => {
     unsubProfile();
-    unsubBookings();
     unsubProfile = () => {};
-    unsubBookings = () => {};
 
     if (!user) {
       updateProfileUi(null, null);
+      stopCustomerRideHistory();
       return;
     }
 
@@ -240,9 +240,7 @@ function bindUserData() {
     unsubProfile = watchUserProfile(user.uid, (profile) => {
       updateProfileUi(user, profile);
     });
-    unsubBookings = watchBookings(user.uid, (rows) => {
-      setBookingsData(rows);
-    });
+    startCustomerRideHistory(user.uid);
   });
 }
 
@@ -281,6 +279,7 @@ function bindEvents() {
         refreshDriverOnboardingLabels();
         refreshLocationLabels();
         refreshUtilityDrawerLabels();
+        refreshRideHistory();
         const user = getCurrentUser();
         if (!user) {
           if (els.profileName) els.profileName.textContent = t("profileName");
@@ -316,7 +315,9 @@ function bindEvents() {
     refreshDashboardLabels();
     refreshDriverOnboardingLabels();
     refreshLocationLabels();
+    refreshStepUiLabels();
     refreshUtilityDrawerLabels();
+    refreshRideHistory();
   });
 }
 
@@ -333,14 +334,15 @@ async function boot() {
     onToast: showToast,
     onReset: resetSheetForNewRide,
   });
+  initRideHistory();
   initLocationModule({
     ensureMap,
     navigateHome: () => navigate("home"),
   });
+  initRoutingUi();
+  initStepUi();
   initScreens({ onBookNow: bookNow });
   initDashboard({
-    onNavigate: navigate,
-    onCloseDrawer: closeDrawer,
     onToast: showToast,
   });
   await initAuth();
@@ -350,7 +352,6 @@ async function boot() {
   els.shell.classList.add("on-home");
   navigate("home");
   closeDrawer();
-  setPickupLabel(t("currentLocation"));
   console.info(
     `[SwiftGo] Phase 17 live ride status ready · firebase=${isFirebaseConfigured()} · lang=${getLang()}`
   );

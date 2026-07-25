@@ -1,13 +1,10 @@
 /** Phase 8: payment method sheet + sidebar dashboard helpers */
 
-import { t, applyTranslations, setLang, getLang, syncLangButtons } from "./i18n.js";
+import { t, applyTranslations } from "./i18n.js";
 
 const PAY_KEY = "swiftgo_pay_method";
-const TRAFFIC_KEY = "swiftgo_show_traffic";
 
 let selectedPay = loadPay();
-let onNavigate = null;
-let onCloseDrawer = null;
 let onToast = null;
 
 function loadPay() {
@@ -46,38 +43,9 @@ export function closePaySheet() {
   }, 280);
 }
 
-function applyTraffic(on) {
-  document.documentElement.classList.toggle("show-traffic", on);
-  try {
-    localStorage.setItem(TRAFFIC_KEY, on ? "1" : "0");
-  } catch {
-    /* ignore */
-  }
-}
-
-function syncLangToggleUi() {
-  const toggle = document.getElementById("langToggle");
-  if (toggle) toggle.checked = getLang() === "ur";
-}
-
 export function initDashboard(handlers = {}) {
-  onNavigate = handlers.onNavigate || null;
-  onCloseDrawer = handlers.onCloseDrawer || null;
   onToast = handlers.onToast || null;
 
-  // Restore traffic
-  let trafficOn = false;
-  try {
-    trafficOn = localStorage.getItem(TRAFFIC_KEY) === "1";
-  } catch {
-    /* ignore */
-  }
-  const trafficToggle = document.getElementById("trafficToggle");
-  if (trafficToggle) trafficToggle.checked = trafficOn;
-  applyTraffic(trafficOn);
-  syncLangToggleUi();
-
-  // Payment UI
   document.getElementById("payMethodBtn")?.addEventListener("click", openPaySheet);
   document.getElementById("paySheetBackdrop")?.addEventListener("click", closePaySheet);
   document.getElementById("paySheetHandle")?.addEventListener("click", closePaySheet);
@@ -101,59 +69,10 @@ export function initDashboard(handlers = {}) {
     }
   });
 
-  // Quick actions
-  document.querySelectorAll("[data-quick]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const action = btn.dataset.quick;
-      handleQuick(action);
-    });
-  });
-
-  trafficToggle?.addEventListener("change", () => {
-    applyTraffic(Boolean(trafficToggle.checked));
-  });
-
-  document.getElementById("langToggle")?.addEventListener("change", (e) => {
-    const urdu = e.target.checked;
-    setLang(urdu ? "ur" : "en");
-    syncLangButtons();
-    applyTranslations();
-    syncLangToggleUi();
-  });
-
   applyTranslations(document.getElementById("paySheet") || document);
-}
-
-function handleQuick(action) {
-  const settings = document.getElementById("sidebarSettings");
-
-  if (action === "settings") {
-    if (settings) {
-      settings.hidden = !settings.hidden;
-    }
-    return;
-  }
-
-  if (settings) settings.hidden = true;
-
-  if (action === "support") {
-    if (typeof onNavigate === "function") onNavigate("contact");
-    return;
-  }
-
-  if (action === "history") {
-    if (typeof onNavigate === "function") onNavigate("bookings");
-    return;
-  }
-
-  if (action === "addresses") {
-    if (typeof onCloseDrawer === "function") onCloseDrawer();
-    if (typeof onToast === "function") onToast(t("addressesSoon"));
-  }
 }
 
 export function refreshDashboardLabels() {
   applyTranslations(document.getElementById("sidebar") || document);
   applyTranslations(document.getElementById("paySheet") || document);
-  syncLangToggleUi();
 }

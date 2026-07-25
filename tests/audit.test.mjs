@@ -77,11 +77,16 @@ const requiredFiles = [
   "customer-app/js/routing.js",
   "customer-app/js/fare.js",
   "customer-app/js/ride-flow.js",
-  "partner-app/index.html",
-  "partner-app/css/partner-style.css",
-  "partner-app/js/partner-app.js",
-  "partner-app/js/firebase.js",
-  "partner-app/js/firebase-config.js",
+  "driver-app/index.html",
+  "driver-app/css/driver-style.css",
+  "driver-app/js/driver-app.js",
+  "driver-app/js/firebase.js",
+  "driver-app/js/firebase-config.js",
+  "owner-app/index.html",
+  "owner-app/css/owner-style.css",
+  "owner-app/js/owner-app.js",
+  "owner-app/js/firebase.js",
+  "owner-app/js/firebase-config.js",
   "super-admin-panel/index.html",
   "super-admin-panel/css/admin-style.css",
   "super-admin-panel/js/admin-app.js",
@@ -110,7 +115,9 @@ const requiredIds = [
   "authModal",
   "authForm",
   "screen-home",
-  "screen-bookings",
+  "historySection",
+  "historyChatList",
+  "historyEmpty",
   "screen-wallet",
   "screen-contact",
   "screen-missed-call",
@@ -127,7 +134,6 @@ const requiredIds = [
   "addStopBtn",
   "earnDriverBtn",
   "trafficToggle",
-  "langToggle",
   "promoTrigger",
   "promoInput",
   "promoApplyBtn",
@@ -155,7 +161,7 @@ for (const id of requiredIds) {
   assert("html", `HTML id="#${id}"`, html.includes(`id="${id}"`));
 }
 
-const routes = ["home", "missed-call", "bookings", "wallet", "contact"];
+const routes = ["home", "history", "missed-call", "wallet", "contact"];
 for (const r of routes) {
   assert("html", `Nav route data-route="${r}"`, html.includes(`data-route="${r}"`));
   assert("html", `Screen data-screen="${r}"`, html.includes(`data-screen="${r}"`));
@@ -172,7 +178,8 @@ assert("html", "10-80-10 sheet present", html.includes('id="sheet"') && html.inc
 assert("html", "Primary categories ×3", countMatches(html, /class="service-rail__item" data-category="(ride|cargo|rent)"/g) === 3);
 assert("html", "Legacy service cards removed", !html.includes("service-card") && !html.includes('data-service="'));
 assert("html", "Vehicle cards ×7", countMatches(html, /data-vehicle="/g) >= 7);
-assert("html", "Booking tabs ×3", countMatches(html, /data-booking-tab="/g) === 3);
+assert("html", "Booking tabs removed", countMatches(html, /data-booking-tab="/g) === 0);
+assert("html", "History chat list present", html.includes('id="historyChatList"'));
 assert(
   "html",
   "Auth email+password fields",
@@ -184,7 +191,7 @@ assert("html", "Viewport meta present", /name=["']viewport["']/.test(html));
 assert("html", "Title is SwiftGo", html.includes("SwiftGo") && /<title[^>]*>SwiftGo<\/title>/.test(html));
 
 // Phase 8–10 dashboard + advanced ride markup
-assert("html", "Quick actions ×4", countMatches(html, /data-quick="/g) === 4);
+assert("html", "Quick actions removed", countMatches(html, /data-quick="/g) === 0);
 assert(
   "html",
   "Payment methods include Business Account",
@@ -302,6 +309,7 @@ assert(
   firebaseJson.includes('"public": "hosting-dist"') &&
     firebaseJson.includes('node tools/build-hosting.mjs') &&
     firebaseJson.includes('"/partner/index.html"') &&
+    firebaseJson.includes('"/owner/index.html"') &&
     firebaseJson.includes('"/admin/index.html"') &&
     firebaseJson.includes('"/customer/index.html"')
 );
@@ -395,13 +403,13 @@ assert(
 assert("wiring", "app boots Phase 17 live ride status", appJs.includes("Phase 17 live ride status ready"));
 assert(
   "wiring",
-  "Book ride → createBooking",
-  appJs.includes("createBooking") && appJs.includes("handleBookRide")
+  "Book ride → startRideRequest",
+  appJs.includes("startRideRequest") && appJs.includes("handleBookRide")
 );
 assert(
   "wiring",
-  "Profile/bookings watchers wired",
-  appJs.includes("watchUserProfile") && appJs.includes("watchBookings")
+  "Profile + history watchers wired",
+  appJs.includes("watchUserProfile") && appJs.includes("startCustomerRideHistory")
 );
 assert("wiring", "initAuth wired", appJs.includes("initAuth"));
 assert("wiring", "initMap + locateUser wired", appJs.includes("initMap") && appJs.includes("locateUser"));
@@ -752,14 +760,17 @@ assert(
     rideFlowJs.includes('resetToVehicleSelection("driverDeclined")') &&
     i18nSrc.includes("ڈرائیور نے معذرت کر لی ہے، دوبارہ کوشش کریں")
 );
-const driverHtml = read("partner-app/index.html");
-const driverCss = read("partner-app/css/partner-style.css");
-const driverAppJs = read("partner-app/js/partner-app.js");
+const driverHtml = read("driver-app/index.html");
+const driverCss = read("driver-app/css/driver-style.css");
+const driverAppJs = read("driver-app/js/driver-app.js");
+const ownerHtml = read("owner-app/index.html");
+const ownerCss = read("owner-app/css/owner-style.css");
+const ownerAppJs = read("owner-app/js/owner-app.js");
 assert(
   "html",
   "Phase 18 driver app RTL shell and premium header",
   driverHtml.includes('<html lang="ur" dir="rtl">') &&
-    driverHtml.includes("سوئفٹ گو پارٹنر") &&
+    driverHtml.includes("سوئفٹ گو ڈرائیور") &&
     driverHtml.includes('id="driverStatusToggle"') &&
     driverHtml.includes('role="switch"') &&
     driverHtml.includes('id="driverMap"') &&
@@ -777,7 +788,7 @@ assert(
     driverAppJs.includes("toggleDriverStatus") &&
     driverAppJs.includes("L.map") &&
     driverAppJs.includes("OpenStreetMap") &&
-    driverCss.includes(".driver-header") &&
+    driverCss.includes(".partner-topbar") &&
     driverCss.includes(".driver-status.is-online") &&
     driverCss.includes(".incoming-ride-sheet")
 );
@@ -798,28 +809,41 @@ assert(
 assert(
   "wiring",
   "Partner auth routes strictly by saved role",
-  driverHtml.includes('id="roleSelectionOverlay"') &&
-    driverHtml.includes('id="roleSelectionLogoutBtn"') &&
+  driverHtml.includes('id="driverMap"') &&
     driverHtml.includes('id="pinGateLogoutBtn"') &&
-    driverHtml.includes('id="driverMap"') &&
+    !driverHtml.includes('id="roleSelectionOverlay"') &&
+    !driverHtml.includes('id="btnReturnToOwner"') &&
+    !driverHtml.includes("مالک موڈ میں واپس جائیں") &&
     driverAppJs.includes("if (!partnerSnapshot.exists() || !partnerSnapshot.data().role)") &&
+    driverAppJs.includes('role: "driver"') &&
     driverAppJs.includes('partner.role === "owner"') &&
-    driverAppJs.includes('partner.role === "driver"') &&
+    driverAppJs.includes('window.location.replace("/owner/")') &&
     driverAppJs.includes("await signOut(auth)") &&
     driverAppJs.includes("hideProtectedUi()")
 );
 assert(
   "wiring",
-  "Phase 26 owner live ride tracking and history",
-  driverHtml.includes('id="ownerRideList"') &&
-    driverHtml.includes("آج کی سواریاں اور ہسٹری") &&
-    driverAppJs.includes('where("ownerId", "==", currentDriver.uid)') &&
-    driverAppJs.includes("startOwnerRidesListener()") &&
-    driverAppJs.includes("update.vehicleId = vehicleSnapshot.id") &&
-    driverAppJs.includes("update.ownerId = vehicleSnapshot.data().ownerId") &&
-    driverCss.includes(".owner-ride-history") &&
+  "Owner app is separate with fleet + ride history",
+  ownerHtml.includes("سوئفٹ گو مالک") &&
+    ownerHtml.includes('id="ownerRideList"') &&
+    ownerHtml.includes("آج کی سواریاں اور ہسٹری") &&
+    ownerHtml.includes('id="ownerVehicleGrid"') &&
+    !ownerHtml.includes('id="driverMap"') &&
+    !ownerHtml.includes('id="roleSelectionOverlay"') &&
+    ownerAppJs.includes('where("ownerId", "==", currentDriver.uid)') &&
+    ownerAppJs.includes("startOwnerRidesListener()") &&
+    ownerAppJs.includes('role: "owner"') &&
+    ownerAppJs.includes("showOwnerDashboard()") &&
+    !ownerAppJs.includes('window.location.replace("/partner/")') &&
+    ownerCss.includes(".owner-ride-history") &&
     rules.includes("resource.data.ownerId == request.auth.uid") &&
     rules.includes("'driverName', 'vehiclePlate'")
+);
+assert(
+  "wiring",
+  "Build hosts driver at /partner and owner at /owner",
+  read("tools/build-hosting.mjs").includes('copyApp("driver-app", "partner")') &&
+    read("tools/build-hosting.mjs").includes('copyApp("owner-app", "owner")')
 );
 const adminHtml = read("super-admin-panel/index.html");
 const adminCss = read("super-admin-panel/css/admin-style.css");
@@ -841,7 +865,10 @@ assert(
     adminAppJs.includes('./firebase.js') &&
     !adminAppJs.includes("../customer-app/") &&
     !adminAppJs.includes("../partner-app/") &&
+    !adminAppJs.includes("../driver-app/") &&
+    !adminAppJs.includes("../owner-app/") &&
     !driverAppJs.includes("../super-admin-panel/") &&
+    !ownerAppJs.includes("../super-admin-panel/") &&
     firebaseJson.includes('"public": "hosting-dist"')
 );
 assert(

@@ -11,6 +11,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Sole Super Admin / Owner. Drivers and other partners never match.
+    function isSuperAdmin() {
+      return isSignedIn()
+        && request.auth.token.email == 'fuzail1158@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
     // Allowed booking lifecycle states (audit: enum was unconstrained).
     function isValidStatus(status) {
       return status in ['scheduled', 'current', 'completed', 'cancelled'];
@@ -45,6 +52,19 @@ service cloud.firestore {
         && data.cnicBackUrl.size() <= 2000
         && data.licenseImageUrl.size() <= 2000
         && data.selfieUrl.size() <= 2000;
+    }
+
+    // Phase 37: driver wallet recharge requests.
+    function isValidRechargeRequest(data) {
+      return data.keys().hasAll([
+          'driverId', 'driverName', 'method', 'amount', 'tid', 'status', 'createdAt'
+        ])
+        && data.driverId == request.auth.uid
+        && data.driverName.size() > 0 && data.driverName.size() <= 120
+        && data.method in ['jazzcash', 'easypaisa']
+        && data.amount > 0 && data.amount <= 500000
+        && data.tid.size() > 0 && data.tid.size() <= 80
+        && data.status == 'pending';
     }
 
     // ── users/{uid} ──
@@ -101,21 +121,32 @@ service cloud.firestore {
         && data.distanceKm >= 0
         && data.timeMins >= 0
         && data.farePkr >= 0
-        && data.status == 'searching_driver';
+        && data.status == 'searching_driver'
+        && (!('promoCode' in data) || (
+          data.promoCode is string
+          && data.promoCode.size() >= 1
+          && data.promoCode.size() <= 32
+        ))
+        && (!('discountAmount' in data) || data.discountAmount >= 0)
+        && (!('originalFare' in data) || data.originalFare >= data.farePkr);
     }
 
     match /rides/{rideId} {
       // Customer watches own ride. Drivers may list/get open requests and
       // accept/decline them; assigned driver may also read after accept.
       allow get: if isSignedIn() && (
-        resource.data.userId == request.auth.uid
+        isSuperAdmin()
+        || resource.data.userId == request.auth.uid
         || resource.data.status == 'searching_driver'
         || resource.data.driverId == request.auth.uid
         || resource.data.ownerId == request.auth.uid
       );
       allow list: if isSignedIn() && (
-        resource.data.status == 'searching_driver'
+        isSuperAdmin()
+        || resource.data.status == 'searching_driver'
         || resource.data.ownerId == request.auth.uid
+        || resource.data.userId == request.auth.uid
+        || resource.data.driverId == request.auth.uid
       );
 
       allow create: if isSignedIn()
@@ -165,6 +196,41 @@ service cloud.firestore {
                  /databases/$(database)/documents/vehicles/$(request.resource.data.vehicleId)
                ).data.plate
           )
+          ||
+          (
+            // Phase 32: assigned driver advances accepted → arrived → in_progress
+            resource.data.driverId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+            && (
+              (resource.data.status == 'accepted'
+                && request.resource.data.status == 'arrived')
+              ||
+              (resource.data.status == 'arrived'
+                && request.resource.data.status == 'in_progress')
+            )
+          )
+          ||
+          (
+            // Phase 33: complete ride with commission split
+            resource.data.driverId == request.auth.uid
+            && resource.data.status == 'in_progress'
+            && request.resource.data.status == 'completed'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'commissionAmount', 'driverEarnings'])
+            && request.resource.data.commissionAmount >= 0
+            && request.resource.data.driverEarnings >= 0
+          )
+          ||
+          (
+            // Phase 42: customer rates a completed ride (one time).
+            resource.data.userId == request.auth.uid
+            && resource.data.status == 'completed'
+            && !('customerRating' in resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['customerRating', 'ratedAt'])
+            && request.resource.data.customerRating >= 1
+            && request.resource.data.customerRating <= 5
+          )
         );
 
       allow delete: if false;
@@ -172,7 +238,10 @@ service cloud.firestore {
 
     // ── drivers/{driverId} ── (Phase 20: auto-approved driver profiles)
     match /drivers/{driverId} {
-      allow read, write: if request.auth != null && request.auth.uid == driverId;
+      allow read: if isSignedIn() && (
+        isSuperAdmin() || request.auth.uid == driverId
+      );
+      allow write: if request.auth != null && request.auth.uid == driverId;
     }
 
     // ── vehicles/{id} ── (Phase 24: owner fleet, Phase 25: PIN linking)
@@ -198,20 +267,106 @@ service cloud.firestore {
         && request.resource.data.status == 'online'
         && (resource.data.status != 'online' || resource.data.driverId == request.auth.uid);
 
+      // Phase 32: assigned driver may set/clear activeRideId while online/in ride.
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['activeRideId', 'status'])
+        && resource.data.driverId == request.auth.uid
+        && request.resource.data.driverId == resource.data.driverId
+        && request.resource.data.status in ['online', 'in_ride'];
+
+      // Phase 38: assigned driver publishes live GPS for admin fleet map.
+      allow update: if isSignedIn()
+        && resource.data.driverId == request.auth.uid
+        && request.resource.data.driverId == resource.data.driverId
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['location', 'locationUpdatedAt', 'driverName', 'status'])
+        && request.resource.data.location.keys().hasAll(['lat', 'lng'])
+        && request.resource.data.location.lat >= -90
+        && request.resource.data.location.lat <= 90
+        && request.resource.data.location.lng >= -180
+        && request.resource.data.location.lng <= 180
+        && request.resource.data.status in ['online', 'in_ride'];
+
+      allow update: if isSignedIn()
+        && resource.data.driverId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status == 'offline';
+
+      // Phase 40: Super Admin owner drive mode (takeover / restore).
+      allow update: if isSuperAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly([
+               'driverId', 'driverName', 'previousDriverId',
+               'previousDriverName', 'status'
+             ]);
+
       allow delete: if isSignedIn()
         && resource.data.ownerId == request.auth.uid;
     }
 
     // ── partners/{uid} ── (Phase 25: driver ↔ vehicle assignment)
+    // Phase 29: only Super Admin may set accountStatus (block/unblock).
     match /partners/{partnerId} {
-      allow read, write: if isSignedIn() && request.auth.uid == partnerId;
+      allow read: if isSignedIn() && (
+        isSuperAdmin() || request.auth.uid == partnerId
+      );
+
+      // Partners may create owner/driver profiles only — never self-assign admin_driver.
+      allow create: if isSignedIn()
+        && request.auth.uid == partnerId
+        && (
+          !request.resource.data.keys().hasAny(['accountStatus'])
+          || request.resource.data.accountStatus == 'active'
+        )
+        && (
+          !request.resource.data.keys().hasAny(['role'])
+          || request.resource.data.role in ['owner', 'driver']
+        );
+
+      // Self-update: never escalate to admin_driver (Owner God Mode is Super Admin only).
+      allow update: if isSignedIn()
+        && request.auth.uid == partnerId
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['accountStatus'])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])
+          || request.resource.data.role in ['owner', 'driver']
+        );
+
+      allow update: if isSuperAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['accountStatus'])
+        && request.resource.data.accountStatus in ['active', 'blocked'];
+
+      // Phase 43: Super Admin God Mode — full partner write for drive takeover / restore.
+      allow update: if isSuperAdmin();
+
+      // Phase 37: Super Admin may credit driver wallet on recharge approval.
+      allow update: if isSuperAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['walletBalance'])
+        && request.resource.data.walletBalance >= resource.data.walletBalance;
+
+      // Phase 42: customer rating aggregate after a completed ride.
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['customerRatingSum', 'customerRatingCount'])
+        && request.resource.data.customerRatingCount
+             == resource.data.get('customerRatingCount', 0) + 1
+        && request.resource.data.customerRatingSum
+             >= resource.data.get('customerRatingSum', 0) + 1
+        && request.resource.data.customerRatingSum
+             <= resource.data.get('customerRatingSum', 0) + 5;
+
+      allow delete: if false;
     }
 
-    // ── settings/{docId} ──
-    // Super Admin edits via Console / Admin SDK. Clients may only read.
-    match /settings/{docId} {
-      allow read: if true;
-      allow write: if false;
+    // ── settings/{document} ──
+    // Phase 30: dynamic pricing (settings/pricing). Signed-in apps may read;
+    // only Super Admin may write.
+    match /settings/{document} {
+      allow read: if request.auth != null;
+      allow write: if isSuperAdmin();
     }
 
     // ── driver_applications/{id} ──
@@ -222,6 +377,56 @@ service cloud.firestore {
         && isValidDriverApplication(request.resource.data);
 
       allow update, delete: if false;
+    }
+
+    // ── rechargeRequests/{requestId} ── (Phase 37: wallet top-up approvals)
+    match /rechargeRequests/{requestId} {
+      allow get: if isSignedIn() && (
+        isSuperAdmin() || resource.data.driverId == request.auth.uid
+      );
+      allow list: if isSignedIn() && (
+        isSuperAdmin() || resource.data.driverId == request.auth.uid
+      );
+
+      allow create: if isSignedIn()
+        && isValidRechargeRequest(request.resource.data);
+
+      allow update: if isSuperAdmin()
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'approved'
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'approvedAt']);
+
+      allow delete: if false;
+    }
+
+    // ── promoCodes/{code} ── (Phase 42: discount codes)
+    match /promoCodes/{codeId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSuperAdmin()
+        && request.resource.data.keys().hasAll(['code', 'type', 'value', 'active', 'createdAt'])
+        && request.resource.data.code == codeId
+        && request.resource.data.code.size() >= 1
+        && request.resource.data.code.size() <= 32
+        && request.resource.data.type in ['percent', 'fixed']
+        && request.resource.data.value > 0
+        && request.resource.data.active is bool
+        && (!('usedCount' in request.resource.data) || request.resource.data.usedCount >= 0)
+        && (!('maxUses' in request.resource.data) || request.resource.data.maxUses >= 0);
+
+      allow update: if isSuperAdmin()
+        || (
+          isSignedIn()
+          && resource.data.active == true
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedCount'])
+          && request.resource.data.usedCount == resource.data.get('usedCount', 0) + 1
+          && (!('maxUses' in resource.data)
+              || resource.data.maxUses <= 0
+              || request.resource.data.usedCount <= resource.data.maxUses)
+        );
+
+      allow delete: if isSuperAdmin();
     }
 
     // Everything else: deny.

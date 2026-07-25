@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <meta name="theme-color" content="#0b7a4b" />
   <title data-i18n="appTitle">SwiftGo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="css/styles.css?v=20260721f" />
+  <link rel="stylesheet" href="css/styles.css?v=no_sidebar_traffic_1" />
 </head>
 <body>
   <div class="app" id="app">
@@ -37,170 +40,203 @@
           </div>
         </header>
 
-        <div class="quick-actions" role="navigation" aria-label="Quick actions" data-i18n-aria="quickActionsAria">
-          <button type="button" class="quick-action" data-quick="settings">
-            <span class="quick-action__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-            </span>
-            <span class="quick-action__label" data-i18n="qaSettings">Settings</span>
-          </button>
-          <button type="button" class="quick-action" data-quick="addresses">
-            <span class="quick-action__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s7-5.5 7-12a7 7 0 1 0-14 0c0 6.5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
-            </span>
-            <span class="quick-action__label" data-i18n="qaAddresses">Addresses</span>
-          </button>
-          <button type="button" class="quick-action" data-quick="support">
-            <span class="quick-action__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a7 7 0 0 0-7 7v2a3 3 0 0 0 3 3h1v-6H7a5 5 0 0 1 10 0h-2v6h1a3 3 0 0 0 3-3v-2a7 7 0 0 0-7-7z"/><path d="M9 20h6"/></svg>
-            </span>
-            <span class="quick-action__label" data-i18n="qaSupport">Support</span>
-          </button>
-          <button type="button" class="quick-action" data-quick="history">
-            <span class="quick-action__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            </span>
-            <span class="quick-action__label" data-i18n="qaHistory">History</span>
-          </button>
-        </div>
+        <div class="sidebar__scroll">
+          <nav class="sidebar__nav" aria-label="App sections" data-i18n-aria="appSectionsAria">
+            <button type="button" class="nav-item is-active" data-route="home">
+              <span class="nav-item__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11.5 12 4l9 7.5"/><path d="M6 10.5V20h12v-9.5"/></svg>
+              </span>
+              <span data-i18n="navHome">Home</span>
+            </button>
+            <button type="button" class="nav-item" data-route="history">
+              <span class="nav-item__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+              </span>
+              <span data-i18n="navHistory">History</span>
+            </button>
+            <button type="button" class="nav-item" data-route="wallet">
+              <span class="nav-item__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="17" cy="15" r="1.5" fill="currentColor"/></svg>
+              </span>
+              <span data-i18n="navWallet">Wallet</span>
+            </button>
+            <button type="button" class="nav-item" data-route="missed-call">
+              <span class="nav-item__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15.5 3.5 18 6l-2.2 2.2a8.5 8.5 0 0 0-2.1-2.1L15.5 3.5z"/><path d="M8.5 15.5c1.2 1.8 2.9 3.3 4.8 4.3l2.4-2.4a1.2 1.2 0 0 1 1.2-.3c1.3.4 2.7.7 4.1.7a1.2 1.2 0 0 1 1.2 1.2V22a1.2 1.2 0 0 1-1.2 1.2C10.8 23.2 1 13.4 1 1.2A1.2 1.2 0 0 1 2.2 0h3a1.2 1.2 0 0 1 1.2 1.2c0 1.4.2 2.8.7 4.1a1.2 1.2 0 0 1-.3 1.2L4.4 8.9"/></svg>
+              </span>
+              <span data-i18n="navMissedCall">Missed Call</span>
+            </button>
+            <button type="button" class="nav-item" data-route="contact">
+              <span class="nav-item__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </span>
+              <span data-i18n="navContact">Contact Us</span>
+            </button>
+          </nav>
 
-        <button type="button" class="earn-driver-btn" id="earnDriverBtn">
-          <span class="earn-driver-btn__badge" aria-hidden="true"></span>
-          <span data-i18n="earnAsDriver">Earn as a Driver</span>
-        </button>
-
-        <div class="sidebar-settings" id="sidebarSettings" hidden>
-          <p class="sidebar-settings__title" data-i18n="qaSettings">Settings</p>
-          <label class="setting-row">
-            <span data-i18n="showTraffic">Show Traffic</span>
-            <input type="checkbox" id="trafficToggle" class="toggle-input" />
-            <span class="toggle-ui" aria-hidden="true"></span>
-          </label>
-          <label class="setting-row">
-            <span data-i18n="appLanguage">App Language</span>
-            <input type="checkbox" id="langToggle" class="toggle-input" />
-            <span class="toggle-ui" aria-hidden="true"></span>
-          </label>
-          <p class="sidebar-settings__hint" id="langToggleHint" data-i18n="langToggleHint">Off = English · On = Urdu</p>
-        </div>
-
-        <nav class="sidebar__nav" aria-label="App sections" data-i18n-aria="appSectionsAria">
-          <button type="button" class="nav-item is-active" data-route="home">
-            <span class="nav-item__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11.5 12 4l9 7.5"/><path d="M6 10.5V20h12v-9.5"/></svg>
-            </span>
-            <span data-i18n="navHome">Home</span>
-          </button>
-          <button type="button" class="nav-item" data-route="missed-call">
-            <span class="nav-item__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15.5 3.5 18 6l-2.2 2.2a8.5 8.5 0 0 0-2.1-2.1L15.5 3.5z"/><path d="M8.5 15.5c1.2 1.8 2.9 3.3 4.8 4.3l2.4-2.4a1.2 1.2 0 0 1 1.2-.3c1.3.4 2.7.7 4.1.7a1.2 1.2 0 0 1 1.2 1.2V22a1.2 1.2 0 0 1-1.2 1.2C10.8 23.2 1 13.4 1 1.2A1.2 1.2 0 0 1 2.2 0h3a1.2 1.2 0 0 1 1.2 1.2c0 1.4.2 2.8.7 4.1a1.2 1.2 0 0 1-.3 1.2L4.4 8.9"/></svg>
-            </span>
-            <span data-i18n="navMissedCall">Missed Call</span>
-          </button>
-          <button type="button" class="nav-item" data-route="bookings">
-            <span class="nav-item__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
-            </span>
-            <span data-i18n="navBookings">Bookings</span>
-          </button>
-          <button type="button" class="nav-item" data-route="wallet">
-            <span class="nav-item__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="17" cy="15" r="1.5" fill="currentColor"/></svg>
-            </span>
-            <span data-i18n="navWallet">Wallet</span>
-          </button>
-          <button type="button" class="nav-item" data-route="contact">
-            <span class="nav-item__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            </span>
-            <span data-i18n="navContact">Contact Us</span>
-          </button>
-        </nav>
-
-        <footer class="sidebar__footer">
-          <button type="button" class="signout-btn" id="signOutBtn" hidden data-i18n="signOut">Sign out</button>
-          <div class="lang-toggle glass-soft">
-            <span class="lang-toggle__label" data-i18n="language">Language</span>
-            <div class="lang-switch" role="group" aria-label="Language" data-i18n-aria="language">
-              <button type="button" class="lang-switch__btn is-active" data-lang="en" aria-pressed="true">EN</button>
-              <button type="button" class="lang-switch__btn" data-lang="ur" aria-pressed="false">اردو</button>
+          <section class="sidebar__settings" aria-label="Language" data-i18n-aria="language">
+            <div class="setting-row setting-row--lang">
+              <span data-i18n="language">Language</span>
+              <div class="lang-switch" role="group" aria-label="Language" data-i18n-aria="language">
+                <button type="button" class="lang-switch__btn is-active" data-lang="en" aria-pressed="true">EN</button>
+                <button type="button" class="lang-switch__btn" data-lang="ur" aria-pressed="false">اردو</button>
+              </div>
             </div>
-          </div>
-        </footer>
+          </section>
+
+          <footer class="sidebar__footer">
+            <button type="button" class="signout-btn" id="signOutBtn" hidden data-i18n="signOut">Sign out</button>
+          </footer>
+        </div>
       </div>
     </aside>
 
-    <main class="shell" id="shell">
-      <!-- Phase 13.1: 50/50 location header only — map stays clear (no floating cards) -->
-      <header class="topbar location-header glass" id="topbar">
-        <div class="location-header__row">
-          <div class="location-header__half location-header__half--pickup" data-location-role="pickup">
-            <button type="button" class="location-header__menu" id="menuBtn" aria-label="Open menu" data-i18n-aria="openMenu">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M4 7h16M4 12h16M4 17h16" />
-              </svg>
-            </button>
-            <span class="loc-field__dot loc-field__dot--pickup" aria-hidden="true"></span>
-            <label class="location-header__field" for="pickupInput">
-              <span class="location-header__label" data-i18n="headerPickupLabel">Pickup Location</span>
-              <input
-                id="pickupInput"
-                class="location-header__input"
-                type="text"
-                autocomplete="off"
-                data-i18n-placeholder="pickupPlaceholder"
-                placeholder="Pick up · Current location"
-              />
-            </label>
-          </div>
-
-          <div class="location-header__half location-header__half--dropoff" data-location-role="dropoff">
-            <span class="loc-field__dot loc-field__dot--dest" aria-hidden="true"></span>
-            <label class="location-header__field" for="destInput">
-              <span class="location-header__label" data-i18n="headerDropoffLabel">Drop-off Location</span>
-              <input
-                id="destInput"
-                class="location-header__input"
-                type="text"
-                autocomplete="off"
-                data-i18n-placeholder="destPlaceholder"
-                placeholder="Select destination"
-              />
-            </label>
-            <button
-              type="button"
-              class="location-header__add-stop"
-              id="addStopBtn"
-              aria-label="Add stop"
-              data-i18n-aria="addStop"
-              data-i18n-title="addStop"
-              title="Add stop"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="location-header__stops extra-stops" id="extraStops" aria-live="polite"></div>
+    <main class="shell on-home" id="shell">
+      <!-- Phase 45.2: menu FAB overlays map; search UI lives in #screen-home -->
+      <header class="topbar location-header" id="topbar" data-ui="idle">
+        <button type="button" class="map-menu-fab" id="menuBtn" aria-label="Open menu" data-i18n-aria="openMenu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
       </header>
 
       <section class="viewport" id="viewport">
         <div class="screen is-active" data-screen="home" id="screen-home">
           <div id="map" class="map" role="application" aria-label="Map" data-i18n-aria="mapAria"></div>
 
-          <div class="map-pick" id="mapPickOverlay" hidden aria-hidden="true">
-            <div class="map-pick__crosshair" aria-hidden="true">
-              <span class="map-pick__pin"></span>
-            </div>
-            <div class="map-pick__bar glass">
-              <p class="map-pick__eyebrow" id="mapPickEyebrow" data-i18n="mapPickTitle">Choose on map</p>
-              <p class="map-pick__address" id="mapPickAddress" data-i18n="mapPickSearching">Finding address…</p>
-              <div class="map-pick__actions">
-                <button type="button" class="map-pick__btn map-pick__btn--ghost" id="mapPickCancel" data-i18n="mapPickCancel">Cancel</button>
-                <button type="button" class="map-pick__btn map-pick__btn--primary" id="mapPickConfirm" data-i18n="mapPickConfirm">Confirm</button>
+          <!-- State 1: Where to? trigger pill -->
+          <button type="button" class="route-trigger" id="whereToTrigger" data-i18n="whereToTrigger">
+            کہاں جانا ہے؟
+          </button>
+
+          <!-- Collapsed route summary -->
+          <button type="button" class="route-pill" id="routePill" hidden aria-label="Edit route" data-i18n-aria="editRoute">
+            <span class="route-pill__track" id="routePillTrack" aria-hidden="true"></span>
+          </button>
+
+          <!-- State 2: Smart universal pickup / dropoff card -->
+          <div class="route-search" id="routeSearchCard" role="search" hidden>
+            <div class="route-search__body">
+              <div class="route-search__rail" aria-hidden="true">
+                <span class="route-search__dot route-search__dot--pickup"></span>
+                <button
+                  type="button"
+                  class="route-search__swap"
+                  id="swapLocationsBtn"
+                  aria-label="Swap pickup and drop-off"
+                  data-i18n-aria="swapLocations"
+                  title="Swap"
+                  data-i18n-title="swapLocations"
+                >⇅</button>
+                <span class="route-search__square route-search__square--dropoff"></span>
               </div>
+              <div class="route-search__fields">
+                <div class="route-search__row" data-location-role="pickup">
+                  <input
+                    id="pickupInput"
+                    class="route-search__input"
+                    type="text"
+                    autocomplete="off"
+                    enterkeyhint="next"
+                    data-i18n-placeholder="pickupPlaceholder"
+                    data-i18n-aria="headerPickupLabel"
+                    aria-label="Pickup Location"
+                    placeholder="Pickup"
+                  />
+                  <button
+                    type="button"
+                    class="route-search__voice-btn"
+                    data-location-action="voice"
+                    data-location-target="pickupInput"
+                    aria-label="Voice input"
+                    data-i18n-aria="voiceInput"
+                    title="Voice"
+                    data-i18n-title="voiceInput"
+                  >🎤</button>
+                </div>
+
+                <div class="route-search__row route-search__row--dropoff" data-location-role="dropoff">
+                  <input
+                    id="destInput"
+                    class="route-search__input"
+                    type="text"
+                    autocomplete="off"
+                    enterkeyhint="done"
+                    data-i18n-placeholder="destPlaceholder"
+                    data-i18n-aria="headerDropoffLabel"
+                    aria-label="Drop-off Location"
+                    placeholder="Destination"
+                  />
+                  <button
+                    type="button"
+                    class="route-search__voice-btn"
+                    data-location-action="voice"
+                    data-location-target="destInput"
+                    aria-label="Voice input"
+                    data-i18n-aria="voiceInput"
+                    title="Voice"
+                    data-i18n-title="voiceInput"
+                  >🎤</button>
+                </div>
+              </div>
+            </div>
+            <!-- Kept for sheet.js stop helpers; not shown in Phase 45.3 UI -->
+            <div class="route-search__stops" id="extraStops" hidden aria-hidden="true"></div>
+            <button type="button" id="addStopBtn" hidden aria-hidden="true" tabindex="-1"></button>
+          </div>
+
+          <!-- State 3: Pin on map mode -->
+          <div class="map-pin-mode" id="mapPinMode" hidden aria-hidden="true">
+            <div class="map-pin-mode__pin" id="mapCenterPin" aria-hidden="true">
+              <svg viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M16 0C9.373 0 4 5.373 4 12c0 8.25 12 30 12 30s12-21.75 12-30C28 5.373 22.627 0 16 0Z" fill="#0b7a4b"/>
+                <circle cx="16" cy="12" r="5" fill="#fff"/>
+              </svg>
+            </div>
+            <button type="button" class="map-pin-mode__confirm" id="mapPinConfirm" data-i18n="mapPinSetLocation">
+              یہ لوکیشن سیٹ کریں
+            </button>
+          </div>
+
+          <!-- Route distance + traffic ETA chip -->
+          <div class="route-summary" id="routeSummary" hidden aria-hidden="true">
+            <span class="route-summary__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19V5M4 12h12l4-4v12"/>
+              </svg>
+            </span>
+            <span class="route-summary__dist" id="routeSummaryDist">—</span>
+            <span class="route-summary__sep" aria-hidden="true">·</span>
+            <span class="route-summary__eta" id="routeSummaryEta">—</span>
+          </div>
+
+          <!-- Phase 45: compact layers FAB -->
+          <div class="map-layers-fab" id="mapLayersFab">
+            <button type="button" class="map-layers-fab__btn" id="btnLayersFab" aria-expanded="false" aria-controls="mapLayers" aria-label="Map layers" data-i18n-aria="mapLayersAria" title="Layers">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M12 3 3 8l9 5 9-5-9-5Z"/>
+                <path d="m3 12 9 5 9-5"/>
+                <path d="m3 16 9 5 9-5"/>
+              </svg>
+            </button>
+            <div class="map-layers map-layers--menu" id="mapLayers" role="group" aria-label="Map layers" data-i18n-aria="mapLayersAria" hidden>
+              <button type="button" class="map-layer-btn is-active" id="btnLayerStreets" data-map-layer="streets" aria-pressed="true" data-i18n-aria="mapModeDefault" aria-label="Map" title="Map">
+                <span class="map-layer-btn__preview map-layer-btn__preview--streets" aria-hidden="true"></span>
+                <span class="map-layer-btn__label" data-i18n="mapModeDefault">Map</span>
+              </button>
+              <button type="button" class="map-layer-btn" id="btnLayerSatellite" data-map-layer="satellite" aria-pressed="false" data-i18n-aria="satelliteMode" aria-label="Satellite" title="Satellite">
+                <span class="map-layer-btn__preview map-layer-btn__preview--satellite" aria-hidden="true"></span>
+                <span class="map-layer-btn__label" data-i18n="satelliteMode">Satellite</span>
+              </button>
+              <button type="button" class="map-layer-btn" id="btnLayerTraffic" data-map-layer="traffic" aria-pressed="false" data-i18n-aria="trafficMode" aria-label="Traffic" title="Traffic">
+                <span class="map-layer-btn__preview map-layer-btn__preview--traffic" aria-hidden="true">
+                  <span class="map-layer-btn__traffic-line map-layer-btn__traffic-line--green"></span>
+                  <span class="map-layer-btn__traffic-line map-layer-btn__traffic-line--yellow"></span>
+                  <span class="map-layer-btn__traffic-line map-layer-btn__traffic-line--red"></span>
+                </span>
+                <span class="map-layer-btn__label" data-i18n="trafficMode">Traffic</span>
+              </button>
             </div>
           </div>
           <button type="button" class="fab-locate glass" id="fabLocate" data-i18n-aria="myLocation" aria-label="My location">
@@ -259,93 +295,16 @@
           </div>
         </div>
 
-        <div class="screen" data-screen="bookings" id="screen-bookings" hidden>
-          <div class="panel panel--bookings">
+        <div class="screen" data-screen="history" id="historySection" hidden>
+          <div class="panel panel--history">
             <header class="panel__head">
-              <h1 class="panel__title" data-i18n="navBookings">Bookings</h1>
+              <h1 class="panel__title" data-i18n="navHistory">History</h1>
             </header>
-
-            <div class="tabs" role="tablist" aria-label="Booking status" data-i18n-aria="bookingStatusAria">
-              <button type="button" class="tab is-active" role="tab" aria-selected="true" data-booking-tab="scheduled" id="tab-scheduled">
-                <span data-i18n="tabScheduled">Scheduled</span>
-              </button>
-              <button type="button" class="tab" role="tab" aria-selected="false" data-booking-tab="current" id="tab-current">
-                <span data-i18n="tabCurrent">Current</span>
-              </button>
-              <button type="button" class="tab" role="tab" aria-selected="false" data-booking-tab="completed" id="tab-completed">
-                <span data-i18n="tabCompleted">Completed</span>
-              </button>
-            </div>
-
-            <div class="tab-panels">
-              <div class="tab-panel is-active" role="tabpanel" data-booking-panel="scheduled" id="panel-scheduled">
-                <div class="booking-list" data-booking-list hidden></div>
-                <div class="empty-state glass">
-                  <div class="empty-state__art" aria-hidden="true">
-                    <svg class="empty-svg empty-svg--calendar" viewBox="0 0 160 140" fill="none">
-                      <rect class="empty-float" x="28" y="28" width="104" height="90" rx="16" fill="url(#calGrad)" />
-                      <rect x="28" y="28" width="104" height="28" rx="16" fill="#0b7a4b" />
-                      <circle class="empty-bob" cx="52" cy="42" r="5" fill="#fff" opacity=".9" />
-                      <circle class="empty-bob empty-bob--delay" cx="108" cy="42" r="5" fill="#fff" opacity=".9" />
-                      <rect x="44" y="72" width="18" height="14" rx="4" fill="#fff" opacity=".85" />
-                      <rect x="71" y="72" width="18" height="14" rx="4" fill="#fff" opacity=".55" />
-                      <rect x="98" y="72" width="18" height="14" rx="4" fill="#fff" opacity=".55" />
-                      <rect x="44" y="94" width="18" height="14" rx="4" fill="#fff" opacity=".55" />
-                      <rect x="71" y="94" width="18" height="14" rx="4" fill="#14b86a" opacity=".95" />
-                      <path class="empty-dash" d="M118 18c12 4 18 14 16 26" stroke="#14b86a" stroke-width="3" stroke-linecap="round" opacity=".5" />
-                      <defs>
-                        <linearGradient id="calGrad" x1="28" y1="28" x2="132" y2="118">
-                          <stop stop-color="#3dd68c" />
-                          <stop offset="1" stop-color="#0b7a4b" />
-                        </linearGradient>
-                      </defs>
-                    </svg>
-                  </div>
-                  <h2 class="empty-state__title" data-i18n="emptyBookingsTitle">No bookings yet</h2>
-                  <p class="empty-state__text" data-i18n="emptyBookingsText">Your scheduled rides will show up here.</p>
-                  <button type="button" class="cta-btn" data-action="book-now" data-i18n="bookNow">Book Now</button>
-                </div>
-              </div>
-
-              <div class="tab-panel" role="tabpanel" data-booking-panel="current" id="panel-current" hidden>
-                <div class="booking-list" data-booking-list hidden></div>
-                <div class="empty-state glass">
-                  <div class="empty-state__art" aria-hidden="true">
-                    <svg class="empty-svg empty-svg--bike" viewBox="0 0 160 140" fill="none">
-                      <circle class="empty-spin" cx="48" cy="92" r="26" stroke="#0b7a4b" stroke-width="5" fill="none" opacity=".35" />
-                      <circle class="empty-spin empty-spin--rev" cx="112" cy="92" r="26" stroke="#14b86a" stroke-width="5" fill="none" opacity=".35" />
-                      <circle cx="48" cy="92" r="10" fill="#0b7a4b" />
-                      <circle cx="112" cy="92" r="10" fill="#0b7a4b" />
-                      <path class="empty-float" d="M48 92h28l14-28h18l8 16H86" stroke="#065c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-                      <circle class="empty-bob" cx="86" cy="48" r="8" fill="#14b86a" />
-                    </svg>
-                  </div>
-                  <h2 class="empty-state__title" data-i18n="emptyCurrentTitle">No active trip</h2>
-                  <p class="empty-state__text" data-i18n="emptyCurrentText">When a ride is in progress, it appears here.</p>
-                  <button type="button" class="cta-btn" data-action="book-now" data-i18n="bookNow">Book Now</button>
-                </div>
-              </div>
-
-              <div class="tab-panel" role="tabpanel" data-booking-panel="completed" id="panel-completed" hidden>
-                <div class="booking-list" data-booking-list hidden></div>
-                <div class="empty-state glass">
-                  <div class="empty-state__art" aria-hidden="true">
-                    <svg class="empty-svg empty-svg--check" viewBox="0 0 160 140" fill="none">
-                      <circle class="empty-pulse" cx="80" cy="70" r="48" fill="url(#chkGrad)" opacity=".9" />
-                      <path class="empty-draw" d="M54 72l18 18 36-40" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-                      <defs>
-                        <linearGradient id="chkGrad" x1="32" y1="22" x2="128" y2="118">
-                          <stop stop-color="#3dd68c" />
-                          <stop offset="1" stop-color="#0b7a4b" />
-                        </linearGradient>
-                      </defs>
-                    </svg>
-                  </div>
-                  <h2 class="empty-state__title" data-i18n="emptyCompletedTitle">No past bookings</h2>
-                  <p class="empty-state__text" data-i18n="emptyCompletedText">Completed trips will be listed here.</p>
-                  <button type="button" class="cta-btn" data-action="book-now" data-i18n="bookNow">Book Now</button>
-                </div>
-              </div>
+            <div class="history-chat" id="historyChatList" hidden role="log" aria-live="polite"></div>
+            <div class="empty-state glass" id="historyEmpty">
+              <h2 class="empty-state__title" data-i18n="historyEmptyTitle">No trips yet</h2>
+              <p class="empty-state__text" data-i18n="historyEmptyText">Your past trips will appear here as chat messages.</p>
+              <button type="button" class="cta-btn" data-action="book-now" data-i18n="bookNow">Book Now</button>
             </div>
           </div>
         </div>
@@ -404,35 +363,13 @@
             </header>
 
             <div class="contact-actions">
-              <a class="contact-btn contact-btn--call glass" id="contactCallBtn" href="tel:+923001234567">
+              <a class="contact-btn contact-btn--wa glass" id="contactWaBtn1" href="https://wa.me/923032908936" target="_blank" rel="noopener noreferrer">
                 <span class="contact-btn__icon" aria-hidden="true">
                   <svg viewBox="0 0 48 48" fill="none">
-                    <rect width="48" height="48" rx="16" fill="url(#callGrad)" />
-                    <path d="M33 30.5v2.2a1.8 1.8 0 0 1-2 1.8c-7.8-.8-14-7-14.8-14.8a1.8 1.8 0 0 1 1.8-2H20a1.8 1.8 0 0 1 1.8 1.5c.1.7.3 1.4.5 2a1.8 1.8 0 0 1-.4 1.8l-1.1 1.1a12.5 12.5 0 0 0 5.2 5.2l1.1-1.1a1.8 1.8 0 0 1 1.8-.4c.6.2 1.3.4 2 .5A1.8 1.8 0 0 1 33 30.5z" fill="#fff"/>
-                    <defs>
-                      <linearGradient id="callGrad" x1="8" y1="4" x2="44" y2="44">
-                        <stop stop-color="#34d399" />
-                        <stop offset="1" stop-color="#0b7a4b" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                </span>
-                <span class="contact-btn__body">
-                  <span class="contact-btn__title" data-i18n="phoneCall">Phone Call</span>
-                  <span class="contact-btn__hint" data-i18n="phoneCallHint">Talk to an agent</span>
-                </span>
-                <span class="contact-btn__chev" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
-                </span>
-              </a>
-
-              <a class="contact-btn contact-btn--wa glass" id="contactWaBtn" href="https://wa.me/923001234567" target="_blank" rel="noopener noreferrer">
-                <span class="contact-btn__icon" aria-hidden="true">
-                  <svg viewBox="0 0 48 48" fill="none">
-                    <rect width="48" height="48" rx="16" fill="url(#waGrad)" />
+                    <rect width="48" height="48" rx="16" fill="url(#waGrad1)" />
                     <path d="M24 12.5a10.5 10.5 0 0 0-9.1 15.8L13.5 35l6.9-1.4A10.5 10.5 0 1 0 24 12.5zm5.9 15.1c-.2.7-1.3 1.2-2.1 1.4-.6.1-1.3.2-3.8-.8-3.1-1.3-5.1-4.5-5.3-4.7-.2-.2-1.5-2-1.5-3.8s1-2.7 1.3-3.1c.3-.3.7-.4 1-.4h.7c.2 0 .5 0 .7.6.2.7.8 2.4.9 2.6.1.2.1.4 0 .6-.1.3-.2.4-.4.6l-.6.7c-.2.2-.4.4-.2.8.2.4 1 1.6 2.1 2.6 1.4 1.3 2.6 1.7 3 .1.9.2.6 0 .8-.1.2-.1.9-.3 1.1-.6.2-.3.4-.5.6-.4.2.1 1.4.7 1.6.8.2.1.4.2.4.3.1.4-.1 1.1-.3 1.8z" fill="#fff"/>
                     <defs>
-                      <linearGradient id="waGrad" x1="6" y1="6" x2="42" y2="42">
+                      <linearGradient id="waGrad1" x1="6" y1="6" x2="42" y2="42">
                         <stop stop-color="#4ade80" />
                         <stop offset="1" stop-color="#128C7E" />
                       </linearGradient>
@@ -441,7 +378,29 @@
                 </span>
                 <span class="contact-btn__body">
                   <span class="contact-btn__title" data-i18n="whatsappSupport">WhatsApp Support</span>
-                  <span class="contact-btn__hint" data-i18n="whatsappHint">Chat with us anytime</span>
+                  <span class="contact-btn__hint contact-btn__phone" data-wa-label="1" dir="ltr">0303 2908936</span>
+                </span>
+                <span class="contact-btn__chev" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
+                </span>
+              </a>
+
+              <a class="contact-btn contact-btn--wa glass" id="contactWaBtn2" href="https://wa.me/923332119714" target="_blank" rel="noopener noreferrer">
+                <span class="contact-btn__icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" fill="none">
+                    <rect width="48" height="48" rx="16" fill="url(#waGrad2)" />
+                    <path d="M24 12.5a10.5 10.5 0 0 0-9.1 15.8L13.5 35l6.9-1.4A10.5 10.5 0 1 0 24 12.5zm5.9 15.1c-.2.7-1.3 1.2-2.1 1.4-.6.1-1.3.2-3.8-.8-3.1-1.3-5.1-4.5-5.3-4.7-.2-.2-1.5-2-1.5-3.8s1-2.7 1.3-3.1c.3-.3.7-.4 1-.4h.7c.2 0 .5 0 .7.6.2.7.8 2.4.9 2.6.1.2.1.4 0 .6-.1.3-.2.4-.4.6l-.6.7c-.2.2-.4.4-.2.8.2.4 1 1.6 2.1 2.6 1.4 1.3 2.6 1.7 3 .1.9.2.6 0 .8-.1.2-.1.9-.3 1.1-.6.2-.3.4-.5.6-.4.2.1 1.4.7 1.6.8.2.1.4.2.4.3.1.4-.1 1.1-.3 1.8z" fill="#fff"/>
+                    <defs>
+                      <linearGradient id="waGrad2" x1="6" y1="6" x2="42" y2="42">
+                        <stop stop-color="#4ade80" />
+                        <stop offset="1" stop-color="#128C7E" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </span>
+                <span class="contact-btn__body">
+                  <span class="contact-btn__title" data-i18n="whatsappSupport">WhatsApp Support</span>
+                  <span class="contact-btn__hint contact-btn__phone" data-wa-label="2" dir="ltr">0333 2119714</span>
                 </span>
                 <span class="contact-btn__chev" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
@@ -512,33 +471,6 @@
         </div>
 
         <div class="sheet__body">
-          <div class="chips" id="savedChips" role="list" aria-label="Saved locations" data-i18n-aria="savedLocationsAria">
-            <button type="button" class="chip" data-place="home" role="listitem">
-              <span class="chip__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5"/><path d="M6 10.5V20h12v-9.5"/></svg>
-              </span>
-              <span data-i18n="chipHome">Home</span>
-            </button>
-            <button type="button" class="chip" data-place="work" role="listitem">
-              <span class="chip__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              </span>
-              <span data-i18n="chipWork">Work</span>
-            </button>
-            <button type="button" class="chip" data-place="airport" role="listitem">
-              <span class="chip__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v7l8 4v2l-8-2.5V21l-2-1-2 1v-7.5L2 16v-2l8-4V3a1.5 1.5 0 0 1 3 0z"/></svg>
-              </span>
-              <span data-i18n="chipAirport">Airport</span>
-            </button>
-            <button type="button" class="chip" data-place="mall" role="listitem">
-              <span class="chip__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16l-1.2 11H5.2L4 9z"/><path d="M8 9a4 4 0 0 1 8 0"/></svg>
-              </span>
-              <span data-i18n="chipMall">Mall</span>
-            </button>
-          </div>
-
           <!-- Phase 13.2: Ride / Cargo filtered vehicles (old Delivery/Shops/Rentals cards removed) -->
           <div class="ride-panel" id="ridePanel" hidden>
             <p class="ride-panel__label" data-i18n="chooseVehicle">Choose a vehicle</p>
@@ -726,11 +658,11 @@
             <button type="button" class="cancel-ride-btn" id="cancelRideBtn" data-i18n="cancelRide">Cancel Ride</button>
           </div>
 
-          <!-- Phase 17.2: accepted ride / driver details -->
+          <!-- Phase 17.2 / 32: accepted ride / live status -->
           <section class="active-ride-panel" id="activeRidePanel" aria-labelledby="activeRideTitle" hidden>
             <div class="active-ride-panel__status">
               <span class="active-ride-panel__status-dot" aria-hidden="true"></span>
-              <span data-i18n="rideAccepted">Ride accepted</span>
+              <span id="activeRideStatusText" data-i18n="rideDriverOnTheWay">ڈرائیور راستے میں ہے</span>
             </div>
             <div class="active-ride-driver">
               <div class="active-ride-driver__avatar" aria-hidden="true">م ع</div>
@@ -742,8 +674,23 @@
             </div>
             <div class="active-ride-panel__actions">
               <a class="active-ride-call-btn" id="activeRideCallLink" href="tel:+923001234567" data-i18n="activeRideCallDirect">Call directly</a>
-              <button type="button" class="active-ride-complete-btn" id="completeRideBtn" data-i18n="completeRide">Complete Ride</button>
             </div>
+          </section>
+
+          <!-- Phase 32.2: final bill / invoice -->
+          <section class="ride-invoice-panel" id="rideInvoicePanel" aria-labelledby="rideInvoiceTitle" hidden>
+            <p class="ride-invoice-panel__eyebrow" data-i18n="rideInvoiceEyebrow">Trip invoice</p>
+            <h2 id="rideInvoiceTitle" data-i18n="rideInvoiceTitle">سفر کی رسید</h2>
+            <p class="ride-invoice-panel__label" data-i18n="rideInvoiceFareLabel">کل کرایہ</p>
+            <p class="ride-invoice-panel__fare" id="rideInvoiceFare">Rs. 0</p>
+            <div class="ride-rating" id="rideRatingBlock">
+              <p class="ride-rating__label" data-i18n="rideRatingLabel">Rate your driver</p>
+              <div class="ride-rating__stars" id="rideRatingStars" role="radiogroup" aria-label="Driver rating"></div>
+              <p class="ride-rating__thanks" id="rideRatingThanks" hidden data-i18n="rideRatingThanks">Thank you for your feedback!</p>
+            </div>
+            <button type="button" class="ride-invoice-done-btn" id="rideInvoiceDoneBtn" data-i18n="rideInvoiceDone">
+              درست ہے
+            </button>
           </section>
         </div>
       </footer>
@@ -1204,6 +1151,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script type="module" src="js/app.js?v=20260721f"></script>
+  <script type="module" src="js/app.js?v=no_sidebar_traffic_1"></script>
 </body>
 </html>

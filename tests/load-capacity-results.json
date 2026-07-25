@@ -1,0 +1,634 @@
+{
+  "startedAt": "2026-07-23T06:59:41.754Z",
+  "finishedAt": "2026-07-23T07:03:52.421Z",
+  "baseUrl": "https://swiftgo-ride-app.web.app",
+  "methodology": {
+    "type": "HTTP GET load against Firebase Hosting SPA entry pages",
+    "authenticatedFirestoreWrites": false,
+    "reasonNoFirestoreWriteStorm": "Production write storms would create fake rides/users, risk billing spikes, and corrupt operational data. Hosting was load-tested live; backend capacity modeled from code + Firebase quotas.",
+    "levels": [
+      25,
+      50,
+      100,
+      200,
+      400
+    ],
+    "requestsPerLevel": 400,
+    "healthyCriteria": "errorRate < 1% AND p95 < 3000ms",
+    "softCriteria": "errorRate < 5% AND p95 < 8000ms"
+  },
+  "apps": [
+    {
+      "app": "customer",
+      "name": "Customer (صارف)",
+      "url": "https://swiftgo-ride-app.web.app/",
+      "levels": [
+        {
+          "label": "customer",
+          "concurrency": 25,
+          "requests": 400,
+          "ok": 386,
+          "fail": 14,
+          "errorRatePct": 3.5,
+          "rps": 38.8,
+          "wallSec": 10.31,
+          "latencyMs": {
+            "min": 148.7,
+            "p50": 196.1,
+            "p95": 486.2,
+            "p99": 10323.6,
+            "max": 10336.4
+          },
+          "avgBytes": 66882,
+          "statuses": {
+            "0": 14,
+            "200": 386
+          },
+          "errors": {
+            "TypeError": 14
+          }
+        },
+        {
+          "label": "customer",
+          "concurrency": 50,
+          "requests": 400,
+          "ok": 380,
+          "fail": 20,
+          "errorRatePct": 5,
+          "rps": 37.7,
+          "wallSec": 10.6,
+          "latencyMs": {
+            "min": 148.3,
+            "p50": 192,
+            "p95": 1573.2,
+            "p99": 10625.4,
+            "max": 10632.3
+          },
+          "avgBytes": 65843,
+          "statuses": {
+            "0": 20,
+            "200": 380
+          },
+          "errors": {
+            "TypeError": 20
+          }
+        },
+        {
+          "label": "customer",
+          "concurrency": 100,
+          "requests": 400,
+          "ok": 311,
+          "fail": 89,
+          "errorRatePct": 22.25,
+          "rps": 38.2,
+          "wallSec": 10.48,
+          "latencyMs": {
+            "min": 165.6,
+            "p50": 249.4,
+            "p95": 10542,
+            "p99": 10559.2,
+            "max": 10563.6
+          },
+          "avgBytes": 53887,
+          "statuses": {
+            "0": 89,
+            "200": 311
+          },
+          "errors": {
+            "TypeError": 89
+          }
+        },
+        {
+          "label": "customer",
+          "concurrency": 200,
+          "requests": 400,
+          "ok": 228,
+          "fail": 172,
+          "errorRatePct": 43,
+          "rps": 38.2,
+          "wallSec": 10.46,
+          "latencyMs": {
+            "min": 156.2,
+            "p50": 331.7,
+            "p95": 10589.8,
+            "p99": 10608.9,
+            "max": 10612
+          },
+          "avgBytes": 39506,
+          "statuses": {
+            "0": 172,
+            "200": 228
+          },
+          "errors": {
+            "TypeError": 172
+          }
+        },
+        {
+          "label": "customer",
+          "concurrency": 400,
+          "requests": 400,
+          "ok": 42,
+          "fail": 358,
+          "errorRatePct": 89.5,
+          "rps": 38.5,
+          "wallSec": 10.38,
+          "latencyMs": {
+            "min": 597.1,
+            "p50": 10471.7,
+            "p95": 10728.1,
+            "p99": 10750,
+            "max": 10753.3
+          },
+          "avgBytes": 7277,
+          "statuses": {
+            "0": 358,
+            "200": 42
+          },
+          "errors": {
+            "TypeError": 358
+          }
+        }
+      ],
+      "hostingVerdict": {
+        "healthyConcurrentPageLoads": null,
+        "softLimitConcurrentPageLoads": 25,
+        "peakObservedRps": 38.8
+      }
+    },
+    {
+      "app": "driver",
+      "name": "Driver (ڈرائیور)",
+      "url": "https://swiftgo-ride-app.web.app/partner/",
+      "levels": [
+        {
+          "label": "driver",
+          "concurrency": 25,
+          "requests": 400,
+          "ok": 371,
+          "fail": 29,
+          "errorRatePct": 7.25,
+          "rps": 18.9,
+          "wallSec": 21.17,
+          "latencyMs": {
+            "min": 140.7,
+            "p50": 192.9,
+            "p95": 10582.8,
+            "p99": 10600.2,
+            "max": 10608.1
+          },
+          "avgBytes": 17155,
+          "statuses": {
+            "0": 29,
+            "200": 371
+          },
+          "errors": {
+            "TypeError": 29
+          }
+        },
+        {
+          "label": "driver",
+          "concurrency": 50,
+          "requests": 400,
+          "ok": 365,
+          "fail": 35,
+          "errorRatePct": 8.75,
+          "rps": 38.1,
+          "wallSec": 10.51,
+          "latencyMs": {
+            "min": 140.1,
+            "p50": 183.9,
+            "p95": 10531.9,
+            "p99": 10563,
+            "max": 10571.6
+          },
+          "avgBytes": 16878,
+          "statuses": {
+            "0": 35,
+            "200": 365
+          },
+          "errors": {
+            "TypeError": 35
+          }
+        },
+        {
+          "label": "driver",
+          "concurrency": 100,
+          "requests": 400,
+          "ok": 328,
+          "fail": 72,
+          "errorRatePct": 18,
+          "rps": 38,
+          "wallSec": 10.52,
+          "latencyMs": {
+            "min": 140.4,
+            "p50": 215,
+            "p95": 10572,
+            "p99": 10589.9,
+            "max": 10595.2
+          },
+          "avgBytes": 15167,
+          "statuses": {
+            "0": 72,
+            "200": 328
+          },
+          "errors": {
+            "TypeError": 72
+          }
+        },
+        {
+          "label": "driver",
+          "concurrency": 200,
+          "requests": 400,
+          "ok": 248,
+          "fail": 152,
+          "errorRatePct": 38,
+          "rps": 38.3,
+          "wallSec": 10.45,
+          "latencyMs": {
+            "min": 141.7,
+            "p50": 446.4,
+            "p95": 10574.1,
+            "p99": 10590.1,
+            "max": 10593.6
+          },
+          "avgBytes": 11468,
+          "statuses": {
+            "0": 152,
+            "200": 248
+          },
+          "errors": {
+            "TypeError": 152
+          }
+        },
+        {
+          "label": "driver",
+          "concurrency": 400,
+          "requests": 400,
+          "ok": 56,
+          "fail": 344,
+          "errorRatePct": 86,
+          "rps": 38.1,
+          "wallSec": 10.49,
+          "latencyMs": {
+            "min": 495.3,
+            "p50": 10557.5,
+            "p95": 10762.1,
+            "p99": 10778.4,
+            "max": 10781.3
+          },
+          "avgBytes": 2589,
+          "statuses": {
+            "0": 344,
+            "200": 56
+          },
+          "errors": {
+            "TypeError": 344
+          }
+        }
+      ],
+      "hostingVerdict": {
+        "healthyConcurrentPageLoads": null,
+        "softLimitConcurrentPageLoads": null,
+        "peakObservedRps": 38.3
+      }
+    },
+    {
+      "app": "owner",
+      "name": "Owner (مالک)",
+      "url": "https://swiftgo-ride-app.web.app/owner/",
+      "levels": [
+        {
+          "label": "owner",
+          "concurrency": 25,
+          "requests": 400,
+          "ok": 387,
+          "fail": 13,
+          "errorRatePct": 3.25,
+          "rps": 39.3,
+          "wallSec": 10.19,
+          "latencyMs": {
+            "min": 144,
+            "p50": 199.5,
+            "p95": 474.5,
+            "p99": 10204.3,
+            "max": 10224.2
+          },
+          "avgBytes": 9191,
+          "statuses": {
+            "0": 13,
+            "200": 387
+          },
+          "errors": {
+            "TypeError": 13
+          }
+        },
+        {
+          "label": "owner",
+          "concurrency": 50,
+          "requests": 400,
+          "ok": 377,
+          "fail": 23,
+          "errorRatePct": 5.75,
+          "rps": 37.9,
+          "wallSec": 10.56,
+          "latencyMs": {
+            "min": 143.5,
+            "p50": 201.7,
+            "p95": 10558,
+            "p99": 10588,
+            "max": 10603.2
+          },
+          "avgBytes": 8954,
+          "statuses": {
+            "0": 23,
+            "200": 377
+          },
+          "errors": {
+            "TypeError": 23
+          }
+        },
+        {
+          "label": "owner",
+          "concurrency": 100,
+          "requests": 400,
+          "ok": 338,
+          "fail": 62,
+          "errorRatePct": 15.5,
+          "rps": 37.9,
+          "wallSec": 10.56,
+          "latencyMs": {
+            "min": 142.8,
+            "p50": 204.2,
+            "p95": 10643.9,
+            "p99": 10685.1,
+            "max": 10694.6
+          },
+          "avgBytes": 8028,
+          "statuses": {
+            "0": 62,
+            "200": 338
+          },
+          "errors": {
+            "TypeError": 62
+          }
+        },
+        {
+          "label": "owner",
+          "concurrency": 200,
+          "requests": 400,
+          "ok": 268,
+          "fail": 132,
+          "errorRatePct": 33,
+          "rps": 38.5,
+          "wallSec": 10.38,
+          "latencyMs": {
+            "min": 144.4,
+            "p50": 529.5,
+            "p95": 10645.6,
+            "p99": 10680.2,
+            "max": 10694.2
+          },
+          "avgBytes": 6365,
+          "statuses": {
+            "0": 132,
+            "200": 268
+          },
+          "errors": {
+            "TypeError": 132
+          }
+        },
+        {
+          "label": "owner",
+          "concurrency": 400,
+          "requests": 400,
+          "ok": 112,
+          "fail": 288,
+          "errorRatePct": 72,
+          "rps": 38.8,
+          "wallSec": 10.32,
+          "latencyMs": {
+            "min": 613.3,
+            "p50": 10438.4,
+            "p95": 10783.2,
+            "p99": 10819.1,
+            "max": 10830.1
+          },
+          "avgBytes": 2660,
+          "statuses": {
+            "0": 288,
+            "200": 112
+          },
+          "errors": {
+            "TypeError": 288
+          }
+        }
+      ],
+      "hostingVerdict": {
+        "healthyConcurrentPageLoads": null,
+        "softLimitConcurrentPageLoads": 25,
+        "peakObservedRps": 39.3
+      }
+    },
+    {
+      "app": "admin",
+      "name": "Super Admin",
+      "url": "https://swiftgo-ride-app.web.app/admin/",
+      "levels": [
+        {
+          "label": "admin",
+          "concurrency": 25,
+          "requests": 400,
+          "ok": 389,
+          "fail": 11,
+          "errorRatePct": 2.75,
+          "rps": 37.8,
+          "wallSec": 10.57,
+          "latencyMs": {
+            "min": 143.7,
+            "p50": 192.4,
+            "p95": 450,
+            "p99": 10582.6,
+            "max": 10592.9
+          },
+          "avgBytes": 28457,
+          "statuses": {
+            "0": 11,
+            "200": 389
+          },
+          "errors": {
+            "TypeError": 11
+          }
+        },
+        {
+          "label": "admin",
+          "concurrency": 50,
+          "requests": 400,
+          "ok": 364,
+          "fail": 36,
+          "errorRatePct": 9,
+          "rps": 38.5,
+          "wallSec": 10.39,
+          "latencyMs": {
+            "min": 141.9,
+            "p50": 192.7,
+            "p95": 10538.7,
+            "p99": 10625.4,
+            "max": 10636.7
+          },
+          "avgBytes": 26628,
+          "statuses": {
+            "0": 36,
+            "200": 364
+          },
+          "errors": {
+            "TypeError": 36
+          }
+        },
+        {
+          "label": "admin",
+          "concurrency": 100,
+          "requests": 400,
+          "ok": 361,
+          "fail": 39,
+          "errorRatePct": 9.75,
+          "rps": 38.7,
+          "wallSec": 10.34,
+          "latencyMs": {
+            "min": 147.6,
+            "p50": 281.2,
+            "p95": 10497.4,
+            "p99": 10659.4,
+            "max": 10700.9
+          },
+          "avgBytes": 26409,
+          "statuses": {
+            "0": 39,
+            "200": 361
+          },
+          "errors": {
+            "TypeError": 39
+          }
+        },
+        {
+          "label": "admin",
+          "concurrency": 200,
+          "requests": 400,
+          "ok": 298,
+          "fail": 102,
+          "errorRatePct": 25.5,
+          "rps": 38.9,
+          "wallSec": 10.28,
+          "latencyMs": {
+            "min": 157.3,
+            "p50": 742.2,
+            "p95": 10715.3,
+            "p99": 10775.4,
+            "max": 10797.8
+          },
+          "avgBytes": 21800,
+          "statuses": {
+            "0": 102,
+            "200": 298
+          },
+          "errors": {
+            "TypeError": 102
+          }
+        },
+        {
+          "label": "admin",
+          "concurrency": 400,
+          "requests": 400,
+          "ok": 75,
+          "fail": 325,
+          "errorRatePct": 81.25,
+          "rps": 38.4,
+          "wallSec": 10.43,
+          "latencyMs": {
+            "min": 651.2,
+            "p50": 10476.7,
+            "p95": 10632.7,
+            "p99": 10655.4,
+            "max": 10665.4
+          },
+          "avgBytes": 5487,
+          "statuses": {
+            "0": 325,
+            "200": 75
+          },
+          "errors": {
+            "TypeError": 325
+          }
+        }
+      ],
+      "hostingVerdict": {
+        "healthyConcurrentPageLoads": null,
+        "softLimitConcurrentPageLoads": 25,
+        "peakObservedRps": 38.9
+      }
+    }
+  ],
+  "firestoreModel": {
+    "note": "Derived from app code + Firebase documented soft limits; not a live authenticated write storm against production.",
+    "firebaseSoftLimits": {
+      "sustainedWritesPerSec": 10000,
+      "sustainedReadsPerSec": 50000,
+      "maxConcurrentConnections": 1000000,
+      "maxSnapshotListenersPerClient": 100
+    },
+    "measuredCodePatterns": {
+      "driverGpsWriteIntervalMs": 8000,
+      "gpsWritesPerDriverPerMin": 7.5,
+      "searchingDriverFanout": "Every online driver listens to same searching_driver query (limit 1)",
+      "adminVehiclesListeners": 2,
+      "adminUnboundedCollections": [
+        "rides (total count)",
+        "rides status=completed (revenue)",
+        "vehicles",
+        "partners",
+        "drivers"
+      ]
+    },
+    "scenarios": [
+      {
+        "name": "Comfortable ops (low risk)",
+        "concurrentCustomers": 200,
+        "onlineDrivers": 50,
+        "ownersOnline": 10,
+        "adminSessions": 1,
+        "estimatedGpsWritesPerSec": 7.5,
+        "estimatedSearchingFanoutListeners": 60,
+        "risk": "low",
+        "rationale": "GPS write rate ~7.5/s; search fan-out small; admin scans still light if history small."
+      },
+      {
+        "name": "Practical ceiling today (architecture)",
+        "concurrentCustomers": 800,
+        "onlineDrivers": 200,
+        "ownersOnline": 30,
+        "adminSessions": 1,
+        "estimatedGpsWritesPerSec": 28.75,
+        "estimatedSearchingFanoutListeners": 230,
+        "risk": "medium-high",
+        "rationale": "GPS ~28.75 writes/s still within Firebase write soft limit, but each write fans out to admin's 2 full-vehicles listeners; searching_driver updates notify all 230 online drivers; public OSRM/Nominatim/OSM will throttle UX before Firestore hard-fails."
+      },
+      {
+        "name": "Stress / likely degradation",
+        "concurrentCustomers": 2000,
+        "onlineDrivers": 500,
+        "ownersOnline": 50,
+        "adminSessions": 2,
+        "estimatedGpsWritesPerSec": 68.75,
+        "estimatedSearchingFanoutListeners": 550,
+        "risk": "high",
+        "rationale": "GPS ~68.75 writes/s + 550 search listeners + unbounded admin history listeners. Accept races + rule get(vehicle) amplify. External map APIs fail first; Firestore listener fan-out causes laggy offer screens."
+      }
+    ],
+    "bottlenecksOrdered": [
+      "Public OSRM / Nominatim / OSM tiles (shared free endpoints)",
+      "Driver searching_driver query fan-out to all online drivers",
+      "8s GPS vehicle writes × fleet size notifying admin double listeners",
+      "Admin unbounded full-collection listeners (rides/completed/vehicles)",
+      "Firebase Hosting static HTML (high capacity; measured in this probe)"
+    ]
+  }
+}

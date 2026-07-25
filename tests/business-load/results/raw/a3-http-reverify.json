@@ -1,0 +1,223 @@
+{
+  "label": "A3_reverify_safe_http",
+  "startedAt": "2026-07-23T07:33:41.286Z",
+  "baseUrl": "https://swiftgo-ride-app.web.app",
+  "gitCommit": "6a73d995239432eb48f1ad3170ca83c51915f4d8",
+  "machine": {
+    "hostname": "DESKTOP-HOUIG70",
+    "cpus": 8,
+    "model": "Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz",
+    "totalMemGB": 8.44,
+    "node": "v24.16.0"
+  },
+  "note": "Safe Hosting GET only. NOT a 100K capacity proof. Single generator.",
+  "apps": [
+    {
+      "app": "customer",
+      "url": "https://swiftgo-ride-app.web.app/",
+      "levels": [
+        {
+          "concurrency": 5,
+          "requests": 100,
+          "ok": 100,
+          "fail": 0,
+          "errorRatePct": 0,
+          "rps": 21.3,
+          "wallSec": 4.7,
+          "latencyMs": {
+            "p50": 175.8,
+            "p95": 364.3,
+            "p99": 1515.3,
+            "max": 1527.6
+          },
+          "avgBytes": 69308,
+          "statuses": {
+            "200": 100
+          },
+          "http4xx": 0,
+          "http5xx": 0,
+          "connectionFail": 0
+        },
+        {
+          "concurrency": 10,
+          "requests": 100,
+          "ok": 99,
+          "fail": 1,
+          "errorRatePct": 1,
+          "rps": 9.7,
+          "wallSec": 10.35,
+          "latencyMs": {
+            "p50": 181.1,
+            "p95": 328.4,
+            "p99": 1399.5,
+            "max": 10336.1
+          },
+          "avgBytes": 68615,
+          "statuses": {
+            "0": 1,
+            "200": 99
+          },
+          "http4xx": 0,
+          "http5xx": 0,
+          "connectionFail": 1
+        }
+      ]
+    },
+    {
+      "app": "driver",
+      "url": "https://swiftgo-ride-app.web.app/partner/",
+      "levels": [
+        {
+          "concurrency": 5,
+          "requests": 100,
+          "ok": 98,
+          "fail": 2,
+          "errorRatePct": 2,
+          "rps": 9.4,
+          "wallSec": 10.65,
+          "latencyMs": {
+            "p50": 178.4,
+            "p95": 283.1,
+            "p99": 10646.6,
+            "max": 10647.7
+          },
+          "avgBytes": 18126,
+          "statuses": {
+            "0": 2,
+            "200": 98
+          },
+          "http4xx": 0,
+          "http5xx": 0,
+          "connectionFail": 2
+        },
+        {
+          "concurrency": 10,
+          "requests": 100,
+          "ok": 95,
+          "fail": 5,
+          "errorRatePct": 5,
+          "rps": 9.4,
+          "wallSec": 10.63,
+          "latencyMs": {
+            "p50": 182.6,
+            "p95": 1471.1,
+            "p99": 10613.7,
+            "max": 10624.2
+          },
+          "avgBytes": 17571,
+          "statuses": {
+            "0": 5,
+            "200": 95
+          },
+          "http4xx": 0,
+          "http5xx": 0,
+          "connectionFail": 5
+        }
+      ]
+    },
+    {
+      "app": "owner",
+      "url": "https://swiftgo-ride-app.web.app/owner/",
+      "levels": [
+        {
+          "concurrency": 5,
+          "requests": 100,
+          "ok": 99,
+          "fail": 1,
+          "errorRatePct": 1,
+          "rps": 9.4,
+          "wallSec": 10.63,
+          "latencyMs": {
+            "p50": 168.8,
+            "p95": 366.9,
+            "p99": 1368,
+            "max": 10629.8
+          },
+          "avgBytes": 9405,
+          "statuses": {
+            "0": 1,
+            "200": 99
+          },
+          "http4xx": 0,
+          "http5xx": 0,
+          "connectionFail": 1
+        },
+        {
+          "concurrency": 10,
+          "requests": 100,
+          "ok": 95,
+          "fail": 5,
+          "errorRatePct": 5,
+          "rps": 9.4,
+          "wallSec": 10.68,
+          "latencyMs": {
+            "p50": 205.6,
+            "p95": 1728.6,
+            "p99": 10674.7,
+            "max": 10676.1
+          },
+          "avgBytes": 9025,
+          "statuses": {
+            "0": 5,
+            "200": 95
+          },
+          "http4xx": 0,
+          "http5xx": 0,
+          "connectionFail": 5
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "url": "https://swiftgo-ride-app.web.app/admin/",
+      "levels": [
+        {
+          "concurrency": 5,
+          "requests": 100,
+          "ok": 99,
+          "fail": 1,
+          "errorRatePct": 1,
+          "rps": 9.6,
+          "wallSec": 10.42,
+          "latencyMs": {
+            "p50": 201.1,
+            "p95": 406.8,
+            "p99": 1425.6,
+            "max": 10411.3
+          },
+          "avgBytes": 28969,
+          "statuses": {
+            "0": 1,
+            "200": 99
+          },
+          "http4xx": 0,
+          "http5xx": 0,
+          "connectionFail": 1
+        },
+        {
+          "concurrency": 10,
+          "requests": 100,
+          "ok": 100,
+          "fail": 0,
+          "errorRatePct": 0,
+          "rps": 32.5,
+          "wallSec": 3.08,
+          "latencyMs": {
+            "p50": 212,
+            "p95": 604.9,
+            "p99": 1533.7,
+            "max": 1968
+          },
+          "avgBytes": 29262,
+          "statuses": {
+            "200": 100
+          },
+          "http4xx": 0,
+          "http5xx": 0,
+          "connectionFail": 0
+        }
+      ]
+    }
+  ],
+  "finishedAt": "2026-07-23T07:34:57.868Z"
+}

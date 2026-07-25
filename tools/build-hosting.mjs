@@ -1,5 +1,5 @@
-/**
- * Package the three independent apps into hosting-dist/ for Firebase Hosting.
+﻿/**
+ * Package the four independent apps into hosting-dist/ for Firebase Hosting.
  * Usage: node tools/build-hosting.mjs
  */
 import fs from "node:fs";
@@ -44,12 +44,18 @@ ensureDir(DIST);
 copyApp("customer-app", ".");
 copyApp("customer-app", "customer");
 
-// Partner and Admin under dedicated prefixes
-copyApp("partner-app", "partner");
+// Driver app stays at /partner/ (God Mode + legacy bookmarks)
+copyApp("driver-app", "partner");
+
+// Fleet owner app at /owner/
+copyApp("owner-app", "owner");
+
+// Super Admin under /admin/
 copyApp("super-admin-panel", "admin");
 
 console.info("[build-hosting] packaged apps into hosting-dist/");
 console.info("  /              <- customer-app");
 console.info("  /customer/     <- customer-app");
-console.info("  /partner/      <- partner-app");
+console.info("  /partner/      <- driver-app");
+console.info("  /owner/        <- owner-app");
 console.info("  /admin/        <- super-admin-panel");

@@ -1,0 +1,349 @@
+﻿<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="theme-color" content="#065a36" />
+  <title>سوئفٹ گو ڈرائیور</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Nastaliq+Urdu:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <link rel="stylesheet" href="css/driver-style.css?v=no_mode_switch_001" />
+</head>
+<body>
+  <!-- ── Auth & gate overlays (fullscreen) ── -->
+  <section class="driver-auth-overlay" id="driverAuthOverlay" aria-labelledby="driverAuthTitle">
+    <div class="driver-auth-card">
+      <div class="driver-auth-card__logo" aria-hidden="true">S</div>
+      <p class="driver-auth-card__eyebrow">SwiftGo Driver</p>
+      <h2 id="driverAuthTitle">ڈرائیور اکاؤنٹ</h2>
+      <p class="driver-auth-card__copy">
+        آن لائن ہونے اور سواری کی درخواستیں حاصل کرنے کے لیے لاگ اِن کریں۔
+      </p>
+      <button type="button" class="google-login-btn" id="driverGoogleLoginBtn">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.91h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.4Z"/>
+          <path fill="#34A853" d="M12 22c2.7 0 4.97-.9 6.62-2.37l-3.24-2.54c-.9.6-2.05.96-3.38.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.62A10 10 0 0 0 12 22Z"/>
+          <path fill="#FBBC05" d="M6.39 13.92A6.01 6.01 0 0 1 6.08 12c0-.67.11-1.32.31-1.92V7.46H3.04A10 10 0 0 0 2 12c0 1.61.38 3.14 1.04 4.54l3.35-2.62Z"/>
+          <path fill="#EA4335" d="M12 5.95c1.47 0 2.79.51 3.82 1.5l2.87-2.87A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.96 5.46l3.35 2.62C7.18 7.71 9.39 5.95 12 5.95Z"/>
+        </svg>
+        <span>Google سے لاگ ان کریں</span>
+      </button>
+      <p class="driver-auth-card__status" id="driverAuthStatus" role="status" aria-live="polite"></p>
+      <p class="driver-auth-card__dev">Dev Mode · دستاویزات درکار نہیں</p>
+    </div>
+  </section>
+
+  <section class="account-blocked-overlay" id="accountBlockedOverlay" aria-labelledby="accountBlockedTitle" role="alertdialog" aria-modal="true" hidden>
+    <div class="account-blocked-card">
+      <div class="account-blocked-card__icon" aria-hidden="true">!</div>
+      <h2 id="accountBlockedTitle">اکاؤنٹ معطل کر دیا گیا ہے۔ براہ کرم سپورٹ سے رابطہ کریں۔</h2>
+      <p class="account-blocked-card__en">Account suspended. Please contact support.</p>
+      <button type="button" class="partner-logout-btn" id="accountBlockedLogoutBtn">لاگ آؤٹ</button>
+    </div>
+  </section>
+
+  <section class="pin-gate" id="vehiclePinGate" aria-labelledby="pinGateTitle" hidden>
+    <div class="pin-gate__card">
+      <div class="pin-gate__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <rect x="4" y="10" width="16" height="10" rx="2.4" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="12" cy="15" r="1.6" fill="currentColor"/>
+        </svg>
+      </div>
+      <p class="pin-gate__eyebrow">Vehicle PIN</p>
+      <h2 id="pinGateTitle">گاڑی کا PIN درج کریں</h2>
+      <p class="pin-gate__copy">
+        مالک سے ملا ہوا 4 ہندسوں کا PIN درج کریں تاکہ گاڑی آپ کے اکاؤنٹ سے منسلک ہو جائے۔
+      </p>
+      <form id="vehiclePinForm" novalidate>
+        <input
+          id="vehiclePinInput"
+          class="pin-gate__input"
+          type="text"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="4"
+          pattern="[0-9]{4}"
+          placeholder="• • • •"
+          aria-label="گاڑی کا 4 ہندسوں کا PIN"
+          required
+        />
+        <p class="pin-gate__message" id="vehiclePinMessage" role="status" aria-live="polite"></p>
+        <button type="submit" class="pin-verify-btn" id="vehiclePinVerifyBtn">تصدیق کریں</button>
+      </form>
+      <button type="button" class="partner-logout-btn" id="pinGateLogoutBtn">لاگ آؤٹ</button>
+    </div>
+  </section>
+
+  <div class="partner-shell driver-app" id="partnerShell" hidden>
+    <aside class="partner-sidebar" aria-label="ڈرائیور نیویگیشن">
+      <div class="partner-sidebar__brand">
+        <span class="partner-sidebar__mark" aria-hidden="true">S</span>
+        <div>
+          <strong>SwiftGo</strong>
+          <span>Driver</span>
+        </div>
+      </div>
+
+      <nav class="partner-sidebar__nav">
+        <button type="button" class="partner-nav-item is-active" id="navDashboard" data-view="dashboard" aria-current="page">
+          ڈیش بورڈ
+          <span class="partner-nav-item__en">Dashboard</span>
+        </button>
+        <button type="button" class="partner-nav-item" data-view="rides">
+          میری سواریاں
+          <span class="partner-nav-item__en">My Rides</span>
+        </button>
+        <button type="button" class="partner-nav-item" id="navWallet" data-view="wallet">
+          والٹ
+          <span class="partner-nav-item__en">Wallet</span>
+        </button>
+      </nav>
+
+      <div class="partner-sidebar__footer">
+        <button type="button" class="partner-sidebar__logout" id="partnerSidebarLogoutBtn">لاگ آؤٹ</button>
+      </div>
+    </aside>
+
+    <div class="partner-main">
+      <header class="partner-topbar" id="partnerHeader">
+        <div class="partner-topbar__title">
+          <p class="partner-topbar__eyebrow">SwiftGo Driver</p>
+          <h1 id="partnerViewTitle">ڈیش بورڈ</h1>
+        </div>
+        <div class="partner-topbar__actions" id="partnerTopbarActions">
+          <button type="button" class="driver-notify-btn" id="openNotificationSettingsBtn" aria-label="نوٹیفکیشن سیٹنگز" title="نوٹیفکیشن سیٹنگز">🔔</button>
+          <button
+            type="button"
+            class="driver-status"
+            id="driverStatusToggle"
+            role="switch"
+            aria-checked="false"
+            aria-label="ڈرائیور آن لائن کریں"
+          >
+            <span class="driver-status__dot" aria-hidden="true"></span>
+            <span id="driverStatusText">آف لائن</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="partner-content" id="partnerContent" data-active-view="dashboard">
+        <div class="partner-view is-active" id="dashboardSection" data-view-panel="dashboard">
+          <div class="dashboard-layout">
+            <div class="dashboard-map-panel">
+              <section class="driver-map" id="driverMap" role="application" aria-label="ڈرائیور کا لائیو نقشہ"></section>
+              <div class="location-state" id="locationState" role="status" aria-live="polite">
+                آن لائن ہونے پر آپ کا موجودہ مقام یہاں دکھائی دے گا
+              </div>
+            </div>
+            <aside class="dashboard-stats" aria-label="Quick stats">
+              <article class="stat-card">
+                <p class="stat-card__label">موجودہ بیلنس</p>
+                <p class="stat-card__value" id="dashboardWalletBalance">Rs. 0</p>
+              </article>
+              <article class="stat-card">
+                <p class="stat-card__label">کل کمائی</p>
+                <p class="stat-card__value" id="dashboardTotalEarnings">Rs. 0</p>
+              </article>
+              <article class="stat-card">
+                <p class="stat-card__label">مکمل سواریاں</p>
+                <p class="stat-card__value" id="dashboardTotalRides">0</p>
+              </article>
+            </aside>
+          </div>
+        </div>
+
+        <div class="partner-view" id="rideHistorySection" data-view-panel="rides" hidden aria-label="میری سواریاں">
+          <header class="partner-view__head">
+            <h2>میری سواریاں</h2>
+            <p>مکمل اور گزشتہ سواریوں کی تفصیل</p>
+          </header>
+          <div class="partner-ride-history__list" id="driverRideHistoryList" hidden></div>
+          <div class="partner-ride-history__empty" id="driverRideHistoryEmpty">
+            <p>ابھی کوئی سواری نہیں۔ مکمل شدہ سواریاں یہاں دکھائی جائیں گی۔</p>
+          </div>
+        </div>
+
+        <div class="partner-view" id="walletSection" data-view-panel="wallet" hidden aria-label="والٹ">
+          <section class="wallet-panel" id="driverEarningsCard">
+            <header class="wallet-panel__head">
+              <p class="wallet-panel__eyebrow">Earnings</p>
+              <h2>میری کمائی</h2>
+            </header>
+            <div class="driver-wallet-row">
+              <span>موجودہ بیلنس</span>
+              <strong id="driverWalletBalance">Rs. 0</strong>
+            </div>
+            <p class="driver-wallet-warning" id="driverWalletWarning" hidden role="alert">
+              کمپنی کا واجب الادا بیلنس زیادہ ہو گیا ہے۔ براہ کرم والٹ ریچارج کریں۔
+            </p>
+            <button type="button" class="driver-recharge-btn" id="rechargeWalletBtn">والٹ ریچارج کریں</button>
+            <div class="wallet-stats-grid">
+              <article class="stat-card stat-card--compact">
+                <p class="stat-card__label">کل کمائی</p>
+                <p class="stat-card__value" id="driverTotalEarnings">Rs. 0</p>
+              </article>
+              <article class="stat-card stat-card--compact">
+                <p class="stat-card__label">مکمل سواریاں</p>
+                <p class="stat-card__value" id="driverTotalRides">0</p>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <section class="incoming-ride-sheet" id="incomingRideSheet" aria-live="polite" aria-label="نئی سواری کی درخواست" hidden>
+    <div class="incoming-ride-sheet__handle" aria-hidden="true"></div>
+    <div class="incoming-ride-alert">
+      <span class="incoming-ride-alert__pulse" aria-hidden="true"></span>
+      <div>
+        <p class="incoming-ride-alert__eyebrow">New Ride Request</p>
+        <h2>نئی سواری دستیاب ہے</h2>
+      </div>
+    </div>
+    <div class="incoming-route">
+      <div class="incoming-route__row">
+        <span class="incoming-route__dot incoming-route__dot--pickup" aria-hidden="true"></span>
+        <div>
+          <span class="incoming-route__label">پک اپ</span>
+          <strong id="incomingPickup">—</strong>
+        </div>
+      </div>
+      <div class="incoming-route__line" aria-hidden="true"></div>
+      <div class="incoming-route__row">
+        <span class="incoming-route__dot incoming-route__dot--dropoff" aria-hidden="true"></span>
+        <div>
+          <span class="incoming-route__label">ڈراپ آف</span>
+          <strong id="incomingDropoff">—</strong>
+        </div>
+      </div>
+    </div>
+    <div class="incoming-ride-stats">
+      <div><span>فاصلہ</span><strong id="incomingDistance">— km</strong></div>
+      <div><span>وقت</span><strong id="incomingTime">— min</strong></div>
+      <div><span>متوقع کرایہ</span><strong id="incomingFare">Rs. —</strong></div>
+    </div>
+    <div class="incoming-ride-actions">
+      <button type="button" class="ride-accept-btn" id="acceptRideBtn">قبول کریں</button>
+      <button type="button" class="ride-decline-btn" id="declineRideBtn">مسترد کریں</button>
+    </div>
+  </section>
+
+  <section class="active-ride-sheet" id="activeRideSheet" aria-live="polite" aria-label="فعال سواری کنٹرول" hidden>
+    <div class="active-ride-sheet__handle" aria-hidden="true"></div>
+    <p class="active-ride-sheet__eyebrow" id="activeRideEyebrow">Active Ride</p>
+    <h2 id="activeRideStatusTitle">سواری قبول شدہ</h2>
+    <div class="active-ride-sheet__route">
+      <p><span>پک اپ</span><strong id="activeRidePickup">—</strong></p>
+      <p><span>ڈراپ آف</span><strong id="activeRideDropoff">—</strong></p>
+    </div>
+    <p class="active-ride-sheet__fare">کرایہ: <strong id="activeRideFare">Rs. —</strong></p>
+    <button type="button" class="active-ride-action-btn" id="activeRideActionBtn">میں پہنچ گیا ہوں</button>
+  </section>
+
+  <section class="ride-complete-sheet" id="rideCompleteSheet" aria-live="polite" aria-label="سواری مکمل" hidden>
+    <div class="ride-complete-sheet__card">
+      <p class="ride-complete-sheet__eyebrow">Trip Complete</p>
+      <h2>سواری مکمل ہو گئی</h2>
+      <p class="ride-complete-sheet__label">وصول کرنے والا کرایہ</p>
+      <p class="ride-complete-sheet__fare" id="rideCompleteFare">Rs. —</p>
+      <button type="button" class="ride-find-new-btn" id="findNewRideBtn">نئی سواری تلاش کریں</button>
+    </div>
+  </section>
+
+  <div class="recharge-modal" id="rechargeSection" aria-hidden="true" hidden>
+    <button class="recharge-modal__backdrop" id="rechargeBackdrop" type="button" aria-label="بند کریں"></button>
+    <section class="recharge-modal__panel" role="dialog" aria-modal="true" aria-labelledby="rechargeTitle">
+      <div class="recharge-modal__heading">
+        <div>
+          <p>Wallet Recharge</p>
+          <h2 id="rechargeTitle">والٹ ریچارج کریں</h2>
+        </div>
+        <button type="button" class="recharge-modal__close" id="rechargeCloseBtn" aria-label="بند کریں">×</button>
+      </div>
+      <div class="recharge-instructions">
+        <p>نیچے دیے گئے اکاؤنٹ میں رقم بھیجیں اور TID درج کریں:</p>
+        <p class="recharge-instructions__line" id="rechargeJazzcashLine">
+          JazzCash: <strong id="rechargeJazzcashNumber">0300-1234567</strong>
+        </p>
+        <p class="recharge-instructions__line" id="rechargeEasypaisaLine" hidden>
+          EasyPaisa: <strong id="rechargeEasypaisaNumber">0345-7654321</strong>
+        </p>
+      </div>
+      <form id="rechargeForm" novalidate>
+        <label class="recharge-field">
+          <span>ادائیگی کا طریقہ</span>
+          <select id="rechargeMethod" required>
+            <option value="jazzcash">JazzCash</option>
+            <option value="easypaisa">EasyPaisa</option>
+          </select>
+        </label>
+        <label class="recharge-field">
+          <span>رقم (PKR)</span>
+          <input id="rechargeAmount" type="number" min="1" max="500000" step="1" inputmode="numeric" placeholder="مثلاً 1000" required />
+        </label>
+        <label class="recharge-field">
+          <span>Transaction ID / TID</span>
+          <input id="rechargeTid" type="text" maxlength="80" autocomplete="off" placeholder="ٹرانزیکشن ID" required />
+        </label>
+        <p class="recharge-form__message" id="rechargeFormMessage" role="status" aria-live="polite"></p>
+        <button type="submit" class="recharge-submit-btn" id="rechargeSubmitBtn">درخواست بھیجیں</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="notify-settings-modal" id="notificationSettingsModal" aria-hidden="true" hidden>
+    <button class="notify-settings-modal__backdrop" id="notificationSettingsBackdrop" type="button" aria-label="بند کریں"></button>
+    <section class="notify-settings-modal__panel" role="dialog" aria-modal="true" aria-labelledby="notificationSettingsTitle">
+      <div class="notify-settings-modal__heading">
+        <div>
+          <p>Alerts</p>
+          <h2 id="notificationSettingsTitle">نوٹیفکیشن سیٹنگز</h2>
+        </div>
+        <button type="button" class="notify-settings-modal__close" id="notificationSettingsCloseBtn" aria-label="بند کریں">×</button>
+      </div>
+      <label class="notify-settings-field notify-settings-field--switch">
+        <span>آواز</span>
+        <input type="checkbox" id="notificationMuteToggle" role="switch" aria-checked="true" />
+      </label>
+      <label class="notify-settings-field">
+        <span>رنگ ٹون منتخب کریں</span>
+        <select id="notificationToneSelect">
+          <option value="tone1">Tone 1 · Default Chime</option>
+          <option value="tone2">Tone 2 · Bell</option>
+          <option value="tone3">Tone 3 · Beep</option>
+        </select>
+      </label>
+      <label class="notify-settings-field">
+        <span>آواز کی شدت · <strong id="notificationVolumeLabel">80%</strong></span>
+        <input type="range" id="notificationVolumeRange" min="0" max="100" step="1" value="80" />
+      </label>
+      <div class="notify-settings-actions">
+        <button type="button" class="notify-settings-btn" id="notificationTestBtn">ٹیسٹ کریں</button>
+        <button type="button" class="notify-settings-btn notify-settings-btn--ghost" id="notificationPermissionBtn">براؤزر اجازت</button>
+      </div>
+      <p class="notify-settings-status" id="notificationSettingsStatus" role="status" aria-live="polite"></p>
+    </section>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script type="module" src="js/driver-app.js?v=no_mode_switch_001"></script>
+</body>
+</html>

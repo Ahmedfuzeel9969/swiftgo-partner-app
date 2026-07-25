@@ -1,0 +1,16 @@
+{
+  "name": "ride-app",
+  "version": "1.0.0",
+  "description": "Live app: **https://swiftgo-ride-app.web.app**",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

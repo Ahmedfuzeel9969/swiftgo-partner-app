@@ -3,12 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <meta name="theme-color" content="#0b1220" />
   <title>SwiftGo - Super Admin Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Nastaliq+Urdu:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/admin-style.css?v=20260722b" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="css/admin-style.css?v=no_mode_switch_001" />
 </head>
 <body>
   <!-- Login gate -->
@@ -46,7 +50,7 @@
   >
     <div class="access-denied__panel">
       <div class="access-denied__icon" aria-hidden="true">!</div>
-      <h2 id="accessDeniedTitle">Access Denied: You are not authorized as a Super Admin.</h2>
+      <h2 id="accessDeniedTitle">Access Denied: صرف مالک مرکزی کنٹرول میں داخل ہو سکتا ہے۔ ڈرائیورز کو اجازت نہیں۔</h2>
       <p class="access-denied__ur" dir="rtl" lang="ur">رسائی سے انکار: آپ سپر ایڈمن نہیں ہیں</p>
       <button type="button" class="access-denied__btn" id="accessDeniedDismissBtn">Close / بند کریں</button>
     </div>
@@ -54,18 +58,32 @@
 
   <!-- Enterprise dashboard -->
   <div class="admin-layout" id="adminDashboard" hidden>
-    <aside class="admin-sidebar" aria-label="Super Admin navigation">
+    <div class="admin-nav-backdrop" id="adminNavBackdrop" hidden></div>
+    <aside class="admin-sidebar" id="adminSidebar" aria-label="Super Admin navigation">
       <div class="admin-sidebar__brand">
         <span class="admin-sidebar__mark" aria-hidden="true">SG</span>
         <div>
           <strong>SwiftGo</strong>
           <span>Super Admin</span>
         </div>
+        <button type="button" class="admin-sidebar__close" id="adminSidebarClose" aria-label="Close menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </button>
       </div>
       <nav class="admin-sidebar__nav">
-        <button type="button" class="admin-nav-item is-active" data-view="dashboard">
+        <button type="button" class="admin-nav-item is-active" data-view="dashboard" aria-current="page">
           ڈیش بورڈ
           <span class="admin-nav-item__en">Dashboard</span>
+        </button>
+        <button type="button" class="admin-nav-item" id="navLiveMap" data-view="live-map">
+          لائیو نقشہ
+          <span class="admin-nav-item__en">Live Map</span>
+        </button>
+        <button type="button" class="admin-nav-item" id="navAllRides" data-view="all-rides">
+          تمام سواریاں
+          <span class="admin-nav-item__en">All Rides</span>
         </button>
         <button type="button" class="admin-nav-item" data-view="approvals">
           ڈرائیورز کی منظوری
@@ -79,69 +97,478 @@
           مالی کنٹرول
           <span class="admin-nav-item__en">Financial Controls</span>
         </button>
+        <button type="button" class="admin-nav-item" id="navRechargeRequests" data-view="recharge-requests">
+          ریچارج درخواستیں
+          <span class="admin-nav-item__en">Recharge Requests</span>
+        </button>
       </nav>
     </aside>
 
     <div class="admin-main">
       <header class="admin-topbar">
-        <div class="admin-topbar__title">
-          <p class="admin-topbar__eyebrow">Command Center</p>
-          <h1 id="adminViewTitle">ڈیش بورڈ</h1>
+        <div class="admin-topbar__leading">
+          <button type="button" class="admin-menu-btn" id="adminMenuBtn" aria-label="Open menu" aria-controls="adminSidebar" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </button>
+          <div class="admin-topbar__title">
+            <p class="admin-topbar__eyebrow">Command Center</p>
+            <h1 id="adminViewTitle">ڈیش بورڈ</h1>
+          </div>
         </div>
         <div class="admin-topbar__user">
           <div class="admin-topbar__identity">
             <strong id="adminDisplayName">—</strong>
             <span id="adminDisplayEmail">—</span>
           </div>
-          <button type="button" class="admin-logout-btn" id="adminLogoutBtn">Logout</button>
+          <div class="admin-topbar__actions">
+            <button type="button" class="admin-logout-btn admin-topbar__action" id="openNotificationSettingsBtn">نوٹیفکیشن</button>
+            <button type="button" class="admin-logout-btn admin-topbar__action" id="adminLogoutBtn">Logout</button>
+          </div>
         </div>
       </header>
 
       <section class="admin-content" id="adminContent" data-active-view="dashboard">
-        <div class="admin-view is-active" data-view-panel="dashboard">
+        <!-- Phase 28.1 / 28.2 — Dashboard -->
+        <div class="admin-view is-active" id="viewDashboard" data-view-panel="dashboard">
           <div class="stat-grid" aria-label="Dashboard statistics">
             <article class="stat-card">
               <p class="stat-card__label">Total Rides</p>
               <p class="stat-card__value" id="statTotalRides">—</p>
-              <p class="stat-card__hint">کل رائیڈز · placeholder</p>
+              <p class="stat-card__hint">کل رائیڈز · live</p>
             </article>
             <article class="stat-card">
               <p class="stat-card__label">Active Drivers</p>
               <p class="stat-card__value" id="statActiveDrivers">—</p>
-              <p class="stat-card__hint">فعال ڈرائیورز · placeholder</p>
+              <p class="stat-card__hint">پارٹنر ڈرائیورز · live</p>
             </article>
             <article class="stat-card">
               <p class="stat-card__label">Total Revenue</p>
               <p class="stat-card__value" id="statTotalRevenue">—</p>
-              <p class="stat-card__hint">کل آمدنی · placeholder</p>
+              <p class="stat-card__hint">کل آمدنی · commission</p>
             </article>
           </div>
+          <p class="admin-live-note" id="statsLiveNote" role="status" aria-live="polite"></p>
         </div>
 
-        <div class="admin-view" data-view-panel="approvals" hidden>
-          <div class="placeholder-panel">
-            <h2>ڈرائیورز کی منظوری</h2>
-            <p>Driver Approvals workspace — coming in a later phase.</p>
+        <!-- Phase 38 — Live fleet map -->
+        <div class="admin-view" id="liveMapSection" data-view-panel="live-map" hidden>
+          <div class="fleet-map-panel">
+            <div class="fleet-map-panel__head">
+              <div>
+                <h2>لائیو نقشہ</h2>
+                <p>Real-time driver positions from <code>vehicles</code> collection</p>
+              </div>
+              <span class="table-panel__count" id="fleetMapActiveCount">0 live vehicles</span>
+            </div>
+            <div
+              id="fleetMap"
+              class="fleet-map-canvas"
+              role="application"
+              aria-label="Live fleet map"
+            ></div>
+            <div class="fleet-map-legend" aria-hidden="true">
+              <span><i class="fleet-dot fleet-dot--online"></i> آن لائن</span>
+              <span><i class="fleet-dot fleet-dot--in-ride"></i> سواری میں</span>
+            </div>
+            <p class="admin-live-note" id="fleetMapLiveNote" role="status" aria-live="polite"></p>
           </div>
         </div>
 
-        <div class="admin-view" data-view-panel="users" hidden>
-          <div class="placeholder-panel">
-            <h2>صارفین اور گاڑیاں</h2>
-            <p>Users &amp; Vehicles workspace — coming in a later phase.</p>
+        <!-- Phase 36 — Global ride monitoring -->
+        <div class="admin-view" id="allRidesSection" data-view-panel="all-rides" hidden>
+          <div class="table-panel">
+            <div class="table-panel__head">
+              <div>
+                <h2>تمام سواریاں</h2>
+                <p>Live global ride feed · latest 100 rides</p>
+              </div>
+              <span class="table-panel__count" id="allRidesTableCount">0 rides</span>
+            </div>
+            <div class="table-scroll">
+              <table class="rides-table" aria-label="All rides monitoring">
+                <thead>
+                  <tr>
+                    <th>تاریخ</th>
+                    <th>کسٹمر</th>
+                    <th>ڈرائیور</th>
+                    <th>اسٹیٹس</th>
+                    <th>کل کرایہ</th>
+                    <th>کمیشن</th>
+                    <th>ریٹنگ</th>
+                  </tr>
+                </thead>
+                <tbody id="allRidesTableBody">
+                  <tr class="rides-table__empty">
+                    <td colspan="7">لوڈ ہو رہا ہے...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="admin-live-note" id="allRidesLiveNote" role="status" aria-live="polite"></p>
           </div>
         </div>
 
-        <div class="admin-view" data-view-panel="finance" hidden>
-          <div class="placeholder-panel">
-            <h2>مالی کنٹرول</h2>
-            <p>Financial Controls workspace — coming in a later phase.</p>
+        <!-- Phase 28.1 / 28.3 — Driver Approvals -->
+        <div class="admin-view" id="viewApprovals" data-view-panel="approvals" hidden>
+          <div class="table-panel">
+            <div class="table-panel__head">
+              <div>
+                <h2>ڈرائیورز کی منظوری</h2>
+                <p>Live partners with <code>role == driver</code></p>
+              </div>
+              <span class="table-panel__count" id="driversTableCount">0 drivers</span>
+            </div>
+            <div class="table-scroll">
+              <table class="drivers-table" aria-label="Drivers management">
+                <thead>
+                  <tr>
+                    <th>نام / ای میل</th>
+                    <th>رول</th>
+                    <th>موجودہ گاڑی</th>
+                    <th>والٹ بیلنس</th>
+                    <th>اسٹیٹس / ایکشن</th>
+                  </tr>
+                </thead>
+                <tbody id="driversTableBody">
+                  <tr class="drivers-table__empty">
+                    <td colspan="5">لوڈ ہو رہا ہے...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="admin-live-note" id="driversLiveNote" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <div class="admin-view" id="viewUsers" data-view-panel="users" hidden>
+          <div class="table-panel">
+            <div class="table-panel__head">
+              <div>
+                <h2>گاڑیاں · Owner Drive Mode</h2>
+                <p>Temporarily take control of any vehicle from the Partner App</p>
+              </div>
+              <span class="table-panel__count" id="vehiclesTableCount">0 vehicles</span>
+            </div>
+            <div class="table-scroll">
+              <table class="vehicles-table" aria-label="Fleet vehicles takeover">
+                <thead>
+                  <tr>
+                    <th>گاڑی</th>
+                    <th>پلیٹ</th>
+                    <th>موجودہ ڈرائیور</th>
+                    <th>اسٹیٹس</th>
+                    <th>عمل</th>
+                  </tr>
+                </thead>
+                <tbody id="vehiclesTableBody">
+                  <tr class="vehicles-table__empty">
+                    <td colspan="5">لوڈ ہو رہا ہے...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="admin-live-note" id="vehiclesLiveNote" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <div class="admin-view" id="viewFinance" data-view-panel="finance" hidden>
+          <div class="finance-panel finance-panel--wide">
+            <div class="finance-panel__head">
+              <h2>مالی کنٹرول</h2>
+              <p>ہر گاڑی · فاصلہ رینج · وقت/رفتار ریٹس · <code>settings/pricing.vehicles</code></p>
+            </div>
+            <form class="finance-form" id="pricingSettingsForm" novalidate>
+              <div class="vehicle-rate-grid" id="vehicleRateGrid" aria-label="Per vehicle rates">
+                <!-- bike -->
+                <section class="vehicle-rate-card" data-vehicle-key="bike">
+                  <header class="vehicle-rate-card__head">
+                    <h3>بائیک</h3>
+                    <span>Bike</span>
+                  </header>
+                  <label class="finance-field">
+                    <span class="finance-field__label">بیس فیئر (PKR)</span>
+                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
+                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">کمیشن (%)</span>
+                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  </label>
+                </section>
+
+                <section class="vehicle-rate-card" data-vehicle-key="go">
+                  <header class="vehicle-rate-card__head">
+                    <h3>گو</h3>
+                    <span>Go</span>
+                  </header>
+                  <label class="finance-field">
+                    <span class="finance-field__label">بیس فیئر (PKR)</span>
+                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
+                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">کمیشن (%)</span>
+                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  </label>
+                </section>
+
+                <section class="vehicle-rate-card" data-vehicle-key="go-plus">
+                  <header class="vehicle-rate-card__head">
+                    <h3>گو پلس</h3>
+                    <span>Go Plus</span>
+                  </header>
+                  <label class="finance-field">
+                    <span class="finance-field__label">بیس فیئر (PKR)</span>
+                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
+                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">کمیشن (%)</span>
+                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  </label>
+                </section>
+
+                <section class="vehicle-rate-card" data-vehicle-key="business">
+                  <header class="vehicle-rate-card__head">
+                    <h3>بزنس</h3>
+                    <span>Business</span>
+                  </header>
+                  <label class="finance-field">
+                    <span class="finance-field__label">بیس فیئر (PKR)</span>
+                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
+                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">کمیشن (%)</span>
+                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  </label>
+                </section>
+
+                <section class="vehicle-rate-card" data-vehicle-key="bike-cargo">
+                  <header class="vehicle-rate-card__head">
+                    <h3>بائیک کارگو</h3>
+                    <span>Bike Cargo</span>
+                  </header>
+                  <label class="finance-field">
+                    <span class="finance-field__label">بیس فیئر (PKR)</span>
+                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
+                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">کمیشن (%)</span>
+                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  </label>
+                </section>
+
+                <section class="vehicle-rate-card" data-vehicle-key="suzuki">
+                  <header class="vehicle-rate-card__head">
+                    <h3>سوزوکی</h3>
+                    <span>Suzuki</span>
+                  </header>
+                  <label class="finance-field">
+                    <span class="finance-field__label">بیس فیئر (PKR)</span>
+                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
+                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">کمیشن (%)</span>
+                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  </label>
+                </section>
+
+                <section class="vehicle-rate-card" data-vehicle-key="truck">
+                  <header class="vehicle-rate-card__head">
+                    <h3>ٹرک</h3>
+                    <span>Truck</span>
+                  </header>
+                  <label class="finance-field">
+                    <span class="finance-field__label">بیس فیئر (PKR)</span>
+                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
+                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  </label>
+                  <label class="finance-field">
+                    <span class="finance-field__label">کمیشن (%)</span>
+                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  </label>
+                </section>
+              </div>
+
+              <label class="finance-field finance-field--wallet">
+                <span class="finance-field__label">والٹ حد (Max Negative Balance - PKR) · تمام ڈرائیورز</span>
+                <input
+                  type="number"
+                  id="pricingWalletThreshold"
+                  name="walletThreshold"
+                  max="0"
+                  step="1"
+                  inputmode="numeric"
+                  required
+                />
+              </label>
+
+              <button type="submit" class="finance-save-btn" id="pricingSaveBtn">
+                تبدیلیاں محفوظ کریں
+                <span class="finance-save-btn__en">Save Vehicle Rates</span>
+              </button>
+              <p class="finance-success" id="pricingSuccessMessage" hidden role="status" aria-live="polite">
+                ریٹس کامیابی سے اپڈیٹ ہو گئے!
+              </p>
+              <p class="admin-live-note" id="pricingStatusNote" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+
+          <!-- Phase 42: Promo codes -->
+          <div class="promo-panel">
+            <div class="promo-panel__head">
+              <h2>پرومو کوڈز</h2>
+              <p>Discount codes · <code>promoCodes/{code}</code></p>
+            </div>
+            <form class="promo-form" id="promoCodeForm" novalidate>
+              <label class="promo-field">
+                <span class="promo-field__label">کوڈ</span>
+                <input type="text" id="promoCodeInput" name="code" maxlength="32" required placeholder="SWIFT10" autocapitalize="characters" />
+              </label>
+              <label class="promo-field">
+                <span class="promo-field__label">قسم</span>
+                <select id="promoTypeInput" name="type">
+                  <option value="percent">Percent (%)</option>
+                  <option value="fixed">Fixed (PKR)</option>
+                </select>
+              </label>
+              <label class="promo-field">
+                <span class="promo-field__label">ویلیو</span>
+                <input type="number" id="promoValueInput" name="value" min="1" step="1" required />
+              </label>
+              <label class="promo-field">
+                <span class="promo-field__label">زیادہ سے زیادہ استعمال</span>
+                <input type="number" id="promoMaxUsesInput" name="maxUses" min="0" step="1" placeholder="0 = unlimited" />
+              </label>
+              <button type="submit" class="promo-save-btn" id="promoSaveBtn">نیا کوڈ شامل کریں</button>
+            </form>
+            <div class="table-scroll promo-table-scroll">
+              <table class="promo-table" aria-label="Promo codes">
+                <thead>
+                  <tr>
+                    <th>کوڈ</th>
+                    <th>قسم</th>
+                    <th>ویلیو</th>
+                    <th>استعمال</th>
+                    <th>اسٹیٹس</th>
+                    <th>عمل</th>
+                  </tr>
+                </thead>
+                <tbody id="promoCodesTableBody">
+                  <tr class="promo-table__empty">
+                    <td colspan="6">لوڈ ہو رہا ہے...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="admin-live-note" id="promoCodesLiveNote" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <!-- Phase 37 — Wallet recharge approvals -->
+        <div class="admin-view" id="rechargeRequestsSection" data-view-panel="recharge-requests" hidden>
+          <div class="table-panel">
+            <div class="table-panel__head">
+              <div>
+                <h2>ریچارج درخواستیں</h2>
+                <p>Pending wallet top-ups awaiting Super Admin approval</p>
+              </div>
+              <span class="table-panel__count" id="rechargeRequestsCount">0 pending</span>
+            </div>
+            <div class="table-scroll">
+              <table class="recharge-table" aria-label="Pending recharge requests">
+                <thead>
+                  <tr>
+                    <th>تاریخ</th>
+                    <th>ڈرائیور</th>
+                    <th>طریقہ</th>
+                    <th>TID</th>
+                    <th>رقم</th>
+                    <th>عمل</th>
+                  </tr>
+                </thead>
+                <tbody id="rechargeRequestsTableBody">
+                  <tr class="recharge-table__empty">
+                    <td colspan="6">لوڈ ہو رہا ہے...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="admin-live-note" id="rechargeRequestsLiveNote" role="status" aria-live="polite"></p>
           </div>
         </div>
       </section>
     </div>
   </div>
 
-  <script type="module" src="js/admin-app.js?v=20260722b"></script>
+  <div class="admin-toast" id="adminToast" role="status" aria-live="polite"></div>
+
+  <!-- Phase 39: notification settings -->
+  <div class="notify-settings-modal" id="notificationSettingsModal" aria-hidden="true" hidden>
+    <button class="notify-settings-modal__backdrop" id="notificationSettingsBackdrop" type="button" aria-label="بند کریں"></button>
+    <section class="notify-settings-modal__panel" role="dialog" aria-modal="true" aria-labelledby="notificationSettingsTitle">
+      <div class="notify-settings-modal__heading">
+        <div>
+          <p>Alerts</p>
+          <h2 id="notificationSettingsTitle">نوٹیفکیشن سیٹنگز</h2>
+        </div>
+        <button type="button" class="notify-settings-modal__close" id="notificationSettingsCloseBtn" aria-label="بند کریں">×</button>
+      </div>
+
+      <label class="notify-settings-field notify-settings-field--switch">
+        <span>آواز</span>
+        <input type="checkbox" id="notificationMuteToggle" role="switch" aria-checked="true" />
+      </label>
+
+      <label class="notify-settings-field">
+        <span>رنگ ٹون منتخب کریں</span>
+        <select id="notificationToneSelect">
+          <option value="tone1">Tone 1 · Default Chime</option>
+          <option value="tone2">Tone 2 · Bell</option>
+          <option value="tone3">Tone 3 · Beep</option>
+        </select>
+      </label>
+
+      <label class="notify-settings-field">
+        <span>آواز کی شدت · <strong id="notificationVolumeLabel">80%</strong></span>
+        <input type="range" id="notificationVolumeRange" min="0" max="100" step="1" value="80" />
+      </label>
+
+      <div class="notify-settings-actions">
+        <button type="button" class="notify-settings-btn" id="notificationTestBtn">ٹیسٹ کریں</button>
+        <button type="button" class="notify-settings-btn notify-settings-btn--ghost" id="notificationPermissionBtn">براؤزر اجازت</button>
+      </div>
+      <p class="notify-settings-status" id="notificationSettingsStatus" role="status" aria-live="polite"></p>
+    </section>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script type="module" src="js/admin-app.js?v=no_mode_switch_001"></script>
 </body>
 </html>

@@ -1,0 +1,49 @@
+{
+  "generatedAt": "2026-07-23T07:40:00.000Z",
+  "gitHead": "6a73d995239432eb48f1ad3170ca83c51915f4d8",
+  "productionProject": "swiftgo-ride-app",
+  "overallVerdict": "FAIL",
+  "pilotVerdict": "CONDITIONAL",
+  "hundredKDistributedTest": "NOT_STARTED_AWAITING_APPROVAL",
+  "priorLoadReportVerdict": "OVERSTATED",
+  "safeCommercialCapacityModelled": {
+    "concurrentActiveSessions": "150-250",
+    "onlineDrivers": "30-50",
+    "label": "MODELLED"
+  },
+  "target": {
+    "concurrentSessions": 100000,
+    "gapMultiplierSessions": "400-700x",
+    "label": "MODELLED"
+  },
+  "firstBottlenecksInferred": [
+    "public OSRM/Nominatim/OSM for booking UX",
+    "global searching_driver listener fan-out",
+    "GPS updateDoc every 8s to vehicles",
+    "admin unbounded dual vehicles + full rides listeners"
+  ],
+  "measuredOnly": [
+    "Firebase Hosting SPA HTML GET latency/error from single generator"
+  ],
+  "notTested": [
+    "authenticated concurrent sessions",
+    "Firestore read/write throughput under load",
+    "GPS ladder",
+    "ride lifecycle concurrency",
+    "JS boot under load",
+    "FCM",
+    "commercial maps",
+    "distributed generators",
+    "soak/spike/reconnect storms"
+  ],
+  "documents": [
+    "docs/100K-CAPACITY-AUDIT.md",
+    "docs/100K-TEST-METHODOLOGY.md",
+    "docs/100K-LOAD-TEST-COST-ESTIMATE.md",
+    "docs/100K-BUSINESS-LOAD-REPORT.md",
+    "docs/100K-GAP-ANALYSIS.md",
+    "docs/100K-REMEDIATION-ROADMAP.md",
+    "docs/100K-ARCHITECTURE-OPS-AUDIT.md"
+  ],
+  "nextGate": "Approve staging project + max $500 phase P0-P2 per cost estimate before any backend load"
+}
