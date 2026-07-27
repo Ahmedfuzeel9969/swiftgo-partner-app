@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-07-23T04:15:08.753Z",
+  "generatedAt": "2026-07-27T13:51:28.290Z",
   "baseUrl": "https://swiftgo-ride-app.web.app",
-  "total": 256,
-  "passed": 237,
-  "failed": 19,
-  "passRate": 92.6,
+  "total": 257,
+  "passed": 257,
+  "failed": 0,
+  "passRate": 100,
   "bySuite": {
     "structure": {
       "passed": 40,
@@ -12,18 +12,18 @@
       "total": 40
     },
     "html": {
-      "passed": 76,
-      "failed": 5,
+      "passed": 81,
+      "failed": 0,
       "total": 81
     },
     "css": {
-      "passed": 11,
-      "failed": 1,
+      "passed": 12,
+      "failed": 0,
       "total": 12
     },
     "i18n": {
-      "passed": 22,
-      "failed": 1,
+      "passed": 23,
+      "failed": 0,
       "total": 23
     },
     "firebase": {
@@ -32,18 +32,18 @@
       "total": 8
     },
     "security": {
-      "passed": 15,
-      "failed": 2,
+      "passed": 17,
+      "failed": 0,
       "total": 17
     },
     "wiring": {
-      "passed": 43,
-      "failed": 9,
-      "total": 52
+      "passed": 53,
+      "failed": 0,
+      "total": 53
     },
     "a11y": {
-      "passed": 6,
-      "failed": 1,
+      "passed": 7,
+      "failed": 0,
       "total": 7
     },
     "http": {
@@ -53,12 +53,6 @@
     }
   },
   "findings": [
-    {
-      "sev": "Low",
-      "area": "Frontend",
-      "title": "Placeholder support number",
-      "detail": "js/support.js uses +923001234567. Replace before production (tel: / WhatsApp)."
-    },
     {
       "sev": "Low",
       "area": "Security",
@@ -466,12 +460,12 @@
     {
       "suite": "html",
       "name": "HTML id=\"#earnDriverBtn\"",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "html",
-      "name": "HTML id=\"#trafficToggle\"",
+      "name": "HTML id=\"#btnLayerTraffic\"",
       "status": "PASS",
       "detail": ""
     },
@@ -495,15 +489,15 @@
     },
     {
       "suite": "html",
-      "name": "HTML id=\"#mapPickOverlay\"",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "name": "HTML id=\"#mapPinMode\"",
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "html",
-      "name": "HTML id=\"#mapPickConfirm\"",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "name": "HTML id=\"#mapPinConfirm\"",
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "html",
@@ -826,8 +820,8 @@
     {
       "suite": "css",
       "name": "Extra stops styles",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "css",
@@ -845,13 +839,13 @@
       "suite": "i18n",
       "name": "i18n EN keys > 60",
       "status": "PASS",
-      "detail": "count=301"
+      "detail": "count=312"
     },
     {
       "suite": "i18n",
       "name": "i18n UR keys > 60",
       "status": "PASS",
-      "detail": "count=301"
+      "detail": "count=312"
     },
     {
       "suite": "i18n",
@@ -957,7 +951,7 @@
     },
     {
       "suite": "firebase",
-      "name": "isFirebaseConfigured() === true (real keys)",
+      "name": "isFirebaseConfigured() present (real keys)",
       "status": "PASS",
       "detail": ""
     },
@@ -965,7 +959,7 @@
       "suite": "firebase",
       "name": "projectId is swiftgo-ride-app",
       "status": "PASS",
-      "detail": "swiftgo-ride-app"
+      "detail": ""
     },
     {
       "suite": "firebase",
@@ -1036,8 +1030,8 @@
     {
       "suite": "security",
       "name": "Booking list HTML escaped",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "security",
@@ -1168,8 +1162,8 @@
     {
       "suite": "wiring",
       "name": "Dashboard payment + traffic + lang",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
@@ -1180,8 +1174,8 @@
     {
       "suite": "wiring",
       "name": "Promo codes interactive and affect price",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
@@ -1192,8 +1186,8 @@
     {
       "suite": "wiring",
       "name": "Booking persists fare, payment and promo",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
@@ -1257,9 +1251,9 @@
     },
     {
       "suite": "security",
-      "name": "settings readable, client write denied",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "name": "settings readable, Super Admin write only",
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "security",
@@ -1282,8 +1276,8 @@
     {
       "suite": "html",
       "name": "Phase 13.1 uses a 50/50 pickup and drop-off header",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "html",
@@ -1324,8 +1318,8 @@
     {
       "suite": "i18n",
       "name": "Phase 13.4 UR promo/GPS/Firebase strings are script-pure",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
@@ -1342,8 +1336,8 @@
     {
       "suite": "wiring",
       "name": "Phase 15 dynamic fare matrix and route listener",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
@@ -1371,9 +1365,15 @@
     },
     {
       "suite": "wiring",
-      "name": "Phase 17.3 complete ride clears route and resets sheet",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "name": "Phase 2A customer completeRideRequest is server-only stub",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Phase 17.3 invoice reset helpers remain",
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
@@ -1432,14 +1432,14 @@
     {
       "suite": "html",
       "name": "Map stays clean without floating location controls",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
       "name": "Dynamic stops use same universal location component",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
@@ -1450,14 +1450,14 @@
     {
       "suite": "wiring",
       "name": "Map pick mode reverse-geocodes on drag",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
       "name": "Location autocomplete uses Nominatim search",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
@@ -1468,8 +1468,8 @@
     {
       "suite": "wiring",
       "name": "Smart Maps link paste extracts coordinates",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
@@ -1498,8 +1498,8 @@
     {
       "suite": "a11y",
       "name": "Booking tabs role=tab",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "a11y",

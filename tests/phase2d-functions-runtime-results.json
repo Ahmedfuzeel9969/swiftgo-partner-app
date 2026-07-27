@@ -1,0 +1,101 @@
+{
+  "generatedAt": "2026-07-27T13:49:25.514Z",
+  "command": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-swiftgo-phase1 \"node tests/phase2d-functions-runtime.mjs\"",
+  "results": [
+    {
+      "name": "R00-client-region-and-names",
+      "expected": "clients use us-central1 + trusted callable names; booking via CF",
+      "actual": "{\"custRegion\":true,\"drvRegion\":true,\"ownRegion\":true,\"bookingClient\":true,\"rideFlowUsesClient\":true,\"noDirectCreateInFlow\":true,\"offerNames\":true,\"radarSubmit\":true,\"settleName\":true,\"pinName\":true}",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R01-unauth-denied",
+      "expected": "unauthenticated callable denied",
+      "actual": "denied=true",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R02-createCustomerBooking",
+      "expected": "booking id returned",
+      "actual": "id=YaDhMCmmDTZPsNM4NlPH",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R03-match-limits-10-20",
+      "expected": "match callable works for dispatch 10 and request 20",
+      "actual": "m10cands=2 m20limit=20 cands=2",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R04-submitRideOffer",
+      "expected": "offer id returned",
+      "actual": "offerId=YaDhMCmmDTZPsNM4NlPH_rt-d1",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R05-counterRideOffer",
+      "expected": "counter accepted",
+      "actual": "{\"offerId\":\"YaDhMCmmDTZPsNM4NlPH_rt-d1\",\"status\":\"countered\",\"customerCounterFare\":310}",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R06-finalizeAssignment",
+      "expected": "ride accepted by rt-d1",
+      "actual": "status=accepted driver=rt-d1 fare=310",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R07-one-active-ride",
+      "expected": "second offer blocked",
+      "actual": "blocked=true",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R08-four-booking-limit",
+      "expected": "fifth createCustomerBooking rejected",
+      "actual": "denied=true",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R09-settlement-idempotent",
+      "expected": "one ledger; second alreadySettled",
+      "actual": "comm=31 already=true ledgers=1",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R10-unauthorized-settle",
+      "expected": "non-assigned driver denied",
+      "actual": "denied=true",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R11-linkVehicleByPin",
+      "expected": "link ok without returning pin",
+      "actual": "{\"ok\":true,\"vehicleId\":\"rt-pin\",\"hasPin\":false}",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    },
+    {
+      "name": "R12-admin-claims-callables",
+      "expected": "bootstrap/grant/revoke/toggle; ordinary denied",
+      "actual": "{\"ordinaryGrantDenied\":true,\"granted\":true,\"revoked\":true,\"bootDisabled\":true}",
+      "status": "PASS",
+      "suite": "phase2d-functions-runtime"
+    }
+  ],
+  "passed": 13,
+  "failed": 0,
+  "blocked": 0,
+  "total": 13
+}

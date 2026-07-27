@@ -36,6 +36,7 @@ import {
   where,
   serverTimestamp,
   writeBatch,
+  getCountFromServer,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 /** Sole authorized Super Admin (Owner). No driver may enter Command Center. */
@@ -47,11 +48,38 @@ const SUPER_ADMIN_EMAIL = "fuzail1158@gmail.com";
  */
 function isAuthorizedAdmin(user) {
   if (!user) return false;
+  // Phase 2B: custom claim is primary. Email bootstrap remains until disabled in settings/security.
+  if (user.admin === true) return true;
+  try {
+    const token = user.stsTokenManager && user;
+    // Prefer getIdTokenResult when available (async path handled by callers).
+  } catch {
+    /* ignore */
+  }
+  if (user?.reloadUserInfo?.customAttributes) {
+    try {
+      const attrs = JSON.parse(user.reloadUserInfo.customAttributes);
+      if (attrs?.admin === true) return true;
+    } catch {
+      /* ignore */
+    }
+  }
   const email = (user.email || "").trim().toLowerCase();
   if (!email || email !== SUPER_ADMIN_EMAIL) return false;
-  // Google accounts used for admin must be verified.
   if (user.emailVerified === false) return false;
   return true;
+}
+
+/** Async claim check (token refresh aware). */
+async function isAuthorizedAdminAsync(user) {
+  if (!user) return false;
+  try {
+    const token = await user.getIdTokenResult(true);
+    if (token?.claims?.admin === true) return true;
+  } catch {
+    /* fall through to bootstrap email */
+  }
+  return isAuthorizedAdmin(user);
 }
 
 const DEFAULT_VEHICLE_RATES = Object.freeze({
@@ -120,6 +148,10 @@ const els = {
   pricingSaveBtn: document.getElementById("pricingSaveBtn"),
   pricingSuccessMessage: document.getElementById("pricingSuccessMessage"),
   pricingStatusNote: document.getElementById("pricingStatusNote"),
+  dispatchForm: document.getElementById("dispatchSettingsForm"),
+  candidateDriverLimitInput: document.getElementById("candidateDriverLimitInput"),
+  dispatchSaveBtn: document.getElementById("dispatchSaveBtn"),
+  dispatchStatusNote: document.getElementById("dispatchStatusNote"),
   promoCodeForm: document.getElementById("promoCodeForm"),
   promoCodeInput: document.getElementById("promoCodeInput"),
   promoTypeInput: document.getElementById("promoTypeInput"),
@@ -305,6 +337,7 @@ function setActiveView(viewKey) {
 
   if (key === "finance") {
     loadPricingSettings();
+    loadDispatchSettings();
     fetchAndRenderPromoCodes();
   }
 
@@ -322,6 +355,9 @@ function setActiveView(viewKey) {
       showLiveFleetMap();
       window.setTimeout(() => showLiveFleetMap(), 200);
     });
+  } else {
+    // Approved model: live fleet listener only while map view is open.
+    stopFleetMap();
   }
 
   if (key === "users") {
@@ -539,6 +575,23 @@ function wireVehiclesTableActions() {
 
 function wireGlobalTakeControl() {
   // Driver ↔ owner mode switching removed.
+}
+
+/** Phase 3A — one aggregation read instead of listening to every ride doc. */
+async function refreshTotalRidesStat() {
+  const { db } = getFirebase();
+  if (!db || !els.statTotalRides) return;
+  try {
+    const agg = await getCountFromServer(collection(db, "rides"));
+    setStat(els.statTotalRides, agg.data().count);
+    if (els.statsLiveNote) {
+      els.statsLiveNote.textContent = "Ride total via count query · refreshed periodically.";
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] rides count", error);
+    setStat(els.statTotalRides, allRidesCache.length || null);
+    if (els.statsLiveNote) els.statsLiveNote.textContent = permissionHint(error);
+  }
 }
 
 function startVehiclesFleetMonitor() {
@@ -1524,6 +1577,67 @@ function normalizePricingDocument(data) {
   };
 }
 
+async function loadDispatchSettings() {
+  const { db } = getFirebase();
+  if (!db || !els.candidateDriverLimitInput) return;
+  try {
+    const snapshot = await getDoc(doc(db, "settings", "dispatch"));
+    const limit = Number(snapshot.exists() ? snapshot.data()?.candidateDriverLimit : 10);
+    els.candidateDriverLimitInput.value = limit === 20 ? "20" : "10";
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = snapshot.exists()
+        ? `موجودہ حد: ${els.candidateDriverLimitInput.value} · settings/dispatch`
+        : "Default 10 — document not found yet.";
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] loadDispatchSettings", error);
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = `Could not load dispatch: ${error?.message || "unknown"}`;
+    }
+  }
+}
+
+async function saveDispatchSettings(event) {
+  event.preventDefault();
+  const { db } = getFirebase();
+  if (!db) {
+    if (els.dispatchStatusNote) els.dispatchStatusNote.textContent = "Firestore is not configured.";
+    return;
+  }
+  const limit = Number(els.candidateDriverLimitInput?.value);
+  if (limit !== 10 && limit !== 20) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = "صرف 10 یا 20 منتخب کریں۔";
+    }
+    return;
+  }
+  if (els.dispatchSaveBtn) els.dispatchSaveBtn.disabled = true;
+  if (els.dispatchStatusNote) els.dispatchStatusNote.textContent = "محفوظ ہو رہا ہے…";
+  try {
+    await setDoc(
+      doc(db, "settings", "dispatch"),
+      {
+        candidateDriverLimit: limit,
+        maxDriverOpenBargains: 10,
+        maxCustomerActiveBookings: 4,
+        searchRingsKm: [1, 2, 3],
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = `محفوظ: candidateDriverLimit=${limit}`;
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] saveDispatchSettings", error);
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = error?.message || "Save failed";
+    }
+  } finally {
+    if (els.dispatchSaveBtn) els.dispatchSaveBtn.disabled = false;
+  }
+}
+
 async function loadPricingSettings() {
   const { db } = getFirebase();
   if (!db) {
@@ -1858,21 +1972,13 @@ function startLiveData() {
   }
   if (els.vehiclesLiveNote) els.vehiclesLiveNote.textContent = "";
 
-  // Total rides
-  liveUnsubscribers.push(
-    onSnapshot(
-      collection(db, "rides"),
-      (snapshot) => {
-        setStat(els.statTotalRides, snapshot.size);
-        if (els.statsLiveNote) els.statsLiveNote.textContent = "Metrics updating in real time.";
-      },
-      (error) => {
-        console.warn("[SwiftGo Admin] rides count", error);
-        setStat(els.statTotalRides, null);
-        if (els.statsLiveNote) els.statsLiveNote.textContent = permissionHint(error);
-      }
-    )
-  );
+  // Total rides — Phase 3A: aggregation count (not unbounded collection listener).
+  refreshTotalRidesStat();
+  // Refresh occasionally from all-rides monitor updates (capped feed already live).
+  const ridesStatRefresh = window.setInterval(() => {
+    refreshTotalRidesStat();
+  }, 60_000);
+  liveUnsubscribers.push(() => window.clearInterval(ridesStatRefresh));
 
   // Drivers: partners where role == 'driver' (feeds card + table)
   const driversQuery = query(collection(db, "partners"), where("role", "==", "driver"));
@@ -1980,6 +2086,7 @@ function boot() {
   wireGlobalTakeControl();
   wirePromoTableActions();
   els.pricingForm?.addEventListener("submit", savePricingSettings);
+  els.dispatchForm?.addEventListener("submit", saveDispatchSettings);
   els.promoCodeForm?.addEventListener("submit", createPromoCode);
   fillPricingForm(DEFAULT_PRICING);
 

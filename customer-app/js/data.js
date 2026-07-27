@@ -12,6 +12,7 @@ import {
   runTransaction,
   increment,
   serverTimestamp,
+  deleteField,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import {
   ref as storageRef,
@@ -270,6 +271,7 @@ export async function createRideRequest({
   estimatedFare = null,
   promoCode = "",
   discountAmount = 0,
+  paymentMethod = "cash",
 }) {
   const { ready, db, auth } = getFirebase();
   const user = auth?.currentUser;
@@ -292,6 +294,10 @@ export async function createRideRequest({
     .toUpperCase()
     .slice(0, 32);
   const stableKey = String(vehicleTypeKey || "").trim().slice(0, 40);
+  const allowedPay = new Set(["cash", "easypaisa", "jazzcash", "business"]);
+  const pay = allowedPay.has(String(paymentMethod || "").trim())
+    ? String(paymentMethod).trim()
+    : "cash";
 
   const payload = {
     userId: user.uid,
@@ -302,6 +308,7 @@ export async function createRideRequest({
     timeMins: clean(timeMins),
     farePkr: finalFare,
     estimatedFare: finalFare,
+    paymentMethod: pay,
     status: "searching_driver",
     createdAt: serverTimestamp(),
   };
@@ -332,6 +339,32 @@ export async function cancelRideRequest(rideId) {
   await updateDoc(doc(db, "rides", rideId), { status: "cancelled_by_user" });
 }
 
+const DRIVER_OFFER_CLEAR = {
+  driverOfferDriverId: deleteField(),
+  driverOfferFare: deleteField(),
+  driverOfferVehicleId: deleteField(),
+  driverOfferOwnerId: deleteField(),
+  driverOfferDriverName: deleteField(),
+  driverOfferVehiclePlate: deleteField(),
+  driverOfferAt: deleteField(),
+  customerCounterFare: deleteField(),
+};
+
+/** Customer accepts the driver's pending fare offer — Phase 2A: use finalizeAssignmentFromOffer. */
+export async function acceptDriverOffer(_rideId) {
+  throw new Error("USE_FINALIZE_OFFER_CF");
+}
+
+/** Customer declines the current driver offer — Phase 2A: use rejectRideOffer CF. */
+export async function rejectDriverOffer(_rideId) {
+  throw new Error("USE_REJECT_OFFER_CF");
+}
+
+/** Customer proposes a different fare (PKR) — Phase 2A: use counterRideOffer CF. */
+export async function counterDriverOffer(_rideId, _farePkr) {
+  throw new Error("USE_COUNTER_OFFER_CF");
+}
+
 /** Phase 17.1 — subscribe to one ride document and stream status changes. */
 export function watchRideRequest(rideId, onData, onError = () => {}) {
   const { ready, db, auth } = getFirebase();
@@ -347,13 +380,12 @@ export function watchRideRequest(rideId, onData, onError = () => {}) {
   );
 }
 
-/** Phase 17.3 — customer-side dev reset after an accepted ride. */
-export async function completeRideRequest(rideId) {
-  const { ready, db, auth } = getFirebase();
-  if (!ready || !auth?.currentUser || !rideId) {
-    throw new Error("NOT_SIGNED_IN");
-  }
-  await updateDoc(doc(db, "rides", rideId), { status: "completed" });
+/**
+ * Phase 2A — customer must not complete rides.
+ * Settlement is trusted server-side (`completeRideSettlement`) after in_progress.
+ */
+export async function completeRideRequest(_rideId) {
+  throw new Error("SETTLEMENT_SERVER_ONLY");
 }
 
 /** Local defaults when settings/driverForm is missing or Firestore is offline. */

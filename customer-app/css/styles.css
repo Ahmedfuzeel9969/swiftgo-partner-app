@@ -2081,6 +2081,25 @@ html[dir="rtl"] .nav-item__icon {
 
 .sidebar__footer {
   padding-top: 0.65rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.sidebar__earn-driver {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+  font-weight: 700;
+  color: #0b7a4b;
+  background: rgba(11, 122, 75, 0.1);
+  cursor: pointer;
+  text-align: start;
+}
+
+.sidebar__earn-driver:hover {
+  background: rgba(11, 122, 75, 0.16);
 }
 
 .lang-toggle {
@@ -3528,6 +3547,110 @@ html[dir="rtl"] .driver-onboarding__header {
   font-size: 0.98rem;
   font-weight: 700;
   color: var(--ink, #0f172a);
+}
+
+.driver-offer-panel {
+  width: 100%;
+  max-width: 22rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  background: linear-gradient(165deg, rgba(11, 122, 75, 0.08), rgba(15, 23, 42, 0.04));
+  border: 1px solid rgba(11, 122, 75, 0.22);
+  text-align: center;
+}
+
+.driver-offer-panel__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0b7a4b;
+}
+
+.driver-offer-panel__title {
+  margin: 0.35rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.driver-offer-panel__meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.driver-offer-panel__fare {
+  margin: 0.65rem 0 0;
+  font-size: 1.65rem;
+  font-weight: 900;
+  color: #0b7a4b;
+}
+
+.driver-offer-panel__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.driver-offer-panel__accept {
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #14b86a, #0b7a4b);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.driver-offer-panel__reject {
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 1.5px solid rgba(100, 116, 139, 0.45);
+  background: transparent;
+  color: #475569;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.driver-offer-panel__counter {
+  margin-top: 0.85rem;
+  text-align: start;
+}
+
+.driver-offer-panel__counter-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 0.35rem;
+}
+
+.driver-offer-panel__counter-row {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.driver-offer-panel__counter-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.driver-offer-panel__counter-send {
+  flex-shrink: 0;
+  padding: 0.65rem 0.9rem;
+  border: none;
+  border-radius: 0.65rem;
+  background: #0f172a;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .cancel-ride-btn {

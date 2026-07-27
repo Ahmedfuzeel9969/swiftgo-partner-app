@@ -3,11 +3,19 @@
  */
 
 import {
-  createRideRequest,
-  cancelRideRequest,
   watchRideRequest,
   submitRideRating,
 } from "./data.js";
+import { createCustomerBookingClient, cancelCustomerBookingClient } from "./booking-client.js";
+import {
+  finalizeOfferAsCustomer,
+  counterOfferAsCustomer,
+  rejectOfferAsCustomer,
+  matchCandidatesForRide,
+  watchRideOffers,
+} from "./offer-client.js";
+import { checkCustomerBookingGate } from "./booking-gate.js";
+import { getPaymentMethod } from "./dashboard.js";
 import { getRouteInfo, clearRoutePoint } from "./routing.js";
 import { clearLocationCue } from "./map.js";
 import { t } from "./i18n.js";
@@ -35,7 +43,12 @@ let activeRide = null;
 let requesting = false;
 let selectedRating = 0;
 let ratingSubmitting = false;
+let offerBusy = false;
 let unsubscribeRide = () => {};
+let unsubscribeOffers = () => {};
+let activeOffers = [];
+let selectedOfferId = null;
+let pendingExtraBookingConfirm = false;
 
 export function initRideFlow(handlers = {}) {
   onToast = handlers.onToast || null;
@@ -43,6 +56,16 @@ export function initRideFlow(handlers = {}) {
   els = {
     ridePanel: document.getElementById("ridePanel"),
     searchingPanel: document.getElementById("searchingPanel"),
+    searchingSpinner: document.getElementById("searchingSpinner"),
+    searchingPanelText: document.getElementById("searchingPanelText"),
+    driverOfferPanel: document.getElementById("driverOfferPanel"),
+    driverOfferDriverName: document.getElementById("driverOfferDriverName"),
+    driverOfferVehicle: document.getElementById("driverOfferVehicle"),
+    driverOfferFare: document.getElementById("driverOfferFare"),
+    acceptDriverOfferBtn: document.getElementById("acceptDriverOfferBtn"),
+    rejectDriverOfferBtn: document.getElementById("rejectDriverOfferBtn"),
+    driverOfferCounterInput: document.getElementById("driverOfferCounterInput"),
+    sendCounterOfferBtn: document.getElementById("sendCounterOfferBtn"),
     cancelBtn: document.getElementById("cancelRideBtn"),
     activePanel: document.getElementById("activeRidePanel"),
     activeVehicle: document.getElementById("activeRideVehicle"),
@@ -56,6 +79,9 @@ export function initRideFlow(handlers = {}) {
     ratingThanks: document.getElementById("rideRatingThanks"),
   };
   els.cancelBtn?.addEventListener("click", cancelActiveRide);
+  els.acceptDriverOfferBtn?.addEventListener("click", onAcceptDriverOffer);
+  els.rejectDriverOfferBtn?.addEventListener("click", onRejectDriverOffer);
+  els.sendCounterOfferBtn?.addEventListener("click", onSendCounterOffer);
   els.invoiceDoneBtn?.addEventListener("click", dismissInvoiceAndReset);
   initRatingStars();
 }
@@ -112,6 +138,11 @@ export function isSearchingDriver() {
   return Boolean(activeRide);
 }
 
+/** Phase 2E — expose active ride for emulator/browser assertions. */
+export function getActiveRide() {
+  return activeRide;
+}
+
 function rideFareAmount(ride) {
   const value = Number(ride?.estimatedFare ?? ride?.farePkr ?? 0);
   return Number.isFinite(value) && value >= 0 ? Math.round(value) : 0;
@@ -124,7 +155,101 @@ function showSearchingState() {
   if (els.activePanel) els.activePanel.hidden = true;
   if (!els.searchingPanel) return;
   els.searchingPanel.hidden = false;
+  setSearchingOfferVisible(false);
   requestAnimationFrame(() => els.searchingPanel.classList.add("is-visible"));
+}
+
+function setSearchingOfferVisible(hasOffer) {
+  if (els.searchingSpinner) els.searchingSpinner.hidden = hasOffer;
+  if (els.driverOfferPanel) els.driverOfferPanel.hidden = !hasOffer;
+  if (els.searchingPanelText) {
+    els.searchingPanelText.hidden = hasOffer;
+    if (!hasOffer) {
+      els.searchingPanelText.textContent = t("searchingDriver");
+      els.searchingPanelText.dataset.i18n = "searchingDriver";
+    }
+  }
+}
+
+function updateDriverOfferUi(_ride) {
+  const open = (activeOffers || []).filter((o) =>
+    ["open", "countered"].includes(o.status)
+  );
+  if (!open.length) {
+    setSearchingOfferVisible(false);
+    selectedOfferId = null;
+    return;
+  }
+  const offer = open.find((o) => o.id === selectedOfferId) || open[0];
+  selectedOfferId = offer.id;
+  setSearchingOfferVisible(true);
+  const fare = Math.round(Number(offer.fare) || 0);
+  if (els.driverOfferDriverName) {
+    els.driverOfferDriverName.textContent = offer.driverName || t("activeRideDriver");
+  }
+  if (els.driverOfferVehicle) {
+    els.driverOfferVehicle.textContent = offer.vehiclePlate || "—";
+  }
+  if (els.driverOfferFare) {
+    els.driverOfferFare.textContent = `Rs. ${fare.toLocaleString("en-PK")}`;
+  }
+  if (els.driverOfferCounterInput && !els.driverOfferCounterInput.value) {
+    els.driverOfferCounterInput.placeholder = String(
+      Math.round(Number(offer.customerCounterFare) || fare || 0)
+    );
+  }
+}
+
+async function onAcceptDriverOffer() {
+  const ride = activeRide;
+  if (!ride?.id || !selectedOfferId || offerBusy) return;
+  offerBusy = true;
+  if (els.acceptDriverOfferBtn) els.acceptDriverOfferBtn.disabled = true;
+  try {
+    await finalizeOfferAsCustomer(selectedOfferId);
+    onToast?.(t("driverOfferAcceptedToast"));
+  } catch (err) {
+    console.warn("[SwiftGo] accept offer", err);
+    onToast?.(t("driverOfferError"));
+  } finally {
+    offerBusy = false;
+    if (els.acceptDriverOfferBtn) els.acceptDriverOfferBtn.disabled = false;
+  }
+}
+
+async function onRejectDriverOffer() {
+  if (!selectedOfferId || offerBusy) return;
+  offerBusy = true;
+  try {
+    await rejectOfferAsCustomer(selectedOfferId);
+    onToast?.(t("driverOfferRejectedToast"));
+  } catch (err) {
+    console.warn("[SwiftGo] reject offer", err);
+    onToast?.(t("driverOfferError"));
+  } finally {
+    offerBusy = false;
+  }
+}
+
+async function onSendCounterOffer() {
+  if (!selectedOfferId || offerBusy) return;
+  const fare = Math.round(Number(els.driverOfferCounterInput?.value) || 0);
+  if (fare <= 0) {
+    onToast?.(t("driverOfferCounterInvalid"));
+    return;
+  }
+  offerBusy = true;
+  if (els.sendCounterOfferBtn) els.sendCounterOfferBtn.disabled = true;
+  try {
+    await counterOfferAsCustomer(selectedOfferId, fare);
+    onToast?.(t("driverOfferCounterSent"));
+  } catch (err) {
+    console.warn("[SwiftGo] counter offer", err);
+    onToast?.(t("driverOfferError"));
+  } finally {
+    offerBusy = false;
+    if (els.sendCounterOfferBtn) els.sendCounterOfferBtn.disabled = false;
+  }
 }
 
 function restoreVehicleState() {
@@ -206,6 +331,10 @@ function showInvoicePanel(ride) {
 function stopRideWatch() {
   unsubscribeRide();
   unsubscribeRide = () => {};
+  unsubscribeOffers();
+  unsubscribeOffers = () => {};
+  activeOffers = [];
+  selectedOfferId = null;
 }
 
 function clearMapRouteState() {
@@ -218,6 +347,7 @@ function clearMapRouteState() {
 function resetToVehicleSelection(messageKey) {
   stopRideWatch();
   activeRide = null;
+  if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
   restoreVehicleState();
   if (messageKey) onToast?.(t(messageKey));
 }
@@ -231,6 +361,7 @@ function dismissInvoiceAndReset() {
   const finish = () => {
     stopRideWatch();
     activeRide = null;
+  if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
     resetRatingUi();
     hideInvoicePanel();
     clearMapRouteState();
@@ -268,6 +399,7 @@ function handleRideSnapshot(ride) {
   if (!ride) return;
   const previousStatus = activeRide?.status;
   activeRide = { ...activeRide, ...ride };
+  if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
 
   if (ride.status === "accepted" || ride.status === "arrived" || ride.status === "in_progress") {
     const firstActive =
@@ -293,6 +425,9 @@ function handleRideSnapshot(ride) {
     }
   } else if (ride.status === "cancelled_by_user") {
     resetToVehicleSelection();
+  } else if (ride.status === "searching_driver") {
+    if (previousStatus !== "searching_driver") showSearchingState();
+    updateDriverOfferUi(ride);
   }
 }
 
@@ -318,7 +453,42 @@ export async function startRideRequest(state) {
         : state.basePrice ?? state.price ?? 0;
 
   try {
-    const ride = await createRideRequest({
+    const gate = await checkCustomerBookingGate({
+      confirmedExtraBooking: pendingExtraBookingConfirm,
+    });
+    if (!gate.allowed) {
+      if (gate.reason === "MAX_ACTIVE_BOOKINGS") {
+        onToast?.(t("bookingMaxActive"));
+        return null;
+      }
+      if (gate.needsConfirmation || gate.reason === "CONFIRM_EXTRA_BOOKING") {
+        const ok = window.confirm(
+          `${t("bookingExtraConfirm")}\n\n${t("bookingExtraConfirmViewHint")}`
+        );
+        if (!ok) {
+          onToast?.(t("bookingExtraCancelled"));
+          try {
+            window.SwiftGo?.navigate?.("history");
+          } catch {
+            /* ignore */
+          }
+          return null;
+        }
+        pendingExtraBookingConfirm = true;
+        const gate2 = await checkCustomerBookingGate({ confirmedExtraBooking: true });
+        if (!gate2.allowed) {
+          onToast?.(t("bookingMaxActive"));
+          return null;
+        }
+      } else {
+        onToast?.(t("rideRequestFailed"));
+        return null;
+      }
+    }
+    pendingExtraBookingConfirm = false;
+
+    const created = await createCustomerBookingClient({
+      confirmedExtraBooking: true,
       pickupLocation: {
         lat: route.pickup?.lat,
         lng: route.pickup?.lng,
@@ -337,9 +507,21 @@ export async function startRideRequest(state) {
       estimatedFare,
       promoCode: state.promoCode || "",
       discountAmount: state.discount || 0,
+      paymentMethod: getPaymentMethod(),
     });
 
+    const ride = {
+      id: created.id,
+      status: "searching_driver",
+      farePkr: estimatedFare,
+      estimatedFare,
+      vehicleTypeKey: vehicleKey,
+      promoCode: state.promoCode || "",
+      paymentMethod: getPaymentMethod(),
+    };
+
     activeRide = ride;
+    if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
     showSearchingState();
     stopRideWatch();
     unsubscribeRide = watchRideRequest(
@@ -347,6 +529,15 @@ export async function startRideRequest(state) {
       handleRideSnapshot,
       (err) => console.warn("[SwiftGo] ride watch", err)
     );
+    unsubscribeOffers = watchRideOffers(
+      ride.id,
+      (offers) => {
+        activeOffers = offers || [];
+        updateDriverOfferUi(activeRide);
+      },
+      (err) => console.warn("[SwiftGo] offers watch", err)
+    );
+    matchCandidatesForRide(ride.id);
     return ride;
   } finally {
     requesting = false;
@@ -357,11 +548,12 @@ async function cancelActiveRide() {
   const ride = activeRide;
   stopRideWatch();
   activeRide = null;
+  if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
   restoreVehicleState();
 
   if (!ride?.id) return;
   try {
-    await cancelRideRequest(ride.id);
+    await cancelCustomerBookingClient(ride.id);
     onToast?.(t("rideCancelled"));
   } catch (err) {
     console.warn("[SwiftGo] cancel ride", err);

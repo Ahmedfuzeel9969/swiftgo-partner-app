@@ -1,0 +1,153 @@
+{
+  "generatedAt": "2026-07-27T13:47:55.140Z",
+  "results": [
+    {
+      "name": "S01-claim-admin-can-write-settings",
+      "status": "PASS",
+      "detail": "ok",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S02-ordinary-user-cannot-be-super-admin",
+      "status": "PASS",
+      "detail": "settings write denied",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S03-revoked-claim-no-access",
+      "status": "PASS",
+      "detail": "no admin claim → denied",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S04-bootstrap-email-while-enabled",
+      "status": "PASS",
+      "detail": "ok",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S05-bootstrap-disabled-email-denied",
+      "status": "PASS",
+      "detail": "email path closed",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S06-claim-admin-after-bootstrap-off",
+      "status": "PASS",
+      "detail": "ok",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S07-isAdminAuth-claim",
+      "status": "PASS",
+      "detail": "true",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S08-canonical-wallet-partners-only",
+      "status": "PASS",
+      "detail": "partners=-20 users=50",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S09-legacy-collection-settlement-denied",
+      "status": "PASS",
+      "detail": "LEGACY_COLLECTION_DENIED",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S10-conflicting-wallet-writes-denied",
+      "status": "PASS",
+      "detail": "users+partners locked",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S11-driver-profile-allowlist",
+      "status": "PASS",
+      "detail": "safe ok / protected denied",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S12-vehicle-privacy",
+      "status": "PASS",
+      "detail": "unrelated cannot read/query PIN",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S13-blocked-cannot-go-online",
+      "status": "PASS",
+      "detail": "rules deny",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S14-blocked-cannot-bargain",
+      "status": "PASS",
+      "detail": "DRIVER_BLOCKED",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S15-blocked-not-candidate",
+      "status": "PASS",
+      "detail": "n=0",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S16-blocked-cannot-progress-ride",
+      "status": "PASS",
+      "detail": "arrived denied",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S17-pin-gate-open",
+      "status": "PASS",
+      "detail": "{\"allowed\":true,\"remaining\":5}",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S18-pin-lockout-after-max",
+      "status": "PASS",
+      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785160974585}",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S19-pin-link-while-locked",
+      "status": "PASS",
+      "detail": "PIN_LOCKED",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S20-pin-link-success-no-pin-echo",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"vehicleId\":\"pin-v\",\"plate\":\"PIN1\",\"ownerId\":\"owner-2b\",\"status\":\"online\"}",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S21-plaintext-pin-stripped",
+      "status": "PASS",
+      "detail": "pin=undefined",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S22-ride-requests-no-write-bypass",
+      "status": "PASS",
+      "detail": "create+update denied",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S23-bootstrap-flag-readable",
+      "status": "PASS",
+      "detail": "true",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S24-set-bootstrap-flag-claim-admin",
+      "status": "PASS",
+      "detail": "ok",
+      "suite": "phase2b"
+    }
+  ],
+  "passed": 24,
+  "failed": 0,
+  "blocked": 0,
+  "total": 24
+}

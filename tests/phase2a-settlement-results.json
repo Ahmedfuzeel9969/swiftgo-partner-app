@@ -1,0 +1,68 @@
+{
+  "generatedAt": "2026-07-27T13:47:41.267Z",
+  "results": [
+    {
+      "name": "F22-trusted-completion-consistent",
+      "status": "PASS",
+      "detail": "{\"alreadySettled\":false,\"rideId\":\"settle-1\",\"collectionName\":\"rides\",\"settlementId\":\"settle_rides_settle-1\",\"commissionAmount\":35,\"driverEarnings\":315,\"grossFare\":350,\"commissionPercent\":10}",
+      "rules": "settlement"
+    },
+    {
+      "name": "F15-simultaneous-completion-one-settlement",
+      "status": "PASS",
+      "detail": "ledgerCount=1",
+      "rules": "settlement"
+    },
+    {
+      "name": "F16-repeat-completion-no-duplicate-commission",
+      "status": "PASS",
+      "detail": "wallet=-35",
+      "rules": "settlement"
+    },
+    {
+      "name": "F17-repeat-completion-no-duplicate-earnings",
+      "status": "PASS",
+      "detail": "earn=315 rides=1",
+      "rules": "settlement"
+    },
+    {
+      "name": "F18-repeat-completion-no-duplicate-ledger",
+      "status": "PASS",
+      "detail": "ledgerCount=1",
+      "rules": "settlement"
+    },
+    {
+      "name": "F19-invalid-fare-rejected",
+      "status": "PASS",
+      "detail": "INVALID_FARE",
+      "rules": "settlement"
+    },
+    {
+      "name": "F20-cancelled-cannot-complete",
+      "status": "PASS",
+      "detail": "RIDE_CANCELLED",
+      "rules": "settlement"
+    },
+    {
+      "name": "F21-completed-not-re-settled",
+      "status": "PASS",
+      "detail": "{\"alreadySettled\":true,\"wallet\":-35}",
+      "rules": "settlement"
+    },
+    {
+      "name": "F23-wrong-driver-denied",
+      "status": "PASS",
+      "detail": "NOT_ASSIGNED_DRIVER",
+      "rules": "settlement"
+    },
+    {
+      "name": "F24-server-timestamp-and-audit",
+      "status": "PASS",
+      "detail": "audits=1 creator=completeRideSettlement",
+      "rules": "settlement"
+    }
+  ],
+  "passed": 10,
+  "failed": 0,
+  "blocked": 0
+}

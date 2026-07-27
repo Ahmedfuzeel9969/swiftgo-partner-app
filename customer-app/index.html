@@ -85,6 +85,9 @@
           </section>
 
           <footer class="sidebar__footer">
+            <button type="button" class="sidebar__earn-driver" id="earnDriverBtn" data-i18n="earnAsDriver">
+              Earn as a Driver
+            </button>
             <button type="button" class="signout-btn" id="signOutBtn" hidden data-i18n="signOut">Sign out</button>
           </footer>
         </div>
@@ -650,11 +653,28 @@
 
           <!-- Phase 16.2: "Searching for driver" state (replaces vehicle list after booking) -->
           <div class="searching-panel" id="searchingPanel" role="status" aria-live="polite" hidden>
-            <div class="searching-spinner" aria-hidden="true">
+            <div class="searching-spinner" id="searchingSpinner" aria-hidden="true">
               <span class="searching-spinner__ring"></span>
               <span class="searching-spinner__pulse"></span>
             </div>
-            <p class="searching-panel__text" data-i18n="searchingDriver">Searching for your nearest driver...</p>
+            <p class="searching-panel__text" id="searchingPanelText" data-i18n="searchingDriver">Searching for your nearest driver...</p>
+            <div class="driver-offer-panel" id="driverOfferPanel" hidden>
+              <p class="driver-offer-panel__eyebrow" data-i18n="driverOfferEyebrow">Driver offer</p>
+              <h3 class="driver-offer-panel__title" id="driverOfferDriverName">—</h3>
+              <p class="driver-offer-panel__meta" id="driverOfferVehicle">—</p>
+              <p class="driver-offer-panel__fare" id="driverOfferFare">Rs. 0</p>
+              <div class="driver-offer-panel__actions">
+                <button type="button" class="driver-offer-panel__accept" id="acceptDriverOfferBtn" data-i18n="driverOfferAccept">Accept fare</button>
+                <button type="button" class="driver-offer-panel__reject" id="rejectDriverOfferBtn" data-i18n="driverOfferReject">Decline</button>
+              </div>
+              <div class="driver-offer-panel__counter">
+                <label class="driver-offer-panel__counter-label" for="driverOfferCounterInput" data-i18n="driverOfferCounterLabel">Your counter offer (Rs.)</label>
+                <div class="driver-offer-panel__counter-row">
+                  <input type="number" id="driverOfferCounterInput" class="driver-offer-panel__counter-input" min="0" step="50" inputmode="numeric" />
+                  <button type="button" class="driver-offer-panel__counter-send" id="sendCounterOfferBtn" data-i18n="driverOfferCounterSend">Send</button>
+                </div>
+              </div>
+            </div>
             <button type="button" class="cancel-ride-btn" id="cancelRideBtn" data-i18n="cancelRide">Cancel Ride</button>
           </div>
 

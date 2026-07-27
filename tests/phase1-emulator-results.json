@@ -1,0 +1,129 @@
+{
+  "generatedAt": "2026-07-27T13:47:07.831Z",
+  "command": "npm exec --package=@firebase/rules-unit-testing --package=firebase -- node tests/phase1-emulator-contract.mjs",
+  "results": [
+    {
+      "name": "T01-customer-create-driver-read-open",
+      "status": "PASS",
+      "detail": "Customer created searching_driver ride; candidate driver get succeeded",
+      "rules": "rides/{rideId} create + get"
+    },
+    {
+      "name": "T02-driver-accept-customer-sees-driver",
+      "status": "PASS",
+      "detail": "client accept denied; trusted assign visible",
+      "rules": "rides accept branch"
+    },
+    {
+      "name": "T03-dual-accept-second-denied",
+      "status": "PASS",
+      "detail": "Second accept update denied",
+      "rules": "rides"
+    },
+    {
+      "name": "T04-non-assigned-driver-update-denied",
+      "status": "PASS",
+      "detail": "driver-2 arrived update denied",
+      "rules": "rides"
+    },
+    {
+      "name": "T05-customer-skip-to-completed-denied",
+      "status": "PASS",
+      "detail": "Customer accepted→completed denied (needs in_progress driver path for commission)",
+      "rules": "rides"
+    },
+    {
+      "name": "T06-driver-skip-stages-denied",
+      "status": "PASS",
+      "detail": "accepted→completed denied",
+      "rules": "rides"
+    },
+    {
+      "name": "T09-driver-wallet-increase-denied",
+      "status": "PASS",
+      "detail": "Partner self walletBalance denied",
+      "rules": "partners"
+    },
+    {
+      "name": "T10-owner-other-vehicle-denied",
+      "status": "PASS",
+      "detail": "Cross-owner vehicle update denied",
+      "rules": "vehicles"
+    },
+    {
+      "name": "T11-owner-not-super-admin",
+      "status": "PASS",
+      "detail": "role admin_driver denied on self-update",
+      "rules": "partners"
+    },
+    {
+      "name": "T12-super-admin-block-driver",
+      "status": "PASS",
+      "detail": "accountStatus blocked set by super admin",
+      "rules": "partners"
+    },
+    {
+      "name": "T13-invalid-ride-create-denied",
+      "status": "PASS",
+      "detail": "Missing required ride fields denied",
+      "rules": "rides isValidRide"
+    },
+    {
+      "name": "T14-client-driver-completion-denied",
+      "status": "PASS",
+      "detail": "Client in_progress→completed with commission denied (trusted settlement required)",
+      "rules": "rides"
+    },
+    {
+      "name": "T15-duplicate-completion-denied",
+      "status": "PASS",
+      "detail": "Repeat client complete denied",
+      "rules": "rides"
+    },
+    {
+      "name": "T16-customer-cancel-searching",
+      "status": "PASS",
+      "detail": "cancelled_by_user allowed",
+      "rules": "rides"
+    },
+    {
+      "name": "T17-unauth-read-denied",
+      "status": "PASS",
+      "detail": "Unauthenticated get denied",
+      "rules": "rides"
+    },
+    {
+      "name": "T18-ride-requests-create-denied",
+      "status": "PASS",
+      "detail": "Client create on ride_requests denied",
+      "rules": "ride_requests"
+    },
+    {
+      "name": "T19-driver-partner-wallet-batch-denied",
+      "status": "PASS",
+      "detail": "Driver cannot debit wallet via partners batch (matches app completeRideWithEarnings risk)",
+      "rules": "partners"
+    },
+    {
+      "name": "T07-suspended-driver-online",
+      "status": "PASS",
+      "detail": "Blocked partner cannot set vehicle online",
+      "rules": "vehicles + partners"
+    },
+    {
+      "name": "T08-customer-fare-tamper",
+      "status": "PASS",
+      "detail": "Customer fare/estimatedFare/driverBidFare update on accepted ride denied",
+      "rules": "rides"
+    },
+    {
+      "name": "T20-storage-kyc-privacy",
+      "status": "PASS",
+      "detail": "Owner can write/read KYC; other user cannot read",
+      "rules": "storage"
+    }
+  ],
+  "passed": 20,
+  "failed": 0,
+  "blocked": 0
+}

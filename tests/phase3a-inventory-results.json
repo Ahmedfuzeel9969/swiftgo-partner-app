@@ -1,0 +1,509 @@
+{
+  "generatedAt": "2026-07-27T13:49:28.032Z",
+  "note": "Static call-site counts — not billable units. See PHASE-3A-FIREBASE-USAGE-INVENTORY.md for semantics.",
+  "totals": {
+    "auth:auth": 6,
+    "auth:auth-listener": 4,
+    "functions:function-call": 8,
+    "firestore:read": 26,
+    "firestore:listener": 32,
+    "firestore:write": 34,
+    "firestore:transaction": 12,
+    "storage:upload": 1,
+    "storage:download": 1,
+    "firestore:read-aggregate": 1,
+    "firestore:delete": 1,
+    "firestore:write-batch": 1,
+    "functions:function-export": 16
+  },
+  "entries": [
+    {
+      "app": "customer",
+      "file": "customer-app/js/auth.js",
+      "service": "auth",
+      "operation": "auth",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/auth.js",
+      "service": "auth",
+      "operation": "auth",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/auth.js",
+      "service": "auth",
+      "operation": "auth-listener",
+      "callSites": 1,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/booking-client.js",
+      "service": "functions",
+      "operation": "function-call",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/booking-gate.js",
+      "service": "firestore",
+      "operation": "read",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/booking-gate.js",
+      "service": "functions",
+      "operation": "function-call",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/data.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 4,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/data.js",
+      "service": "firestore",
+      "operation": "read",
+      "callSites": 4,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/data.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/data.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 3,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/data.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 3,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/data.js",
+      "service": "firestore",
+      "operation": "transaction",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/data.js",
+      "service": "storage",
+      "operation": "upload",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/data.js",
+      "service": "storage",
+      "operation": "download",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/e2e-hooks.js",
+      "service": "auth",
+      "operation": "auth",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/history.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 2,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/offer-client.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 1,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "customer",
+      "file": "customer-app/js/offer-client.js",
+      "service": "functions",
+      "operation": "function-call",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/driver-app.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 5,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/driver-app.js",
+      "service": "firestore",
+      "operation": "read",
+      "callSites": 7,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/driver-app.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 3,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/driver-app.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 4,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/driver-app.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/driver-app.js",
+      "service": "firestore",
+      "operation": "transaction",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/driver-app.js",
+      "service": "auth",
+      "operation": "auth",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/driver-app.js",
+      "service": "auth",
+      "operation": "auth-listener",
+      "callSites": 1,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/driver-dashboard.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 1,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/earnings-service.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 2,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/pin-link-client.js",
+      "service": "functions",
+      "operation": "function-call",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/ride-radar-actions.js",
+      "service": "firestore",
+      "operation": "read",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/ride-radar-actions.js",
+      "service": "functions",
+      "operation": "function-call",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/ride-radar-service.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 1,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/ride-radar-service.js",
+      "service": "firestore",
+      "operation": "read",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/RideRequestDetail.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 2,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/settlement-client.js",
+      "service": "functions",
+      "operation": "function-call",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/wallet.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "owner",
+      "file": "owner-app/js/owner-app.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 6,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "owner",
+      "file": "owner-app/js/owner-app.js",
+      "service": "firestore",
+      "operation": "read",
+      "callSites": 8,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "owner",
+      "file": "owner-app/js/owner-app.js",
+      "service": "firestore",
+      "operation": "read",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "owner",
+      "file": "owner-app/js/owner-app.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 5,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "owner",
+      "file": "owner-app/js/owner-app.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 5,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "owner",
+      "file": "owner-app/js/owner-app.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "owner",
+      "file": "owner-app/js/owner-app.js",
+      "service": "firestore",
+      "operation": "transaction",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "owner",
+      "file": "owner-app/js/owner-app.js",
+      "service": "auth",
+      "operation": "auth",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "owner",
+      "file": "owner-app/js/owner-app.js",
+      "service": "auth",
+      "operation": "auth-listener",
+      "callSites": 1,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "owner",
+      "file": "owner-app/js/pin-link-client.js",
+      "service": "functions",
+      "operation": "function-call",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "owner",
+      "file": "owner-app/js/settlement-client.js",
+      "service": "functions",
+      "operation": "function-call",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "admin",
+      "file": "super-admin-panel/js/admin-app.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 7,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "admin",
+      "file": "super-admin-panel/js/admin-app.js",
+      "service": "firestore",
+      "operation": "read",
+      "callSites": 3,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "admin",
+      "file": "super-admin-panel/js/admin-app.js",
+      "service": "firestore",
+      "operation": "read-aggregate",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "admin",
+      "file": "super-admin-panel/js/admin-app.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 4,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "admin",
+      "file": "super-admin-panel/js/admin-app.js",
+      "service": "firestore",
+      "operation": "write",
+      "callSites": 3,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "admin",
+      "file": "super-admin-panel/js/admin-app.js",
+      "service": "firestore",
+      "operation": "delete",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "admin",
+      "file": "super-admin-panel/js/admin-app.js",
+      "service": "firestore",
+      "operation": "write-batch",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "admin",
+      "file": "super-admin-panel/js/admin-app.js",
+      "service": "auth",
+      "operation": "auth",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "admin",
+      "file": "super-admin-panel/js/admin-app.js",
+      "service": "auth",
+      "operation": "auth-listener",
+      "callSites": 1,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "admin",
+      "file": "super-admin-panel/js/fleet-map.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 1,
+      "recurringHint": "possibly-recurring"
+    },
+    {
+      "app": "functions",
+      "file": "functions/bargaining.js",
+      "service": "firestore",
+      "operation": "transaction",
+      "callSites": 7,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "functions",
+      "file": "functions/index.js",
+      "service": "functions",
+      "operation": "function-export",
+      "callSites": 16,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "functions",
+      "file": "functions/pin-link.js",
+      "service": "firestore",
+      "operation": "transaction",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "functions",
+      "file": "functions/settlement.js",
+      "service": "firestore",
+      "operation": "transaction",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    }
+  ]
+}

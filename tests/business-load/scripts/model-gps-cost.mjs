@@ -6,9 +6,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const WRITE_INTERVAL_MS = 8000;
+const WRITE_INTERVAL_MS = 60_000;
 const WRITES_PER_SEC = 1000 / WRITE_INTERVAL_MS;
-const USD_PER_100K_WRITES = 0.18; // MODELLED — confirm in billing console
+const USD_PER_100K_WRITES = 0.09; // us-central1 Firestore Standard writes (beyond free quota)
 
 const drivers = Number(process.argv[2] || 13300);
 const hoursPerDay = Number(process.argv[3] || 12);

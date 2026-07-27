@@ -7,10 +7,31 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run test:phase2c",
+    "test:phase1": "firebase emulators:exec --only firestore,storage --project demo-swiftgo-phase1 \"node tests/phase1-emulator-contract.mjs\"",
+    "test:phase2a": "firebase emulators:exec --only firestore,storage --project demo-swiftgo-phase1 \"node tests/phase2a-run-all.mjs\"",
+    "test:phase2b": "firebase emulators:exec --only firestore,storage --project demo-swiftgo-phase1 \"node tests/phase2b-run-all.mjs\"",
+    "test:phase2c": "firebase emulators:exec --only firestore,storage,auth --project demo-swiftgo-phase1 \"node tests/phase2c-run-all.mjs\"",
+    "test:phase2d": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-swiftgo-phase1 \"node tests/phase2d-functions-runtime.mjs\"",
+    "test:phase2e": "npm run build:hosting && firebase emulators:exec --only auth,firestore,storage,functions,hosting --project demo-swiftgo-phase1 \"node tests/phase2e-four-app-browser.mjs\"",
+    "test:phase3a": "node tests/phase3a-inventory-scan.mjs && firebase emulators:exec --only auth,firestore,storage,functions --project demo-swiftgo-phase1 \"node tests/phase3a-per-ride-measurement.mjs\"",
+    "test:phase3b": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-swiftgo-phase1 \"node tests/phase3b-geo-matching.mjs\"",
+    "build:hosting": "node tools/build-hosting.mjs",
+    "test:audit": "node tests/audit.test.mjs",
+    "test:i18n": "node tests/i18n-purity-scan.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "apexcharts": "^6.5.0",
+    "react-apexcharts": "^2.1.1"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "@playwright/test": "^1.49.1",
+    "firebase": "^10.14.1",
+    "firebase-admin": "^12.7.0"
+  }
 }

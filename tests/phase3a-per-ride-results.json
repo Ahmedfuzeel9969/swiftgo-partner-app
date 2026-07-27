@@ -1,0 +1,449 @@
+{
+  "phase": "3A",
+  "project": "demo-swiftgo-phase1",
+  "productionTouched": false,
+  "billingEnabled": false,
+  "locationWriteMs": 60000,
+  "locationWriteSavingVs8sPercent": 87,
+  "scenarios": [
+    {
+      "name": "S1-limit10-minimal-bargain",
+      "rideId": "DDV9cCnIQK3z5RIGGuzB",
+      "candidateLimit": 10,
+      "onlineCount": 12,
+      "counters": 0,
+      "candidatesWritten": 10,
+      "invocations": 5,
+      "measuredDeltas": {
+        "rides": 1,
+        "offers": 1,
+        "candidates": 10,
+        "ledger": 1,
+        "audit": 1
+      },
+      "ledgerCountForRide": 1,
+      "estimate": {
+        "firestoreReads": 35,
+        "firestoreWrites": 24,
+        "firestoreDeletes": 0,
+        "listenerDeliveriesEstimate": 28,
+        "functionInvocations": 5,
+        "storageOps": 0,
+        "authOps": 0,
+        "notes": [
+          "Listener deliveries estimated — not emulator-metered.",
+          "Matching scans all online/in_ride vehicles (architecture cost).",
+          "Settlement writes assumed idempotent after first success."
+        ]
+      }
+    },
+    {
+      "name": "S2-limit10-heavy-counters",
+      "rideId": "SpxrvXbGCmLJCvZfeSAJ",
+      "candidateLimit": 10,
+      "onlineCount": 12,
+      "counters": 3,
+      "candidatesWritten": 10,
+      "invocations": 8,
+      "measuredDeltas": {
+        "rides": 1,
+        "offers": 1,
+        "candidates": 10,
+        "ledger": 1,
+        "audit": 1
+      },
+      "ledgerCountForRide": 1,
+      "estimate": {
+        "firestoreReads": 41,
+        "firestoreWrites": 27,
+        "firestoreDeletes": 0,
+        "listenerDeliveriesEstimate": 28,
+        "functionInvocations": 8,
+        "storageOps": 0,
+        "authOps": 0,
+        "notes": [
+          "Listener deliveries estimated — not emulator-metered.",
+          "Matching scans all online/in_ride vehicles (architecture cost).",
+          "Settlement writes assumed idempotent after first success."
+        ]
+      }
+    },
+    {
+      "name": "S3-limit20-minimal-bargain",
+      "rideId": "m6KprrfrrMMv5nm3oa4Q",
+      "candidateLimit": 20,
+      "onlineCount": 25,
+      "counters": 0,
+      "candidatesWritten": 20,
+      "invocations": 5,
+      "measuredDeltas": {
+        "rides": 1,
+        "offers": 1,
+        "candidates": 20,
+        "ledger": 1,
+        "audit": 1
+      },
+      "ledgerCountForRide": 1,
+      "estimate": {
+        "firestoreReads": 61,
+        "firestoreWrites": 34,
+        "firestoreDeletes": 0,
+        "listenerDeliveriesEstimate": 38,
+        "functionInvocations": 5,
+        "storageOps": 0,
+        "authOps": 0,
+        "notes": [
+          "Listener deliveries estimated — not emulator-metered.",
+          "Matching scans all online/in_ride vehicles (architecture cost).",
+          "Settlement writes assumed idempotent after first success."
+        ]
+      }
+    },
+    {
+      "name": "S4-limit20-heavy-counters",
+      "rideId": "Yv1yZFkX0c2cE8m3wueV",
+      "candidateLimit": 20,
+      "onlineCount": 25,
+      "counters": 3,
+      "candidatesWritten": 20,
+      "invocations": 8,
+      "measuredDeltas": {
+        "rides": 1,
+        "offers": 1,
+        "candidates": 20,
+        "ledger": 1,
+        "audit": 1
+      },
+      "ledgerCountForRide": 1,
+      "estimate": {
+        "firestoreReads": 67,
+        "firestoreWrites": 37,
+        "firestoreDeletes": 0,
+        "listenerDeliveriesEstimate": 38,
+        "functionInvocations": 8,
+        "storageOps": 0,
+        "authOps": 0,
+        "notes": [
+          "Listener deliveries estimated — not emulator-metered.",
+          "Matching scans all online/in_ride vehicles (architecture cost).",
+          "Settlement writes assumed idempotent after first success."
+        ]
+      }
+    },
+    {
+      "name": "S11-cancelled-booking",
+      "rideId": "C0f5SkgbQH3H5QWxyQT3",
+      "invocations": 3,
+      "measuredDeltas": {
+        "rides": 1,
+        "candidates": 10
+      },
+      "estimate": {
+        "firestoreReads": 21,
+        "firestoreWrites": 19,
+        "firestoreDeletes": 0,
+        "listenerDeliveriesEstimate": 23,
+        "functionInvocations": 5,
+        "storageOps": 0,
+        "authOps": 0,
+        "notes": [
+          "Listener deliveries estimated — not emulator-metered.",
+          "Matching scans all online/in_ride vehicles (architecture cost).",
+          "Settlement writes assumed idempotent after first success."
+        ]
+      },
+      "cancelled": true
+    },
+    {
+      "name": "S12-settlement-retry",
+      "rideId": "ZWRiz2ZawyetolVTd942",
+      "candidateLimit": 10,
+      "onlineCount": 8,
+      "counters": 0,
+      "candidatesWritten": 10,
+      "invocations": 7,
+      "measuredDeltas": {
+        "rides": 1,
+        "offers": 1,
+        "candidates": 10,
+        "ledger": 1,
+        "audit": 1
+      },
+      "ledgerCountForRide": 1,
+      "estimate": {
+        "firestoreReads": 37,
+        "firestoreWrites": 24,
+        "firestoreDeletes": 0,
+        "listenerDeliveriesEstimate": 28,
+        "functionInvocations": 7,
+        "storageOps": 0,
+        "authOps": 0,
+        "notes": [
+          "Listener deliveries estimated — not emulator-metered.",
+          "Matching scans all online/in_ride vehicles (architecture cost).",
+          "Settlement writes assumed idempotent after first success."
+        ]
+      }
+    }
+  ],
+  "totals": {
+    "passed": 12,
+    "failed": 0,
+    "blocked": 0,
+    "total": 12
+  },
+  "results": [
+    {
+      "name": "OPT-location-1min",
+      "expected": "driver+owner use 60s snapshot",
+      "actual": {
+        "loc60": true,
+        "no8s": true,
+        "zoneGrid": true
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    },
+    {
+      "name": "OPT-admin-map-detach",
+      "expected": "stopFleetMap when leaving live-map",
+      "actual": {
+        "mapStop": true
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    },
+    {
+      "name": "OPT-admin-no-unbounded-rides-listener",
+      "expected": "rides total via getCountFromServer, not full collection listen",
+      "actual": {
+        "noUnboundedRidesListen": true
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    },
+    {
+      "name": "LOC-model-8s-vs-60s",
+      "expected": "≥87% write reduction vs old 8s model",
+      "actual": {
+        "oldWritesPerHour": 450,
+        "newWritesPerHour": 60,
+        "savingPct": 87
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    },
+    {
+      "name": "MEAS-S1-limit10-minimal-bargain",
+      "expected": "journey completes with expected candidates/ledger",
+      "actual": {
+        "invocations": 5,
+        "candidatesWritten": 10,
+        "ledgerCountForRide": 1,
+        "estimate": {
+          "firestoreReads": 35,
+          "firestoreWrites": 24,
+          "firestoreDeletes": 0,
+          "listenerDeliveriesEstimate": 28,
+          "functionInvocations": 5,
+          "storageOps": 0,
+          "authOps": 0,
+          "notes": [
+            "Listener deliveries estimated — not emulator-metered.",
+            "Matching scans all online/in_ride vehicles (architecture cost).",
+            "Settlement writes assumed idempotent after first success."
+          ]
+        },
+        "measuredDeltas": {
+          "rides": 1,
+          "offers": 1,
+          "candidates": 10,
+          "ledger": 1,
+          "audit": 1
+        }
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    },
+    {
+      "name": "MEAS-S2-limit10-heavy-counters",
+      "expected": "journey completes with expected candidates/ledger",
+      "actual": {
+        "invocations": 8,
+        "candidatesWritten": 10,
+        "ledgerCountForRide": 1,
+        "estimate": {
+          "firestoreReads": 41,
+          "firestoreWrites": 27,
+          "firestoreDeletes": 0,
+          "listenerDeliveriesEstimate": 28,
+          "functionInvocations": 8,
+          "storageOps": 0,
+          "authOps": 0,
+          "notes": [
+            "Listener deliveries estimated — not emulator-metered.",
+            "Matching scans all online/in_ride vehicles (architecture cost).",
+            "Settlement writes assumed idempotent after first success."
+          ]
+        },
+        "measuredDeltas": {
+          "rides": 1,
+          "offers": 1,
+          "candidates": 10,
+          "ledger": 1,
+          "audit": 1
+        }
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    },
+    {
+      "name": "MEAS-S3-limit20-minimal-bargain",
+      "expected": "journey completes with expected candidates/ledger",
+      "actual": {
+        "invocations": 5,
+        "candidatesWritten": 20,
+        "ledgerCountForRide": 1,
+        "estimate": {
+          "firestoreReads": 61,
+          "firestoreWrites": 34,
+          "firestoreDeletes": 0,
+          "listenerDeliveriesEstimate": 38,
+          "functionInvocations": 5,
+          "storageOps": 0,
+          "authOps": 0,
+          "notes": [
+            "Listener deliveries estimated — not emulator-metered.",
+            "Matching scans all online/in_ride vehicles (architecture cost).",
+            "Settlement writes assumed idempotent after first success."
+          ]
+        },
+        "measuredDeltas": {
+          "rides": 1,
+          "offers": 1,
+          "candidates": 20,
+          "ledger": 1,
+          "audit": 1
+        }
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    },
+    {
+      "name": "MEAS-S4-limit20-heavy-counters",
+      "expected": "journey completes with expected candidates/ledger",
+      "actual": {
+        "invocations": 8,
+        "candidatesWritten": 20,
+        "ledgerCountForRide": 1,
+        "estimate": {
+          "firestoreReads": 67,
+          "firestoreWrites": 37,
+          "firestoreDeletes": 0,
+          "listenerDeliveriesEstimate": 38,
+          "functionInvocations": 8,
+          "storageOps": 0,
+          "authOps": 0,
+          "notes": [
+            "Listener deliveries estimated — not emulator-metered.",
+            "Matching scans all online/in_ride vehicles (architecture cost).",
+            "Settlement writes assumed idempotent after first success."
+          ]
+        },
+        "measuredDeltas": {
+          "rides": 1,
+          "offers": 1,
+          "candidates": 20,
+          "ledger": 1,
+          "audit": 1
+        }
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    },
+    {
+      "name": "MEAS-S11-cancelled-booking",
+      "expected": "journey completes with expected candidates/ledger",
+      "actual": {
+        "invocations": 3,
+        "estimate": {
+          "firestoreReads": 21,
+          "firestoreWrites": 19,
+          "firestoreDeletes": 0,
+          "listenerDeliveriesEstimate": 23,
+          "functionInvocations": 5,
+          "storageOps": 0,
+          "authOps": 0,
+          "notes": [
+            "Listener deliveries estimated — not emulator-metered.",
+            "Matching scans all online/in_ride vehicles (architecture cost).",
+            "Settlement writes assumed idempotent after first success."
+          ]
+        },
+        "measuredDeltas": {
+          "rides": 1,
+          "candidates": 10
+        }
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    },
+    {
+      "name": "MEAS-S12-settlement-retry",
+      "expected": "journey completes with expected candidates/ledger",
+      "actual": {
+        "invocations": 7,
+        "candidatesWritten": 10,
+        "ledgerCountForRide": 1,
+        "estimate": {
+          "firestoreReads": 37,
+          "firestoreWrites": 24,
+          "firestoreDeletes": 0,
+          "listenerDeliveriesEstimate": 28,
+          "functionInvocations": 7,
+          "storageOps": 0,
+          "authOps": 0,
+          "notes": [
+            "Listener deliveries estimated — not emulator-metered.",
+            "Matching scans all online/in_ride vehicles (architecture cost).",
+            "Settlement writes assumed idempotent after first success."
+          ]
+        },
+        "measuredDeltas": {
+          "rides": 1,
+          "offers": 1,
+          "candidates": 10,
+          "ledger": 1,
+          "audit": 1
+        }
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    },
+    {
+      "name": "CMP-10-vs-20-candidates",
+      "expected": "limit 20 writes more candidate docs than limit 10",
+      "actual": {
+        "c10": 10,
+        "c20": 20,
+        "readDeltaEst": 26
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    },
+    {
+      "name": "S5-S10-modelled-only",
+      "expected": "P2P/dashboard scenarios documented without paid traffic",
+      "actual": {
+        "s5": "P2P success → 0 Firebase live location writes during trip (local/P2P)",
+        "s6": "P2P fail → fallback at 1/min + zone-change",
+        "s7": "Owner dashboard closed → no owner ride/vehicle listeners",
+        "s8": "Admin map closed → stopFleetMap (optimized)",
+        "s9": "1 booking baseline = S1",
+        "s10": "4 concurrent ≈ 4× booking/match/bargain listeners"
+      },
+      "status": "PASS",
+      "suite": "phase3a-per-ride"
+    }
+  ]
+}

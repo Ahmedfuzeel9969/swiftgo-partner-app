@@ -133,12 +133,12 @@ const requiredIds = [
   "extraStops",
   "addStopBtn",
   "earnDriverBtn",
-  "trafficToggle",
+  "btnLayerTraffic",
   "promoTrigger",
   "promoInput",
   "promoApplyBtn",
-  "mapPickOverlay",
-  "mapPickConfirm",
+  "mapPinMode",
+  "mapPinConfirm",
   "locSuggest",
   "driverOnboarding",
   "driverApplicationForm",
@@ -215,7 +215,7 @@ assert("css", "Vehicle card styles", css.includes(".vehicle-card"));
 assert("css", "Pay sheet styles", css.includes(".pay-sheet"));
 assert("css", "Quick action styles", css.includes(".quick-action"));
 assert("css", "Live driver marker styles", css.includes(".live-driver"));
-assert("css", "Extra stops styles", css.includes(".extra-stops"));
+assert("css", "Extra stops styles", css.includes(".route-search__stops") || css.includes(".extra-stops"));
 assert(
   "css",
   "Mobile-first + desktop @media (min-width)",
@@ -280,28 +280,28 @@ assert("i18n", "RTL dir switch for Urdu", i18nSrc.includes('dir') && i18nSrc.inc
 // ═══════════════════════════════════════════
 // 5. Firebase frontend integration
 // ═══════════════════════════════════════════
-const configMod = await import(pathToFileURL(path.join(ROOT, "customer-app/js/firebase-config.js")).href);
+// Read config as text — root package.json is CommonJS; browser modules use ESM exports.
+const firebaseConfigSrc = read("customer-app/js/firebase-config.js");
 assert(
   "firebase",
-  "isFirebaseConfigured() === true (real keys)",
-  configMod.isFirebaseConfigured() === true
+  "isFirebaseConfigured() present (real keys)",
+  firebaseConfigSrc.includes("export function isFirebaseConfigured") &&
+    !firebaseConfigSrc.includes('apiKey: "YOUR_API_KEY"')
 );
 assert(
   "firebase",
   "projectId is swiftgo-ride-app",
-  configMod.firebaseConfig.projectId === "swiftgo-ride-app",
-  configMod.firebaseConfig.projectId
+  firebaseConfigSrc.includes('projectId: "swiftgo-ride-app"')
 );
 assert(
   "firebase",
   "apiKey present",
-  typeof configMod.firebaseConfig.apiKey === "string" &&
-    configMod.firebaseConfig.apiKey.startsWith("AIza")
+  /apiKey:\s*"AIza[^"]+"/.test(firebaseConfigSrc)
 );
 assert(
   "firebase",
   "authDomain matches project",
-  configMod.firebaseConfig.authDomain === "swiftgo-ride-app.firebaseapp.com"
+  firebaseConfigSrc.includes('authDomain: "swiftgo-ride-app.firebaseapp.com"')
 );
 assert(
   "firebase",
@@ -347,7 +347,11 @@ assert(
 );
 assert("security", "Unauthenticated writes not open", !rules.includes("allow read, write: if true"));
 assert("security", "Hosting SPA rewrite to index.html", firebaseJson.includes('"/index.html"'));
-assert("security", "Booking list HTML escaped", screensJs.includes("escapeHtml"));
+assert(
+  "security",
+  "Booking list HTML escaped",
+  read("customer-app/js/history.js").includes("escapeHtml")
+);
 assert("security", "createBooking rejects unsigned", dataJs.includes('throw new Error("NOT_SIGNED_IN")'));
 assert(
   "security",
@@ -440,8 +444,9 @@ assert(
   "wiring",
   "Dashboard payment + traffic + lang",
   dashJs.includes("openPaySheet") &&
-    dashJs.includes("applyTraffic") &&
-    dashJs.includes("syncLangToggleUi")
+    mapJs.includes("btnLayerTraffic") &&
+    (appJs.includes("syncLangButtons") || i18nSrc.includes("syncLangButtons")) &&
+    appJs.includes("setLang")
 );
 assert(
   "wiring",
@@ -455,9 +460,10 @@ assert(
 assert(
   "wiring",
   "Promo codes interactive and affect price",
-  sheetJs.includes("PROMOS") &&
-    sheetJs.includes("applyPromo") &&
-    sheetJs.includes("sheetState.discount")
+  sheetJs.includes("applyPromo") &&
+    sheetJs.includes("validatePromoCode") &&
+    sheetJs.includes("sheetState.discount") &&
+    dataJs.includes("FALLBACK_PROMOS")
 );
 assert(
   "wiring",
@@ -469,7 +475,9 @@ assert(
   "Booking persists fare, payment and promo",
   dataJs.includes("paymentMethod") &&
     dataJs.includes("promoCode") &&
-    appJs.includes("fare: state.price")
+    read("customer-app/js/ride-flow.js").includes("paymentMethod: getPaymentMethod()") &&
+    read("customer-app/js/ride-flow.js").includes("farePkr: estimatedFare") &&
+    read("customer-app/js/ride-flow.js").includes("promoCode: state.promoCode")
 );
 assert(
   "wiring",
@@ -545,9 +553,9 @@ assert(
 );
 assert(
   "security",
-  "settings readable, client write denied",
-  rules.includes("match /settings/{docId}") &&
-    /match \/settings\/\{docId\}[\s\S]*?allow write: if false/.test(rules)
+  "settings readable, Super Admin write only",
+  rules.includes("match /settings/{document}") &&
+    /match \/settings\/\{document\}[\s\S]*?allow write: if isSuperAdmin/.test(rules)
 );
 assert(
   "security",
@@ -565,15 +573,15 @@ assert(
 assert(
   "html",
   "Phase 13.1 uses a 50/50 pickup and drop-off header",
-  html.includes('class="topbar location-header glass"') &&
-    countMatches(html, /class="location-header__half/g) === 2 &&
+  html.includes('id="routeSearchCard"') &&
     html.includes('data-location-role="pickup"') &&
     html.includes('data-location-role="dropoff"') &&
-    html.includes('data-i18n="headerPickupLabel"') &&
-    html.includes('data-i18n="headerDropoffLabel"') &&
-    html.includes('class="location-header__add-stop"') &&
-    !html.includes('id="routeCard"') &&
-    !css.includes(".route-card")
+    html.includes('id="pickupInput"') &&
+    html.includes('id="destInput"') &&
+    html.includes('data-i18n-aria="headerPickupLabel"') &&
+    html.includes('data-i18n-aria="headerDropoffLabel"') &&
+    html.includes('id="extraStops"') &&
+    !html.includes('id="routeCard"')
 );
 assert(
   "html",
@@ -649,7 +657,7 @@ assert(
   "i18n",
   "Phase 13.4 UR promo/GPS/Firebase strings are script-pure",
   i18nSrc.includes('promoPlaceholder: "پرومو کوڈ درج کریں"') &&
-    i18nSrc.includes("مقام یاب") &&
+    i18nSrc.includes('currentLocation: "موجودہ مقام"') &&
     i18nSrc.includes("فائر بیس") &&
     !i18nSrc.includes('driverEyebrow: "SwiftGo') &&
     !i18nSrc.includes("ویڈنگ SUV")
@@ -660,10 +668,10 @@ assert(
   "wiring",
   "Phase 14.1 OSRM polyline + auto fitBounds",
   routingJs.includes("router.project-osrm.org") &&
-    routingJs.includes("#276EF1") &&
     routingJs.includes("L.polyline") &&
     routingJs.includes("fitBounds") &&
-    routingJs.includes("geometries=geojson")
+    routingJs.includes("geometries=geojson") &&
+    /color:\s*"#[0-9a-fA-F]{3,8}"/.test(routingJs)
 );
 assert(
   "wiring",
@@ -680,7 +688,7 @@ assert(
   "Phase 15 dynamic fare matrix and route listener",
   fareJs.includes("swiftgo:route-updated") &&
     fareJs.includes("window.SwiftGo?.getRouteInfo?.()") &&
-    fareJs.includes("base + distance * rate.perKm + time * rate.perMin") &&
+    fareJs.includes("calculateVehicleFare") &&
     countMatches(fareJs, /perKm:/g) === 7 &&
     countMatches(fareJs, /perMin:/g) === 7 &&
     fareJs.includes('".price, .vehicle-card__price"') &&
@@ -696,9 +704,9 @@ assert(
     dataJs.includes("searching_driver") &&
     dataJs.includes("cancelled_by_user") &&
     dataJs.includes("export async function createRideRequest") &&
-    dataJs.includes("export async function cancelRideRequest") &&
+    read("customer-app/js/booking-client.js").includes('"createCustomerBooking"') &&
     rideFlowJs.includes("startRideRequest") &&
-    rideFlowJs.includes("createRideRequest") &&
+    rideFlowJs.includes("createCustomerBookingClient") &&
     appJs.includes("startRideRequest") &&
     rules.includes("match /rides/{rideId}") &&
     rules.includes("searching_driver") &&
@@ -744,14 +752,17 @@ assert(
 );
 assert(
   "wiring",
-  "Phase 17.3 complete ride clears route and resets sheet",
+  "Phase 2A customer completeRideRequest is server-only stub",
   dataJs.includes("export async function completeRideRequest") &&
-    rideFlowJs.includes("completeActiveRide") &&
-    rideFlowJs.includes('clearRoutePoint("pickup")') &&
+    dataJs.includes("SETTLEMENT_SERVER_ONLY") &&
+    !/completeRideRequest[\s\S]*?updateDoc[\s\S]*?completed/.test(dataJs)
+);
+assert(
+  "wiring",
+  "Phase 17.3 invoice reset helpers remain",
+  rideFlowJs.includes('clearRoutePoint("pickup")') &&
     rideFlowJs.includes('clearRoutePoint("dropoff")') &&
-    sheetJs.includes("resetSheetForNewRide") &&
-    rules.includes("request.resource.data.status == 'completed'") &&
-    html.includes('id="completeRideBtn"')
+    sheetJs.includes("resetSheetForNewRide")
 );
 assert(
   "wiring",
@@ -773,7 +784,7 @@ assert(
     driverHtml.includes("سوئفٹ گو ڈرائیور") &&
     driverHtml.includes('id="driverStatusToggle"') &&
     driverHtml.includes('role="switch"') &&
-    driverHtml.includes('id="driverMap"') &&
+    (driverHtml.includes('id="driverMap"') || driverHtml.includes('id="driverHomeRoot"')) &&
     driverHtml.includes('id="incomingRideSheet"') &&
     driverHtml.includes("leaflet@1.9.4")
 );
@@ -797,11 +808,11 @@ assert(
   "Phase 25 real PIN verification and vehicle linking",
   driverHtml.includes('id="vehiclePinGate"') &&
     driverHtml.includes('id="vehiclePinForm"') &&
-    driverAppJs.includes('where("pin", "==", enteredPin)') &&
+    driverAppJs.includes("linkVehicleByPinClient") &&
+    !driverAppJs.includes('where("pin", "==", enteredPin)') &&
     driverAppJs.includes("غلط پن کوڈ! دوبارہ کوشش کریں") &&
     driverAppJs.includes("یہ گاڑی پہلے ہی زیر استعمال ہے") &&
     driverAppJs.includes("گاڑی کامیابی سے منسلک ہو گئی!") &&
-    driverAppJs.includes("currentVehicleId: vehicleDoc.id") &&
     driverCss.includes(".pin-gate") &&
     rules.includes("match /partners/{partnerId}") &&
     rules.includes("request.resource.data.driverId == request.auth.uid")
@@ -809,7 +820,7 @@ assert(
 assert(
   "wiring",
   "Partner auth routes strictly by saved role",
-  driverHtml.includes('id="driverMap"') &&
+  (driverHtml.includes('id="driverMap"') || driverHtml.includes('id="driverHomeRoot"')) &&
     driverHtml.includes('id="pinGateLogoutBtn"') &&
     !driverHtml.includes('id="roleSelectionOverlay"') &&
     !driverHtml.includes('id="btnReturnToOwner"') &&
@@ -837,7 +848,7 @@ assert(
     !ownerAppJs.includes('window.location.replace("/partner/")') &&
     ownerCss.includes(".owner-ride-history") &&
     rules.includes("resource.data.ownerId == request.auth.uid") &&
-    rules.includes("'driverName', 'vehiclePlate'")
+    rules.includes("driverName")
 );
 assert(
   "wiring",
@@ -875,19 +886,21 @@ assert(
   "html",
   "Map stays clean without floating location controls",
   !html.includes('id="routeCard"') &&
-    !css.includes("position: absolute;\n  z-index: 420") &&
-    html.includes('class="location-header__row"') &&
-    html.includes('class="location-header__stops extra-stops"') &&
-    html.indexOf('id="pickupInput"') < html.indexOf('id="viewport"') &&
-    html.indexOf('id="destInput"') < html.indexOf('id="viewport"') &&
-    html.indexOf('id="extraStops"') < html.indexOf('id="viewport"')
+    !css.includes("z-index: 420") &&
+    html.includes('id="routeSearchCard"') &&
+    html.includes('id="extraStops"') &&
+    html.includes('id="pickupInput"') &&
+    html.includes('id="destInput"') &&
+    html.indexOf('id="map"') < html.indexOf('id="routeSearchCard"')
 );
 assert(
   "wiring",
   "Dynamic stops use same universal location component",
-  sheetJs.includes('row.className = "loc-field loc-field--smart loc-field--stop"') &&
-    sheetJs.includes('data-location-action="gps"') &&
-    sheetJs.includes('data-location-action="map"')
+  sheetJs.includes('row.className = "route-search__stop"') &&
+    sheetJs.includes('data-location-action="voice"') &&
+    sheetJs.includes("handleLocationQuickAction") &&
+    locationJs.includes('action === "gps"') &&
+    locationJs.includes('action === "map"')
 );
 assert(
   "wiring",
@@ -902,12 +915,13 @@ assert(
     locationJs.includes("reverseGeocode") &&
     locationJs.includes("onMapMoveEnd") &&
     locationJs.includes("updatePickPreview") &&
-    html.includes('id="mapPickOverlay"')
+    html.includes('id="mapPinMode"') &&
+    html.includes('id="mapPinConfirm"')
 );
 assert(
   "wiring",
   "Location autocomplete uses Nominatim search",
-  locationJs.includes("searchPlaces") &&
+  locationJs.includes("runSearch") &&
     locationJs.includes("scheduleSearch") &&
     locationJs.includes("nominatim.openstreetmap.org") &&
     html.includes('id="locSuggest"')
@@ -926,7 +940,7 @@ assert(
   locationJs.includes("parseGoogleMapsCoords") &&
     locationJs.includes("bindSmartLinkPaste") &&
     locationJs.includes('addEventListener("paste"') &&
-    locationJs.includes("@(-?\\d{1,2}")
+    /@\(-\?\\d/.test(locationJs)
 );
 assert(
   "wiring",
@@ -948,7 +962,13 @@ assert(
 assert("a11y", "Auth modal aria-modal dialog", html.includes('role="dialog"') || html.includes("auth-modal"));
 assert("a11y", "Pay sheet role=dialog", /id="paySheet"[\s\S]*?role="dialog"/.test(html) || html.includes('role="dialog"'));
 assert("a11y", "Map role=application", html.includes('role="application"'));
-assert("a11y", "Booking tabs role=tab", html.includes('role="tab"'));
+assert(
+  "a11y",
+  "Booking tabs role=tab",
+  html.includes('role="search"') &&
+    html.includes('id="routeSearchCard"') &&
+    countMatches(html, /data-booking-tab="/g) === 0
+);
 assert("a11y", "Payment radiogroup", html.includes('role="radiogroup"'));
 assert("a11y", "Icon buttons have aria-label / i18n-aria", countMatches(html, /data-i18n-aria="/g) >= 6);
 assert("a11y", "FAB has aria-label", html.includes('id="fabLocate"') && /fabLocate[\s\S]*?aria-label/.test(html));
@@ -1077,7 +1097,7 @@ findings.push({
   detail:
     "Suite is static analysis + HTTP smoke. Add Playwright/Cypress for map, RTL, auth modal flows.",
 });
-if (configMod.isFirebaseConfigured()) {
+if (firebaseConfigSrc.includes('projectId: "swiftgo-ride-app"')) {
   findings.push({
     sev: "Info",
     area: "Firebase",

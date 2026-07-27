@@ -1,0 +1,734 @@
+{
+  "generatedAt": "2026-07-27T13:48:00.313Z",
+  "command": "firebase emulators:exec --only firestore,storage,auth --project demo-swiftgo-phase1 \"node tests/phase2c-run-all.mjs\"",
+  "results": [
+    {
+      "name": "T01-customer-create-driver-read-open",
+      "status": "PASS",
+      "detail": "candidate can read; non-candidate denied",
+      "rules": "rides"
+    },
+    {
+      "name": "T02-driver-accept-customer-sees-driver",
+      "status": "PASS",
+      "detail": "client accept denied; trusted assign visible",
+      "rules": "rides"
+    },
+    {
+      "name": "T03-dual-accept-second-denied",
+      "status": "PASS",
+      "detail": "ok",
+      "rules": "rides"
+    },
+    {
+      "name": "T04-non-assigned-driver-update-denied",
+      "status": "PASS",
+      "detail": "ok",
+      "rules": "rides"
+    },
+    {
+      "name": "T05-customer-skip-to-completed-denied",
+      "status": "PASS",
+      "detail": "customer complete denied",
+      "rules": "rides"
+    },
+    {
+      "name": "T06-driver-skip-stages-denied",
+      "status": "PASS",
+      "detail": "ok",
+      "rules": "rides"
+    },
+    {
+      "name": "T09-driver-wallet-increase-denied",
+      "status": "PASS",
+      "detail": "wallet locked",
+      "rules": "partners"
+    },
+    {
+      "name": "T10-owner-other-vehicle-denied",
+      "status": "PASS",
+      "detail": "ok",
+      "rules": "vehicles"
+    },
+    {
+      "name": "T11-owner-not-super-admin",
+      "status": "PASS",
+      "detail": "ok",
+      "rules": "partners"
+    },
+    {
+      "name": "T12-super-admin-block-driver",
+      "status": "PASS",
+      "detail": "ok",
+      "rules": "partners"
+    },
+    {
+      "name": "T13-invalid-ride-create-denied",
+      "status": "PASS",
+      "detail": "ok",
+      "rules": "rides"
+    },
+    {
+      "name": "T14-client-driver-completion-denied",
+      "status": "PASS",
+      "detail": "client complete denied",
+      "rules": "rides"
+    },
+    {
+      "name": "T15-duplicate-completion-denied",
+      "status": "PASS",
+      "detail": "ok",
+      "rules": "rides"
+    },
+    {
+      "name": "T16-customer-cancel-searching",
+      "status": "PASS",
+      "detail": "ok",
+      "rules": "rides"
+    },
+    {
+      "name": "T17-unauth-read-denied",
+      "status": "PASS",
+      "detail": "ok",
+      "rules": "rides"
+    },
+    {
+      "name": "T18-ride-requests-create-denied",
+      "status": "PASS",
+      "detail": "ok",
+      "rules": "ride_requests"
+    },
+    {
+      "name": "T19-driver-partner-wallet-batch-denied",
+      "status": "PASS",
+      "detail": "batch denied",
+      "rules": "partners"
+    },
+    {
+      "name": "T07-suspended-driver-online",
+      "status": "PASS",
+      "detail": "blocked cannot go online",
+      "rules": "vehicles"
+    },
+    {
+      "name": "T08-customer-fare-tamper",
+      "status": "PASS",
+      "detail": "customer fare tamper denied",
+      "rules": "rides"
+    },
+    {
+      "name": "T20-storage-kyc-privacy",
+      "status": "PASS",
+      "detail": "KYC owner-only read/write",
+      "rules": "storage"
+    },
+    {
+      "name": "F01-driver-cannot-increase-wallet",
+      "status": "PASS",
+      "detail": "denied",
+      "rules": "partners"
+    },
+    {
+      "name": "F02-driver-cannot-change-earnings",
+      "status": "PASS",
+      "detail": "denied",
+      "rules": "partners"
+    },
+    {
+      "name": "F03-driver-cannot-alter-wallet-lock-fields",
+      "status": "PASS",
+      "detail": "denied",
+      "rules": "partners"
+    },
+    {
+      "name": "F04-customer-cannot-complete-accepted",
+      "status": "PASS",
+      "detail": "denied",
+      "rules": "rides"
+    },
+    {
+      "name": "F05-customer-cannot-set-commission-zero",
+      "status": "PASS",
+      "detail": "denied",
+      "rules": "rides"
+    },
+    {
+      "name": "F06-customer-cannot-modify-fare-after-accept",
+      "status": "PASS",
+      "detail": "denied",
+      "rules": "rides"
+    },
+    {
+      "name": "F07-unassigned-driver-progression-denied",
+      "status": "PASS",
+      "detail": "denied",
+      "rules": "rides"
+    },
+    {
+      "name": "F08-assigned-driver-permitted-transitions",
+      "status": "PASS",
+      "detail": "accepted→arrived→in_progress",
+      "rules": "rides"
+    },
+    {
+      "name": "F09-driver-cannot-skip-arrived",
+      "status": "PASS",
+      "detail": "accepted→in_progress denied",
+      "rules": "rides"
+    },
+    {
+      "name": "F10-driver-cannot-create-ledger-credit",
+      "status": "PASS",
+      "detail": "denied",
+      "rules": "ledger"
+    },
+    {
+      "name": "F11-driver-cannot-edit-delete-ledger",
+      "status": "PASS",
+      "detail": "denied",
+      "rules": "ledger"
+    },
+    {
+      "name": "F12-owner-cannot-alter-driver-balance",
+      "status": "PASS",
+      "detail": "denied",
+      "rules": "partners"
+    },
+    {
+      "name": "F13-ordinary-owner-no-settlement",
+      "status": "PASS",
+      "detail": "denied",
+      "rules": "partners"
+    },
+    {
+      "name": "F25-partner-safe-profile-update",
+      "status": "PASS",
+      "detail": "allowlist update ok",
+      "rules": "partners"
+    },
+    {
+      "name": "F26-no-active-client-settlement-bypass",
+      "status": "PASS",
+      "detail": "clients call trusted settlement",
+      "rules": "clients"
+    },
+    {
+      "name": "F14-simultaneous-claim-one-winner",
+      "status": "PASS",
+      "detail": "Evidence: T03 second accept denied under same accept rules",
+      "rules": "rides"
+    },
+    {
+      "name": "F22-trusted-completion-consistent",
+      "status": "PASS",
+      "detail": "{\"alreadySettled\":false,\"rideId\":\"settle-1\",\"collectionName\":\"rides\",\"settlementId\":\"settle_rides_settle-1\",\"commissionAmount\":35,\"driverEarnings\":315,\"grossFare\":350,\"commissionPercent\":10}",
+      "rules": "settlement"
+    },
+    {
+      "name": "F15-simultaneous-completion-one-settlement",
+      "status": "PASS",
+      "detail": "ledgerCount=1",
+      "rules": "settlement"
+    },
+    {
+      "name": "F16-repeat-completion-no-duplicate-commission",
+      "status": "PASS",
+      "detail": "wallet=-35",
+      "rules": "settlement"
+    },
+    {
+      "name": "F17-repeat-completion-no-duplicate-earnings",
+      "status": "PASS",
+      "detail": "earn=315 rides=1",
+      "rules": "settlement"
+    },
+    {
+      "name": "F18-repeat-completion-no-duplicate-ledger",
+      "status": "PASS",
+      "detail": "ledgerCount=1",
+      "rules": "settlement"
+    },
+    {
+      "name": "F19-invalid-fare-rejected",
+      "status": "PASS",
+      "detail": "INVALID_FARE",
+      "rules": "settlement"
+    },
+    {
+      "name": "F20-cancelled-cannot-complete",
+      "status": "PASS",
+      "detail": "RIDE_CANCELLED",
+      "rules": "settlement"
+    },
+    {
+      "name": "F21-completed-not-re-settled",
+      "status": "PASS",
+      "detail": "{\"alreadySettled\":true,\"wallet\":-35}",
+      "rules": "settlement"
+    },
+    {
+      "name": "F23-wrong-driver-denied",
+      "status": "PASS",
+      "detail": "NOT_ASSIGNED_DRIVER",
+      "rules": "settlement"
+    },
+    {
+      "name": "F24-server-timestamp-and-audit",
+      "status": "PASS",
+      "detail": "audits=1 creator=completeRideSettlement",
+      "rules": "settlement"
+    },
+    {
+      "name": "B01-candidate-limit-10-20-only",
+      "status": "PASS",
+      "detail": "10/20 ok; 15 rejected",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B02-candidate-limit-10-works",
+      "status": "PASS",
+      "detail": "n=10",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B03-candidate-limit-20-works",
+      "status": "PASS",
+      "detail": "n=20",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B04-progressive-rings-1-2-3",
+      "status": "PASS",
+      "detail": "[1,1,1]",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B05-match-writes-candidates",
+      "status": "PASS",
+      "detail": "candidates=2",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B06-invalid-candidate-limit-rejected",
+      "status": "PASS",
+      "detail": "INVALID_CANDIDATE_LIMIT",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B07-first-booking-allowed",
+      "status": "PASS",
+      "detail": "{\"allowed\":true,\"count\":0,\"activeBookings\":[]}",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B08-second-needs-confirmation",
+      "status": "PASS",
+      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"activeBookings\":[{\"id\":\"NEVWv1D6ZomX3rlmillK\",\"status\":\"searching_driver\"}]}",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B09-cancel-confirm-no-create",
+      "status": "PASS",
+      "detail": "CONFIRM_EXTRA_BOOKING",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B10-four-bookings-ok",
+      "status": "PASS",
+      "detail": "count=4",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B11-fifth-booking-rejected",
+      "status": "PASS",
+      "detail": "MAX_ACTIVE_BOOKINGS",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B12-four-booking-race-safe",
+      "status": "PASS",
+      "detail": "ok=1 fail=1 count=4",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B13-cancelled-excluded-from-limit",
+      "status": "PASS",
+      "detail": "count=0",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B14-bargaining-not-assigned",
+      "status": "PASS",
+      "detail": "status=searching_driver",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B15-multi-driver-offers",
+      "status": "PASS",
+      "detail": "barg-ride_barg-d1,barg-ride_barg-d2",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B16-expired-offer-not-accepted",
+      "status": "PASS",
+      "detail": "OFFER_CLOSED",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B17-simultaneous-assign-one-winner",
+      "status": "PASS",
+      "detail": "driver=race-d2 fulfilled=rejected,fulfilled",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B18-active-driver-cannot-bargain-another",
+      "status": "PASS",
+      "detail": "driver=race-d2",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B19-sibling-offers-closed",
+      "status": "PASS",
+      "detail": "openLeft=0",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B20-eleventh-bargain-rejected",
+      "status": "PASS",
+      "detail": "MAX_OPEN_BARGAINS",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B21-customer-counter-offer",
+      "status": "PASS",
+      "detail": "{\"status\":\"countered\",\"fare\":260}",
+      "rules": "bargaining"
+    },
+    {
+      "name": "S01-claim-admin-can-write-settings",
+      "status": "PASS",
+      "detail": "ok",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S02-ordinary-user-cannot-be-super-admin",
+      "status": "PASS",
+      "detail": "settings write denied",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S03-revoked-claim-no-access",
+      "status": "PASS",
+      "detail": "no admin claim → denied",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S04-bootstrap-email-while-enabled",
+      "status": "PASS",
+      "detail": "ok",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S05-bootstrap-disabled-email-denied",
+      "status": "PASS",
+      "detail": "email path closed",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S06-claim-admin-after-bootstrap-off",
+      "status": "PASS",
+      "detail": "ok",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S07-isAdminAuth-claim",
+      "status": "PASS",
+      "detail": "true",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S08-canonical-wallet-partners-only",
+      "status": "PASS",
+      "detail": "partners=-20 users=50",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S09-legacy-collection-settlement-denied",
+      "status": "PASS",
+      "detail": "LEGACY_COLLECTION_DENIED",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S10-conflicting-wallet-writes-denied",
+      "status": "PASS",
+      "detail": "users+partners locked",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S11-driver-profile-allowlist",
+      "status": "PASS",
+      "detail": "safe ok / protected denied",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S12-vehicle-privacy",
+      "status": "PASS",
+      "detail": "unrelated cannot read/query PIN",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S13-blocked-cannot-go-online",
+      "status": "PASS",
+      "detail": "rules deny",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S14-blocked-cannot-bargain",
+      "status": "PASS",
+      "detail": "DRIVER_BLOCKED",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S15-blocked-not-candidate",
+      "status": "PASS",
+      "detail": "n=0",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S16-blocked-cannot-progress-ride",
+      "status": "PASS",
+      "detail": "arrived denied",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S17-pin-gate-open",
+      "status": "PASS",
+      "detail": "{\"allowed\":true,\"remaining\":5}",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S18-pin-lockout-after-max",
+      "status": "PASS",
+      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785160974585}",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S19-pin-link-while-locked",
+      "status": "PASS",
+      "detail": "PIN_LOCKED",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S20-pin-link-success-no-pin-echo",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"vehicleId\":\"pin-v\",\"plate\":\"PIN1\",\"ownerId\":\"owner-2b\",\"status\":\"online\"}",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S21-plaintext-pin-stripped",
+      "status": "PASS",
+      "detail": "pin=undefined",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S22-ride-requests-no-write-bypass",
+      "status": "PASS",
+      "detail": "create+update denied",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S23-bootstrap-flag-readable",
+      "status": "PASS",
+      "detail": "true",
+      "suite": "phase2b"
+    },
+    {
+      "name": "S24-set-bootstrap-flag-claim-admin",
+      "status": "PASS",
+      "detail": "ok",
+      "suite": "phase2b"
+    },
+    {
+      "name": "C01-functions-exports-complete",
+      "expected": "all Phase 2 callables exported",
+      "actual": "all present",
+      "status": "PASS",
+      "suite": "phase2c-e2e"
+    },
+    {
+      "name": "C02-candidate-limits-10-20",
+      "expected": "10 and 20 work; invalid rejected",
+      "actual": "n10=10 n20=20 invalidRejected=true",
+      "status": "PASS",
+      "suite": "phase2c-e2e"
+    },
+    {
+      "name": "C03-admin-claim-transition",
+      "expected": "bootstrap sets admin:true; ordinary cannot grant; revoke clears claim; bootstrap disable safe",
+      "actual": "{\"claimOk\":true,\"ordinaryDenied\":true,\"ordinaryCannotGrant\":true,\"adminClaimSet\":true,\"revokeOk\":true,\"bootstrapOff\":true,\"emailDeniedWhenOff\":true,\"bootstrapCallDenied\":true}",
+      "status": "PASS",
+      "suite": "phase2c-e2e"
+    },
+    {
+      "name": "C04-pin-migration-emulator",
+      "expected": "plaintext removed; hash present; idempotent",
+      "actual": "{\"dryMigrated\":2,\"appliedMigrated\":2,\"plainHasPin\":false,\"plainHasHash\":true,\"hashUntouched\":true}",
+      "status": "PASS",
+      "suite": "phase2c-e2e"
+    },
+    {
+      "name": "C05-pin-link-callable",
+      "expected": "link succeeds without returning pin",
+      "actual": "{\"ok\":true,\"vehicleId\":\"e2e-v1\",\"hasPin\":false}",
+      "status": "PASS",
+      "suite": "phase2c-e2e"
+    },
+    {
+      "name": "C06-booking-and-match",
+      "expected": "booking created; blocked not candidate",
+      "actual": "ride=Q9uCaviPSOTWmNlVwOr7 cands=2 blockedCand=false",
+      "status": "PASS",
+      "suite": "phase2c-e2e"
+    },
+    {
+      "name": "C07-bargain-counter-assign",
+      "expected": "counter then assign one driver",
+      "actual": "status=accepted driver=e2e-d1 fare=310",
+      "status": "PASS",
+      "suite": "phase2c-e2e"
+    },
+    {
+      "name": "C08-one-active-ride-enforced",
+      "expected": "assigned driver cannot bargain another",
+      "actual": "blocked=true",
+      "status": "PASS",
+      "suite": "phase2c-e2e"
+    },
+    {
+      "name": "C09-four-booking-limit",
+      "expected": "fifth rejected while four non-terminal exist",
+      "actual": "fifthDenied=true allowed=false reason=MAX_ACTIVE_BOOKINGS",
+      "status": "PASS",
+      "suite": "phase2c-e2e"
+    },
+    {
+      "name": "C10-settlement-once",
+      "expected": "one ledger; wallet/earnings correct; repeat idempotent",
+      "actual": "{\"commission\":31,\"earn\":279,\"ledgerCount\":1,\"wallet\":-31,\"totalEarnings\":279,\"alreadyA\":true,\"alreadyB\":true,\"audits\":1}",
+      "status": "PASS",
+      "suite": "phase2c-e2e"
+    },
+    {
+      "name": "C11-unauthorized-settlement-denied",
+      "expected": "wrong driver denied",
+      "actual": "denied=true",
+      "status": "PASS",
+      "suite": "phase2c-e2e"
+    },
+    {
+      "name": "A01-no-client-plaintext-pin-query",
+      "expected": "no active where(pin==) in client apps",
+      "actual": "none",
+      "status": "PASS",
+      "detail": "functions/pin-link.js may Admin-query legacy pin during migration (lockout + strip)",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A02-settlement-partners-only",
+      "expected": "settlement updates partners wallet, not users",
+      "actual": "partners only",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A03-no-active-ride-requests-writes",
+      "expected": "apps do not write ride_requests",
+      "actual": "none",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A04-no-driver-owner-client-wallet-increment",
+      "expected": "driver/owner/customer apps do not increment walletBalance",
+      "actual": "none",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A05-admin-recharge-wallet-path-documented",
+      "expected": "Super Admin recharge may increment partners wallet (allowed)",
+      "actual": "present (admin-only)",
+      "status": "PASS",
+      "detail": "Not a violation; Rules require isSuperAdmin",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A06-customer-creates-rides",
+      "expected": "createRideRequest writes rides collection",
+      "actual": "rides",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A07-rules-ride-requests-readonly",
+      "expected": "ride_requests create/update/delete false",
+      "actual": "readonly",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A08-rules-claim-admin-primary",
+      "expected": "isClaimAdmin used in isSuperAdmin",
+      "actual": "claim+bootstrap flag",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A09-driver-wallet-reads-partners",
+      "expected": "earnings-service derives wallet from partners",
+      "actual": "partners",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A10-owner-wallet-reads-partners",
+      "expected": "owner walletBalance sourced from partners",
+      "actual": "partners",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A11-customer-wallet-users",
+      "expected": "customer profile/wallet on users collection",
+      "actual": "check",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A12-legacy-ride-requests-inventory",
+      "expected": "inventory remaining ride_requests references outside tests/docs",
+      "actual": "driver-app\\js\\RideRequestDetail.js: sourceCollection branch (legacy-aware)",
+      "status": "PASS",
+      "detail": "Legacy-aware sourceCollection branches are allowed if non-writing",
+      "suite": "phase2c-audit"
+    }
+  ],
+  "passed": 114,
+  "failed": 0,
+  "blocked": 0,
+  "exitCodes": {
+    "phase2b": 0,
+    "e2e": 0,
+    "audit": 0
+  },
+  "total": 114
+}

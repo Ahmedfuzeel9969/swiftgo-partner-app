@@ -17,7 +17,9 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
-  <link rel="stylesheet" href="css/driver-style.css?v=no_mode_switch_001" />
+  <link rel="stylesheet" href="css/driver-style.css?v=driver_home_1" />
+  <link rel="stylesheet" href="css/ride-radar.css?v=radar_sheet_collapse_1" />
+  <link rel="stylesheet" href="css/driver-home.css?v=driver_home_1" />
 </head>
 <body>
   <!-- ── Auth & gate overlays (fullscreen) ── -->
@@ -87,7 +89,28 @@
   </section>
 
   <div class="partner-shell driver-app" id="partnerShell" hidden>
-    <aside class="partner-sidebar" aria-label="ڈرائیور نیویگیشن">
+    <button
+      type="button"
+      class="mobile-nav-rail"
+      id="mobileNavRail"
+      aria-expanded="false"
+      aria-controls="partnerSidebar"
+      aria-label="مینو کھولیں"
+      hidden
+    >
+      <span class="mobile-nav-rail__chevron" aria-hidden="true"></span>
+    </button>
+    <div class="mobile-nav-backdrop" id="mobileNavBackdrop" hidden aria-hidden="true"></div>
+
+    <aside class="partner-sidebar" id="partnerSidebar" aria-label="ڈرائیور نیویگیشن">
+      <button
+        type="button"
+        class="partner-sidebar__drawer-tab"
+        id="mobileNavDrawerTab"
+        aria-label="مینو بند کریں"
+      >
+        <span class="partner-sidebar__drawer-tab-icon" aria-hidden="true"></span>
+      </button>
       <div class="partner-sidebar__brand">
         <span class="partner-sidebar__mark" aria-hidden="true">S</span>
         <div>
@@ -96,18 +119,47 @@
         </div>
       </div>
 
+      <div class="partner-sidebar__profile" id="driverSidebarProfile">
+        <span class="partner-sidebar__profile-avatar" aria-hidden="true">👤</span>
+        <div>
+          <p class="partner-sidebar__profile-name" id="driverSidebarName">ڈرائیور</p>
+          <p class="partner-sidebar__profile-meta" id="driverSidebarMeta">SwiftGo Partner</p>
+        </div>
+      </div>
+
       <nav class="partner-sidebar__nav">
-        <button type="button" class="partner-nav-item is-active" id="navDashboard" data-view="dashboard" aria-current="page">
+        <button type="button" class="partner-nav-item is-active" id="navHome" data-view="home" aria-current="page">
+          ہوم
+          <span class="partner-nav-item__en">Home</span>
+        </button>
+        <button type="button" class="partner-nav-item" id="navDashboard" data-view="dashboard">
           ڈیش بورڈ
-          <span class="partner-nav-item__en">Dashboard</span>
+          <span class="partner-nav-item__en">Analytics</span>
         </button>
         <button type="button" class="partner-nav-item" data-view="rides">
           میری سواریاں
           <span class="partner-nav-item__en">My Rides</span>
         </button>
+        <button type="button" class="partner-nav-item" id="navEarnings" data-view="earnings">
+          کمائی
+          <span class="partner-nav-item__en">Earnings</span>
+        </button>
         <button type="button" class="partner-nav-item" id="navWallet" data-view="wallet">
           والٹ
           <span class="partner-nav-item__en">Wallet</span>
+        </button>
+        <button
+          type="button"
+          class="partner-nav-item partner-nav-item--notify"
+          id="openNotificationSettingsBtn"
+          aria-label="نوٹیفکیشن سیٹنگز"
+          title="نوٹیفکیشن سیٹنگز"
+        >
+          <span class="partner-nav-item__icon" aria-hidden="true">🔔</span>
+          <span class="partner-nav-item__copy">
+            نوٹیفکیشن
+            <span class="partner-nav-item__en">Alerts</span>
+          </span>
         </button>
       </nav>
 
@@ -120,13 +172,12 @@
       <header class="partner-topbar" id="partnerHeader">
         <div class="partner-topbar__title">
           <p class="partner-topbar__eyebrow">SwiftGo Driver</p>
-          <h1 id="partnerViewTitle">ڈیش بورڈ</h1>
+          <h1 id="partnerViewTitle">ہوم</h1>
         </div>
         <div class="partner-topbar__actions" id="partnerTopbarActions">
-          <button type="button" class="driver-notify-btn" id="openNotificationSettingsBtn" aria-label="نوٹیفکیشن سیٹنگز" title="نوٹیفکیشن سیٹنگز">🔔</button>
           <button
             type="button"
-            class="driver-status"
+            class="driver-status driver-status--topbar"
             id="driverStatusToggle"
             role="switch"
             aria-checked="false"
@@ -135,32 +186,52 @@
             <span class="driver-status__dot" aria-hidden="true"></span>
             <span id="driverStatusText">آف لائن</span>
           </button>
+          <button
+            type="button"
+            class="ride-radar-fab ride-radar-fab--topbar"
+            id="openRideRadarBtn"
+            hidden
+            aria-label="دستیاب سواریاں"
+          >
+            دستیاب سواریاں
+          </button>
         </div>
       </header>
 
-      <section class="partner-content" id="partnerContent" data-active-view="dashboard">
-        <div class="partner-view is-active" id="dashboardSection" data-view-panel="dashboard">
-          <div class="dashboard-layout">
-            <div class="dashboard-map-panel">
-              <section class="driver-map" id="driverMap" role="application" aria-label="ڈرائیور کا لائیو نقشہ"></section>
-              <div class="location-state" id="locationState" role="status" aria-live="polite">
-                آن لائن ہونے پر آپ کا موجودہ مقام یہاں دکھائی دے گا
-              </div>
-            </div>
-            <aside class="dashboard-stats" aria-label="Quick stats">
-              <article class="stat-card">
-                <p class="stat-card__label">موجودہ بیلنس</p>
-                <p class="stat-card__value" id="dashboardWalletBalance">Rs. 0</p>
+      <section class="partner-content" id="partnerContent" data-active-view="home">
+        <div class="partner-view is-active" id="homeSection" data-view-panel="home">
+          <div id="driverHomeRoot" class="driver-home-hub"></div>
+        </div>
+
+        <div class="partner-view" id="dashboardSection" data-view-panel="dashboard" hidden>
+          <div class="dashboard-layout dashboard-layout--analytics">
+            <div class="dashboard-summary-grid" aria-label="خلاصہ">
+              <article class="stat-card stat-card--summary">
+                <p class="stat-card__label">کل مکمل سواریاں</p>
+                <p class="stat-card__value" id="dashboardTotalRides">0</p>
               </article>
-              <article class="stat-card">
+              <article class="stat-card stat-card--summary">
                 <p class="stat-card__label">کل کمائی</p>
                 <p class="stat-card__value" id="dashboardTotalEarnings">Rs. 0</p>
               </article>
-              <article class="stat-card">
-                <p class="stat-card__label">مکمل سواریاں</p>
-                <p class="stat-card__value" id="dashboardTotalRides">0</p>
+              <article class="stat-card stat-card--summary">
+                <p class="stat-card__label">موجودہ بیلنس / والٹ</p>
+                <p class="stat-card__value" id="dashboardWalletBalance">Rs. 0</p>
               </article>
-            </aside>
+            </div>
+
+            <div class="dashboard-charts">
+              <section class="dashboard-chart-card" aria-labelledby="dashboardEarningsChartTitle">
+                <h3 class="dashboard-chart-card__title" id="dashboardEarningsChartTitle">کمائی کا تجزیہ</h3>
+                <p class="dashboard-chart-card__sub">آخری 7 دن · Firestore سے خود بخود اپ ڈیٹ</p>
+                <div class="dashboard-chart-card__canvas" id="dashboardEarningsChart"></div>
+              </section>
+              <section class="dashboard-chart-card" aria-labelledby="dashboardRidesRatioChartTitle">
+                <h3 class="dashboard-chart-card__title" id="dashboardRidesRatioChartTitle">سواریوں کا تناسب</h3>
+                <p class="dashboard-chart-card__sub">مکمل بمقابلہ منسوخ · ڈیٹا نہ ہو تو نمونہ</p>
+                <div class="dashboard-chart-card__canvas" id="dashboardRidesRatioChart"></div>
+              </section>
+            </div>
           </div>
         </div>
 
@@ -175,11 +246,21 @@
           </div>
         </div>
 
+        <div
+          class="partner-view partner-view--earnings"
+          id="earningsSection"
+          data-view-panel="earnings"
+          hidden
+          aria-label="میری کمائی"
+        >
+          <div id="earningsDetailRoot" class="earnings-detail-host"></div>
+        </div>
+
         <div class="partner-view" id="walletSection" data-view-panel="wallet" hidden aria-label="والٹ">
           <section class="wallet-panel" id="driverEarningsCard">
             <header class="wallet-panel__head">
-              <p class="wallet-panel__eyebrow">Earnings</p>
-              <h2>میری کمائی</h2>
+              <p class="wallet-panel__eyebrow">Wallet</p>
+              <h2>والٹ اور ریچارج</h2>
             </header>
             <div class="driver-wallet-row">
               <span>موجودہ بیلنس</span>
@@ -339,11 +420,19 @@
     </section>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@4.7.0/dist/apexcharts.min.js"></script>
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
-  <script type="module" src="js/driver-app.js?v=no_mode_switch_001"></script>
+  <div class="ride-radar-root" id="rideRadarRoot" hidden aria-hidden="true" data-radar-screen="">
+    <div id="rideRadarListHost" class="ride-radar-list-host"></div>
+    <div id="rideRadarDetailHost" class="ride-radar-detail-host"></div>
+  </div>
+
+  <p class="driver-toast" id="driverToast" role="status" aria-live="polite" hidden></p>
+
+  <script type="module" src="js/driver-app.js?v=driver_home_1"></script>
 </body>
 </html>

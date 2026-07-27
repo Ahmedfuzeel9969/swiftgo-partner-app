@@ -5,3 +5,15 @@ hosting-dist/
 *-debug.log
 .firebaserc.local
 NUL
+.env
+.env.*
+!.env.example
+*-service-account*.json
+serviceAccount*.json
+**/credentials.json
+emulator-data/
+firebase-export*/
+*.pem
+*.p12
+.idea/
+.vscode/

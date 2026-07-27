@@ -1,0 +1,135 @@
+{
+  "generatedAt": "2026-07-27T13:47:51.252Z",
+  "results": [
+    {
+      "name": "B01-candidate-limit-10-20-only",
+      "status": "PASS",
+      "detail": "10/20 ok; 15 rejected",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B02-candidate-limit-10-works",
+      "status": "PASS",
+      "detail": "n=10",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B03-candidate-limit-20-works",
+      "status": "PASS",
+      "detail": "n=20",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B04-progressive-rings-1-2-3",
+      "status": "PASS",
+      "detail": "[1,1,1]",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B05-match-writes-candidates",
+      "status": "PASS",
+      "detail": "candidates=2",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B06-invalid-candidate-limit-rejected",
+      "status": "PASS",
+      "detail": "INVALID_CANDIDATE_LIMIT",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B07-first-booking-allowed",
+      "status": "PASS",
+      "detail": "{\"allowed\":true,\"count\":0,\"activeBookings\":[]}",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B08-second-needs-confirmation",
+      "status": "PASS",
+      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"activeBookings\":[{\"id\":\"NEVWv1D6ZomX3rlmillK\",\"status\":\"searching_driver\"}]}",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B09-cancel-confirm-no-create",
+      "status": "PASS",
+      "detail": "CONFIRM_EXTRA_BOOKING",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B10-four-bookings-ok",
+      "status": "PASS",
+      "detail": "count=4",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B11-fifth-booking-rejected",
+      "status": "PASS",
+      "detail": "MAX_ACTIVE_BOOKINGS",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B12-four-booking-race-safe",
+      "status": "PASS",
+      "detail": "ok=1 fail=1 count=4",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B13-cancelled-excluded-from-limit",
+      "status": "PASS",
+      "detail": "count=0",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B14-bargaining-not-assigned",
+      "status": "PASS",
+      "detail": "status=searching_driver",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B15-multi-driver-offers",
+      "status": "PASS",
+      "detail": "barg-ride_barg-d1,barg-ride_barg-d2",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B16-expired-offer-not-accepted",
+      "status": "PASS",
+      "detail": "OFFER_CLOSED",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B17-simultaneous-assign-one-winner",
+      "status": "PASS",
+      "detail": "driver=race-d2 fulfilled=rejected,fulfilled",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B18-active-driver-cannot-bargain-another",
+      "status": "PASS",
+      "detail": "driver=race-d2",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B19-sibling-offers-closed",
+      "status": "PASS",
+      "detail": "openLeft=0",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B20-eleventh-bargain-rejected",
+      "status": "PASS",
+      "detail": "MAX_OPEN_BARGAINS",
+      "rules": "bargaining"
+    },
+    {
+      "name": "B21-customer-counter-offer",
+      "status": "PASS",
+      "detail": "{\"status\":\"countered\",\"fare\":260}",
+      "rules": "bargaining"
+    }
+  ],
+  "passed": 21,
+  "failed": 0,
+  "blocked": 0,
+  "total": 21
+}

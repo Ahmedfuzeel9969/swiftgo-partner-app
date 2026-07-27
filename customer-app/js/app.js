@@ -28,6 +28,7 @@ import {
 import { initAuth, onUserChange, openAuthModal, getCurrentUser } from "./auth.js";
 import { watchUserProfile } from "./data.js";
 import { isFirebaseConfigured } from "./firebase.js";
+import { installCustomerE2EHooks } from "./e2e-hooks.js";
 import {
   initDashboard,
   refreshDashboardLabels,
@@ -352,6 +353,7 @@ async function boot() {
   els.shell.classList.add("on-home");
   navigate("home");
   closeDrawer();
+  installCustomerE2EHooks();
   console.info(
     `[SwiftGo] Phase 17 live ride status ready · firebase=${isFirebaseConfigured()} · lang=${getLang()}`
   );

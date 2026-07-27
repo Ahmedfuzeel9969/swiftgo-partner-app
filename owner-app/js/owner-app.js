@@ -29,6 +29,9 @@ import {
   writeBatch,
   deleteField,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { requestRideSettlement } from "./settlement-client.js";
+import { hashVehiclePin } from "./pin-hash.js";
+import { linkVehicleByPinClient } from "./pin-link-client.js";
 
 const KARACHI = [24.8607, 67.0011];
 
@@ -166,7 +169,41 @@ let cachedWalletThreshold = -500;
 let walletLocked = false;
 let partnerView = "dashboard";
 let lastVehicleLocationWrite = 0;
-const VEHICLE_LOCATION_WRITE_MS = 8000;
+const VEHICLE_LOCATION_WRITE_MS = 60_000; // Phase 3A: approved 1-minute Firebase snapshot (was 8s accidental waste)
+const LOCATION_GRID_DEG = 0.009;
+const MATCH_GEO_DEG = 0.0036;
+const GOLDEN_HOTSPOTS = Object.freeze([
+  { id: "hs_clifton", lat: 24.8138, lng: 67.0225 },
+  { id: "hs_saddar", lat: 24.86, lng: 67.0011 },
+  { id: "hs_gulshan", lat: 24.9056, lng: 67.0822 },
+  { id: "hs_defence", lat: 24.805, lng: 67.065 },
+  { id: "hs_north_nazimabad", lat: 24.935, lng: 67.035 },
+  { id: "hs_airport", lat: 24.9065, lng: 67.1608 },
+  { id: "hs_tariq_road", lat: 24.873, lng: 67.06 },
+  { id: "hs_bahadurabad", lat: 24.882, lng: 67.07 },
+]);
+function matchGeoCellId(lat, lng) {
+  return `g_${Math.floor(Number(lat) / MATCH_GEO_DEG)}_${Math.floor(Number(lng) / MATCH_GEO_DEG)}`;
+}
+function matchHotspotId(lat, lng) {
+  const R = 6371;
+  let best = null;
+  let bestKm = Infinity;
+  for (const hs of GOLDEN_HOTSPOTS) {
+    const dLat = ((hs.lat - lat) * Math.PI) / 180;
+    const dLng = ((hs.lng - lng) * Math.PI) / 180;
+    const s =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat * Math.PI) / 180) * Math.cos((hs.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    const km = 2 * R * Math.asin(Math.sqrt(s));
+    if (km < bestKm) {
+      bestKm = km;
+      best = hs;
+    }
+  }
+  return best && bestKm <= 0.5 ? best.id : null;
+}
+let lastLocationGridCell = null;
 let rideListenerPrimed = false;
 let unsubscribeDriverRideHistory = () => {};
 let driverRidesCache = [];
@@ -840,51 +877,35 @@ async function verifyVehiclePin(event) {
   setPinMessage("");
 
   try {
-    const { db } = getFirebase();
-    const pinQuery = query(
-      collection(db, "vehicles"),
-      where("pin", "==", enteredPin),
-      limit(1)
-    );
-    const snapshot = await getDocs(pinQuery);
-
-    if (snapshot.empty) {
-      setPinMessage("غلط پن کوڈ! دوبارہ کوشش کریں");
-      return;
-    }
-
-    const vehicleDoc = snapshot.docs[0];
-    const vehicle = vehicleDoc.data();
-
-    if (vehicle.status === "online" && vehicle.driverId !== driver.uid) {
-      setPinMessage("یہ گاڑی پہلے ہی زیر استعمال ہے");
-      return;
-    }
-
-    await updateDoc(doc(db, "vehicles", vehicleDoc.id), {
+    const result = await linkVehicleByPinClient(enteredPin);
+    linkedVehicle = {
+      id: result.vehicleId,
+      plate: result.plate,
+      ownerId: result.ownerId,
       driverId: driver.uid,
       status: "online",
-    });
-    await setDoc(
-      doc(db, "partners", driver.uid),
-      {
-        uid: driver.uid,
-        role: "driver",
-        currentVehicleId: vehicleDoc.id,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    linkedVehicle = { id: vehicleDoc.id, ...vehicle, driverId: driver.uid, status: "online" };
+    };
     setPinMessage("گاڑی کامیابی سے منسلک ہو گئی!", true);
     els.pinForm?.reset();
     window.setTimeout(() => {
       showDriverMap();
     }, 900);
   } catch (error) {
-    console.warn("[SwiftGo Partner] verify vehicle PIN", error);
-    setPinMessage("تصدیق مکمل نہیں ہو سکی۔ انٹرنیٹ یا Firestore rules چیک کریں۔");
+    console.warn("[SwiftGo Partner] verify vehicle PIN", error?.code || error?.message || error);
+    const code = String(error?.code || error?.message || "");
+    if (code.includes("PIN_LOCKED") || code.includes("resource-exhausted")) {
+      setPinMessage("زیادہ غلط کوششیں — کچھ دیر بعد دوبارہ کوشش کریں");
+    } else if (code.includes("DRIVER_BLOCKED") || code.includes("DRIVER_SUSPENDED")) {
+      setPinMessage("آپ کا اکاؤنٹ بلاک/معطل ہے");
+    } else if (code.includes("VEHICLE_IN_USE")) {
+      setPinMessage("یہ گاڑی پہلے ہی زیر استعمال ہے");
+    } else if (code.includes("PIN_NOT_FOUND") || code.includes("not-found")) {
+      setPinMessage("غلط پن کوڈ! دوبارہ کوشش کریں");
+    } else if (code.includes("FUNCTIONS_UNAVAILABLE")) {
+      setPinMessage("PIN سروس دستیاب نہیں — بعد میں کوشش کریں");
+    } else {
+      setPinMessage("تصدیق مکمل نہیں ہو سکی۔ دوبارہ کوشش کریں۔");
+    }
   } finally {
     setPinBusy(false);
   }
@@ -1301,18 +1322,19 @@ async function submitVehicle(event) {
 
   try {
     const pin = generateUniqueVehiclePin();
+    const pinHash = await hashVehiclePin(pin);
     const { db } = getFirebase();
     await addDoc(collection(db, "vehicles"), {
       ownerId: owner.uid,
       model,
       plate,
-      pin,
+      pinHash,
       status: "offline",
       driverId: null,
       createdAt: serverTimestamp(),
     });
     closeVehicleModal();
-    setOwnerMessage(`گاڑی شامل ہو گئی۔ ڈرائیور PIN: ${pin}`);
+    setOwnerMessage(`گاڑی شامل ہو گئی۔ ڈرائیور PIN: ${pin} (ایک بار دکھایا گیا)`);
   } catch (error) {
     console.warn("[SwiftGo Partner] add vehicle", error);
     if (els.vehicleFormMessage) {
@@ -1387,14 +1409,22 @@ async function syncVehicleLocationToFirestore(lat, lng) {
   if (!linkedVehicle?.id || !online || !currentDriver?.uid) return;
 
   const now = Date.now();
-  if (now - lastVehicleLocationWrite < VEHICLE_LOCATION_WRITE_MS) return;
+  const cell = `${Math.floor(Number(lat) / LOCATION_GRID_DEG)}_${Math.floor(Number(lng) / LOCATION_GRID_DEG)}`;
+  const zoneChanged = cell !== lastLocationGridCell;
+  if (!zoneChanged && now - lastVehicleLocationWrite < VEHICLE_LOCATION_WRITE_MS) return;
+  lastLocationGridCell = cell;
   lastVehicleLocationWrite = now;
 
   try {
     const { db } = getFirebase();
+    const geoCell = matchGeoCellId(lat, lng);
+    const hotspotId = matchHotspotId(lat, lng);
     await updateDoc(doc(db, "vehicles", linkedVehicle.id), {
       location: { lat, lng },
       locationUpdatedAt: serverTimestamp(),
+      locationGridCell: cell,
+      geoCell,
+      hotspotId: hotspotId || null,
       driverName:
         currentDriver.displayName ||
         currentDriver.email?.split("@")[0] ||
@@ -1402,7 +1432,7 @@ async function syncVehicleLocationToFirestore(lat, lng) {
       status: activeExecutionRide?.id ? "in_ride" : "online",
     });
   } catch (error) {
-    console.warn("[SwiftGo Partner] vehicle location sync", error);
+    console.warn("[SwiftGo Owner] vehicle location sync", error);
   }
 }
 
@@ -1775,46 +1805,24 @@ function resolveVehicleKeyFromLabel(label) {
   return map[raw] || "";
 }
 
-function calculateCommissionSplit(estimatedFare, commissionPercent) {
-  const fare = Math.max(0, Number(estimatedFare) || 0);
-  const percent = Math.max(0, Number(commissionPercent) || 0);
-  const commissionAmount = Math.round((fare * percent) / 100);
-  const driverEarnings = Math.max(0, Math.round(fare - commissionAmount));
-  return { commissionAmount, driverEarnings };
-}
-
+/** Phase 2A — settlement via trusted Cloud Function only. */
 async function completeRideWithEarnings(ride) {
   const driver = currentDriver;
   if (!ride?.id || !driver?.uid) {
     throw new Error("NO_ACTIVE_RIDE");
   }
 
-  const commissionPercent = await fetchSystemCommissionPercent(ride);
-  const estimatedFare = rideFareAmount(ride);
-  const { commissionAmount, driverEarnings } = calculateCommissionSplit(
-    estimatedFare,
-    commissionPercent
-  );
-
-  const { db } = getFirebase();
-  const batch = writeBatch(db);
-  batch.update(doc(db, "rides", ride.id), {
-    status: "completed",
-    commissionAmount,
-    driverEarnings,
+  const result = await requestRideSettlement({
+    rideId: ride.id,
+    collectionName: "rides",
   });
-  batch.set(
-    doc(db, "partners", driver.uid),
-    {
-      totalEarnings: increment(driverEarnings),
-      totalRidesCompleted: increment(1),
-      walletBalance: increment(-commissionAmount),
-    },
-    { merge: true }
-  );
-  await batch.commit();
 
-  return { commissionAmount, driverEarnings, estimatedFare };
+  return {
+    commissionAmount: Number(result?.commissionAmount) || 0,
+    driverEarnings: Number(result?.driverEarnings) || 0,
+    estimatedFare: Number(result?.grossFare) || rideFareAmount(ride),
+    alreadySettled: Boolean(result?.alreadySettled),
+  };
 }
 
 async function advanceActiveRideStatus() {
@@ -1904,10 +1912,25 @@ async function resolveActiveRequest(nextStatus) {
           throw new Error("VEHICLE_NOT_LINKED");
         }
 
+        const rideData = rideSnapshot.data() || {};
+        const acceptedFare = Math.max(
+          0,
+          Math.round(
+            Number(
+              rideData.customerCounterFare > 0
+                ? rideData.customerCounterFare
+                : rideData.farePkr ?? rideData.estimatedFare ?? 0
+            ) || 0
+          )
+        );
+
         update.vehicleId = vehicleSnapshot.id;
         update.ownerId = vehicleSnapshot.data().ownerId;
         update.vehiclePlate = vehicleSnapshot.data().plate || "—";
         update.driverName = driver.displayName || "SwiftGo Driver";
+        update.farePkr = acceptedFare;
+        update.estimatedFare = acceptedFare;
+        update.driverBidFare = acceptedFare;
       }
 
       transaction.update(rideRef, update);

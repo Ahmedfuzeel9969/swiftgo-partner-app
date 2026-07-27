@@ -1,0 +1,105 @@
+{
+  "generatedAt": "2026-07-27T13:48:00.294Z",
+  "results": [
+    {
+      "name": "A01-no-client-plaintext-pin-query",
+      "expected": "no active where(pin==) in client apps",
+      "actual": "none",
+      "status": "PASS",
+      "detail": "functions/pin-link.js may Admin-query legacy pin during migration (lockout + strip)",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A02-settlement-partners-only",
+      "expected": "settlement updates partners wallet, not users",
+      "actual": "partners only",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A03-no-active-ride-requests-writes",
+      "expected": "apps do not write ride_requests",
+      "actual": "none",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A04-no-driver-owner-client-wallet-increment",
+      "expected": "driver/owner/customer apps do not increment walletBalance",
+      "actual": "none",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A05-admin-recharge-wallet-path-documented",
+      "expected": "Super Admin recharge may increment partners wallet (allowed)",
+      "actual": "present (admin-only)",
+      "status": "PASS",
+      "detail": "Not a violation; Rules require isSuperAdmin",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A06-customer-creates-rides",
+      "expected": "createRideRequest writes rides collection",
+      "actual": "rides",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A07-rules-ride-requests-readonly",
+      "expected": "ride_requests create/update/delete false",
+      "actual": "readonly",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A08-rules-claim-admin-primary",
+      "expected": "isClaimAdmin used in isSuperAdmin",
+      "actual": "claim+bootstrap flag",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A09-driver-wallet-reads-partners",
+      "expected": "earnings-service derives wallet from partners",
+      "actual": "partners",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A10-owner-wallet-reads-partners",
+      "expected": "owner walletBalance sourced from partners",
+      "actual": "partners",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A11-customer-wallet-users",
+      "expected": "customer profile/wallet on users collection",
+      "actual": "check",
+      "status": "PASS",
+      "detail": "",
+      "suite": "phase2c-audit"
+    },
+    {
+      "name": "A12-legacy-ride-requests-inventory",
+      "expected": "inventory remaining ride_requests references outside tests/docs",
+      "actual": "driver-app\\js\\RideRequestDetail.js: sourceCollection branch (legacy-aware)",
+      "status": "PASS",
+      "detail": "Legacy-aware sourceCollection branches are allowed if non-writing",
+      "suite": "phase2c-audit"
+    }
+  ],
+  "passed": 12,
+  "failed": 0,
+  "blocked": 0,
+  "total": 12
+}

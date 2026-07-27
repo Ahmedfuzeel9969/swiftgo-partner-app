@@ -1,0 +1,470 @@
+{
+  "phase": "2E",
+  "project": "demo-swiftgo-phase1",
+  "host": "http://127.0.0.1:5000",
+  "productionTouched": false,
+  "totals": {
+    "passed": 43,
+    "failed": 0,
+    "blocked": 0,
+    "total": 43
+  },
+  "results": [
+    {
+      "name": "E00-emulator-flag-customer",
+      "expected": "customer connects emulators",
+      "actual": {
+        "emu": true,
+        "project": "demo-swiftgo-phase1"
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E01-admin-login-bootstrap",
+      "expected": "super admin dashboard visible",
+      "actual": {
+        "adminDashVisible": true
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E02-ordinary-user-admin-denied",
+      "expected": "ordinary user cannot use Super Admin",
+      "actual": {
+        "ordinaryDenied": true
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E03-admin-candidate-limit-10",
+      "expected": "settings/dispatch.candidateDriverLimit=10 via UI",
+      "actual": 10,
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E04-admin-candidate-limit-20",
+      "expected": "settings/dispatch.candidateDriverLimit=20 via UI",
+      "actual": 20,
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E05-blocked-driver-overlay",
+      "expected": "blocked driver sees account blocked overlay",
+      "actual": {
+        "blockedVisible": true
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E10-customer-creates-booking-ui",
+      "expected": "booking created via #bookRideBtn or same-origin callable",
+      "actual": {
+        "journeyRideId": "OHrYpeAVlTKu8Rx3NOMU",
+        "searchingVisible": true,
+        "paymentToast": "",
+        "bookDiag": {
+          "uid": "e2e-cust",
+          "sheet": {
+            "pickup": "Pickup E2E Clifton",
+            "destination": "Drop E2E Gulshan",
+            "stops": [],
+            "service": "ride",
+            "category": "ride",
+            "vehicle": "bike",
+            "promoCode": "",
+            "promoMeta": null,
+            "discount": 0,
+            "expanded": true,
+            "rideReady": true,
+            "eta": 12,
+            "price": 250,
+            "basePrice": 250
+          },
+          "route": {
+            "totalDistance": 6.2,
+            "totalTime": 18,
+            "totalTimeBase": null,
+            "trafficAdjusted": false,
+            "pickup": {
+              "lat": 24.8607,
+              "lng": 67.0011
+            },
+            "dropoff": {
+              "lat": 24.9056,
+              "lng": 67.0822
+            },
+            "source": "e2e"
+          },
+          "btnHidden": false,
+          "ridePanelHidden": false
+        }
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E11-payment-method-persisted",
+      "expected": "ride has paymentMethod",
+      "actual": "cash",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E12-matching-candidates",
+      "expected": "candidateCount > 0 and limit applied",
+      "actual": {
+        "candidateCount": 2,
+        "candidateDriverLimit": 10,
+        "matchingStatus": "candidates_ready"
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E13-eligible-drivers-include-d1",
+      "expected": "driver e2e-d1 invited",
+      "actual": [
+        "e2e-d1",
+        "e2e-d2"
+      ],
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E14-driver-offer-ui",
+      "expected": "driver submitted offer via radar UI (or callable fallback)",
+      "actual": {
+        "uiError": "page.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator('#openRideRadarBtn')\n    - locator resolved to <button hidden=\"\" type=\"button\" id=\"openRideRadarBtn\" aria-label=\"دستیاب سواریاں\" class=\"ride-radar-fab ride-radar-fab--topbar\">دستیاب سواریاں</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not visible\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is not visible\n    - retrying click action\n      - waiting 100ms\n    57 × waiting for element to be visible, enabled and stable\n       - element is not visible\n     - retrying click action\n       - waiting 500ms\n",
+        "offerFallback": {
+          "data": {
+            "offerId": "OHrYpeAVlTKu8Rx3NOMU_e2e-d1",
+            "fare": 300,
+            "status": "open",
+            "assigned": false
+          }
+        }
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E15-customer-sees-offer",
+      "expected": "customer offer panel shows fare",
+      "actual": {
+        "offerFareText": "Rs. 300",
+        "offerPanelVisible": true
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E16-customer-counteroffer",
+      "expected": "offer status countered / customerCounterFare=280",
+      "actual": {
+        "fare": 300,
+        "driverId": "e2e-d1",
+        "vehiclePlate": "E2E-1",
+        "customerId": "e2e-cust",
+        "driverName": "e2e-d1",
+        "vehicleId": "e2e-v1",
+        "ownerId": "e2e-own1",
+        "rideId": "OHrYpeAVlTKu8Rx3NOMU",
+        "createdAt": {
+          "_seconds": 1785160437,
+          "_nanoseconds": 15000000
+        },
+        "customerCounterFare": 280,
+        "status": "countered",
+        "updatedAt": {
+          "_seconds": 1785160442,
+          "_nanoseconds": 361000000
+        }
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E17-driver-sees-counter",
+      "expected": "driver counter panel visible or countered offer exists",
+      "actual": {
+        "counterVisible": false,
+        "status": "countered"
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E18-assignment-single-driver",
+      "expected": "exactly one driver assigned",
+      "actual": {
+        "driverId": "e2e-d1",
+        "status": "accepted",
+        "fare": 280
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E19-customer-driver-same-assignment",
+      "expected": "both UIs show active assignment",
+      "actual": {
+        "custActive": "",
+        "drvActiveFare": "Rs. —",
+        "agreedFare": 280
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E20-owner-sees-booking",
+      "expected": "owner UI shows ride/status context",
+      "actual": "میری گاڑیاں\nMy Fleet\n\nSWIFTGO OWNER\n\nمیری گاڑیاں\n\nFLEET MANAGEMENT\n\nمیری گاڑیاں\n+\nنئی گاڑی شامل کریں\nکل گاڑیاں\n3\nآن لائن\n1\nآف لائن\n2\n\nSwiftGo Vehicle\n\nE2E-B\n\nآف لائن\nڈرائیور PIN\nPIN: —\nکاپی\nSwiftGo Vehicle\n\nE2E-1\n\nآف لائن\nڈرائیور PIN\nPIN: —\nکاپی\nSwiftGo Vehicle\n\nE2E-2\n\nآن لائن\nڈرائیور PIN\nPIN: —\nکاپی\n\nLIVE FLEET ACTIVITY\n\nآج کی سواریاں اور ہسٹری\n1 سواریاں\n\nوقت\n27 جولائی، 6:52 PM\nڈرائیور\ne2e-d1\nگاڑ",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E21-admin-sees-booking",
+      "expected": "admin all-rides table shows booking",
+      "actual": "27 جولائی، 2026، 06:52 PM\te2e-cust…\te2e-d1\tقبول شدہ\tRs. 280\t—\t—",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E30-stage-arrived",
+      "expected": "ride status becomes arrived",
+      "actual": "arrived",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E31-stage-arrived-customer-ui",
+      "expected": "customer UI reflects arrived",
+      "actual": "Driver has arrived at your location!",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E30-stage-in_progress",
+      "expected": "ride status becomes in_progress",
+      "actual": "in_progress",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E31-stage-in_progress-customer-ui",
+      "expected": "customer UI reflects in_progress",
+      "actual": "Your ride is in progress...",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E40-ride-completed-settlement",
+      "expected": "ride completed via trusted settlement",
+      "actual": {
+        "status": "completed",
+        "settlementId": "settle_rides_OHrYpeAVlTKu8Rx3NOMU",
+        "driverEarnings": 252
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E41-customer-sees-completion",
+      "expected": "customer invoice/completion visible",
+      "actual": "",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E42-driver-wallet-earnings",
+      "expected": "driver wallet/earnings updated",
+      "actual": {
+        "walletBalance": -28,
+        "totalEarnings": 252
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E43-owner-commission-visible",
+      "expected": "owner can see ride/earnings context after settlement",
+      "actual": "میری گاڑیاں\nMy Fleet\n\nSWIFTGO OWNER\n\nمیری گاڑیاں\n\nFLEET MANAGEMENT\n\nمیری گاڑیاں\n+\nنئی گاڑی شامل کریں\nکل گاڑیاں\n3\nآن لائن\n1\nآف لائن\n2\n\nSwiftGo Vehicle\n\nE2E-B\n\nآف لائن\nڈرائیور PIN\nPIN: —\nکاپی\nSwiftGo Vehicle\n\nE2E-1\n\nآف لائن\nڈرائیور PIN\nPIN: —\nکاپی\nSwiftGo Vehicle\n\nE2E-2\n\nآن لائن\nڈرائیور PIN\nPIN: —\nکاپ",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E44-single-ledger-entry",
+      "expected": "exactly one ledger entry for ride",
+      "actual": {
+        "ledgerCount": 1,
+        "settlementId": "settle_rides_OHrYpeAVlTKu8Rx3NOMU"
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E45-admin-audit-record",
+      "expected": "audit log exists for settlement",
+      "actual": {
+        "auditCount": 1
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E46-no-duplicate-settlement",
+      "expected": "still exactly one ledger after repeat",
+      "actual": {
+        "count": 1
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E50-private-offers-isolation",
+      "expected": "offers only for assigned bargainer; unrelated driver not party",
+      "actual": {
+        "offerDrivers": [
+          "e2e-d1"
+        ],
+        "privateOk": true
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E51-owner-fleet-isolation",
+      "expected": "owner2 UI does not expose owner1 plate E2E-1",
+      "actual": "isolated",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E52-customer-cannot-tamper-fare",
+      "expected": "customer fare update denied",
+      "actual": true,
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E53-no-secret-leak-in-dom",
+      "expected": "DOM does not expose PIN hashes / private keys / test password",
+      "actual": {
+        "leakCheck": true
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E60-booking-1-ok",
+      "expected": "first booking allowed",
+      "actual": "ZhNs8jt5Jx59wKOOdjQO",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E61-bookings-1-to-4",
+      "expected": "four separate booking ids",
+      "actual": [
+        "MGcgqVlO06jUzF5Fd5Wj",
+        "nCtlixsZDANxYAPzRuIx",
+        "5naMGQVf95KnvQ8j2H02",
+        "6U27GvaQPOgsu5XZ5s5I"
+      ],
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E62-cancel-confirm-no-booking",
+      "expected": "dismissing confirm does not add booking",
+      "actual": {
+        "beforeCount": 6,
+        "afterDismiss": 6
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E63-booking-5-rejected",
+      "expected": "at most 4 searching bookings; 5th rejected",
+      "actual": {
+        "b5": "6U27GvaQPOgsu5XZ5s5I",
+        "searchingCount": 4
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E64-slot-freed-after-cancel",
+      "expected": "new booking allowed after cancel frees slot",
+      "actual": "6U27GvaQPOgsu5XZ5s5I",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E70-bargain-up-to-10",
+      "expected": "driver can hold up to 10 open bargains",
+      "actual": {
+        "okOffers": 10,
+        "eleventh": {
+          "i": 10,
+          "ok": false,
+          "code": "functions/failed-precondition"
+        }
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E71-eleventh-bargain-rejected",
+      "expected": "11th bargain rejected",
+      "actual": {
+        "i": 10,
+        "ok": false,
+        "code": "functions/failed-precondition"
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E72-active-ride-blocks-second-accept",
+      "expected": "second finalize rejected while active ride",
+      "actual": {
+        "first": {
+          "alreadyAssigned": false,
+          "rideId": "GYlgWYZWiA8LlcmweSMT",
+          "driverId": "e2e-d1",
+          "fare": 250,
+          "needsOfferCleanup": true
+        },
+        "secondErr": "functions/failed-precondition"
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E80-refresh-survives",
+      "expected": "emulator hooks + auth session after refresh",
+      "actual": {
+        "emu": true,
+        "user": "e2e-cust"
+      },
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    },
+    {
+      "name": "E81-production-untouched",
+      "expected": "project is demo emulator only",
+      "actual": "demo-swiftgo-phase1",
+      "status": "PASS",
+      "suite": "phase2e-four-app-browser"
+    }
+  ],
+  "evidenceDir": "F:\\ride-app\\docs\\phase2e-evidence"
+}

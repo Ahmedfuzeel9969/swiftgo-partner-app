@@ -438,6 +438,26 @@
               </p>
               <p class="admin-live-note" id="pricingStatusNote" role="status" aria-live="polite"></p>
             </form>
+
+            <div class="finance-panel__head" style="margin-top:1.5rem">
+              <h2>ڈسپیچ · امیدوار ڈرائیورز</h2>
+              <p>نئی بکنگ کتنے قریبی ڈرائیورز کو دکھے · <code>settings/dispatch.candidateDriverLimit</code> · صرف 10 یا 20</p>
+            </div>
+            <form class="finance-form" id="dispatchSettingsForm" novalidate>
+              <label class="finance-field">
+                <span class="finance-field__label">امیدوار ڈرائیور حد (10 یا 20)</span>
+                <select id="candidateDriverLimitInput" name="candidateDriverLimit" required>
+                  <option value="10">10 ڈرائیورز</option>
+                  <option value="20">20 ڈرائیورز</option>
+                </select>
+              </label>
+              <p class="finance-field__hint">تلاش حلقے: 1 کلومیٹر → 2 کلومیٹر → 3 کلومیٹر (تبدیل نہیں)</p>
+              <button type="submit" class="finance-save-btn" id="dispatchSaveBtn">
+                ڈسپیچ سیٹنگ محفوظ کریں
+                <span class="finance-save-btn__en">Save Dispatch Limit</span>
+              </button>
+              <p class="admin-live-note" id="dispatchStatusNote" role="status" aria-live="polite"></p>
+            </form>
           </div>
 
           <!-- Phase 42: Promo codes -->
