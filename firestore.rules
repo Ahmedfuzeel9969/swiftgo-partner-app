@@ -399,6 +399,14 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         && request.resource.data.status == 'offline';
 
+      // Driver switch/release vehicle: go offline and clear assignment.
+      allow update: if isSignedIn()
+        && resource.data.driverId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['driverId', 'driverName', 'status', 'activeRideId'])
+        && request.resource.data.status == 'offline'
+        && !('driverId' in request.resource.data);
+
       allow update: if isSuperAdmin()
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly([

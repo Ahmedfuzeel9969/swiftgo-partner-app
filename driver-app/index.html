@@ -17,7 +17,7 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
-  <link rel="stylesheet" href="css/driver-style.css?v=drawer_cleanup_1" />
+  <link rel="stylesheet" href="css/driver-style.css?v=drawer_vehicle_switch_1" />
   <link rel="stylesheet" href="css/ride-radar.css?v=radar_sheet_collapse_1" />
   <link rel="stylesheet" href="css/driver-home.css?v=driver_home_1" />
 </head>
@@ -168,6 +168,18 @@
           >
             <span class="partner-nav-item__icon" aria-hidden="true">🔊</span>
             <span data-i18n="navAlerts">رائڈ کی آواز</span>
+          </button>
+          <button
+            type="button"
+            class="partner-nav-item partner-nav-item--vehicle"
+            id="changeVehicleBtn"
+            aria-label="گاڑی تبدیل کریں"
+            data-i18n-aria="navChangeVehicle"
+            title="گاڑی تبدیل کریں"
+            data-i18n-title="navChangeVehicle"
+          >
+            <span class="partner-nav-item__icon" aria-hidden="true">🔑</span>
+            <span data-i18n="navChangeVehicle">گاڑی تبدیل کریں</span>
           </button>
         </nav>
 
@@ -467,6 +479,6 @@
 
   <p class="driver-toast" id="driverToast" role="status" aria-live="polite" hidden></p>
 
-  <script type="module" src="js/driver-app.js?v=app_surface_fix_2"></script>
+  <script type="module" src="js/driver-app.js?v=vehicle_switch_1"></script>
 </body>
 </html>

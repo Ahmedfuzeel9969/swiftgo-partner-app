@@ -77,7 +77,25 @@ async function linkVehicleByPin(db, { driverUid, pin, driverName }) {
     throw err("failed-precondition", "VEHICLE_IN_USE");
   }
 
+  const previousVehicleId =
+    partner.currentVehicleId && partner.currentVehicleId !== vehicleDoc.id
+      ? partner.currentVehicleId
+      : null;
+
   await db.runTransaction(async (tx) => {
+    if (previousVehicleId) {
+      const prevRef = db.collection("vehicles").doc(previousVehicleId);
+      const prevSnap = await tx.get(prevRef);
+      if (prevSnap.exists && prevSnap.data()?.driverId === driverUid) {
+        tx.update(prevRef, {
+          driverId: FieldValue.delete(),
+          driverName: FieldValue.delete(),
+          activeRideId: FieldValue.delete(),
+          status: "offline",
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    }
     tx.update(vehicleDoc.ref, {
       driverId: driverUid,
       driverName: driverName || "SwiftGo Driver",

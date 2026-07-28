@@ -1756,6 +1756,68 @@ async function markVehicleOfflineInFirestore() {
   }
 }
 
+/** Leave current vehicle and open PIN gate for another vehicle. */
+async function changeLinkedVehicle() {
+  if (partnerAccountBlocked) {
+    showAccountBlockedOverlay();
+    return;
+  }
+  if (activeExecutionRide?.id) {
+    window.alert(t("changeVehicleBlockedRide"));
+    return;
+  }
+  if (!currentDriver?.uid) {
+    showAuthOverlay();
+    return;
+  }
+
+  const confirmed = window.confirm(t("changeVehicleConfirm"));
+  if (!confirmed) return;
+
+  closeMobileNavDrawer?.();
+  setDriverOffline("");
+
+  const { db } = getFirebase();
+  const vehicleId = linkedVehicle?.id || null;
+  const release = {
+    status: "offline",
+    driverId: deleteField(),
+    driverName: deleteField(),
+  };
+  if (linkedVehicle?.activeRideId) {
+    release.activeRideId = deleteField();
+  }
+
+  try {
+    if (vehicleId) {
+      await updateDoc(doc(db, "vehicles", vehicleId), release);
+    }
+    await setDoc(
+      doc(db, "partners", currentDriver.uid),
+      {
+        currentVehicleId: null,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.warn("[SwiftGo Driver] change vehicle", error);
+    window.alert(t("changeVehicleFailed"));
+    return;
+  }
+
+  linkedVehicle = null;
+  rideRadarUi?.close?.();
+  stopRadarBackgroundFeed?.();
+  hideProtectedUi();
+  showPinGate(t("changeVehiclePinPrompt"));
+  if (els.pinInput) {
+    els.pinInput.value = "";
+    els.pinInput.focus?.();
+  }
+}
+
+
 function handleLocationError(error) {
   const denied = error?.code === 1;
   setDriverOffline(
@@ -2301,6 +2363,9 @@ function boot() {
   wirePartnerNavigation();
   initMobileNavDrawer();
   els.sidebarLogoutBtn?.addEventListener("click", logoutPartner);
+  document.getElementById("changeVehicleBtn")?.addEventListener("click", () => {
+    void changeLinkedVehicle();
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !els.vehicleModal?.hidden) closeVehicleModal();
   });
