@@ -312,9 +312,15 @@ async function activateAuthenticatedDriver(user) {
       return;
     }
 
-    // This URL is the owner app — always stay here as owner (no bounce to driver).
+    // Owner app URL: never steal a driver account by overwriting role to owner.
     const existing = partnerSnapshot.exists() ? partnerSnapshot.data() : {};
-    if (existing.role !== "owner") {
+
+    if (existing.role === "driver") {
+      window.location.replace("/partner/");
+      return;
+    }
+
+    if (!partnerSnapshot.exists() || !existing.role) {
       await setDoc(
         doc(db, "partners", user.uid),
         {
@@ -1987,6 +1993,11 @@ async function resolveActiveRequest(nextStatus) {
 }
 
 function boot() {
+  try {
+    sessionStorage.setItem("swiftgo_app_surface", "owner");
+  } catch {
+    /* ignore */
+  }
   applyReducedMotionClass();
   initKeyboardInset();
   initI18n();

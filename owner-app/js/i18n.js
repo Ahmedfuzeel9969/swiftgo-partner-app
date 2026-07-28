@@ -115,10 +115,24 @@ export function initI18n() {
   applyDocumentDirection(state.lang);
   applyTranslations();
   syncLangButtons();
-  document.querySelectorAll("[data-lang]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+  bindLangSwitchClicks();
+}
+
+let langSwitchBound = false;
+
+function bindLangSwitchClicks() {
+  if (langSwitchBound) return;
+  langSwitchBound = true;
+  document.addEventListener(
+    "click",
+    (event) => {
+      const btn = event.target?.closest?.("[data-lang]");
+      if (!btn || btn.tagName !== "BUTTON") return;
+      event.preventDefault();
+      event.stopPropagation();
       const lang = btn.getAttribute("data-lang");
       if (lang === "en" || lang === "ur") setLang(lang);
-    });
-  });
+    },
+    true
+  );
 }

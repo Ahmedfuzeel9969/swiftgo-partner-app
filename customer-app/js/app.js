@@ -282,7 +282,9 @@ function bindEvents() {
   });
 
   document.querySelectorAll("[data-lang]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       const lang = btn.getAttribute("data-lang");
       if (lang === "en" || lang === "ur") {
         setLang(lang);
