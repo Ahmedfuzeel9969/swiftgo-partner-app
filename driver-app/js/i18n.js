@@ -23,8 +23,8 @@ const dictionaries = {
     navRides: "My Rides",
     navEarnings: "Earnings",
     navWallet: "Wallet",
-    navAlerts: "Alerts",
-    alertsAria: "Notification settings",
+    navAlerts: "Ride Alert Sound",
+    alertsAria: "Ride request sound settings",
     closeMenu: "Close menu",
     openMenu: "Open menu",
     topbarHome: "Home",
@@ -35,6 +35,7 @@ const dictionaries = {
     rideRadar: "Available rides",
     language: "Language",
     driverLabel: "Driver",
+    deleteAccount: "Delete account",
   },
   ur: {
     appTitle: "سوئفٹ گو ڈرائیور",
@@ -53,8 +54,8 @@ const dictionaries = {
     navRides: "میری سواریاں",
     navEarnings: "کمائی",
     navWallet: "والٹ",
-    navAlerts: "نوٹیفکیشن",
-    alertsAria: "نوٹیفکیشن سیٹنگز",
+    navAlerts: "رائڈ کی آواز",
+    alertsAria: "سواری کی آواز کی سیٹنگز",
     closeMenu: "مینو بند کریں",
     openMenu: "مینو کھولیں",
     topbarHome: "ہوم",
@@ -65,6 +66,7 @@ const dictionaries = {
     rideRadar: "دستیاب سواریاں",
     language: "زبان",
     driverLabel: "ڈرائیور",
+    deleteAccount: "اکاؤنٹ حذف",
   },
 };
 

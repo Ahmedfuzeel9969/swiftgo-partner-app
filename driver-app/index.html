@@ -17,7 +17,7 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
-  <link rel="stylesheet" href="css/driver-style.css?v=driver_home_1" />
+  <link rel="stylesheet" href="css/driver-style.css?v=drawer_cleanup_1" />
   <link rel="stylesheet" href="css/ride-radar.css?v=radar_sheet_collapse_1" />
   <link rel="stylesheet" href="css/driver-home.css?v=driver_home_1" />
 </head>
@@ -140,56 +140,50 @@
         </div>
       </div>
 
-      <nav class="partner-sidebar__nav">
-        <button type="button" class="partner-nav-item is-active" id="navHome" data-view="home" aria-current="page">
-          <span data-i18n="navHome">ہوم</span>
-          <span class="partner-nav-item__en">Home</span>
-        </button>
-        <button type="button" class="partner-nav-item" id="navDashboard" data-view="dashboard">
-          <span data-i18n="navDashboard">ڈیش بورڈ</span>
-          <span class="partner-nav-item__en">Analytics</span>
-        </button>
-        <button type="button" class="partner-nav-item" data-view="rides">
-          <span data-i18n="navRides">میری سواریاں</span>
-          <span class="partner-nav-item__en">My Rides</span>
-        </button>
-        <button type="button" class="partner-nav-item" id="navEarnings" data-view="earnings">
-          <span data-i18n="navEarnings">کمائی</span>
-          <span class="partner-nav-item__en">Earnings</span>
-        </button>
-        <button type="button" class="partner-nav-item" id="navWallet" data-view="wallet">
-          <span data-i18n="navWallet">والٹ</span>
-          <span class="partner-nav-item__en">Wallet</span>
-        </button>
-        <button
-          type="button"
-          class="partner-nav-item partner-nav-item--notify"
-          id="openNotificationSettingsBtn"
-          aria-label="نوٹیفکیشن سیٹنگز"
-          data-i18n-aria="alertsAria"
-          title="نوٹیفکیشن سیٹنگز"
-          data-i18n-title="alertsAria"
-        >
-          <span class="partner-nav-item__icon" aria-hidden="true">🔔</span>
-          <span class="partner-nav-item__copy">
-            <span data-i18n="navAlerts">نوٹیفکیشن</span>
-            <span class="partner-nav-item__en">Alerts</span>
-          </span>
-        </button>
-      </nav>
+      <div class="partner-sidebar__scroll">
+        <nav class="partner-sidebar__nav" aria-label="Driver menu">
+          <button type="button" class="partner-nav-item is-active" id="navHome" data-view="home" aria-current="page">
+            <span data-i18n="navHome">ہوم</span>
+          </button>
+          <button type="button" class="partner-nav-item" id="navDashboard" data-view="dashboard">
+            <span data-i18n="navDashboard">ڈیش بورڈ</span>
+          </button>
+          <button type="button" class="partner-nav-item" data-view="rides">
+            <span data-i18n="navRides">میری سواریاں</span>
+          </button>
+          <button type="button" class="partner-nav-item" id="navEarnings" data-view="earnings">
+            <span data-i18n="navEarnings">کمائی</span>
+          </button>
+          <button type="button" class="partner-nav-item" id="navWallet" data-view="wallet">
+            <span data-i18n="navWallet">والٹ</span>
+          </button>
+          <button
+            type="button"
+            class="partner-nav-item partner-nav-item--sound"
+            id="openNotificationSettingsBtn"
+            aria-label="رائڈ کی آواز"
+            data-i18n-aria="alertsAria"
+            title="رائڈ کی آواز"
+            data-i18n-title="alertsAria"
+          >
+            <span class="partner-nav-item__icon" aria-hidden="true">🔊</span>
+            <span data-i18n="navAlerts">رائڈ کی آواز</span>
+          </button>
+        </nav>
 
-      <div class="partner-sidebar__footer">
-        <div class="lang-switch partner-lang-switch partner-lang-switch--footer" role="group" aria-label="Language" data-i18n-aria="language">
-          <button type="button" class="lang-switch__btn" data-lang="en" aria-pressed="false">EN</button>
-          <button type="button" class="lang-switch__btn is-active" data-lang="ur" aria-pressed="true">اردو</button>
+        <div class="partner-sidebar__footer">
+          <div
+            class="partner-lang-pill"
+            role="group"
+            aria-label="Language"
+            data-i18n-aria="language"
+          >
+            <button type="button" class="partner-lang-pill__opt is-active" data-lang="ur" aria-pressed="true">اردو</button>
+            <span class="partner-lang-pill__sep" aria-hidden="true">|</span>
+            <button type="button" class="partner-lang-pill__opt" data-lang="en" aria-pressed="false">EN</button>
+          </div>
+          <button type="button" class="partner-sidebar__logout" id="partnerSidebarLogoutBtn" data-i18n="logout">لاگ آؤٹ</button>
         </div>
-        <div class="partner-trust-links">
-          <a data-legal="privacy" href="/legal/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a>
-          <a data-legal="terms" href="/legal/terms.html" target="_blank" rel="noopener noreferrer">Terms</a>
-          <button type="button" class="partner-trust-delete" id="partnerDeleteAccountBtn">Delete account</button>
-        </div>
-        <p class="partner-trust-status" id="partnerTrustStatus" role="status" aria-live="polite"></p>
-        <button type="button" class="partner-sidebar__logout" id="partnerSidebarLogoutBtn" data-i18n="logout">لاگ آؤٹ</button>
       </div>
     </aside>
 
@@ -306,6 +300,10 @@
                 <p class="stat-card__label">مکمل سواریاں</p>
                 <p class="stat-card__value" id="driverTotalRides">0</p>
               </article>
+            </div>
+            <div class="wallet-account-tools">
+              <button type="button" class="wallet-delete-account" id="partnerDeleteAccountBtn" data-i18n="deleteAccount">اکاؤنٹ حذف</button>
+              <p class="partner-trust-status" id="partnerTrustStatus" role="status" aria-live="polite"></p>
             </div>
           </section>
         </div>
