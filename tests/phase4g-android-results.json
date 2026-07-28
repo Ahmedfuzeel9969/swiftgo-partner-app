@@ -1,0 +1,129 @@
+{
+  "phase": "4G",
+  "generatedAt": "2026-07-28T10:09:18.171Z",
+  "pass": 24,
+  "fail": 0,
+  "blocked": 0,
+  "results": [
+    {
+      "name": "customer-capacitor-config",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer-android-project",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer-fine-location",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer-notifications-13",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer-deep-link",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "partner-capacitor-config",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "partner-android-project",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "partner-fine-location",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "partner-notifications-13",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "partner-deep-link",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "partner-background-location",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "partner-fg-service-location",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "owner-capacitor-config",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "owner-android-project",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "owner-fine-location",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "owner-notifications-13",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "owner-deep-link",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "admin-not-packaged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "signing-readme",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "signing-example",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "secrets-not-committed-pattern",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "distribution-doc",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "sync-tool",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer-aab-artifact",
+      "status": "PASS",
+      "detail": "mobile/customer/android/app/build/outputs/bundle/release/app-release.aab"
+    }
+  ]
+}

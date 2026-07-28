@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SwiftGo Driver</string>
+    <string name="title_activity_main">SwiftGo Driver</string>
+    <string name="package_name">com.swiftgo.partner</string>
+    <string name="custom_url_scheme">com.swiftgo.partner</string>
+</resources>

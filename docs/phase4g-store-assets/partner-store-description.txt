@@ -1,0 +1,5 @@
+SwiftGo Driver — go online, receive nearby ride requests, bargain within your capacity, and manage earnings/wallet.
+
+Requires location (including background location while online) for matching. Battery optimization exemptions may be requested for reliable updates.
+
+Draft store listing — finalize before Play upload.

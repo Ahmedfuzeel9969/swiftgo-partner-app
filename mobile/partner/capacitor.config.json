@@ -1,0 +1,15 @@
+{
+  "appId": "com.swiftgo.partner",
+  "appName": "SwiftGo Driver",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#065a36",
+      "showSpinner": false
+    }
+  }
+}

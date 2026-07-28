@@ -17,3 +17,14 @@ firebase-export*/
 *.p12
 .idea/
 .vscode/
+# Phase 4G — Android secrets / build outputs
+*.jks
+*.keystore
+keystore.properties
+mobile/**/google-services.json
+!mobile/**/google-services.json.example
+mobile/**/android/.gradle/
+mobile/**/android/**/build/
+mobile/**/android/local.properties
+mobile/**/www/
+docs/phase4g-aab-output/

@@ -1,0 +1,5 @@
+SwiftGo Owner — manage fleet vehicles and share PINs with drivers.
+
+Closed testing recommended before any public listing.
+
+Draft store listing — finalize before Play upload.

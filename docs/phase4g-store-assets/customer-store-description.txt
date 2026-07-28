@@ -1,0 +1,5 @@
+SwiftGo — ride booking for Pakistan.
+
+Book rides, cargo, and more with live map pickup and drop-off. Track your trip, chat with support on WhatsApp, and manage your account in Urdu or English.
+
+Draft store listing — finalize before Play upload.

@@ -1,0 +1,6 @@
+# Place real google-services.json from Firebase Console here (per app).
+# Do not commit production Google service files if they contain restricted keys beyond public client config.
+# Create Android apps with package names:
+#   com.swiftgo.customer
+#   com.swiftgo.partner
+#   com.swiftgo.owner

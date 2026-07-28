@@ -1,0 +1,14 @@
+{
+  "name": "swiftgo-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "customer",
+    "partner",
+    "owner"
+  ],
+  "scripts": {
+    "sync:www": "node ../tools/phase4g-sync-mobile.mjs",
+    "prepare:all": "npm run sync:www && npm run sync -w @swiftgo/mobile-customer && npm run sync -w @swiftgo/mobile-partner && npm run sync -w @swiftgo/mobile-owner"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "appId": "com.swiftgo.owner",
+  "appName": "SwiftGo Owner",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#065a36",
+      "showSpinner": false
+    }
+  }
+}

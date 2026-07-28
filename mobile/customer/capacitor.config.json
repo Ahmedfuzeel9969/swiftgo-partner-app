@@ -1,0 +1,15 @@
+{
+  "appId": "com.swiftgo.customer",
+  "appName": "SwiftGo",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#0b7a4b",
+      "showSpinner": false
+    }
+  }
+}
