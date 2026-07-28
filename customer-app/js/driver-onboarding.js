@@ -142,6 +142,17 @@ async function startCamera() {
     return;
   }
 
+  try {
+    const { ensureCameraPermissionExplained } = await import("./trust.js");
+    const allowed = await ensureCameraPermissionExplained();
+    if (!allowed) {
+      setCameraStatus("driverCameraDenied", true);
+      return;
+    }
+  } catch {
+    /* continue */
+  }
+
   stopCamera();
   setCameraStatus("driverCameraStarting");
   if (els.cameraBtn) els.cameraBtn.disabled = true;

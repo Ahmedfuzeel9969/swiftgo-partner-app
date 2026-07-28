@@ -507,6 +507,19 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ── account_deletion_requests/{uid} ── Phase 4E (Admin SDK writes; owner may read own)
+    match /account_deletion_requests/{userId} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // ── support_reports/{id} ── Phase 4E complaints (Admin SDK writes)
+    match /support_reports/{reportId} {
+      allow read: if isSuperAdmin()
+        || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
     // ── settings/{document} ──
     // Phase 30: dynamic pricing (settings/pricing). Signed-in apps may read;
     // only Super Admin may write.

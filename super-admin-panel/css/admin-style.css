@@ -2002,3 +2002,13 @@ input:disabled {
     overflow: auto;
   }
 }
+
+.admin-legal {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.admin-legal a {
+  color: var(--accent);
+  font-weight: 700;
+}

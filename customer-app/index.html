@@ -85,6 +85,11 @@
           </section>
 
           <footer class="sidebar__footer">
+            <div class="sidebar__legal" aria-label="Legal">
+              <a class="sidebar__legal-link" data-legal="privacy" href="/legal/privacy.html" target="_blank" rel="noopener noreferrer" data-i18n="legalPrivacy">Privacy Policy</a>
+              <a class="sidebar__legal-link" data-legal="terms" href="/legal/terms.html" target="_blank" rel="noopener noreferrer" data-i18n="legalTerms">Terms</a>
+              <a class="sidebar__legal-link" data-legal="dataUse" href="/legal/data-use.html" target="_blank" rel="noopener noreferrer" data-i18n="legalDataUse">Data use</a>
+            </div>
             <button type="button" class="sidebar__earn-driver" id="earnDriverBtn" data-i18n="earnAsDriver">
               Earn as a Driver
             </button>
@@ -410,6 +415,31 @@
                 </span>
               </a>
             </div>
+
+            <section class="trust-panel" aria-labelledby="trustPanelTitle">
+              <h2 id="trustPanelTitle" class="trust-panel__title" data-i18n="trustPanelTitle">Trust &amp; legal</h2>
+              <p class="trust-panel__lead" data-i18n="trustPanelLead">Draft policies for review. Account deletion keeps required financial records.</p>
+              <div class="trust-panel__links">
+                <a class="trust-link" data-legal="privacy" href="/legal/privacy.html" target="_blank" rel="noopener noreferrer" data-i18n="legalPrivacy">Privacy Policy</a>
+                <a class="trust-link" data-legal="terms" href="/legal/terms.html" target="_blank" rel="noopener noreferrer" data-i18n="legalTerms">Terms</a>
+                <a class="trust-link" data-legal="dataUse" href="/legal/data-use.html" target="_blank" rel="noopener noreferrer" data-i18n="legalDataUse">Data use</a>
+              </div>
+              <label class="trust-field" for="complaintMessage">
+                <span data-i18n="complaintLabel">Complaint / report</span>
+                <textarea id="complaintMessage" rows="3" data-i18n-placeholder="complaintPlaceholder" placeholder="Describe the issue…"></textarea>
+              </label>
+              <div class="trust-panel__actions">
+                <button type="button" class="confirm-dialog__btn confirm-dialog__btn--ghost" id="complaintWhatsAppBtn" data-i18n="complaintWhatsApp">WhatsApp complaint</button>
+                <button type="button" class="confirm-dialog__btn confirm-dialog__btn--primary" id="complaintSubmitBtn" data-i18n="complaintSubmit">Submit report</button>
+              </div>
+              <p class="trust-panel__status" id="complaintStatus" role="status" aria-live="polite"></p>
+              <div class="trust-delete">
+                <h3 data-i18n="deleteAccountTitle">Delete account</h3>
+                <p data-i18n="deleteAccountBody">Requests disable login. Wallet ledger, settlements, and audit logs are retained for legal/financial requirements.</p>
+                <button type="button" class="confirm-dialog__btn confirm-dialog__btn--ghost" id="deleteAccountBtn" data-i18n="deleteAccountCta">Request account deletion</button>
+                <p class="trust-panel__status" id="deleteAccountStatus" role="status" aria-live="polite"></p>
+              </div>
+            </section>
           </div>
         </div>
       </section>
@@ -1168,6 +1198,25 @@
       </div>
     </div>
 
+    <!-- Phase 4E — permission / deletion confirm -->
+    <div class="confirm-dialog" id="trustConfirmDialog" hidden aria-hidden="true">
+      <div class="confirm-dialog__backdrop" id="trustConfirmBackdrop"></div>
+      <div
+        class="confirm-dialog__panel glass"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="trustConfirmTitle"
+        aria-describedby="trustConfirmBody"
+      >
+        <h2 id="trustConfirmTitle">Confirm</h2>
+        <p id="trustConfirmBody"></p>
+        <div class="confirm-dialog__actions">
+          <button type="button" class="confirm-dialog__btn confirm-dialog__btn--ghost" id="trustConfirmCancel">Cancel</button>
+          <button type="button" class="confirm-dialog__btn confirm-dialog__btn--primary" id="trustConfirmOk">Continue</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Auth modal -->
     <div class="auth-modal" id="authModal" hidden>
       <div class="auth-modal__backdrop" id="authBackdrop"></div>
@@ -1205,6 +1254,11 @@
           <button type="submit" class="cta-btn cta-btn--block" id="authSubmit" data-i18n="authSignIn">Sign in</button>
         </form>
         <button type="button" class="auth-toggle" id="authToggleMode" data-i18n="authNeedAccount">Need an account? Sign up</button>
+        <p class="auth-legal">
+          <a data-legal="privacy" href="/legal/privacy.html" target="_blank" rel="noopener noreferrer" data-i18n="legalPrivacy">Privacy Policy</a>
+          ·
+          <a data-legal="terms" href="/legal/terms.html" target="_blank" rel="noopener noreferrer" data-i18n="legalTerms">Terms</a>
+        </p>
       </div>
     </div>
   </div>

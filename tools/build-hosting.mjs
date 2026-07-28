@@ -53,9 +53,13 @@ copyApp("owner-app", "owner");
 // Super Admin under /admin/
 copyApp("super-admin-panel", "admin");
 
+// Phase 4E — draft legal pages (static; served before SPA rewrites when file exists)
+copyDir(path.join(ROOT, "legal"), path.join(DIST, "legal"));
+
 console.info("[build-hosting] packaged apps into hosting-dist/");
 console.info("  /              <- customer-app");
 console.info("  /customer/     <- customer-app");
 console.info("  /partner/      <- driver-app");
 console.info("  /owner/        <- owner-app");
 console.info("  /admin/        <- super-admin-panel");
+console.info("  /legal/        <- privacy, terms, data-use drafts");

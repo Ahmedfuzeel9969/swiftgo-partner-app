@@ -574,28 +574,42 @@ export function flyToUser(lat, lng, zoom = DEFAULT_ZOOM) {
  * @returns {Promise<{ lat: number, lng: number } | null>}
  */
 export function locateUser(opts = { fly: true }) {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      setUserPosition(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
-      resolve({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1], fallback: true });
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
-        setUserPosition(lat, lng, accuracy);
-        if (opts.fly !== false) flyToUser(lat, lng);
-        resolve({ lat, lng, accuracy });
-      },
-      () => {
+  return (async () => {
+    try {
+      const { ensureLocationPermissionExplained } = await import("./trust.js");
+      const allowed = await ensureLocationPermissionExplained();
+      if (!allowed) {
         setUserPosition(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
         if (opts.fly !== false) flyToUser(DEFAULT_CENTER[0], DEFAULT_CENTER[1], 13);
+        return { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1], fallback: true, denied: true };
+      }
+    } catch {
+      /* proceed without blocking if trust module fails */
+    }
+
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        setUserPosition(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
         resolve({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1], fallback: true });
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-    );
-  });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+          setUserPosition(lat, lng, accuracy);
+          if (opts.fly !== false) flyToUser(lat, lng);
+          resolve({ lat, lng, accuracy });
+        },
+        () => {
+          setUserPosition(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
+          if (opts.fly !== false) flyToUser(DEFAULT_CENTER[0], DEFAULT_CENTER[1], 13);
+          resolve({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1], fallback: true });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+    });
+  })();
 }
 
 export function getMap() {

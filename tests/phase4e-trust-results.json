@@ -1,0 +1,110 @@
+{
+  "phase": "4E",
+  "generatedAt": "2026-07-28T09:30:22.284Z",
+  "pass": 17,
+  "fail": 0,
+  "results": [
+    {
+      "name": "legal draft banner privacy.html",
+      "expected": "DRAFT",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "legal draft banner terms.html",
+      "expected": "DRAFT",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "legal draft banner data-use.html",
+      "expected": "DRAFT",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "deletion retains ledger categories",
+      "expected": "ledger_transactions + audit_logs",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "deletion module soft-disable only",
+      "expected": "updateUser disabled + no recursive wipe helpers",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "CF exports requestAccountDeletion",
+      "expected": "exports.requestAccountDeletion",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "CF exports submitSupportReport",
+      "expected": "exports.submitSupportReport",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "rules account_deletion_requests",
+      "expected": "match present",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "serve privacy.html",
+      "expected": "200",
+      "actual": "200",
+      "status": "PASS"
+    },
+    {
+      "name": "customer privacy link",
+      "expected": ">=1",
+      "actual": 3,
+      "status": "PASS"
+    },
+    {
+      "name": "customer delete CTA",
+      "expected": "1",
+      "actual": 1,
+      "status": "PASS"
+    },
+    {
+      "name": "customer complaint CTA",
+      "expected": "1",
+      "actual": 1,
+      "status": "PASS"
+    },
+    {
+      "name": "partner privacy link",
+      "expected": ">=1",
+      "actual": 2,
+      "status": "PASS"
+    },
+    {
+      "name": "partner delete CTA",
+      "expected": "1",
+      "actual": 1,
+      "status": "PASS"
+    },
+    {
+      "name": "owner terms link",
+      "expected": ">=1",
+      "actual": 2,
+      "status": "PASS"
+    },
+    {
+      "name": "owner delete CTA",
+      "expected": "1",
+      "actual": 1,
+      "status": "PASS"
+    },
+    {
+      "name": "admin privacy link",
+      "expected": ">=1",
+      "actual": 1,
+      "status": "PASS"
+    }
+  ]
+}

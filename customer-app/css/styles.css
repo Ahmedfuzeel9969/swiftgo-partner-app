@@ -5209,3 +5209,82 @@ html[dir="rtl"] .route-search__swap,
 html[dir="rtl"] .contact-btn__chev {
   transform: scaleX(-1);
 }
+
+/* Phase 4E — trust / legal panel */
+.sidebar__legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.sidebar__legal-link,
+.trust-link,
+.auth-legal a {
+  color: var(--brand-deep);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+.auth-legal {
+  margin: 0.85rem 0 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+}
+.trust-panel {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(15, 31, 23, 0.1);
+}
+.trust-panel__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+.trust-panel__lead,
+.trust-delete p {
+  margin: 0 0 0.75rem;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+.trust-panel__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+.trust-field {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+  font-weight: 600;
+}
+.trust-field textarea {
+  width: 100%;
+  min-height: 88px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 31, 23, 0.14);
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  resize: vertical;
+}
+.trust-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.trust-panel__status {
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+.trust-delete {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border-radius: 14px;
+  background: rgba(180, 35, 24, 0.06);
+}
+.trust-delete h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.98rem;
+}

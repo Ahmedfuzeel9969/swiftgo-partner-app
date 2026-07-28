@@ -25,7 +25,7 @@ import {
   refreshScreens,
   setWalletBalanceUi,
 } from "./screens.js";
-import { initAuth, onUserChange, openAuthModal, getCurrentUser } from "./auth.js";
+import { initAuth, onUserChange, openAuthModal, getCurrentUser, logout } from "./auth.js";
 import { watchUserProfile } from "./data.js";
 import { isFirebaseConfigured } from "./firebase.js";
 import { installCustomerE2EHooks } from "./e2e-hooks.js";
@@ -49,6 +49,13 @@ import { getRouteInfo, initRoutingUi } from "./routing.js";
 import { initFareCalculation } from "./fare.js";
 import { initRideFlow, startRideRequest } from "./ride-flow.js";
 import { applyReducedMotionClass, initKeyboardInset } from "./a11y.js";
+import {
+  wireLegalLinks,
+  complaintWhatsAppHref,
+  submitSupportReportClient,
+  requestAccountDeletionClient,
+  askTrustConfirm,
+} from "./trust.js";
 import {
   initRideHistory,
   refreshRideHistory,
@@ -324,10 +331,66 @@ function bindEvents() {
   });
 }
 
+function wireTrustActions() {
+  document.getElementById("complaintWhatsAppBtn")?.addEventListener("click", () => {
+    const text = document.getElementById("complaintMessage")?.value?.trim() || "";
+    window.open(complaintWhatsAppHref(`${t("complaintPrefill")}${text}`), "_blank", "noopener,noreferrer");
+  });
+
+  document.getElementById("complaintSubmitBtn")?.addEventListener("click", async () => {
+    const status = document.getElementById("complaintStatus");
+    const message = document.getElementById("complaintMessage")?.value?.trim() || "";
+    if (!getCurrentUser()) {
+      if (status) status.textContent = t("complaintNeedAuth");
+      openAuthModal("signin");
+      return;
+    }
+    if (message.length < 8) {
+      if (status) status.textContent = t("complaintPlaceholder");
+      return;
+    }
+    try {
+      await submitSupportReportClient({ message, category: "complaint", appId: "customer" });
+      if (status) status.textContent = t("complaintSent");
+      const box = document.getElementById("complaintMessage");
+      if (box) box.value = "";
+    } catch (err) {
+      console.warn("[SwiftGo] support report", err);
+      if (status) status.textContent = t("complaintFailed");
+    }
+  });
+
+  document.getElementById("deleteAccountBtn")?.addEventListener("click", async () => {
+    const status = document.getElementById("deleteAccountStatus");
+    if (!getCurrentUser()) {
+      if (status) status.textContent = t("deleteAccountNeedAuth");
+      openAuthModal("signin");
+      return;
+    }
+    const ok = await askTrustConfirm({
+      titleKey: "deleteAccountConfirmTitle",
+      bodyKey: "deleteAccountConfirmBody",
+      confirmKey: "deleteAccountCta",
+      cancelKey: "trustConfirmCancel",
+    });
+    if (!ok) return;
+    try {
+      await requestAccountDeletionClient({ roleHint: "customer", appId: "customer" });
+      if (status) status.textContent = t("deleteAccountDone");
+      await logout();
+    } catch (err) {
+      console.warn("[SwiftGo] account deletion", err);
+      if (status) status.textContent = t("deleteAccountFailed");
+    }
+  });
+}
+
 async function boot() {
   applyReducedMotionClass();
   initKeyboardInset();
   initI18n();
+  wireLegalLinks();
+  wireTrustActions();
   initDriverOnboarding({ onToast: showToast });
   initUtilityDrawer({
     onToast: showToast,

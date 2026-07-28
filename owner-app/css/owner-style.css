@@ -2552,3 +2552,36 @@ html[dir="ltr"] body {
     padding-bottom: 0.45rem;
   }
 }
+
+/* Phase 4E trust links */
+.partner-auth-legal,
+.partner-trust-links {
+  margin-top: 0.85rem;
+  font-size: 0.82rem;
+  text-align: center;
+}
+.partner-auth-legal a,
+.partner-trust-links a,
+.partner-trust-delete {
+  color: var(--green);
+  font-weight: 700;
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.partner-trust-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  justify-content: center;
+  margin-bottom: 0.45rem;
+}
+.partner-trust-status {
+  min-height: 1.1em;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+  margin: 0 0 0.5rem;
+}

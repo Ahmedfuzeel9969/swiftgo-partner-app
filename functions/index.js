@@ -29,6 +29,10 @@ const {
   isAdminAuth,
 } = require("./admin-claims");
 const { linkVehicleByPin } = require("./pin-link");
+const {
+  requestAccountDeletion: performAccountDeletionRequest,
+  submitSupportReport: performSupportReport,
+} = require("./account-deletion");
 
 if (!getApps().length) {
   initializeApp();
@@ -295,4 +299,39 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
 exports.getDispatchSettings = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   return readDispatchSettings(db);
+});
+
+/** Phase 4E — soft account deletion request (retains financial/audit records). */
+exports.requestAccountDeletion = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await performAccountDeletionRequest(db, {
+      uid: request.auth.uid,
+      email: request.auth.token?.email || null,
+      roleHint: request.data?.roleHint,
+      reason: request.data?.reason,
+      appId: request.data?.appId,
+    });
+  } catch (err) {
+    console.error("[requestAccountDeletion]", err?.message || err);
+    throw mapErr(err);
+  }
+});
+
+/** Phase 4E — complaint / support report (does not alter ledger). */
+exports.submitSupportReport = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await performSupportReport(db, {
+      uid: request.auth.uid,
+      email: request.auth.token?.email || null,
+      category: request.data?.category,
+      message: request.data?.message,
+      appId: request.data?.appId,
+      rideId: request.data?.rideId,
+    });
+  } catch (err) {
+    console.error("[submitSupportReport]", err?.message || err);
+    throw mapErr(err);
+  }
 });

@@ -1,0 +1,75 @@
+{
+  "phase": "4E-account-deletion",
+  "generatedAt": "2026-07-28T09:32:29.935Z",
+  "pass": 9,
+  "fail": 0,
+  "results": [
+    {
+      "name": "deletion CF ok",
+      "expected": true,
+      "actual": true,
+      "status": "PASS",
+      "data": {
+        "ok": true,
+        "alreadyRequested": false,
+        "requestId": "ZFfext3YSlYsjbMlGKQmZqISuYBJ",
+        "status": "pending",
+        "retainedCategories": [
+          "ledger_transactions",
+          "audit_logs",
+          "settled_rides_and_fares",
+          "recharge_and_settlement_records"
+        ],
+        "message": "DELETION_REQUESTED"
+      }
+    },
+    {
+      "name": "retained categories returned",
+      "expected": "ledger_transactions",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "deletion request doc",
+      "expected": "pending",
+      "actual": "pending",
+      "status": "PASS"
+    },
+    {
+      "name": "user soft-marked",
+      "expected": "deletion_pending",
+      "actual": "deletion_pending",
+      "status": "PASS"
+    },
+    {
+      "name": "ledger retained",
+      "expected": true,
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "audit retained",
+      "expected": true,
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "auth disabled",
+      "expected": true,
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "support report ok",
+      "expected": true,
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "support report stored",
+      "expected": true,
+      "actual": true,
+      "status": "PASS"
+    }
+  ]
+}

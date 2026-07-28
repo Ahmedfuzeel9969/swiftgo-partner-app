@@ -34,6 +34,7 @@ import { hashVehiclePin } from "./pin-hash.js";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
 import { initI18n, t } from "./i18n.js";
+import { wireLegalLinks, requestAccountDeletionClient } from "./trust.js";
 
 /** Phase 4C — fleet-only surface; legacy driver-fork ride execution paths stay inert. */
 const OWNER_FLEET_ONLY = true;
@@ -1985,6 +1986,25 @@ function boot() {
   applyReducedMotionClass();
   initKeyboardInset();
   initI18n();
+  wireLegalLinks();
+  document.getElementById("ownerDeleteAccountBtn")?.addEventListener("click", async () => {
+    const status = document.getElementById("ownerTrustStatus");
+    const confirmed = window.confirm(
+      "Request account deletion? Login will be disabled. Financial ledger, settlement, and audit records are retained."
+    );
+    if (!confirmed) return;
+    try {
+      await requestAccountDeletionClient({ roleHint: "owner", appId: "owner" });
+      if (status) {
+        status.textContent =
+          "Deletion requested. Ledger/settlement/audit retained. Signing out…";
+      }
+      await logoutPartner();
+    } catch (err) {
+      console.warn("[SwiftGo Owner] deletion", err);
+      if (status) status.textContent = "Deletion request failed. Contact support.";
+    }
+  });
   const devNote = document.getElementById("partnerDevModeNote");
   if (devNote) devNote.hidden = !shouldUseEmulators();
   initMap();
