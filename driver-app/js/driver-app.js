@@ -379,17 +379,9 @@ function markDriverAppSurface() {
   }
 }
 
-/** On /partner/: never auto-open Owner app — user chose Driver URL. */
-async function reconcileOwnerRoleOnDriverApp(uid, partner) {
-  if (partner?.role !== "owner") return partner;
-  const { db } = getFirebase();
-  if (!db) return partner;
-  await setDoc(
-    doc(db, "partners", uid),
-    { role: "driver", updatedAt: serverTimestamp() },
-    { merge: true }
-  );
-  return { ...partner, role: "driver" };
+/** On /partner/: stay here — do not rewrite role or open Owner app. */
+function stayOnDriverSurface(partner) {
+  return partner || { role: "driver" };
 }
 
 async function activateAuthenticatedDriver(user) {
@@ -407,7 +399,7 @@ async function activateAuthenticatedDriver(user) {
     let partnerSnapshot = await getDoc(doc(db, "partners", user.uid));
     if (isStaleAuthSequence(sequence)) return;
 
-    // First visit on driver app → lock role to driver (no in-app mode picker).
+    // First visit only — never overwrite an existing owner/driver role (same Gmail multi-app).
     if (!partnerSnapshot.exists() || !partnerSnapshot.data().role) {
       if (partnerAccountBlocked) {
         showAccountBlockedOverlay();
@@ -432,7 +424,9 @@ async function activateAuthenticatedDriver(user) {
       if (isStaleAuthSequence(sequence)) return;
     }
 
-    let partner = partnerSnapshot.exists() ? partnerSnapshot.data() : { role: "driver" };
+    let partner = stayOnDriverSurface(
+      partnerSnapshot.exists() ? partnerSnapshot.data() : { role: "driver" }
+    );
     console.log(
       "Current User Role:",
       partner.role,
@@ -446,8 +440,6 @@ async function activateAuthenticatedDriver(user) {
       return;
     }
 
-    partner = await reconcileOwnerRoleOnDriverApp(user.uid, partner);
-    if (partner === null || isStaleAuthSequence(sequence)) return;
     // Legacy God Mode / mode-switch roles → normalize to driver.
     if (partner.role === "admin_driver") {
       try {
@@ -467,15 +459,17 @@ async function activateAuthenticatedDriver(user) {
       }
     }
 
-    if (partner.role === "driver") {
+    // Driver and Owner surfaces share the same Google account — allow driver flow on /partner/
+    // without forcing a role rewrite that would bounce /owner/ away later.
+    if (partner.role === "driver" || partner.role === "owner") {
       await routeDriver(partner.currentVehicleId || null, sequence, partner);
       recoverEntrySurfaceIfBlank(sequence);
       return;
     }
 
     finishDriverSessionEntry();
-    setAuthStatus("یہ اکاؤنٹ ڈرائیور ایپ کے لیے نہیں ہے۔ مالک ایپ استعمال کریں۔");
-    showAuthOverlay("یہ اکاؤنٹ ڈرائیور ایپ کے لیے نہیں ہے۔ مالک ایپ استعمال کریں۔");
+    setAuthStatus("یہ اکاؤنٹ ڈرائیور ایپ کے لیے نہیں ہے۔");
+    showAuthOverlay("یہ اکاؤنٹ ڈرائیور ایپ کے لیے نہیں ہے۔");
   } catch (error) {
     console.warn("[SwiftGo Driver] auth routing", error);
     if (isStaleAuthSequence(sequence)) return;
@@ -618,11 +612,9 @@ function startPartnerDocListener(uid, sequence) {
       if (partnerAccountBlocked) {
         partnerAccountBlocked = false;
         hideAccountBlockedOverlay();
-        void reconcileOwnerRoleOnDriverApp(uid, partner).then((reconciled) => {
-          if (isStaleAuthSequence(sequence)) return;
-          if (reconciled === null) return;
-          void routeDriver(reconciled?.currentVehicleId || null, authSequence, reconciled || {});
-        });
+        // Resume with same sequence — do NOT call activateAuthenticatedDriver
+        // (that bumps authSequence and cancels in-flight routeDriver → blank screen).
+        void routeDriver(partner?.currentVehicleId || null, authSequence, partner || {});
         return;
       }
     },

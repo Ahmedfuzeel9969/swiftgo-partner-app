@@ -1,4 +1,4 @@
-﻿/** SwiftGo Owner app — fleet vehicles, PIN share, owner ride history. Redirects drivers to /partner/. */
+﻿/** SwiftGo Owner app — fleet vehicles, PIN share, owner ride history. Stays on /owner/. */
 
 import { firebaseConfig } from "./firebase-config.js";
 import { getFirebase, isFirebaseConfigured, shouldUseEmulators } from "./firebase.js";
@@ -312,13 +312,9 @@ async function activateAuthenticatedDriver(user) {
       return;
     }
 
-    // Owner app URL: never steal a driver account by overwriting role to owner.
+    // Stay on Owner URL for any signed-in partner — never bounce to Driver app.
+    // Same Gmail may use /partner/, /owner/, and customer independently.
     const existing = partnerSnapshot.exists() ? partnerSnapshot.data() : {};
-
-    if (existing.role === "driver") {
-      window.location.replace("/partner/");
-      return;
-    }
 
     if (!partnerSnapshot.exists() || !existing.role) {
       await setDoc(
