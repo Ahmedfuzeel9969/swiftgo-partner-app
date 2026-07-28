@@ -1,0 +1,14 @@
+{
+  "generatedAt": "2026-07-28T09:39:27.642Z",
+  "scope": "emulator",
+  "projectId": "demo-swiftgo-phase1",
+  "summary": {
+    "scanned": 2,
+    "withPlaintextPinField": 0,
+    "withPinHash": 0,
+    "bothPlainAndHash": 0,
+    "neither": 2,
+    "plaintextVehicleIds": []
+  },
+  "note": "Plaintext PIN values were never logged. Migrate with tools/migrate-vehicle-pins.cjs only after approval."
+}

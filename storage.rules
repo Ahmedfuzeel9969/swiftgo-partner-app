@@ -9,18 +9,31 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Phase 4F: claim admin may review KYC; bootstrap email is NOT mirrored here
+    // (Storage cannot read Firestore settings). Claim transition must complete first.
+    function isClaimAdmin() {
+      return isSignedIn()
+        && request.auth.token.keys().hasAll(['admin'])
+        && request.auth.token.admin == true;
+    }
+
     function isImageUnder5mb() {
       return request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
 
-    // Driver onboarding uploads: driver_applications/{uid}/{file}
+    // Driver onboarding / KYC: driver_applications/{uid}/{file}
+    // - subject (owner): read / create / update / delete own images
+    // - claim admin: read only (review)
+    // - everyone else: deny
+    // - list: not granted (no prefix listing for unrelated users)
     match /driver_applications/{userId}/{fileName} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId) && isImageUnder5mb();
+      allow read: if isOwner(userId) || isClaimAdmin();
+      allow create, update: if isOwner(userId) && isImageUnder5mb();
       allow delete: if isOwner(userId);
     }
 
+    // Deny all other paths (including list/get/write)
     match /{allPaths=**} {
       allow read, write: if false;
     }

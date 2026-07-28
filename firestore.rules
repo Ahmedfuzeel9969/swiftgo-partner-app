@@ -520,6 +520,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ── ops_metrics/{id} ── Phase 4F monitoring snapshots (Admin SDK writes)
+    match /ops_metrics/{metricId} {
+      allow read: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
     // ── settings/{document} ──
     // Phase 30: dynamic pricing (settings/pricing). Signed-in apps may read;
     // only Super Admin may write.

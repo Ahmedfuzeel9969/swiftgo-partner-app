@@ -33,6 +33,15 @@ const {
   requestAccountDeletion: performAccountDeletionRequest,
   submitSupportReport: performSupportReport,
 } = require("./account-deletion");
+const {
+  recordFunctionError,
+  recordSettlementFailure,
+  recordMatchingFailure,
+  recordAuthDenial,
+  getOpsHealthSummary,
+  logStructured,
+} = require("./ops-monitor");
+const { reportGeoCellCoverage } = require("./geo-coverage");
 
 if (!getApps().length) {
   initializeApp();
@@ -58,23 +67,42 @@ function mapErr(err) {
   return new HttpsError("internal", message);
 }
 
+async function wrapCall(name, request, fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err?.code === "unauthenticated" || err?.message === "AUTH_REQUIRED") {
+      await recordAuthDenial(db, name).catch(() => {});
+    }
+    await recordFunctionError(db, name, err).catch(() => {});
+    logStructured("ERROR", "callable_failed", {
+      function: name,
+      code: err?.code || null,
+      message: String(err?.message || err).slice(0, 200),
+    });
+    throw mapErr(err);
+  }
+}
+
 async function callerIsAdmin(request) {
   return isAdminAuth(db, request.auth);
 }
 
 exports.completeRideSettlement = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
-  try {
-    return await settleRide(db, {
-      rideId: request.data?.rideId,
-      collectionName: request.data?.collectionName,
-      callerUid: request.auth.uid,
-      isAdmin: await callerIsAdmin(request),
-    });
-  } catch (err) {
-    console.error("[completeRideSettlement]", err?.message || err);
-    throw mapErr(err);
-  }
+  return wrapCall("completeRideSettlement", request, async () => {
+    try {
+      return await settleRide(db, {
+        rideId: request.data?.rideId,
+        collectionName: request.data?.collectionName,
+        callerUid: request.auth.uid,
+        isAdmin: await callerIsAdmin(request),
+      });
+    } catch (err) {
+      await recordSettlementFailure(db, request.data?.rideId, err?.message || err);
+      throw err;
+    }
+  });
 });
 
 exports.bootstrapAdminClaim = onCall({ region: "us-central1" }, async (request) => {
@@ -212,6 +240,7 @@ exports.matchRideCandidates = onCall({ region: "us-central1" }, async (request) 
       candidateDriverLimit,
     });
   } catch (err) {
+    await recordMatchingFailure(db, err?.message || err).catch(() => {});
     throw mapErr(err);
   }
 });
@@ -334,4 +363,22 @@ exports.submitSupportReport = onCall({ region: "us-central1" }, async (request) 
     console.error("[submitSupportReport]", err?.message || err);
     throw mapErr(err);
   }
+});
+
+/** Phase 4F — admin ops health / metrics summary (emulator + post-deploy). */
+exports.getOpsHealthSummary = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid || !(await callerIsAdmin(request))) {
+    throw new HttpsError("permission-denied", "ADMIN_ONLY");
+  }
+  return wrapCall("getOpsHealthSummary", request, () => getOpsHealthSummary(db));
+});
+
+/** Phase 4F — online vehicles missing geoCell (admin). Matching stays geo-scoped. */
+exports.getGeoCellCoverageReport = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid || !(await callerIsAdmin(request))) {
+    throw new HttpsError("permission-denied", "ADMIN_ONLY");
+  }
+  return wrapCall("getGeoCellCoverageReport", request, () =>
+    reportGeoCellCoverage(db, { limit: request.data?.limit })
+  );
 });

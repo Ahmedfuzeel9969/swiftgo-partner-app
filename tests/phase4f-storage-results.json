@@ -1,0 +1,83 @@
+{
+  "phase": "4F-storage",
+  "generatedAt": "2026-07-28T09:42:17.327Z",
+  "pass": 15,
+  "fail": 0,
+  "results": [
+    {
+      "name": "rules-claim-admin-read",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-default-deny",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "owner-upload-image",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "other-upload-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unauth-upload-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "owner-read",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "other-read-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "admin-read-allowed",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "owner-update-overwrite",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "other-update-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "other-list-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "non-kyc-path-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "owner-delete-own",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "other-delete-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "owner-delete-own-final",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

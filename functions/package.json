@@ -2,7 +2,7 @@
   "name": "swiftgo-functions",
   "description": "Trusted settlement and admin helpers for SwiftGo",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "private": true,

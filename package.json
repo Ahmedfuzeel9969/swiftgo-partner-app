@@ -21,6 +21,8 @@
     "test:phase4d": "npm run build:hosting && node tests/phase4d-responsive-verify.mjs",
     "test:phase4e": "npm run build:hosting && node tests/phase4e-trust-verify.mjs",
     "test:phase4e-deletion": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/phase4e-account-deletion.mjs\"",
+    "test:phase4f-storage": "firebase emulators:exec --only storage --project demo-swiftgo-phase1 \"node tests/phase4f-storage-rules.mjs\"",
+    "test:phase4f-ops": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/phase4f-ops-verify.mjs\"",
     "build:hosting": "node tools/build-hosting.mjs",
     "test:audit": "node tests/audit.test.mjs",
     "test:i18n": "node tests/i18n-purity-scan.mjs"

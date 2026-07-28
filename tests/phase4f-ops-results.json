@@ -1,0 +1,59 @@
+{
+  "phase": "4F-ops",
+  "generatedAt": "2026-07-28T09:39:30.452Z",
+  "pass": 8,
+  "fail": 0,
+  "results": [
+    {
+      "name": "functions-engines-node22",
+      "expected": "22",
+      "actual": "22",
+      "status": "PASS"
+    },
+    {
+      "name": "firebase-json-runtime-nodejs22",
+      "expected": "nodejs22",
+      "actual": "nodejs22",
+      "status": "PASS"
+    },
+    {
+      "name": "geo-match-no-full-fleet-scan",
+      "expected": "usedFullFleetScan false",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "geocell-coverage-detects-missing",
+      "expected": "missingGeoCell >= 1",
+      "actual": 1,
+      "status": "PASS",
+      "scannedOnline": 2,
+      "withGeoCell": 1
+    },
+    {
+      "name": "geocell-fail-safe-note",
+      "expected": "present",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "ops-health-ok",
+      "expected": true,
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "pin-inventory-tool-exit",
+      "expected": 0,
+      "actual": 0,
+      "status": "PASS",
+      "stderr": ""
+    },
+    {
+      "name": "pin-inventory-no-plaintext-dump",
+      "expected": "no pin= values",
+      "actual": true,
+      "status": "PASS"
+    }
+  ]
+}
