@@ -379,18 +379,11 @@ function markDriverAppSurface() {
   }
 }
 
-/** On /partner/: real fleet owners go to Owner app; mis-tagged drivers without fleet stay here. */
+/** On /partner/: never auto-open Owner app — user chose Driver URL. */
 async function reconcileOwnerRoleOnDriverApp(uid, partner) {
   if (partner?.role !== "owner") return partner;
   const { db } = getFirebase();
   if (!db) return partner;
-  const fleetSnap = await getDocs(
-    query(collection(db, "vehicles"), where("ownerId", "==", uid), limit(1))
-  );
-  if (!fleetSnap.empty) {
-    window.location.replace("/owner/");
-    return null;
-  }
   await setDoc(
     doc(db, "partners", uid),
     { role: "driver", updatedAt: serverTimestamp() },
