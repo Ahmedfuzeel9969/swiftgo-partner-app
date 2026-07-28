@@ -41,7 +41,7 @@
         <span>Google سے لاگ ان کریں</span>
       </button>
       <p class="driver-auth-card__status" id="driverAuthStatus" role="status" aria-live="polite"></p>
-      <p class="driver-auth-card__dev">Dev Mode · دستاویزات درکار نہیں</p>
+      <p class="driver-auth-card__dev" id="partnerDevModeNote" hidden>Emulator · دستاویزات درکار نہیں</p>
     </div>
   </section>
 
@@ -286,7 +286,16 @@
     </div>
   </div>
 
-  <section class="incoming-ride-sheet" id="incomingRideSheet" aria-live="polite" aria-label="نئی سواری کی درخواست" hidden>
+  <!-- Phase 4C: legacy incoming sheet isolated — canonical flow is Ride Radar only -->
+  <section
+    class="incoming-ride-sheet"
+    id="incomingRideSheet"
+    aria-hidden="true"
+    hidden
+    data-legacy="true"
+    data-isolated="phase-4c"
+    style="display:none !important"
+  >
     <div class="incoming-ride-sheet__handle" aria-hidden="true"></div>
     <div class="incoming-ride-alert">
       <span class="incoming-ride-alert__pulse" aria-hidden="true"></span>
@@ -318,8 +327,8 @@
       <div><span>متوقع کرایہ</span><strong id="incomingFare">Rs. —</strong></div>
     </div>
     <div class="incoming-ride-actions">
-      <button type="button" class="ride-accept-btn" id="acceptRideBtn">قبول کریں</button>
-      <button type="button" class="ride-decline-btn" id="declineRideBtn">مسترد کریں</button>
+      <button type="button" class="ride-accept-btn" id="acceptRideBtn" tabindex="-1" disabled aria-disabled="true">قبول کریں</button>
+      <button type="button" class="ride-decline-btn" id="declineRideBtn" tabindex="-1" disabled aria-disabled="true">مسترد کریں</button>
     </div>
   </section>
 

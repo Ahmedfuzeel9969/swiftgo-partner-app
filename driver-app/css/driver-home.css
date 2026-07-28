@@ -181,3 +181,5 @@
   color: rgba(232, 245, 238, 0.72);
   line-height: 1.4;
 }
+.driver-home-hub__hint { margin: 0.35rem 0 0; font-size: 0.75rem; color: #64748b; line-height: 1.35; }
+.driver-home-hub__card--bargain { border: 1px solid #bbf7d0; }

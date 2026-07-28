@@ -15,9 +15,12 @@ export function initScreens(handlers = {}) {
   });
 
   const receiptBtn = document.getElementById("receiptBtn");
-  receiptBtn?.addEventListener("click", () => {
-    window.alert(t("receiptEmpty"));
-  });
+  if (receiptBtn) {
+    receiptBtn.disabled = true;
+    receiptBtn.setAttribute("aria-disabled", "true");
+    receiptBtn.title = t("receiptUnavailable") || "Receipt feature not available yet";
+    receiptBtn.setAttribute("aria-label", t("receiptUnavailable") || "Receipt feature not available yet");
+  }
 
   bindSupportLinks();
 }

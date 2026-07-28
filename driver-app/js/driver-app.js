@@ -43,6 +43,7 @@ import {
   initAudioService,
   initNotificationSettingsUI,
 } from "./audio-service.js";
+import { shouldUseEmulators } from "./firebase.js";
 import { announce, applyReducedMotionClass, trapFocus } from "./a11y.js";
 
 const KARACHI = [24.8607, 67.0011];
@@ -1783,13 +1784,16 @@ function startRideListener() {
 function hideIncomingRide() {
   activeRequest = null;
   window.clearTimeout(hideSheetTimer);
-  els.requestSheet?.classList.remove("is-visible");
+  if (els.requestSheet) {
+    els.requestSheet.classList.remove("is-visible");
+    els.requestSheet.hidden = true;
+    els.requestSheet.setAttribute("aria-hidden", "true");
+    els.requestSheet.style.display = "none";
+  }
   els.app?.classList.remove("has-incoming-ride");
-  hideSheetTimer = window.setTimeout(() => {
-    if (els.requestSheet) els.requestSheet.hidden = true;
-  }, 360);
 }
 
+/** @deprecated Phase 4C — isolated; never show legacy incoming sheet. */
 function showIncomingRide(_request) {
   hideIncomingRide();
 }
@@ -2234,12 +2238,13 @@ async function handleRadarRideAccepted(result) {
 function boot() {
   try {
     applyReducedMotionClass();
+    const devNote = document.getElementById("partnerDevModeNote");
+    if (devNote) devNote.hidden = !shouldUseEmulators();
     hideProtectedUi();
     showAuthOverlay();
   els.statusToggle?.addEventListener("click", toggleDriverStatusFromUi);
   els.googleLoginBtn?.addEventListener("click", signInDriverWithGoogle);
-  els.acceptBtn?.addEventListener("click", () => resolveActiveRequest("accepted"));
-  els.declineBtn?.addEventListener("click", () => resolveActiveRequest("declined"));
+  // Phase 4C: legacy incoming accept/decline remain disabled (Ride Radar is canonical)
   els.activeRideActionBtn?.addEventListener("click", advanceActiveRideStatus);
   els.findNewRideBtn?.addEventListener("click", findNewRideAfterCompletion);
   els.pinLogoutBtn?.addEventListener("click", logoutPartner);

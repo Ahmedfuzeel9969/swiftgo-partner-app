@@ -20,6 +20,7 @@ import { getRouteInfo, clearRoutePoint } from "./routing.js";
 import { clearLocationCue } from "./map.js";
 import { t } from "./i18n.js";
 import { announce } from "./a11y.js";
+import { askExtraBookingConfirm } from "./confirm-dialog.js";
 
 const VEHICLE_NAME_KEYS = {
   bike: "vehBike",
@@ -484,15 +485,16 @@ export async function startRideRequest(state) {
         return null;
       }
       if (gate.needsConfirmation || gate.reason === "CONFIRM_EXTRA_BOOKING") {
-        const ok = window.confirm(
-          `${t("bookingExtraConfirm")}\n\n${t("bookingExtraConfirmViewHint")}`
-        );
-        if (!ok) {
+        const choice = await askExtraBookingConfirm();
+        if (choice !== "confirm") {
           onToast?.(t("bookingExtraCancelled"));
-          try {
-            window.SwiftGo?.navigate?.("history");
-          } catch {
-            /* ignore */
+          announce(t("bookingExtraCancelled") || "Extra booking cancelled");
+          if (choice === "view") {
+            try {
+              window.SwiftGo?.navigate?.("history");
+            } catch {
+              /* ignore */
+            }
           }
           return null;
         }
@@ -500,6 +502,7 @@ export async function startRideRequest(state) {
         const gate2 = await checkCustomerBookingGate({ confirmedExtraBooking: true });
         if (!gate2.allowed) {
           onToast?.(t("bookingMaxActive"));
+          announce(t("bookingMaxActive") || "Booking limit reached", { assertive: true });
           return null;
         }
       } else {

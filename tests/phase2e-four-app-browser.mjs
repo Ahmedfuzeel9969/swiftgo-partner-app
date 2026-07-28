@@ -263,16 +263,25 @@ async function customerBook(page, { fare = 250, confirmDialog = null } = {}) {
   });
   await page.evaluate((opts) => window.__SWIFTGO_E2E__.seedRoute(opts), { fare });
   await page.waitForSelector("#bookRideBtn", { state: "visible", timeout: 10000 });
-  if (confirmDialog === false) {
-    page.once("dialog", (d) => {
-      d.dismiss().catch(() => {});
-    });
-  } else if (confirmDialog === true) {
-    page.once("dialog", (d) => {
-      d.accept().catch(() => {});
-    });
-  }
   await page.click("#bookRideBtn");
+
+  // Phase 4C: in-app confirmation panel (no native window.confirm)
+  if (confirmDialog === true || confirmDialog === false) {
+    const dialog = page.locator("#extraBookingDialog:not([hidden]), #extraBookingDialog.is-open");
+    const appeared = await dialog
+      .waitFor({ state: "visible", timeout: 4000 })
+      .then(() => true)
+      .catch(() => false);
+    if (appeared) {
+      if (confirmDialog === true) {
+        await page.click("#extraBookingConfirmBtn");
+      } else {
+        await page.click("#extraBookingCancelBtn");
+      }
+      await page.waitForTimeout(400);
+    }
+  }
+
   // Wait for client ride id or searching UI
   await page
     .waitForFunction(

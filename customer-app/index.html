@@ -323,7 +323,7 @@
                     <strong id="walletBalance">Rs. 0</strong>
                   </p>
                 </div>
-                <button type="button" class="wallet-receipt" id="receiptBtn" aria-label="Print receipt" data-i18n-aria="printReceipt">
+                <button type="button" class="wallet-receipt" id="receiptBtn" disabled aria-disabled="true" aria-label="Receipt not available yet" data-i18n-aria="receiptUnavailable" title="Receipt feature not available yet">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                     <path d="M7 8V4h10v4" />
                     <path d="M6 17H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
@@ -440,6 +440,7 @@
                 </svg>
               </span>
               <span class="service-rail__label" data-i18n="catRide">Ride</span>
+              <span class="service-rail__hint" data-i18n="catRideHint">Book a trip</span>
             </button>
 
             <button type="button" class="service-rail__item" data-category="cargo" role="listitem">
@@ -454,6 +455,7 @@
                 </svg>
               </span>
               <span class="service-rail__label" data-i18n="catCargo">Cargo</span>
+              <span class="service-rail__hint" data-i18n="catCargoHint">Book delivery</span>
             </button>
 
             <button type="button" class="service-rail__item" data-category="rent" role="listitem">
@@ -469,6 +471,7 @@
                 </svg>
               </span>
               <span class="service-rail__label" data-i18n="catRent">Rent</span>
+              <span class="service-rail__hint" data-i18n="catRentHint">Details only</span>
             </button>
           </div>
         </div>
@@ -995,6 +998,9 @@
           <!-- Rent form -->
           <section class="utility-panel utility-panel--rent" id="utilityPanelRent" hidden>
             <p class="utility-panel__lead" data-i18n="rentFormLead">Choose duration and vehicle type</p>
+            <p class="utility-panel__notice" data-i18n="rentNotBookingNotice" role="note">
+              These preferences are saved only. Rent does not create a live booking yet.
+            </p>
 
             <fieldset class="utility-fieldset utility-fieldset--premium">
               <legend data-i18n="rentDuration">Time Duration</legend>
@@ -1132,6 +1138,35 @@
         </div>
       </div>
     </aside>
+
+    <!-- Phase 4C — accessible extra-booking confirmation -->
+    <div class="confirm-dialog" id="extraBookingDialog" hidden aria-hidden="true">
+      <div class="confirm-dialog__backdrop" id="extraBookingBackdrop"></div>
+      <div
+        class="confirm-dialog__panel glass"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="extraBookingTitle"
+        aria-describedby="extraBookingBody"
+      >
+        <h2 id="extraBookingTitle" data-i18n="bookingExtraTitle">Another booking is active</h2>
+        <p id="extraBookingBody" data-i18n="bookingExtraConfirm">
+          You already have a booking in progress. You can view its details in your active bookings. Do you really want to create another booking?
+        </p>
+        <p class="confirm-dialog__hint" data-i18n="bookingExtraConfirmViewHint">Open History to see active bookings.</p>
+        <div class="confirm-dialog__actions">
+          <button type="button" class="confirm-dialog__btn confirm-dialog__btn--ghost" id="extraBookingViewBtn" data-i18n="bookingExtraView">
+            View active bookings
+          </button>
+          <button type="button" class="confirm-dialog__btn confirm-dialog__btn--ghost" id="extraBookingCancelBtn" data-i18n="bookingExtraNo">
+            Cancel
+          </button>
+          <button type="button" class="confirm-dialog__btn confirm-dialog__btn--primary" id="extraBookingConfirmBtn" data-i18n="bookingExtraYes">
+            Create another booking
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Auth modal -->
     <div class="auth-modal" id="authModal" hidden>

@@ -1,7 +1,7 @@
 ﻿/** SwiftGo Owner app — fleet vehicles, PIN share, owner ride history. Redirects drivers to /partner/. */
 
 import { firebaseConfig } from "./firebase-config.js";
-import { getFirebase, isFirebaseConfigured } from "./firebase.js";
+import { getFirebase, isFirebaseConfigured, shouldUseEmulators } from "./firebase.js";
 import {
   GoogleAuthProvider,
   getRedirectResult,
@@ -33,6 +33,9 @@ import { requestRideSettlement } from "./settlement-client.js";
 import { hashVehiclePin } from "./pin-hash.js";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { applyReducedMotionClass, trapFocus } from "./a11y.js";
+
+/** Phase 4C — fleet-only surface; legacy driver-fork ride execution paths stay inert. */
+const OWNER_FLEET_ONLY = true;
 
 const KARACHI = [24.8607, 67.0011];
 
@@ -1511,6 +1514,7 @@ function hideIncomingRide() {
 }
 
 function showIncomingRide(request) {
+  if (OWNER_FLEET_ONLY) return;
   activeRequest = request;
   window.clearTimeout(hideSheetTimer);
 
@@ -1537,6 +1541,7 @@ function showIncomingRide(request) {
 }
 
 function startRideListener() {
+  if (OWNER_FLEET_ONLY) return;
   stopRideListener();
   if (!online || !currentDriver) return;
 
@@ -1837,6 +1842,7 @@ async function completeRideWithEarnings(ride) {
 }
 
 async function advanceActiveRideStatus() {
+  if (OWNER_FLEET_ONLY) return;
   const ride = activeExecutionRide;
   const nextStatus = els.activeRideActionBtn?.dataset.nextStatus;
   if (!ride?.id || !nextStatus) return;
@@ -1882,6 +1888,7 @@ async function findNewRideAfterCompletion() {
 }
 
 async function resolveActiveRequest(nextStatus) {
+  if (OWNER_FLEET_ONLY) return;
   const request = activeRequest;
   const driver = currentDriver;
   if (!request?.id || !driver) return;
@@ -1975,6 +1982,8 @@ async function resolveActiveRequest(nextStatus) {
 
 function boot() {
   applyReducedMotionClass();
+  const devNote = document.getElementById("partnerDevModeNote");
+  if (devNote) devNote.hidden = !shouldUseEmulators();
   initMap();
   hideProtectedUi();
   showAuthOverlay();

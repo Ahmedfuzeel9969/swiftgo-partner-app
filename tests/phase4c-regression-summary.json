@@ -1,0 +1,56 @@
+﻿{
+    "generatedAt":  "2026-07-28T13:32:03.3847200+05:00",
+    "failed":  0,
+    "suites":  [
+                   {
+                       "suite":  "phase4b-a11y",
+                       "exit":  0,
+                       "seconds":  16.5
+                   },
+                   {
+                       "suite":  "phase1",
+                       "exit":  0,
+                       "seconds":  29.3
+                   },
+                   {
+                       "suite":  "phase2c",
+                       "exit":  0,
+                       "seconds":  47.4
+                   },
+                   {
+                       "suite":  "phase2d",
+                       "exit":  0,
+                       "seconds":  88
+                   },
+                   {
+                       "suite":  "phase2e",
+                       "exit":  0,
+                       "seconds":  419.3
+                   },
+                   {
+                       "suite":  "phase3a",
+                       "exit":  0,
+                       "seconds":  97.8
+                   },
+                   {
+                       "suite":  "phase3b",
+                       "exit":  0,
+                       "seconds":  47.8
+                   },
+                   {
+                       "suite":  "audit",
+                       "exit":  0,
+                       "seconds":  4.7
+                   },
+                   {
+                       "suite":  "i18n",
+                       "exit":  0,
+                       "seconds":  0.7
+                   },
+                   {
+                       "suite":  "build:hosting",
+                       "exit":  0,
+                       "seconds":  0.8
+                   }
+               ]
+}
