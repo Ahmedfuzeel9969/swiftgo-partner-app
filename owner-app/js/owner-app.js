@@ -32,7 +32,8 @@ import {
 import { requestRideSettlement } from "./settlement-client.js";
 import { hashVehiclePin } from "./pin-hash.js";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
-import { applyReducedMotionClass, trapFocus } from "./a11y.js";
+import { applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
+import { initI18n, t } from "./i18n.js";
 
 /** Phase 4C — fleet-only surface; legacy driver-fork ride execution paths stay inert. */
 const OWNER_FLEET_ONLY = true;
@@ -1982,6 +1983,8 @@ async function resolveActiveRequest(nextStatus) {
 
 function boot() {
   applyReducedMotionClass();
+  initKeyboardInset();
+  initI18n();
   const devNote = document.getElementById("partnerDevModeNote");
   if (devNote) devNote.hidden = !shouldUseEmulators();
   initMap();

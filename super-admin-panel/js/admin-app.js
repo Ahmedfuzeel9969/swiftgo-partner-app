@@ -38,7 +38,7 @@ import {
   writeBatch,
   getCountFromServer,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import { applyReducedMotionClass, trapFocus } from "./a11y.js";
+import { applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
 
 /** Sole authorized Super Admin (Owner). No driver may enter Command Center. */
 const SUPER_ADMIN_EMAIL = "fuzail1158@gmail.com";
@@ -2073,6 +2073,7 @@ function startLiveData() {
 
 function boot() {
   applyReducedMotionClass();
+  initKeyboardInset();
   const firebase = getFirebase();
   showLogin();
   wireNavigation();

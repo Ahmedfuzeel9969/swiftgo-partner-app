@@ -66,6 +66,13 @@ function buildPillArrow() {
   return arrow;
 }
 
+function refreshTriggerLabel() {
+  if (!els.trigger) return;
+  // Keep data-i18n in sync so applyTranslations and lang listeners agree (Phase 4D / B13).
+  els.trigger.setAttribute("data-i18n", "whereToTrigger");
+  els.trigger.textContent = t("whereToTrigger");
+}
+
 function refreshPill() {
   const state = getSheetState();
   if (!els.pillTrack) return;
@@ -216,13 +223,17 @@ function bindRouteUi() {
     setRouteUiState("idle");
   });
 
-  subscribe(() => refreshPill());
+  subscribe(() => {
+    refreshTriggerLabel();
+    refreshPill();
+  });
 }
 
 export function initStepUi() {
   cacheEls();
   if (!els.trigger || !els.card) return;
 
+  refreshTriggerLabel();
   refreshPill();
   setRouteUiState("idle");
   bindRouteUi();
@@ -231,5 +242,6 @@ export function initStepUi() {
 }
 
 export function refreshStepUiLabels() {
+  refreshTriggerLabel();
   refreshPill();
 }

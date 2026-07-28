@@ -130,3 +130,41 @@ export function trapFocus(container, options = {}) {
     }
   };
 }
+
+/**
+ * Phase 4D — keep focused fields above the on-screen keyboard (visualViewport).
+ * Sets --keyboard-inset on :root and scrolls the active control into view.
+ */
+export function initKeyboardInset(root = document.documentElement) {
+  if (typeof window === "undefined" || !window.visualViewport) return () => {};
+
+  const sync = () => {
+    const vv = window.visualViewport;
+    const obscured = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    root.style.setProperty("--keyboard-inset", `${Math.round(obscured)}px`);
+  };
+
+  const onFocusIn = (event) => {
+    const el = event.target;
+    if (!(el instanceof HTMLElement)) return;
+    if (!el.matches("input, textarea, select, [contenteditable='true']")) return;
+    window.requestAnimationFrame(() => {
+      try {
+        el.scrollIntoView({ block: "center", inline: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      } catch {
+        el.scrollIntoView(true);
+      }
+    });
+  };
+
+  sync();
+  window.visualViewport.addEventListener("resize", sync);
+  window.visualViewport.addEventListener("scroll", sync);
+  document.addEventListener("focusin", onFocusIn);
+
+  return () => {
+    window.visualViewport?.removeEventListener("resize", sync);
+    window.visualViewport?.removeEventListener("scroll", sync);
+    document.removeEventListener("focusin", onFocusIn);
+  };
+}

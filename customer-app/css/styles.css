@@ -18,6 +18,11 @@
   --sidebar-w: min(86vw, 320px);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bot: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --keyboard-inset: 0px;
+  --btn-h: 48px;
+  --focus-ring: 0 0 0 3px rgba(11, 122, 75, 0.45);
   --font: "Manrope", system-ui, sans-serif;
   --font-ur: "Noto Nastaliq Urdu", "Manrope", serif;
 }
@@ -5083,4 +5088,124 @@ html.prefers-reduced-motion *::after {
     width: 46px;
     height: 46px;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Phase 4D — responsive / safe-area / focus / landscape
+   ═══════════════════════════════════════════════════════════ */
+
+.app {
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+  padding-bottom: var(--keyboard-inset);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[role="switch"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.cta-btn,
+.confirm-dialog__btn,
+.auth-submit,
+.book-ride-btn,
+.google-login-btn {
+  min-height: var(--btn-h);
+}
+
+.cta-btn:disabled,
+.confirm-dialog__btn:disabled,
+.auth-submit:disabled,
+.book-ride-btn:disabled,
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.is-loading {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.form-field.is-error input,
+.form-field.is-error select,
+.auth-input.is-error,
+input.is-error,
+select.is-error {
+  border-color: #b42318 !important;
+  box-shadow: 0 0 0 2px rgba(180, 35, 24, 0.18);
+}
+
+/* Short landscape: protect map; compact sheet */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root {
+    --bot-h: max(96px, calc(28vh + env(safe-area-inset-bottom, 0px)));
+  }
+
+  .shell.on-home.sheet-expanded > .sheet,
+  .shell.on-home.sheet-expanded.sheet-ride-ready > .sheet,
+  .sheet[data-state="expanded"] {
+    max-height: min(46vh, 200px);
+  }
+
+  .shell.on-home > .sheet[data-state="collapsed"] {
+    max-height: min(38vh, 150px);
+  }
+
+  .service-rail__label {
+    font-size: 0.68rem;
+  }
+
+  .service-rail__item {
+    min-width: 64px;
+    padding-bottom: 0.25rem;
+  }
+
+  .route-trigger {
+    bottom: max(0.55rem, calc(0.35rem + var(--safe-bot)));
+    min-height: 42px;
+    padding: 0.45rem 1.1rem;
+    font-size: 0.9rem;
+  }
+
+  .route-search {
+    top: max(0.35rem, var(--safe-top));
+    max-height: min(72vh, calc(100% - 0.75rem));
+    overflow: auto;
+  }
+
+  .fab-locate {
+    bottom: calc(0.55rem + var(--safe-bot));
+  }
+
+  .map-layers-fab {
+    bottom: calc(0.55rem + 52px + var(--safe-bot));
+  }
+
+  body.search-card-collapsed .fab-locate {
+    bottom: calc(4.25rem + var(--safe-bot));
+  }
+
+  body.search-card-collapsed .map-layers-fab {
+    bottom: calc(4.25rem + 52px + var(--safe-bot));
+  }
+
+  .pay-sheet__panel,
+  .confirm-dialog__panel,
+  .auth-card {
+    max-height: min(88vh, calc(100dvh - var(--safe-top) - var(--safe-bot) - 0.75rem));
+    overflow: auto;
+  }
+}
+
+html[dir="rtl"] .route-search__swap,
+html[dir="rtl"] .contact-btn__chev {
+  transform: scaleX(-1);
 }

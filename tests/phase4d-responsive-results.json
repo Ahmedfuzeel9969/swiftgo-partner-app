@@ -1,0 +1,150 @@
+{
+  "phase": "4D",
+  "generatedAt": "2026-07-28T08:52:16.060Z",
+  "pass": 21,
+  "fail": 0,
+  "results": [
+    {
+      "name": "customer safe-area vars",
+      "expected": "contains --safe-left",
+      "actual": "found",
+      "status": "PASS"
+    },
+    {
+      "name": "customer keyboard inset",
+      "expected": "contains --keyboard-inset",
+      "actual": "found",
+      "status": "PASS"
+    },
+    {
+      "name": "customer landscape sheet cap",
+      "expected": "contains orientation: landscape",
+      "actual": "found",
+      "status": "PASS"
+    },
+    {
+      "name": "customer focus-visible",
+      "expected": "contains :focus-visible",
+      "actual": "found",
+      "status": "PASS"
+    },
+    {
+      "name": "partner lang switch styles",
+      "expected": "contains .partner-lang-switch",
+      "actual": "found",
+      "status": "PASS"
+    },
+    {
+      "name": "partner safe-area vars",
+      "expected": "contains --safe-left",
+      "actual": "found",
+      "status": "PASS"
+    },
+    {
+      "name": "owner lang switch styles",
+      "expected": "contains .partner-lang-switch",
+      "actual": "found",
+      "status": "PASS"
+    },
+    {
+      "name": "admin focus-visible",
+      "expected": "contains :focus-visible",
+      "actual": "found",
+      "status": "PASS"
+    },
+    {
+      "name": "partner i18n module",
+      "expected": "setLang + applyTranslations",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "owner i18n module",
+      "expected": "setLang + applyTranslations",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "whereTo trigger refresh helper",
+      "expected": "refreshTriggerLabel",
+      "actual": true,
+      "status": "PASS"
+    },
+    {
+      "name": "customer whereTo EN",
+      "expected": "Where to?",
+      "actual": "Where to?",
+      "status": "PASS",
+      "text": "Where to?"
+    },
+    {
+      "name": "customer whereTo UR",
+      "expected": "کہاں جانا ہے؟",
+      "actual": "کہاں جانا ہے؟",
+      "status": "PASS",
+      "text": "کہاں جانا ہے؟",
+      "dir": "rtl"
+    },
+    {
+      "name": "customer RTL after UR",
+      "expected": "rtl",
+      "actual": "rtl",
+      "status": "PASS"
+    },
+    {
+      "name": "landscape map usable height",
+      "expected": "mapH >= 120",
+      "actual": 357,
+      "status": "PASS",
+      "sheetH": 33,
+      "mapH": 357,
+      "viewportH": 390,
+      "sheetExpanded": true
+    },
+    {
+      "name": "landscape sheet capped",
+      "expected": "sheetH <= 55% viewport",
+      "actual": 33,
+      "status": "PASS",
+      "sheetH": 33,
+      "mapH": 357,
+      "viewportH": 390,
+      "sheetExpanded": true
+    },
+    {
+      "name": "partner auth EN switch",
+      "expected": "Driver account",
+      "actual": "Driver account",
+      "status": "PASS",
+      "ur": "ڈرائیور اکاؤنٹ",
+      "en": "Driver account",
+      "dir": "ltr"
+    },
+    {
+      "name": "partner LTR after EN",
+      "expected": "ltr",
+      "actual": "ltr",
+      "status": "PASS"
+    },
+    {
+      "name": "owner auth EN switch",
+      "expected": "Owner account",
+      "actual": "Owner account",
+      "status": "PASS",
+      "en": "Owner account",
+      "dir": "ltr"
+    },
+    {
+      "name": "owner LTR after EN",
+      "expected": "ltr",
+      "actual": "ltr",
+      "status": "PASS"
+    },
+    {
+      "name": "admin login loads",
+      "expected": "200 shell",
+      "actual": "ok",
+      "status": "PASS"
+    }
+  ]
+}

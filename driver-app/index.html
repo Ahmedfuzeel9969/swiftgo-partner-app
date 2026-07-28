@@ -27,8 +27,12 @@
     <div class="driver-auth-card">
       <div class="driver-auth-card__logo" aria-hidden="true">S</div>
       <p class="driver-auth-card__eyebrow">SwiftGo Driver</p>
-      <h2 id="driverAuthTitle">ڈرائیور اکاؤنٹ</h2>
-      <p class="driver-auth-card__copy">
+      <div class="lang-switch partner-lang-switch" role="group" aria-label="Language" data-i18n-aria="language">
+        <button type="button" class="lang-switch__btn" data-lang="en" aria-pressed="false">EN</button>
+        <button type="button" class="lang-switch__btn is-active" data-lang="ur" aria-pressed="true">اردو</button>
+      </div>
+      <h2 id="driverAuthTitle" data-i18n="authTitle">ڈرائیور اکاؤنٹ</h2>
+      <p class="driver-auth-card__copy" data-i18n="authCopy">
         آن لائن ہونے اور سواری کی درخواستیں حاصل کرنے کے لیے لاگ اِن کریں۔
       </p>
       <button type="button" class="google-login-btn" id="driverGoogleLoginBtn">
@@ -38,19 +42,19 @@
           <path fill="#FBBC05" d="M6.39 13.92A6.01 6.01 0 0 1 6.08 12c0-.67.11-1.32.31-1.92V7.46H3.04A10 10 0 0 0 2 12c0 1.61.38 3.14 1.04 4.54l3.35-2.62Z"/>
           <path fill="#EA4335" d="M12 5.95c1.47 0 2.79.51 3.82 1.5l2.87-2.87A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.96 5.46l3.35 2.62C7.18 7.71 9.39 5.95 12 5.95Z"/>
         </svg>
-        <span>Google سے لاگ ان کریں</span>
+        <span data-i18n="googleLogin">Google سے لاگ ان کریں</span>
       </button>
       <p class="driver-auth-card__status" id="driverAuthStatus" role="status" aria-live="polite"></p>
-      <p class="driver-auth-card__dev" id="partnerDevModeNote" hidden>Emulator · دستاویزات درکار نہیں</p>
+      <p class="driver-auth-card__dev" id="partnerDevModeNote" hidden data-i18n="emulatorNote">Emulator · دستاویزات درکار نہیں</p>
     </div>
   </section>
 
   <section class="account-blocked-overlay" id="accountBlockedOverlay" aria-labelledby="accountBlockedTitle" role="alertdialog" aria-modal="true" hidden>
     <div class="account-blocked-card">
       <div class="account-blocked-card__icon" aria-hidden="true">!</div>
-      <h2 id="accountBlockedTitle">اکاؤنٹ معطل کر دیا گیا ہے۔ براہ کرم سپورٹ سے رابطہ کریں۔</h2>
+      <h2 id="accountBlockedTitle" data-i18n="blockedTitle">اکاؤنٹ معطل کر دیا گیا ہے۔ براہ کرم سپورٹ سے رابطہ کریں۔</h2>
       <p class="account-blocked-card__en">Account suspended. Please contact support.</p>
-      <button type="button" class="partner-logout-btn" id="accountBlockedLogoutBtn">لاگ آؤٹ</button>
+      <button type="button" class="partner-logout-btn" id="accountBlockedLogoutBtn" data-i18n="logout">لاگ آؤٹ</button>
     </div>
   </section>
 
@@ -64,8 +68,8 @@
         </svg>
       </div>
       <p class="pin-gate__eyebrow">Vehicle PIN</p>
-      <h2 id="pinGateTitle">گاڑی کا PIN درج کریں</h2>
-      <p class="pin-gate__copy">
+      <h2 id="pinGateTitle" data-i18n="pinTitle">گاڑی کا PIN درج کریں</h2>
+      <p class="pin-gate__copy" data-i18n="pinCopy">
         مالک سے ملا ہوا 4 ہندسوں کا PIN درج کریں تاکہ گاڑی آپ کے اکاؤنٹ سے منسلک ہو جائے۔
       </p>
       <form id="vehiclePinForm" novalidate>
@@ -82,9 +86,9 @@
           required
         />
         <p class="pin-gate__message" id="vehiclePinMessage" role="status" aria-live="polite"></p>
-        <button type="submit" class="pin-verify-btn" id="vehiclePinVerifyBtn">تصدیق کریں</button>
+        <button type="submit" class="pin-verify-btn" id="vehiclePinVerifyBtn" data-i18n="pinVerify">تصدیق کریں</button>
       </form>
-      <button type="button" class="partner-logout-btn" id="pinGateLogoutBtn">لاگ آؤٹ</button>
+      <button type="button" class="partner-logout-btn" id="pinGateLogoutBtn" data-i18n="logout">لاگ آؤٹ</button>
     </div>
   </section>
 
@@ -96,18 +100,20 @@
       aria-expanded="false"
       aria-controls="partnerSidebar"
       aria-label="مینو کھولیں"
+      data-i18n-aria="openMenu"
       hidden
     >
       <span class="mobile-nav-rail__chevron" aria-hidden="true"></span>
     </button>
     <div class="mobile-nav-backdrop" id="mobileNavBackdrop" hidden aria-hidden="true"></div>
 
-    <aside class="partner-sidebar" id="partnerSidebar" aria-label="ڈرائیور نیویگیشن">
+    <aside class="partner-sidebar" id="partnerSidebar" aria-label="ڈرائیور نیویگیشن" data-i18n-aria="navAria">
       <button
         type="button"
         class="partner-sidebar__drawer-tab"
         id="mobileNavDrawerTab"
         aria-label="مینو بند کریں"
+        data-i18n-aria="closeMenu"
       >
         <span class="partner-sidebar__drawer-tab-icon" aria-hidden="true"></span>
       </button>
@@ -122,30 +128,30 @@
       <div class="partner-sidebar__profile" id="driverSidebarProfile">
         <span class="partner-sidebar__profile-avatar" aria-hidden="true">👤</span>
         <div>
-          <p class="partner-sidebar__profile-name" id="driverSidebarName">ڈرائیور</p>
+          <p class="partner-sidebar__profile-name" id="driverSidebarName" data-i18n="driverLabel">ڈرائیور</p>
           <p class="partner-sidebar__profile-meta" id="driverSidebarMeta">SwiftGo Partner</p>
         </div>
       </div>
 
       <nav class="partner-sidebar__nav">
         <button type="button" class="partner-nav-item is-active" id="navHome" data-view="home" aria-current="page">
-          ہوم
+          <span data-i18n="navHome">ہوم</span>
           <span class="partner-nav-item__en">Home</span>
         </button>
         <button type="button" class="partner-nav-item" id="navDashboard" data-view="dashboard">
-          ڈیش بورڈ
+          <span data-i18n="navDashboard">ڈیش بورڈ</span>
           <span class="partner-nav-item__en">Analytics</span>
         </button>
         <button type="button" class="partner-nav-item" data-view="rides">
-          میری سواریاں
+          <span data-i18n="navRides">میری سواریاں</span>
           <span class="partner-nav-item__en">My Rides</span>
         </button>
         <button type="button" class="partner-nav-item" id="navEarnings" data-view="earnings">
-          کمائی
+          <span data-i18n="navEarnings">کمائی</span>
           <span class="partner-nav-item__en">Earnings</span>
         </button>
         <button type="button" class="partner-nav-item" id="navWallet" data-view="wallet">
-          والٹ
+          <span data-i18n="navWallet">والٹ</span>
           <span class="partner-nav-item__en">Wallet</span>
         </button>
         <button
@@ -153,18 +159,24 @@
           class="partner-nav-item partner-nav-item--notify"
           id="openNotificationSettingsBtn"
           aria-label="نوٹیفکیشن سیٹنگز"
+          data-i18n-aria="alertsAria"
           title="نوٹیفکیشن سیٹنگز"
+          data-i18n-title="alertsAria"
         >
           <span class="partner-nav-item__icon" aria-hidden="true">🔔</span>
           <span class="partner-nav-item__copy">
-            نوٹیفکیشن
+            <span data-i18n="navAlerts">نوٹیفکیشن</span>
             <span class="partner-nav-item__en">Alerts</span>
           </span>
         </button>
       </nav>
 
       <div class="partner-sidebar__footer">
-        <button type="button" class="partner-sidebar__logout" id="partnerSidebarLogoutBtn">لاگ آؤٹ</button>
+        <div class="lang-switch partner-lang-switch partner-lang-switch--footer" role="group" aria-label="Language" data-i18n-aria="language">
+          <button type="button" class="lang-switch__btn" data-lang="en" aria-pressed="false">EN</button>
+          <button type="button" class="lang-switch__btn is-active" data-lang="ur" aria-pressed="true">اردو</button>
+        </div>
+        <button type="button" class="partner-sidebar__logout" id="partnerSidebarLogoutBtn" data-i18n="logout">لاگ آؤٹ</button>
       </div>
     </aside>
 
@@ -172,7 +184,7 @@
       <header class="partner-topbar" id="partnerHeader">
         <div class="partner-topbar__title">
           <p class="partner-topbar__eyebrow">SwiftGo Driver</p>
-          <h1 id="partnerViewTitle">ہوم</h1>
+          <h1 id="partnerViewTitle" data-i18n="topbarHome">ہوم</h1>
         </div>
         <div class="partner-topbar__actions" id="partnerTopbarActions">
           <button
@@ -182,9 +194,10 @@
             role="switch"
             aria-checked="false"
             aria-label="ڈرائیور آن لائن کریں"
+            data-i18n-aria="statusToggleAria"
           >
             <span class="driver-status__dot" aria-hidden="true"></span>
-            <span id="driverStatusText">آف لائن</span>
+            <span id="driverStatusText" data-i18n="statusOffline">آف لائن</span>
           </button>
           <button
             type="button"
@@ -192,8 +205,9 @@
             id="openRideRadarBtn"
             hidden
             aria-label="دستیاب سواریاں"
+            data-i18n-aria="rideRadar"
           >
-            دستیاب سواریاں
+            <span data-i18n="rideRadar">دستیاب سواریاں</span>
           </button>
         </div>
       </header>

@@ -44,7 +44,8 @@ import {
   initNotificationSettingsUI,
 } from "./audio-service.js";
 import { shouldUseEmulators } from "./firebase.js";
-import { announce, applyReducedMotionClass, trapFocus } from "./a11y.js";
+import { announce, applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
+import { initI18n, t, subscribe as subscribeLang } from "./i18n.js";
 
 const KARACHI = [24.8607, 67.0011];
 
@@ -243,10 +244,10 @@ function syncOnlineToggleUi(value) {
     btn.setAttribute("aria-checked", String(value));
     btn.setAttribute(
       "aria-label",
-      value ? "ڈرائیور آف لائن کریں" : "ڈرائیور آن لائن کریں"
+      value ? t("statusToggleAriaOffline") : t("statusToggleAria")
     );
   }
-  const label = value ? "آن لائن" : "آف لائن";
+  const label = value ? t("statusOnline") : t("statusOffline");
   if (els.statusText) els.statusText.textContent = label;
 }
 
@@ -2238,6 +2239,11 @@ async function handleRadarRideAccepted(result) {
 function boot() {
   try {
     applyReducedMotionClass();
+    initKeyboardInset();
+    initI18n();
+    subscribeLang(() => {
+      syncOnlineToggleUi(online);
+    });
     const devNote = document.getElementById("partnerDevModeNote");
     if (devNote) devNote.hidden = !shouldUseEmulators();
     hideProtectedUi();

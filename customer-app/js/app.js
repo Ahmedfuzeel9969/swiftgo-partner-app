@@ -48,7 +48,7 @@ import {
 import { getRouteInfo, initRoutingUi } from "./routing.js";
 import { initFareCalculation } from "./fare.js";
 import { initRideFlow, startRideRequest } from "./ride-flow.js";
-import { applyReducedMotionClass } from "./a11y.js";
+import { applyReducedMotionClass, initKeyboardInset } from "./a11y.js";
 import {
   initRideHistory,
   refreshRideHistory,
@@ -280,6 +280,7 @@ function bindEvents() {
         refreshDashboardLabels();
         refreshDriverOnboardingLabels();
         refreshLocationLabels();
+        refreshStepUiLabels();
         refreshUtilityDrawerLabels();
         refreshRideHistory();
         const user = getCurrentUser();
@@ -325,6 +326,7 @@ function bindEvents() {
 
 async function boot() {
   applyReducedMotionClass();
+  initKeyboardInset();
   initI18n();
   initDriverOnboarding({ onToast: showToast });
   initUtilityDrawer({
