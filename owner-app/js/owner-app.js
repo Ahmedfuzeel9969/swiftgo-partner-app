@@ -35,6 +35,10 @@ import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
 import { initI18n, t } from "./i18n.js";
 import { wireLegalLinks, requestAccountDeletionClient } from "./trust.js";
+import { isNativeShell, getNativePlatform, getNetworkStatus } from "./native-shell.js";
+
+window.__swiftgoNative = { isNativeShell, getNativePlatform, getNetworkStatus };
+window.__SWIFTGO_ANDROID_PACKAGE__ = "com.swiftgo.owner";
 
 /** Phase 4C — fleet-only surface; legacy driver-fork ride execution paths stay inert. */
 const OWNER_FLEET_ONLY = true;

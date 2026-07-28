@@ -56,6 +56,12 @@ copyApp("super-admin-panel", "admin");
 // Phase 4E — draft legal pages (static; served before SPA rewrites when file exists)
 copyDir(path.join(ROOT, "legal"), path.join(DIST, "legal"));
 
+// Phase free-tier — Digital Asset Links draft (fingerprints must be replaced before verify)
+const wellKnownSrc = path.join(ROOT, "hosting-static", ".well-known");
+if (fs.existsSync(wellKnownSrc)) {
+  copyDir(wellKnownSrc, path.join(DIST, ".well-known"));
+}
+
 console.info("[build-hosting] packaged apps into hosting-dist/");
 console.info("  /              <- customer-app");
 console.info("  /customer/     <- customer-app");
@@ -63,3 +69,4 @@ console.info("  /partner/      <- driver-app");
 console.info("  /owner/        <- owner-app");
 console.info("  /admin/        <- super-admin-panel");
 console.info("  /legal/        <- privacy, terms, data-use drafts");
+console.info("  /.well-known/  <- assetlinks draft (if present)");

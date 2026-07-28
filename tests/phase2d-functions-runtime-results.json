@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-27T13:49:25.514Z",
+  "generatedAt": "2026-07-28T10:50:20.305Z",
   "command": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-swiftgo-phase1 \"node tests/phase2d-functions-runtime.mjs\"",
   "results": [
     {
@@ -19,7 +19,7 @@
     {
       "name": "R02-createCustomerBooking",
       "expected": "booking id returned",
-      "actual": "id=YaDhMCmmDTZPsNM4NlPH",
+      "actual": "id=tEDaQ6uB58FTLpyGdROu",
       "status": "PASS",
       "suite": "phase2d-functions-runtime"
     },
@@ -33,14 +33,14 @@
     {
       "name": "R04-submitRideOffer",
       "expected": "offer id returned",
-      "actual": "offerId=YaDhMCmmDTZPsNM4NlPH_rt-d1",
+      "actual": "offerId=tEDaQ6uB58FTLpyGdROu_rt-d1",
       "status": "PASS",
       "suite": "phase2d-functions-runtime"
     },
     {
       "name": "R05-counterRideOffer",
       "expected": "counter accepted",
-      "actual": "{\"offerId\":\"YaDhMCmmDTZPsNM4NlPH_rt-d1\",\"status\":\"countered\",\"customerCounterFare\":310}",
+      "actual": "{\"offerId\":\"tEDaQ6uB58FTLpyGdROu_rt-d1\",\"status\":\"countered\",\"customerCounterFare\":310}",
       "status": "PASS",
       "suite": "phase2d-functions-runtime"
     },

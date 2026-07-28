@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-27T13:47:59.572Z",
+  "generatedAt": "2026-07-28T10:58:54.685Z",
   "results": [
     {
       "name": "C01-functions-exports-complete",
@@ -39,7 +39,7 @@
     {
       "name": "C06-booking-and-match",
       "expected": "booking created; blocked not candidate",
-      "actual": "ride=Q9uCaviPSOTWmNlVwOr7 cands=2 blockedCand=false",
+      "actual": "ride=jrFgdMygUntWJTYYDi2U cands=2 blockedCand=false",
       "status": "PASS",
       "suite": "phase2c-e2e"
     },

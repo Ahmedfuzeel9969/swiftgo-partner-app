@@ -15,8 +15,22 @@ function record(name, expected, actual, status, detail = "") {
 
 function walk(dir, out = []) {
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (ent.name === "node_modules" || ent.name === "hosting-dist" || ent.name === ".git") continue;
+    if (
+      ent.name === "node_modules" ||
+      ent.name === "hosting-dist" ||
+      ent.name === ".git" ||
+      ent.name === "www" ||
+      ent.name === "build" ||
+      ent.name === ".gradle"
+    ) {
+      continue;
+    }
     const p = path.join(dir, ent.name);
+    const rel = path.relative(ROOT, p).replace(/\\/g, "/");
+    // Generated Capacitor / Android embeds are not source-of-truth for client audits.
+    if (rel.startsWith("mobile/") && (rel.includes("/android/") || rel.includes("/www/"))) {
+      continue;
+    }
     if (ent.isDirectory()) walk(p, out);
     else if (/\.(js|mjs|cjs|html)$/.test(ent.name)) out.push(p);
   }

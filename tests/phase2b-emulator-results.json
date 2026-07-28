@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-27T13:47:55.175Z",
+  "generatedAt": "2026-07-28T10:58:51.595Z",
   "command": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/phase2b-run-all.mjs\"",
   "results": [
     {
@@ -323,7 +323,7 @@
     {
       "name": "B08-second-needs-confirmation",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"activeBookings\":[{\"id\":\"NEVWv1D6ZomX3rlmillK\",\"status\":\"searching_driver\"}]}",
+      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"activeBookings\":[{\"id\":\"cZFROEtVMgactUBpHLsO\",\"status\":\"searching_driver\"}]}",
       "rules": "bargaining"
     },
     {
@@ -377,13 +377,13 @@
     {
       "name": "B17-simultaneous-assign-one-winner",
       "status": "PASS",
-      "detail": "driver=race-d2 fulfilled=rejected,fulfilled",
+      "detail": "driver=race-d1 fulfilled=fulfilled,rejected",
       "rules": "bargaining"
     },
     {
       "name": "B18-active-driver-cannot-bargain-another",
       "status": "PASS",
-      "detail": "driver=race-d2",
+      "detail": "driver=race-d1",
       "rules": "bargaining"
     },
     {
@@ -509,7 +509,7 @@
     {
       "name": "S18-pin-lockout-after-max",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785160974585}",
+      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785237230997}",
       "suite": "phase2b"
     },
     {

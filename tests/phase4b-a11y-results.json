@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-28T06:11:10.542Z",
+  "generatedAt": "2026-07-28T10:54:11.106Z",
   "passed": 9,
   "failed": 0,
   "blocked": 0,
@@ -18,14 +18,14 @@
       "actual": "ok",
       "status": "PASS",
       "order": [
-        "map",
-        "DIV",
-        "A",
-        "A",
-        "A",
-        "A",
-        "whereToTrigger",
-        "btnLayersFab"
+        "trustConfirmCancel",
+        "trustConfirmOk",
+        "trustConfirmCancel",
+        "trustConfirmOk",
+        "trustConfirmCancel",
+        "trustConfirmOk",
+        "trustConfirmCancel",
+        "trustConfirmOk"
       ]
     },
     {
@@ -41,14 +41,14 @@
       "actual": "ok",
       "status": "PASS",
       "order": [
+        "A",
+        "A",
+        "A",
+        "BUTTON",
+        "BUTTON",
         "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn"
+        "A",
+        "A"
       ]
     },
     {
@@ -57,14 +57,14 @@
       "actual": "ok",
       "status": "PASS",
       "order": [
+        "A",
+        "A",
+        "A",
+        "BUTTON",
+        "BUTTON",
         "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn",
-        "driverGoogleLoginBtn"
+        "A",
+        "A"
       ]
     },
     {
@@ -80,13 +80,13 @@
       "actual": "ok",
       "status": "PASS",
       "order": [
+        "A",
+        "A",
+        "A",
         "adminGoogleLoginBtn",
-        "adminGoogleLoginBtn",
-        "adminGoogleLoginBtn",
-        "adminGoogleLoginBtn",
-        "adminGoogleLoginBtn",
-        "adminGoogleLoginBtn",
-        "adminGoogleLoginBtn",
+        "A",
+        "A",
+        "A",
         "adminGoogleLoginBtn"
       ]
     },

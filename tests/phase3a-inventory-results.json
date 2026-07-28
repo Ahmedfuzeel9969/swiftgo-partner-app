@@ -1,20 +1,20 @@
 {
-  "generatedAt": "2026-07-27T13:49:28.032Z",
+  "generatedAt": "2026-07-28T10:50:23.728Z",
   "note": "Static call-site counts — not billable units. See PHASE-3A-FIREBASE-USAGE-INVENTORY.md for semantics.",
   "totals": {
     "auth:auth": 6,
     "auth:auth-listener": 4,
-    "functions:function-call": 8,
+    "functions:function-call": 11,
     "firestore:read": 26,
-    "firestore:listener": 32,
+    "firestore:listener": 33,
     "firestore:write": 34,
-    "firestore:transaction": 12,
+    "firestore:transaction": 13,
     "storage:upload": 1,
     "storage:download": 1,
     "firestore:read-aggregate": 1,
     "firestore:delete": 1,
     "firestore:write-batch": 1,
-    "functions:function-export": 16
+    "functions:function-export": 20
   },
   "entries": [
     {
@@ -162,6 +162,22 @@
       "recurringHint": "one-time-or-event"
     },
     {
+      "app": "customer",
+      "file": "customer-app/js/trust.js",
+      "service": "functions",
+      "operation": "function-call",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
+      "file": "driver-app/js/bargain-capacity.js",
+      "service": "firestore",
+      "operation": "listener",
+      "callSites": 1,
+      "recurringHint": "possibly-recurring"
+    },
+    {
       "app": "driver",
       "file": "driver-app/js/driver-app.js",
       "service": "firestore",
@@ -299,6 +315,14 @@
     },
     {
       "app": "driver",
+      "file": "driver-app/js/trust.js",
+      "service": "functions",
+      "operation": "function-call",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "driver",
       "file": "driver-app/js/wallet.js",
       "service": "firestore",
       "operation": "write",
@@ -394,6 +418,14 @@
       "recurringHint": "one-time-or-event"
     },
     {
+      "app": "owner",
+      "file": "owner-app/js/trust.js",
+      "service": "functions",
+      "operation": "function-call",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
       "app": "admin",
       "file": "super-admin-panel/js/admin-app.js",
       "service": "firestore",
@@ -475,6 +507,14 @@
     },
     {
       "app": "functions",
+      "file": "functions/account-deletion.js",
+      "service": "firestore",
+      "operation": "transaction",
+      "callSites": 1,
+      "recurringHint": "one-time-or-event"
+    },
+    {
+      "app": "functions",
       "file": "functions/bargaining.js",
       "service": "firestore",
       "operation": "transaction",
@@ -486,7 +526,7 @@
       "file": "functions/index.js",
       "service": "functions",
       "operation": "function-export",
-      "callSites": 16,
+      "callSites": 20,
       "recurringHint": "one-time-or-event"
     },
     {

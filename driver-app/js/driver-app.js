@@ -47,6 +47,10 @@ import { shouldUseEmulators } from "./firebase.js";
 import { announce, applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
 import { initI18n, t, subscribe as subscribeLang } from "./i18n.js";
 import { wireLegalLinks, requestAccountDeletionClient } from "./trust.js";
+import { isNativeShell, getNativePlatform, getNetworkStatus } from "./native-shell.js";
+
+window.__swiftgoNative = { isNativeShell, getNativePlatform, getNetworkStatus };
+window.__SWIFTGO_ANDROID_PACKAGE__ = "com.swiftgo.partner";
 
 const KARACHI = [24.8607, 67.0011];
 

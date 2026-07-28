@@ -10,10 +10,11 @@ keytool -genkeypair -v -keystore swiftgo-upload.jks -keyalg RSA -keysize 2048 -v
 
 3. Wire into each app `android/app/build.gradle` signingConfigs (see `tools/phase4g-apply-android-hardening.mjs`).
 
-4. Build AAB:
+4. Build AAB (from repo root):
 
 ```bash
 npm run android:aab:customer
+# or android:aab:partner / android:aab:owner
 ```
 
 Upload keystore only to Play App Signing / secure vault — never to git.

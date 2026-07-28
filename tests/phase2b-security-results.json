@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-27T13:47:55.140Z",
+  "generatedAt": "2026-07-28T10:58:51.551Z",
   "results": [
     {
       "name": "S01-claim-admin-can-write-settings",
@@ -106,7 +106,7 @@
     {
       "name": "S18-pin-lockout-after-max",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785160974585}",
+      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785237230997}",
       "suite": "phase2b"
     },
     {

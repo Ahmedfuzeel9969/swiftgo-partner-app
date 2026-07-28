@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-27T13:47:07.831Z",
+  "generatedAt": "2026-07-28T10:46:16.287Z",
   "command": "npm exec --package=@firebase/rules-unit-testing --package=firebase -- node tests/phase1-emulator-contract.mjs",
   "results": [
     {

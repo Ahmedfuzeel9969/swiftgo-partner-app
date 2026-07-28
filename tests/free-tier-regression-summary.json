@@ -1,0 +1,54 @@
+﻿[
+    {
+        "exit":  0,
+        "cmd":  "test:phase1"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:phase2c"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:phase2d"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:phase3a"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:phase3b"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:phase4b-a11y"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:phase4d"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:phase4e"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:phase4f-storage"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:phase4f-ops"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:i18n"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:phase4g"
+    },
+    {
+        "exit":  0,
+        "cmd":  "test:audit"
+    }
+]

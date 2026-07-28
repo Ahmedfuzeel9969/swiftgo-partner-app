@@ -62,6 +62,11 @@ import {
   startCustomerRideHistory,
   stopCustomerRideHistory,
 } from "./history.js";
+import { isNativeShell, getNativePlatform, getNetworkStatus } from "./native-shell.js";
+
+// Expose thin native helpers for Capacitor shells (no-ops on web).
+window.__swiftgoNative = { isNativeShell, getNativePlatform, getNetworkStatus };
+window.__SWIFTGO_ANDROID_PACKAGE__ = "com.swiftgo.customer";
 
 const els = {
   app: document.getElementById("app"),

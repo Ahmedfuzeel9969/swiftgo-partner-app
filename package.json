@@ -27,6 +27,10 @@
     "test:phase4h": "node tests/phase4h-pilot-readiness.mjs",
     "mobile:sync": "node tools/phase4g-sync-mobile.mjs",
     "mobile:harden": "node tools/phase4g-apply-android-hardening.mjs",
+    "android:sync": "npm run build:hosting && node tools/phase4g-sync-mobile.mjs",
+    "android:aab:customer": "npm run android:sync && cd mobile/customer && npx cap sync android && cd android && gradlew.bat bundleRelease",
+    "android:aab:partner": "npm run android:sync && cd mobile/partner && npx cap sync android && cd android && gradlew.bat bundleRelease",
+    "android:aab:owner": "npm run android:sync && cd mobile/owner && npx cap sync android && cd android && gradlew.bat bundleRelease",
     "build:hosting": "node tools/build-hosting.mjs",
     "test:audit": "node tests/audit.test.mjs",
     "test:i18n": "node tests/i18n-purity-scan.mjs"

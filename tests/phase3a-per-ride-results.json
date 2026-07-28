@@ -8,7 +8,7 @@
   "scenarios": [
     {
       "name": "S1-limit10-minimal-bargain",
-      "rideId": "DDV9cCnIQK3z5RIGGuzB",
+      "rideId": "DFt0YoReuB4WqOztuwtG",
       "candidateLimit": 10,
       "onlineCount": 12,
       "counters": 0,
@@ -39,7 +39,7 @@
     },
     {
       "name": "S2-limit10-heavy-counters",
-      "rideId": "SpxrvXbGCmLJCvZfeSAJ",
+      "rideId": "38BmYVUcPBlzN9PShUYo",
       "candidateLimit": 10,
       "onlineCount": 12,
       "counters": 3,
@@ -70,7 +70,7 @@
     },
     {
       "name": "S3-limit20-minimal-bargain",
-      "rideId": "m6KprrfrrMMv5nm3oa4Q",
+      "rideId": "GIj2ObwMph8L8nX7XNW2",
       "candidateLimit": 20,
       "onlineCount": 25,
       "counters": 0,
@@ -101,7 +101,7 @@
     },
     {
       "name": "S4-limit20-heavy-counters",
-      "rideId": "Yv1yZFkX0c2cE8m3wueV",
+      "rideId": "aMiFbSCRbtaArwSEDH8r",
       "candidateLimit": 20,
       "onlineCount": 25,
       "counters": 3,
@@ -132,7 +132,7 @@
     },
     {
       "name": "S11-cancelled-booking",
-      "rideId": "C0f5SkgbQH3H5QWxyQT3",
+      "rideId": "qzd09zLiSYxoYujkVmzx",
       "invocations": 3,
       "measuredDeltas": {
         "rides": 1,
@@ -156,7 +156,7 @@
     },
     {
       "name": "S12-settlement-retry",
-      "rideId": "ZWRiz2ZawyetolVTd942",
+      "rideId": "GSoaYtQcQOfwDjNnYDyr",
       "candidateLimit": 10,
       "onlineCount": 8,
       "counters": 0,

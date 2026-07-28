@@ -141,6 +141,17 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForTimeout(900);
 
+    // Phase 4E location trust dialog may open from locateUser on boot — dismiss before UI clicks.
+    await page.locator("#trustConfirmCancel").click({ timeout: 1500 }).catch(async () => {
+      await page.evaluate(() => {
+        const root = document.getElementById("trustConfirmDialog");
+        if (!root) return;
+        root.classList.remove("is-open");
+        root.setAttribute("aria-hidden", "true");
+      });
+    });
+    await page.waitForTimeout(200);
+
     const enText = (await page.locator("#whereToTrigger").textContent())?.trim() || "";
     record("customer whereTo EN", "Where to?", enText, enText.includes("Where to") ? "PASS" : "FAIL", {
       text: enText,
