@@ -16,6 +16,8 @@
     "test:phase2e": "npm run build:hosting && firebase emulators:exec --only auth,firestore,storage,functions,hosting --project demo-swiftgo-phase1 \"node tests/phase2e-four-app-browser.mjs\"",
     "test:phase3a": "node tests/phase3a-inventory-scan.mjs && firebase emulators:exec --only auth,firestore,storage,functions --project demo-swiftgo-phase1 \"node tests/phase3a-per-ride-measurement.mjs\"",
     "test:phase3b": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-swiftgo-phase1 \"node tests/phase3b-geo-matching.mjs\"",
+    "test:phase4a-ui": "npm run build:hosting && node tests/phase4a-ui-responsive-audit.mjs",
+    "test:phase4b-a11y": "npm run build:hosting && node tests/phase4b-a11y-verify.mjs",
     "build:hosting": "node tools/build-hosting.mjs",
     "test:audit": "node tests/audit.test.mjs",
     "test:i18n": "node tests/i18n-purity-scan.mjs"

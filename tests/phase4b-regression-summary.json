@@ -1,0 +1,17 @@
+﻿{
+  "generatedAt": "2026-07-28T06:25:00.000Z",
+  "failed": 0,
+  "suites": [
+    { "suite": "phase1", "exit": 0, "seconds": 35 },
+    { "suite": "phase2c", "exit": 0, "seconds": 55.7 },
+    { "suite": "phase2d", "exit": 0, "seconds": 87.3 },
+    { "suite": "phase2e", "exit": 0, "seconds": 449.3 },
+    { "suite": "phase3a", "exit": 0, "seconds": 65.7 },
+    { "suite": "phase3b", "exit": 0, "seconds": 40.6 },
+    { "suite": "audit", "exit": 0, "seconds": 5.6 },
+    { "suite": "i18n", "exit": 0, "seconds": 0.6 },
+    { "suite": "build:hosting", "exit": 0, "seconds": 0.7 },
+    { "suite": "phase4b-a11y", "exit": 0, "passed": 9, "failed": 0 },
+    { "suite": "phase4a-ui", "exit": 0, "findings": 0 }
+  ]
+}

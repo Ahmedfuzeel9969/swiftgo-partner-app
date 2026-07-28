@@ -23,7 +23,7 @@
 </head>
 <body>
   <!-- ── Auth & gate overlays (fullscreen) ── -->
-  <section class="driver-auth-overlay" id="driverAuthOverlay" aria-labelledby="driverAuthTitle">
+  <section class="driver-auth-overlay" id="driverAuthOverlay" role="dialog" aria-modal="true" aria-labelledby="driverAuthTitle">
     <div class="driver-auth-card">
       <div class="driver-auth-card__logo" aria-hidden="true">S</div>
       <p class="driver-auth-card__eyebrow">SwiftGo Driver</p>
@@ -365,20 +365,20 @@
         </p>
       </div>
       <form id="rechargeForm" novalidate>
-        <label class="recharge-field">
-          <span>ادائیگی کا طریقہ</span>
-          <select id="rechargeMethod" required>
+        <label class="recharge-field" for="rechargeMethod">
+          <span id="rechargeMethodLabel">ادائیگی کا طریقہ / Payment method</span>
+          <select id="rechargeMethod" required aria-labelledby="rechargeMethodLabel">
             <option value="jazzcash">JazzCash</option>
             <option value="easypaisa">EasyPaisa</option>
           </select>
         </label>
-        <label class="recharge-field">
-          <span>رقم (PKR)</span>
-          <input id="rechargeAmount" type="number" min="1" max="500000" step="1" inputmode="numeric" placeholder="مثلاً 1000" required />
+        <label class="recharge-field" for="rechargeAmount">
+          <span id="rechargeAmountLabel">رقم (PKR) / Amount (PKR)</span>
+          <input id="rechargeAmount" type="number" min="1" max="500000" step="1" inputmode="numeric" placeholder="مثلاً 1000" required aria-labelledby="rechargeAmountLabel" />
         </label>
-        <label class="recharge-field">
-          <span>Transaction ID / TID</span>
-          <input id="rechargeTid" type="text" maxlength="80" autocomplete="off" placeholder="ٹرانزیکشن ID" required />
+        <label class="recharge-field" for="rechargeTid">
+          <span id="rechargeTidLabel">Transaction ID / TID</span>
+          <input id="rechargeTid" type="text" maxlength="80" autocomplete="off" placeholder="ٹرانزیکشن ID" required aria-labelledby="rechargeTidLabel" />
         </label>
         <p class="recharge-form__message" id="rechargeFormMessage" role="status" aria-live="polite"></p>
         <button type="submit" class="recharge-submit-btn" id="rechargeSubmitBtn">درخواست بھیجیں</button>
@@ -396,21 +396,21 @@
         </div>
         <button type="button" class="notify-settings-modal__close" id="notificationSettingsCloseBtn" aria-label="بند کریں">×</button>
       </div>
-      <label class="notify-settings-field notify-settings-field--switch">
-        <span>آواز</span>
-        <input type="checkbox" id="notificationMuteToggle" role="switch" aria-checked="true" />
+      <label class="notify-settings-field notify-settings-field--switch" for="notificationMuteToggle">
+        <span id="notificationMuteLabel">آواز / Sound</span>
+        <input type="checkbox" id="notificationMuteToggle" role="switch" aria-checked="true" aria-labelledby="notificationMuteLabel" />
       </label>
-      <label class="notify-settings-field">
-        <span>رنگ ٹون منتخب کریں</span>
-        <select id="notificationToneSelect">
+      <label class="notify-settings-field" for="notificationToneSelect">
+        <span id="notificationToneLabel">رنگ ٹون منتخب کریں / Ringtone</span>
+        <select id="notificationToneSelect" aria-labelledby="notificationToneLabel">
           <option value="tone1">Tone 1 · Default Chime</option>
           <option value="tone2">Tone 2 · Bell</option>
           <option value="tone3">Tone 3 · Beep</option>
         </select>
       </label>
-      <label class="notify-settings-field">
-        <span>آواز کی شدت · <strong id="notificationVolumeLabel">80%</strong></span>
-        <input type="range" id="notificationVolumeRange" min="0" max="100" step="1" value="80" />
+      <label class="notify-settings-field" for="notificationVolumeRange">
+        <span id="notificationVolumeCaption">آواز کی شدت / Volume · <strong id="notificationVolumeLabel">80%</strong></span>
+        <input type="range" id="notificationVolumeRange" min="0" max="100" step="1" value="80" aria-labelledby="notificationVolumeCaption" />
       </label>
       <div class="notify-settings-actions">
         <button type="button" class="notify-settings-btn" id="notificationTestBtn">ٹیسٹ کریں</button>

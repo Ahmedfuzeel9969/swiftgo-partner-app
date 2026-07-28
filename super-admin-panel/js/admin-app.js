@@ -38,6 +38,7 @@ import {
   writeBatch,
   getCountFromServer,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { applyReducedMotionClass, trapFocus } from "./a11y.js";
 
 /** Sole authorized Super Admin (Owner). No driver may enter Command Center. */
 const SUPER_ADMIN_EMAIL = "fuzail1158@gmail.com";
@@ -227,6 +228,9 @@ function hideAccessDenied() {
   if (els.accessDenied) els.accessDenied.hidden = true;
 }
 
+/** @type {null | (() => void)} */
+let releaseLoginTrap = null;
+
 function showLogin() {
   stopLiveData();
   pricingLoaded = false;
@@ -234,6 +238,13 @@ function showLogin() {
   currentAdminUser = null;
   if (els.loginScreen) els.loginScreen.hidden = false;
   if (els.dashboard) els.dashboard.hidden = true;
+  releaseLoginTrap?.();
+  if (els.loginScreen && !els.loginScreen.hidden) {
+    releaseLoginTrap = trapFocus(els.loginScreen, {
+      dismissible: false,
+      initialFocus: els.loginBtn || document.getElementById("adminGoogleLoginBtn"),
+    });
+  }
 }
 
 function showDashboard(user) {
@@ -243,6 +254,9 @@ function showDashboard(user) {
     showAccessDenied();
     return;
   }
+
+  releaseLoginTrap?.();
+  releaseLoginTrap = null;
 
   if (els.loginScreen) els.loginScreen.hidden = true;
   if (els.dashboard) els.dashboard.hidden = false;
@@ -2058,6 +2072,7 @@ function startLiveData() {
 }
 
 function boot() {
+  applyReducedMotionClass();
   const firebase = getFirebase();
   showLogin();
   wireNavigation();

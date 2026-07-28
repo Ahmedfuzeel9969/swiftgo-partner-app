@@ -12,11 +12,14 @@ import {
 import { auth, isFirebaseConfigured } from "./firebase.js";
 import { ensureUserProfile } from "./data.js";
 import { t, applyTranslations } from "./i18n.js";
+import { trapFocus } from "./a11y.js";
 
 /** @type {import('firebase/auth').User | null} */
 let currentUser = null;
 const listeners = new Set();
 const provider = new GoogleAuthProvider();
+/** @type {null | (() => void)} */
+let releaseAuthTrap = null;
 
 export function getCurrentUser() {
   return currentUser;
@@ -38,12 +41,20 @@ export function openAuthModal(mode = "signin") {
   modal.hidden = false;
   requestAnimationFrame(() => modal.classList.add("is-open"));
   setAuthMode(mode);
-  document.getElementById("authEmail")?.focus();
+  releaseAuthTrap?.();
+  const card = modal.querySelector(".auth-modal__card") || modal;
+  releaseAuthTrap = trapFocus(card, {
+    dismissible: true,
+    onDismiss: () => closeAuthModal(),
+    initialFocus: document.getElementById("authEmail") || document.getElementById("googleSignInBtn"),
+  });
 }
 
 export function closeAuthModal() {
   const modal = document.getElementById("authModal");
   if (!modal) return;
+  releaseAuthTrap?.();
+  releaseAuthTrap = null;
   modal.classList.remove("is-open");
   window.setTimeout(() => {
     modal.hidden = true;

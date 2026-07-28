@@ -32,6 +32,7 @@ import {
 import { requestRideSettlement } from "./settlement-client.js";
 import { hashVehiclePin } from "./pin-hash.js";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
+import { applyReducedMotionClass, trapFocus } from "./a11y.js";
 
 const KARACHI = [24.8607, 67.0011];
 
@@ -233,14 +234,24 @@ function setLoginBusy(busy) {
   }
 }
 
+/** @type {null | (() => void)} */
+let releaseAuthTrap = null;
+
 function showAuthOverlay(message = "") {
   if (!els.authOverlay) return;
   els.authOverlay.hidden = false;
   requestAnimationFrame(() => els.authOverlay?.classList.remove("is-hidden"));
   setAuthStatus(message);
+  releaseAuthTrap?.();
+  releaseAuthTrap = trapFocus(els.authOverlay, {
+    dismissible: false,
+    initialFocus: els.googleLoginBtn,
+  });
 }
 
 function hideAuthOverlay() {
+  releaseAuthTrap?.();
+  releaseAuthTrap = null;
   els.authOverlay?.classList.add("is-hidden");
   window.setTimeout(() => {
     if (els.authOverlay?.classList.contains("is-hidden")) {
@@ -1963,8 +1974,10 @@ async function resolveActiveRequest(nextStatus) {
 }
 
 function boot() {
+  applyReducedMotionClass();
   initMap();
   hideProtectedUi();
+  showAuthOverlay();
   els.googleLoginBtn?.addEventListener("click", signInDriverWithGoogle);
   els.blockedLogoutBtn?.addEventListener("click", logoutPartner);
   els.addVehicleBtn?.addEventListener("click", openVehicleModal);

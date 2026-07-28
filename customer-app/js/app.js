@@ -48,6 +48,7 @@ import {
 import { getRouteInfo, initRoutingUi } from "./routing.js";
 import { initFareCalculation } from "./fare.js";
 import { initRideFlow, startRideRequest } from "./ride-flow.js";
+import { applyReducedMotionClass } from "./a11y.js";
 import {
   initRideHistory,
   refreshRideHistory,
@@ -323,6 +324,7 @@ function bindEvents() {
 }
 
 async function boot() {
+  applyReducedMotionClass();
   initI18n();
   initDriverOnboarding({ onToast: showToast });
   initUtilityDrawer({

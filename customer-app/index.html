@@ -186,7 +186,7 @@
             </div>
             <!-- Kept for sheet.js stop helpers; not shown in Phase 45.3 UI -->
             <div class="route-search__stops" id="extraStops" hidden aria-hidden="true"></div>
-            <button type="button" id="addStopBtn" hidden aria-hidden="true" tabindex="-1"></button>
+            <button type="button" id="addStopBtn" hidden aria-hidden="true" tabindex="-1" aria-label="Add stop"></button>
           </div>
 
           <!-- State 3: Pin on map mode -->
@@ -725,8 +725,8 @@
         </button>
         <h2 id="paySheetTitle" class="pay-sheet__title" data-i18n="paymentTitle">Payment method</h2>
         <div class="pay-methods" role="radiogroup" aria-labelledby="paySheetTitle">
-          <label class="pay-method">
-            <input type="radio" name="payMethod" value="easypaisa" />
+          <label class="pay-method" for="payMethodEasypaisa">
+            <input type="radio" id="payMethodEasypaisa" name="payMethod" value="easypaisa" />
             <span class="pay-method__logo pay-method__logo--ep" aria-hidden="true">EP</span>
             <span class="pay-method__text">
               <span class="pay-method__name" data-i18n="payEasypaisa">Easypaisa</span>
@@ -734,8 +734,8 @@
             </span>
             <span class="pay-method__radio" aria-hidden="true"></span>
           </label>
-          <label class="pay-method">
-            <input type="radio" name="payMethod" value="jazzcash" />
+          <label class="pay-method" for="payMethodJazzcash">
+            <input type="radio" id="payMethodJazzcash" name="payMethod" value="jazzcash" />
             <span class="pay-method__logo pay-method__logo--jc" aria-hidden="true">JC</span>
             <span class="pay-method__text">
               <span class="pay-method__name" data-i18n="payJazzCash">JazzCash</span>
@@ -743,8 +743,8 @@
             </span>
             <span class="pay-method__radio" aria-hidden="true"></span>
           </label>
-          <label class="pay-method">
-            <input type="radio" name="payMethod" value="cash" checked />
+          <label class="pay-method" for="payMethodCash">
+            <input type="radio" id="payMethodCash" name="payMethod" value="cash" checked />
             <span class="pay-method__logo pay-method__logo--cash" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="2" y="6" width="20" height="14" rx="2" fill="#16a34a"/><circle cx="12" cy="13" r="3.5" fill="#bbf7d0"/></svg>
             </span>
@@ -754,8 +754,8 @@
             </span>
             <span class="pay-method__radio" aria-hidden="true"></span>
           </label>
-          <label class="pay-method">
-            <input type="radio" name="payMethod" value="business" />
+          <label class="pay-method" for="payMethodBusiness">
+            <input type="radio" id="payMethodBusiness" name="payMethod" value="business" />
             <span class="pay-method__logo pay-method__logo--business" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
                 <rect x="3" y="7" width="18" height="13" rx="2"/>
@@ -805,15 +805,15 @@
 
         <form class="driver-form" id="driverApplicationForm">
           <div class="driver-form__grid">
-            <label class="driver-field" data-config-key="requireFullName">
-              <span class="driver-field__label">
+            <label class="driver-field" for="driverFullName" data-config-key="requireFullName">
+              <span class="driver-field__label" id="driverFullNameLabel">
                 <span data-i18n="driverFullName">Full Name</span>
                 <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
               </span>
-              <input id="driverFullName" name="fullName" type="text" autocomplete="name" required />
+              <input id="driverFullName" name="fullName" type="text" autocomplete="name" required aria-labelledby="driverFullNameLabel" />
             </label>
-            <label class="driver-field" data-config-key="requireCnic">
-              <span class="driver-field__label">
+            <label class="driver-field" for="driverCnic" data-config-key="requireCnic">
+              <span class="driver-field__label" id="driverCnicLabel">
                 <span data-i18n="driverCnic">CNIC Number</span>
                 <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
               </span>
@@ -825,21 +825,22 @@
                 maxlength="15"
                 placeholder="00000-0000000-0"
                 required
+                aria-labelledby="driverCnicLabel"
               />
             </label>
-            <label class="driver-field" data-config-key="requireLicense">
-              <span class="driver-field__label">
+            <label class="driver-field" for="driverLicense" data-config-key="requireLicense">
+              <span class="driver-field__label" id="driverLicenseLabel">
                 <span data-i18n="driverLicense">Driving License Number</span>
                 <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
               </span>
-              <input id="driverLicense" name="licenseNumber" type="text" maxlength="30" required />
+              <input id="driverLicense" name="licenseNumber" type="text" maxlength="30" required aria-labelledby="driverLicenseLabel" />
             </label>
-            <label class="driver-field" data-config-key="requireVehicleType">
-              <span class="driver-field__label">
+            <label class="driver-field" for="driverVehicleType" data-config-key="requireVehicleType">
+              <span class="driver-field__label" id="driverVehicleTypeLabel">
                 <span data-i18n="driverVehicleType">Vehicle Type</span>
                 <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
               </span>
-              <select id="driverVehicleType" name="vehicleType" required>
+              <select id="driverVehicleType" name="vehicleType" required aria-labelledby="driverVehicleTypeLabel">
                 <option value="" data-i18n="driverVehicleChoose">Choose vehicle</option>
                 <option value="bike" data-i18n="vehBike">Bike</option>
                 <option value="economy" data-i18n="vehEconomy">Economy</option>
@@ -855,13 +856,14 @@
               <p data-i18n="driverDocumentsHint">Upload clear JPG, PNG or WebP images.</p>
             </div>
             <div class="driver-upload-grid">
-              <label class="driver-upload" data-upload-zone="cnicFront" data-config-key="requireCnicFront">
+              <label class="driver-upload" for="driverCnicFront" data-upload-zone="cnicFront" data-config-key="requireCnicFront">
                 <input
                   id="driverCnicFront"
                   name="cnicFront"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   required
+                  aria-label="CNIC Front"
                 />
                 <span class="driver-upload__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -879,13 +881,14 @@
                 </span>
               </label>
 
-              <label class="driver-upload" data-upload-zone="cnicBack" data-config-key="requireCnicBack">
+              <label class="driver-upload" for="driverCnicBack" data-upload-zone="cnicBack" data-config-key="requireCnicBack">
                 <input
                   id="driverCnicBack"
                   name="cnicBack"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   required
+                  aria-label="CNIC Back"
                 />
                 <span class="driver-upload__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -899,13 +902,14 @@
                 <span class="driver-upload__file" aria-live="polite"></span>
               </label>
 
-              <label class="driver-upload" data-upload-zone="license" data-config-key="requireLicenseImage">
+              <label class="driver-upload" for="driverLicenseFile" data-upload-zone="license" data-config-key="requireLicenseImage">
                 <input
                   id="driverLicenseFile"
                   name="licenseImage"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   required
+                  aria-label="Driving License"
                 />
                 <span class="driver-upload__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -940,7 +944,7 @@
                 <span data-i18n="driverSelfieEmpty">Your selfie will appear here</span>
               </div>
             </div>
-            <input id="driverSelfieFile" name="selfie" type="file" accept="image/jpeg" hidden />
+            <input id="driverSelfieFile" name="selfie" type="file" accept="image/jpeg" hidden aria-label="Driver selfie" />
             <div class="driver-selfie__actions">
               <button type="button" class="driver-camera-btn" id="driverCameraBtn">
                 <span data-i18n="driverTakeSelfie">Take Selfie</span>
@@ -995,24 +999,24 @@
             <fieldset class="utility-fieldset utility-fieldset--premium">
               <legend data-i18n="rentDuration">Time Duration</legend>
               <div class="utility-choice-grid utility-choice-grid--duration" role="radiogroup" aria-label="Duration" data-i18n-aria="rentDuration">
-                <label class="utility-choice-card">
-                  <input type="radio" name="rentDuration" value="1h" checked />
+                <label class="utility-choice-card" for="rentDuration1h">
+                  <input type="radio" id="rentDuration1h" name="rentDuration" value="1h" checked />
                   <span class="utility-choice-card__icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>
                   </span>
                   <span class="utility-choice-card__label" data-i18n="rentDur1h">1 hour</span>
                   <span class="utility-choice-card__check" aria-hidden="true">✓</span>
                 </label>
-                <label class="utility-choice-card">
-                  <input type="radio" name="rentDuration" value="4h" />
+                <label class="utility-choice-card" for="rentDuration4h">
+                  <input type="radio" id="rentDuration4h" name="rentDuration" value="4h" />
                   <span class="utility-choice-card__icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8"/><path d="M12 7v5h4"/></svg>
                   </span>
                   <span class="utility-choice-card__label" data-i18n="rentDur4h">4 hours</span>
                   <span class="utility-choice-card__check" aria-hidden="true">✓</span>
                 </label>
-                <label class="utility-choice-card">
-                  <input type="radio" name="rentDuration" value="1d" />
+                <label class="utility-choice-card" for="rentDuration1d">
+                  <input type="radio" id="rentDuration1d" name="rentDuration" value="1d" />
                   <span class="utility-choice-card__icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
                   </span>
@@ -1025,24 +1029,24 @@
             <fieldset class="utility-fieldset utility-fieldset--premium">
               <legend data-i18n="rentVehicleType">Vehicle Type</legend>
               <div class="utility-choice-grid utility-choice-grid--vehicle" role="radiogroup" aria-label="Vehicle type" data-i18n-aria="rentVehicleType">
-                <label class="utility-choice-card utility-choice-card--vehicle">
-                  <input type="radio" name="rentVehicle" value="sedan" checked />
+                <label class="utility-choice-card utility-choice-card--vehicle" for="rentVehicleSedan">
+                  <input type="radio" id="rentVehicleSedan" name="rentVehicle" value="sedan" checked />
                   <span class="utility-choice-card__vehicle" aria-hidden="true">
                     <svg viewBox="0 0 72 36" fill="none"><path d="M5 24c2-5 6-7 12-8l10-2 8-9h18l10 10 5 2v9H5v-2Z"/><circle cx="19" cy="26" r="6"/><circle cx="56" cy="26" r="6"/></svg>
                   </span>
                   <span class="utility-choice-card__label" data-i18n="rentVehSedan">Sedan</span>
                   <span class="utility-choice-card__check" aria-hidden="true">✓</span>
                 </label>
-                <label class="utility-choice-card utility-choice-card--vehicle">
-                  <input type="radio" name="rentVehicle" value="suv" />
+                <label class="utility-choice-card utility-choice-card--vehicle" for="rentVehicleSuv">
+                  <input type="radio" id="rentVehicleSuv" name="rentVehicle" value="suv" />
                   <span class="utility-choice-card__vehicle" aria-hidden="true">
                     <svg viewBox="0 0 72 36" fill="none"><path d="M4 23c2-5 6-7 12-8l9-2 7-9h23l8 10 6 3v9H4v-3Z"/><circle cx="18" cy="26" r="6"/><circle cx="57" cy="26" r="6"/></svg>
                   </span>
                   <span class="utility-choice-card__label" data-i18n="rentVehSuv">SUV</span>
                   <span class="utility-choice-card__check" aria-hidden="true">✓</span>
                 </label>
-                <label class="utility-choice-card utility-choice-card--vehicle">
-                  <input type="radio" name="rentVehicle" value="van" />
+                <label class="utility-choice-card utility-choice-card--vehicle" for="rentVehicleVan">
+                  <input type="radio" id="rentVehicleVan" name="rentVehicle" value="van" />
                   <span class="utility-choice-card__vehicle" aria-hidden="true">
                     <svg viewBox="0 0 72 36" fill="none"><path d="M5 7h45l16 11v8H5V7Z"/><path d="M51 10v9h12"/><circle cx="19" cy="26" r="6"/><circle cx="55" cy="26" r="6"/></svg>
                   </span>
@@ -1068,7 +1072,7 @@
               <option value="large" data-i18n="cargoSizeLarge">Large</option>
             </select>
 
-            <label class="utility-check">
+            <label class="utility-check" for="cargoFragile">
               <input type="checkbox" id="cargoFragile" />
               <span data-i18n="cargoFragile">Fragile item</span>
             </label>

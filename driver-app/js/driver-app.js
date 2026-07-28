@@ -43,6 +43,7 @@ import {
   initAudioService,
   initNotificationSettingsUI,
 } from "./audio-service.js";
+import { announce, applyReducedMotionClass, trapFocus } from "./a11y.js";
 
 const KARACHI = [24.8607, 67.0011];
 
@@ -285,14 +286,24 @@ function setLoginBusy(busy) {
   }
 }
 
+/** @type {null | (() => void)} */
+let releaseAuthTrap = null;
+
 function showAuthOverlay(message = "") {
   if (!els.authOverlay) return;
   els.authOverlay.hidden = false;
   requestAnimationFrame(() => els.authOverlay?.classList.remove("is-hidden"));
   setAuthStatus(message);
+  releaseAuthTrap?.();
+  releaseAuthTrap = trapFocus(els.authOverlay, {
+    dismissible: false,
+    initialFocus: els.googleLoginBtn,
+  });
 }
 
 function hideAuthOverlay() {
+  releaseAuthTrap?.();
+  releaseAuthTrap = null;
   els.authOverlay?.classList.add("is-hidden");
   window.setTimeout(() => {
     if (els.authOverlay?.classList.contains("is-hidden")) {
@@ -1934,6 +1945,9 @@ function renderActiveRideControls(ride) {
   if (els.activeRideSheet) els.activeRideSheet.hidden = false;
   els.app?.classList.add("has-active-ride");
   requestAnimationFrame(() => els.activeRideSheet?.classList.add("is-visible"));
+  if (ride.status === "accepted") {
+    announce("سواری تفویض / Ride assigned");
+  }
   syncRideRadarFab();
 }
 
@@ -2054,16 +2068,21 @@ async function advanceActiveRideStatus() {
     if (nextStatus === "completed") {
       await completeRideWithEarnings(ride);
       setLocationMessage("سواری مکمل — کمائی اپڈیٹ ہو گئی");
+      announce("سواری مکمل ہو گئی / Ride completed");
       return;
     }
 
     const rideCollection = ride.sourceCollection || "rides";
     await updateDoc(doc(db, rideCollection, ride.id), { status: nextStatus });
-    setLocationMessage(
-      nextStatus === "arrived"
-        ? "پک اپ پر پہنچنے کی اطلاع بھیج دی گئی"
-        : "سواری شروع کر دی گئی"
-    );
+    if (nextStatus === "arrived") {
+      setLocationMessage("پک اپ پر پہنچنے کی اطلاع بھیج دی گئی");
+      announce("ڈرائیور پہنچ گئے / Driver arrived");
+    } else if (nextStatus === "in_progress") {
+      setLocationMessage("سواری شروع کر دی گئی");
+      announce("سواری شروع / Ride started");
+    } else {
+      setLocationMessage("اسٹیٹس اپڈیٹ ہو گئی");
+    }
   } catch (error) {
     console.warn("[SwiftGo Partner] advance ride status", error);
     setLocationMessage("اسٹیٹس اپڈیٹ نہیں ہو سکی۔ دوبارہ کوشش کریں۔");
@@ -2214,6 +2233,7 @@ async function handleRadarRideAccepted(result) {
 
 function boot() {
   try {
+    applyReducedMotionClass();
     hideProtectedUi();
     showAuthOverlay();
   els.statusToggle?.addEventListener("click", toggleDriverStatusFromUi);

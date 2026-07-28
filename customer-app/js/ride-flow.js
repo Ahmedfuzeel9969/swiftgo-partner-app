@@ -19,6 +19,7 @@ import { getPaymentMethod } from "./dashboard.js";
 import { getRouteInfo, clearRoutePoint } from "./routing.js";
 import { clearLocationCue } from "./map.js";
 import { t } from "./i18n.js";
+import { announce } from "./a11y.js";
 
 const VEHICLE_NAME_KEYS = {
   bike: "vehBike",
@@ -157,6 +158,7 @@ function showSearchingState() {
   els.searchingPanel.hidden = false;
   setSearchingOfferVisible(false);
   requestAnimationFrame(() => els.searchingPanel.classList.add("is-visible"));
+  announce(t("searchingDriver") || "Searching for drivers");
 }
 
 function setSearchingOfferVisible(hasOffer) {
@@ -181,8 +183,10 @@ function updateDriverOfferUi(_ride) {
     return;
   }
   const offer = open.find((o) => o.id === selectedOfferId) || open[0];
+  const isNewOffer = selectedOfferId !== offer.id;
   selectedOfferId = offer.id;
   setSearchingOfferVisible(true);
+  if (isNewOffer) announce(t("driverOfferReceived") || "Offer received");
   const fare = Math.round(Number(offer.fare) || 0);
   if (els.driverOfferDriverName) {
     els.driverOfferDriverName.textContent = offer.driverName || t("activeRideDriver");
@@ -208,9 +212,11 @@ async function onAcceptDriverOffer() {
   try {
     await finalizeOfferAsCustomer(selectedOfferId);
     onToast?.(t("driverOfferAcceptedToast"));
+    announce(t("rideAccepted") || "Driver assigned");
   } catch (err) {
     console.warn("[SwiftGo] accept offer", err);
     onToast?.(t("driverOfferError"));
+    announce(t("driverOfferError") || "Offer error", { assertive: true });
   } finally {
     offerBusy = false;
     if (els.acceptDriverOfferBtn) els.acceptDriverOfferBtn.disabled = false;
@@ -243,9 +249,11 @@ async function onSendCounterOffer() {
   try {
     await counterOfferAsCustomer(selectedOfferId, fare);
     onToast?.(t("driverOfferCounterSent"));
+    announce(t("driverOfferCounterSent") || "Counteroffer sent");
   } catch (err) {
     console.warn("[SwiftGo] counter offer", err);
     onToast?.(t("driverOfferError"));
+    announce(t("driverOfferError") || "Offer error", { assertive: true });
   } finally {
     offerBusy = false;
     if (els.sendCounterOfferBtn) els.sendCounterOfferBtn.disabled = false;
@@ -408,11 +416,20 @@ function handleRideSnapshot(ride) {
       previousStatus !== "in_progress";
     if (firstActive) {
       showActiveRideState(ride.status);
-      if (ride.status === "accepted") onToast?.(t("rideAccepted"));
+      if (ride.status === "accepted") {
+        onToast?.(t("rideAccepted"));
+        announce(t("rideAccepted") || "Driver assigned");
+      }
     } else if (previousStatus !== ride.status) {
       updateActiveRideStatusUi(ride.status);
-      if (ride.status === "arrived") onToast?.(t("rideDriverArrived"));
-      if (ride.status === "in_progress") onToast?.(t("rideInProgress"));
+      if (ride.status === "arrived") {
+        onToast?.(t("rideDriverArrived"));
+        announce(t("rideDriverArrived") || "Driver arrived");
+      }
+      if (ride.status === "in_progress") {
+        onToast?.(t("rideInProgress"));
+        announce(t("rideInProgress") || "Ride started");
+      }
     } else {
       updateActiveRideStatusUi(ride.status);
     }
@@ -422,8 +439,12 @@ function handleRideSnapshot(ride) {
     if (previousStatus !== "completed") {
       stopRideWatch();
       showInvoicePanel(ride);
+      announce(t("rideCompleted") || "Ride completed");
     }
   } else if (ride.status === "cancelled_by_user") {
+    if (previousStatus !== "cancelled_by_user") {
+      announce(t("rideCancelled") || "Booking cancelled", { assertive: true });
+    }
     resetToVehicleSelection();
   } else if (ride.status === "searching_driver") {
     if (previousStatus !== "searching_driver") showSearchingState();
@@ -459,6 +480,7 @@ export async function startRideRequest(state) {
     if (!gate.allowed) {
       if (gate.reason === "MAX_ACTIVE_BOOKINGS") {
         onToast?.(t("bookingMaxActive"));
+        announce(t("bookingMaxActive") || "Booking limit reached", { assertive: true });
         return null;
       }
       if (gate.needsConfirmation || gate.reason === "CONFIRM_EXTRA_BOOKING") {
@@ -522,6 +544,7 @@ export async function startRideRequest(state) {
 
     activeRide = ride;
     if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
+    announce(t("bookingCreated") || "Booking created");
     showSearchingState();
     stopRideWatch();
     unsubscribeRide = watchRideRequest(

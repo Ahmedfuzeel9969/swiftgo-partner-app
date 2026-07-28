@@ -1,0 +1,637 @@
+{
+  "startedAt": "2026-07-28T06:11:13.078Z",
+  "base": "http://127.0.0.1:62187",
+  "viewports": [
+    "320x568",
+    "360x800",
+    "390x844",
+    "412x915",
+    "768x1024",
+    "1366x768",
+    "390x844-landscape",
+    "412x915-landscape"
+  ],
+  "apps": [
+    "customer",
+    "partner",
+    "owner",
+    "admin"
+  ],
+  "findings": [],
+  "screenshots": [
+    {
+      "app": "customer",
+      "state": "home",
+      "viewport": "320x568",
+      "file": "docs/phase4a-ui-evidence/customer__home__320x568.png"
+    },
+    {
+      "app": "partner",
+      "state": "home",
+      "viewport": "320x568",
+      "file": "docs/phase4a-ui-evidence/partner__home__320x568.png"
+    },
+    {
+      "app": "owner",
+      "state": "home",
+      "viewport": "320x568",
+      "file": "docs/phase4a-ui-evidence/owner__home__320x568.png"
+    },
+    {
+      "app": "admin",
+      "state": "home",
+      "viewport": "320x568",
+      "file": "docs/phase4a-ui-evidence/admin__home__320x568.png"
+    },
+    {
+      "app": "customer",
+      "state": "home",
+      "viewport": "360x800",
+      "file": "docs/phase4a-ui-evidence/customer__home__360x800.png"
+    },
+    {
+      "app": "partner",
+      "state": "home",
+      "viewport": "360x800",
+      "file": "docs/phase4a-ui-evidence/partner__home__360x800.png"
+    },
+    {
+      "app": "owner",
+      "state": "home",
+      "viewport": "360x800",
+      "file": "docs/phase4a-ui-evidence/owner__home__360x800.png"
+    },
+    {
+      "app": "admin",
+      "state": "home",
+      "viewport": "360x800",
+      "file": "docs/phase4a-ui-evidence/admin__home__360x800.png"
+    },
+    {
+      "app": "customer",
+      "state": "home",
+      "viewport": "390x844",
+      "file": "docs/phase4a-ui-evidence/customer__home__390x844.png"
+    },
+    {
+      "app": "customer",
+      "state": "sidebar",
+      "viewport": "390x844",
+      "file": "docs/phase4a-ui-evidence/customer__sidebar__390x844.png"
+    },
+    {
+      "app": "customer",
+      "state": "sheet-expanded",
+      "viewport": "390x844",
+      "file": "docs/phase4a-ui-evidence/customer__sheet-expanded__390x844.png"
+    },
+    {
+      "app": "customer",
+      "state": "urdu",
+      "viewport": "390x844",
+      "file": "docs/phase4a-ui-evidence/customer__urdu__390x844.png"
+    },
+    {
+      "app": "partner",
+      "state": "home",
+      "viewport": "390x844",
+      "file": "docs/phase4a-ui-evidence/partner__home__390x844.png"
+    },
+    {
+      "app": "partner",
+      "state": "auth-or-shell",
+      "viewport": "390x844",
+      "file": "docs/phase4a-ui-evidence/partner__auth-or-shell__390x844.png"
+    },
+    {
+      "app": "owner",
+      "state": "home",
+      "viewport": "390x844",
+      "file": "docs/phase4a-ui-evidence/owner__home__390x844.png"
+    },
+    {
+      "app": "owner",
+      "state": "auth-or-shell",
+      "viewport": "390x844",
+      "file": "docs/phase4a-ui-evidence/owner__auth-or-shell__390x844.png"
+    },
+    {
+      "app": "admin",
+      "state": "home",
+      "viewport": "390x844",
+      "file": "docs/phase4a-ui-evidence/admin__home__390x844.png"
+    },
+    {
+      "app": "admin",
+      "state": "login",
+      "viewport": "390x844",
+      "file": "docs/phase4a-ui-evidence/admin__login__390x844.png"
+    },
+    {
+      "app": "customer",
+      "state": "home",
+      "viewport": "412x915",
+      "file": "docs/phase4a-ui-evidence/customer__home__412x915.png"
+    },
+    {
+      "app": "partner",
+      "state": "home",
+      "viewport": "412x915",
+      "file": "docs/phase4a-ui-evidence/partner__home__412x915.png"
+    },
+    {
+      "app": "owner",
+      "state": "home",
+      "viewport": "412x915",
+      "file": "docs/phase4a-ui-evidence/owner__home__412x915.png"
+    },
+    {
+      "app": "admin",
+      "state": "home",
+      "viewport": "412x915",
+      "file": "docs/phase4a-ui-evidence/admin__home__412x915.png"
+    },
+    {
+      "app": "customer",
+      "state": "home",
+      "viewport": "768x1024",
+      "file": "docs/phase4a-ui-evidence/customer__home__768x1024.png"
+    },
+    {
+      "app": "partner",
+      "state": "home",
+      "viewport": "768x1024",
+      "file": "docs/phase4a-ui-evidence/partner__home__768x1024.png"
+    },
+    {
+      "app": "owner",
+      "state": "home",
+      "viewport": "768x1024",
+      "file": "docs/phase4a-ui-evidence/owner__home__768x1024.png"
+    },
+    {
+      "app": "admin",
+      "state": "home",
+      "viewport": "768x1024",
+      "file": "docs/phase4a-ui-evidence/admin__home__768x1024.png"
+    },
+    {
+      "app": "customer",
+      "state": "home",
+      "viewport": "1366x768",
+      "file": "docs/phase4a-ui-evidence/customer__home__1366x768.png"
+    },
+    {
+      "app": "partner",
+      "state": "home",
+      "viewport": "1366x768",
+      "file": "docs/phase4a-ui-evidence/partner__home__1366x768.png"
+    },
+    {
+      "app": "owner",
+      "state": "home",
+      "viewport": "1366x768",
+      "file": "docs/phase4a-ui-evidence/owner__home__1366x768.png"
+    },
+    {
+      "app": "admin",
+      "state": "home",
+      "viewport": "1366x768",
+      "file": "docs/phase4a-ui-evidence/admin__home__1366x768.png"
+    },
+    {
+      "app": "customer",
+      "state": "home",
+      "viewport": "390x844-landscape",
+      "file": "docs/phase4a-ui-evidence/customer__home__390x844-landscape.png"
+    },
+    {
+      "app": "customer",
+      "state": "landscape-map",
+      "viewport": "390x844-landscape",
+      "file": "docs/phase4a-ui-evidence/customer__landscape-map__390x844-landscape.png"
+    },
+    {
+      "app": "partner",
+      "state": "home",
+      "viewport": "390x844-landscape",
+      "file": "docs/phase4a-ui-evidence/partner__home__390x844-landscape.png"
+    },
+    {
+      "app": "partner",
+      "state": "landscape-map",
+      "viewport": "390x844-landscape",
+      "file": "docs/phase4a-ui-evidence/partner__landscape-map__390x844-landscape.png"
+    },
+    {
+      "app": "owner",
+      "state": "home",
+      "viewport": "390x844-landscape",
+      "file": "docs/phase4a-ui-evidence/owner__home__390x844-landscape.png"
+    },
+    {
+      "app": "admin",
+      "state": "home",
+      "viewport": "390x844-landscape",
+      "file": "docs/phase4a-ui-evidence/admin__home__390x844-landscape.png"
+    },
+    {
+      "app": "customer",
+      "state": "home",
+      "viewport": "412x915-landscape",
+      "file": "docs/phase4a-ui-evidence/customer__home__412x915-landscape.png"
+    },
+    {
+      "app": "customer",
+      "state": "landscape-map",
+      "viewport": "412x915-landscape",
+      "file": "docs/phase4a-ui-evidence/customer__landscape-map__412x915-landscape.png"
+    },
+    {
+      "app": "partner",
+      "state": "home",
+      "viewport": "412x915-landscape",
+      "file": "docs/phase4a-ui-evidence/partner__home__412x915-landscape.png"
+    },
+    {
+      "app": "partner",
+      "state": "landscape-map",
+      "viewport": "412x915-landscape",
+      "file": "docs/phase4a-ui-evidence/partner__landscape-map__412x915-landscape.png"
+    },
+    {
+      "app": "owner",
+      "state": "home",
+      "viewport": "412x915-landscape",
+      "file": "docs/phase4a-ui-evidence/owner__home__412x915-landscape.png"
+    },
+    {
+      "app": "admin",
+      "state": "home",
+      "viewport": "412x915-landscape",
+      "file": "docs/phase4a-ui-evidence/admin__home__412x915-landscape.png"
+    }
+  ],
+  "keyboardSamples": [
+    {
+      "app": "customer",
+      "viewport": "390x844",
+      "order": [
+        {
+          "tag": "button",
+          "id": "utilityDrawerClose",
+          "role": null,
+          "aria": "Close menu",
+          "text": "×"
+        },
+        {
+          "tag": "header",
+          "id": "profileTap",
+          "role": "button",
+          "aria": null,
+          "text": "Guest User\n            Tap to sign in"
+        },
+        {
+          "tag": "button",
+          "id": null,
+          "role": null,
+          "aria": null,
+          "text": "Home"
+        },
+        {
+          "tag": "button",
+          "id": null,
+          "role": null,
+          "aria": null,
+          "text": "History"
+        },
+        {
+          "tag": "button",
+          "id": null,
+          "role": null,
+          "aria": null,
+          "text": "Wallet"
+        },
+        {
+          "tag": "button",
+          "id": null,
+          "role": null,
+          "aria": null,
+          "text": "Missed Call"
+        },
+        {
+          "tag": "button",
+          "id": null,
+          "role": null,
+          "aria": null,
+          "text": "Contact Us"
+        },
+        {
+          "tag": "button",
+          "id": null,
+          "role": null,
+          "aria": null,
+          "text": "EN"
+        },
+        {
+          "tag": "button",
+          "id": null,
+          "role": null,
+          "aria": null,
+          "text": "اردو"
+        },
+        {
+          "tag": "button",
+          "id": "earnDriverBtn",
+          "role": null,
+          "aria": null,
+          "text": "Earn as a Driver"
+        },
+        {
+          "tag": "button",
+          "id": "menuBtn",
+          "role": null,
+          "aria": "Open menu",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "app": "partner",
+      "viewport": "390x844",
+      "order": [
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        }
+      ]
+    },
+    {
+      "app": "owner",
+      "viewport": "390x844",
+      "order": [
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        },
+        {
+          "tag": "button",
+          "id": "driverGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Google سے لاگ ان کریں"
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "viewport": "390x844",
+      "order": [
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        },
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        },
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        },
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        },
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        },
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        },
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        },
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        },
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        },
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        },
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        },
+        {
+          "tag": "button",
+          "id": "adminGoogleLoginBtn",
+          "role": null,
+          "aria": null,
+          "text": "Login via Google"
+        }
+      ]
+    }
+  ],
+  "finishedAt": "2026-07-28T06:12:50.354Z",
+  "counts": {
+    "screenshots": 42,
+    "findings": 0,
+    "p1": 0,
+    "p2": 0
+  }
+}

@@ -16,12 +16,12 @@
 </head>
 <body>
   <!-- Login gate -->
-  <main class="admin-shell" id="adminLoginScreen">
+  <main class="admin-shell" id="adminLoginScreen" role="dialog" aria-modal="true" aria-labelledby="adminLoginHeading">
     <section class="admin-hero">
       <div class="admin-card">
         <div class="admin-card__mark" aria-hidden="true">SG</div>
         <p class="admin-card__eyebrow">Operations Console</p>
-        <h1>SwiftGo - Super Admin Command Center</h1>
+        <h1 id="adminLoginHeading">SwiftGo - Super Admin Command Center</h1>
         <p class="admin-card__copy">
           Secure access for fleet oversight, partner approvals, and live ride operations.
         </p>
@@ -287,17 +287,17 @@
                     <h3>بائیک</h3>
                     <span>Bike</span>
                   </header>
-                  <label class="finance-field">
-                    <span class="finance-field__label">بیس فیئر (PKR)</span>
-                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-bike-baseFare">
+                    <span class="finance-field__label" id="rate-bike-baseFareLabel">بیس فیئر (PKR) / Base fare (PKR)</span>
+                    <input id="rate-bike-baseFare" type="number" data-rate-field="baseFare" aria-labelledby="rate-bike-baseFareLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
-                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-bike-perKmRate">
+                    <span class="finance-field__label" id="rate-bike-perKmRateLabel">فی کلومیٹر (PKR) / Per km (PKR)</span>
+                    <input id="rate-bike-perKmRate" type="number" data-rate-field="perKmRate" aria-labelledby="rate-bike-perKmRateLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">کمیشن (%)</span>
-                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  <label class="finance-field" for="rate-bike-commissionPercent">
+                    <span class="finance-field__label" id="rate-bike-commissionPercentLabel">کمیشن (%) / Commission (%)</span>
+                    <input id="rate-bike-commissionPercent" type="number" data-rate-field="commissionPercent" aria-labelledby="rate-bike-commissionPercentLabel" min="0" max="100" step="0.1" inputmode="decimal" required />
                   </label>
                 </section>
 
@@ -306,17 +306,17 @@
                     <h3>گو</h3>
                     <span>Go</span>
                   </header>
-                  <label class="finance-field">
-                    <span class="finance-field__label">بیس فیئر (PKR)</span>
-                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-go-baseFare">
+                    <span class="finance-field__label" id="rate-go-baseFareLabel">بیس فیئر (PKR) / Base fare (PKR)</span>
+                    <input id="rate-go-baseFare" type="number" data-rate-field="baseFare" aria-labelledby="rate-go-baseFareLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
-                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-go-perKmRate">
+                    <span class="finance-field__label" id="rate-go-perKmRateLabel">فی کلومیٹر (PKR) / Per km (PKR)</span>
+                    <input id="rate-go-perKmRate" type="number" data-rate-field="perKmRate" aria-labelledby="rate-go-perKmRateLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">کمیشن (%)</span>
-                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  <label class="finance-field" for="rate-go-commissionPercent">
+                    <span class="finance-field__label" id="rate-go-commissionPercentLabel">کمیشن (%) / Commission (%)</span>
+                    <input id="rate-go-commissionPercent" type="number" data-rate-field="commissionPercent" aria-labelledby="rate-go-commissionPercentLabel" min="0" max="100" step="0.1" inputmode="decimal" required />
                   </label>
                 </section>
 
@@ -325,17 +325,17 @@
                     <h3>گو پلس</h3>
                     <span>Go Plus</span>
                   </header>
-                  <label class="finance-field">
-                    <span class="finance-field__label">بیس فیئر (PKR)</span>
-                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-go-plus-baseFare">
+                    <span class="finance-field__label" id="rate-go-plus-baseFareLabel">بیس فیئر (PKR) / Base fare (PKR)</span>
+                    <input id="rate-go-plus-baseFare" type="number" data-rate-field="baseFare" aria-labelledby="rate-go-plus-baseFareLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
-                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-go-plus-perKmRate">
+                    <span class="finance-field__label" id="rate-go-plus-perKmRateLabel">فی کلومیٹر (PKR) / Per km (PKR)</span>
+                    <input id="rate-go-plus-perKmRate" type="number" data-rate-field="perKmRate" aria-labelledby="rate-go-plus-perKmRateLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">کمیشن (%)</span>
-                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  <label class="finance-field" for="rate-go-plus-commissionPercent">
+                    <span class="finance-field__label" id="rate-go-plus-commissionPercentLabel">کمیشن (%) / Commission (%)</span>
+                    <input id="rate-go-plus-commissionPercent" type="number" data-rate-field="commissionPercent" aria-labelledby="rate-go-plus-commissionPercentLabel" min="0" max="100" step="0.1" inputmode="decimal" required />
                   </label>
                 </section>
 
@@ -344,17 +344,17 @@
                     <h3>بزنس</h3>
                     <span>Business</span>
                   </header>
-                  <label class="finance-field">
-                    <span class="finance-field__label">بیس فیئر (PKR)</span>
-                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-business-baseFare">
+                    <span class="finance-field__label" id="rate-business-baseFareLabel">بیس فیئر (PKR) / Base fare (PKR)</span>
+                    <input id="rate-business-baseFare" type="number" data-rate-field="baseFare" aria-labelledby="rate-business-baseFareLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
-                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-business-perKmRate">
+                    <span class="finance-field__label" id="rate-business-perKmRateLabel">فی کلومیٹر (PKR) / Per km (PKR)</span>
+                    <input id="rate-business-perKmRate" type="number" data-rate-field="perKmRate" aria-labelledby="rate-business-perKmRateLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">کمیشن (%)</span>
-                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  <label class="finance-field" for="rate-business-commissionPercent">
+                    <span class="finance-field__label" id="rate-business-commissionPercentLabel">کمیشن (%) / Commission (%)</span>
+                    <input id="rate-business-commissionPercent" type="number" data-rate-field="commissionPercent" aria-labelledby="rate-business-commissionPercentLabel" min="0" max="100" step="0.1" inputmode="decimal" required />
                   </label>
                 </section>
 
@@ -363,17 +363,17 @@
                     <h3>بائیک کارگو</h3>
                     <span>Bike Cargo</span>
                   </header>
-                  <label class="finance-field">
-                    <span class="finance-field__label">بیس فیئر (PKR)</span>
-                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-bike-cargo-baseFare">
+                    <span class="finance-field__label" id="rate-bike-cargo-baseFareLabel">بیس فیئر (PKR) / Base fare (PKR)</span>
+                    <input id="rate-bike-cargo-baseFare" type="number" data-rate-field="baseFare" aria-labelledby="rate-bike-cargo-baseFareLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
-                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-bike-cargo-perKmRate">
+                    <span class="finance-field__label" id="rate-bike-cargo-perKmRateLabel">فی کلومیٹر (PKR) / Per km (PKR)</span>
+                    <input id="rate-bike-cargo-perKmRate" type="number" data-rate-field="perKmRate" aria-labelledby="rate-bike-cargo-perKmRateLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">کمیشن (%)</span>
-                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  <label class="finance-field" for="rate-bike-cargo-commissionPercent">
+                    <span class="finance-field__label" id="rate-bike-cargo-commissionPercentLabel">کمیشن (%) / Commission (%)</span>
+                    <input id="rate-bike-cargo-commissionPercent" type="number" data-rate-field="commissionPercent" aria-labelledby="rate-bike-cargo-commissionPercentLabel" min="0" max="100" step="0.1" inputmode="decimal" required />
                   </label>
                 </section>
 
@@ -382,17 +382,17 @@
                     <h3>سوزوکی</h3>
                     <span>Suzuki</span>
                   </header>
-                  <label class="finance-field">
-                    <span class="finance-field__label">بیس فیئر (PKR)</span>
-                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-suzuki-baseFare">
+                    <span class="finance-field__label" id="rate-suzuki-baseFareLabel">بیس فیئر (PKR) / Base fare (PKR)</span>
+                    <input id="rate-suzuki-baseFare" type="number" data-rate-field="baseFare" aria-labelledby="rate-suzuki-baseFareLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
-                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-suzuki-perKmRate">
+                    <span class="finance-field__label" id="rate-suzuki-perKmRateLabel">فی کلومیٹر (PKR) / Per km (PKR)</span>
+                    <input id="rate-suzuki-perKmRate" type="number" data-rate-field="perKmRate" aria-labelledby="rate-suzuki-perKmRateLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">کمیشن (%)</span>
-                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  <label class="finance-field" for="rate-suzuki-commissionPercent">
+                    <span class="finance-field__label" id="rate-suzuki-commissionPercentLabel">کمیشن (%) / Commission (%)</span>
+                    <input id="rate-suzuki-commissionPercent" type="number" data-rate-field="commissionPercent" aria-labelledby="rate-suzuki-commissionPercentLabel" min="0" max="100" step="0.1" inputmode="decimal" required />
                   </label>
                 </section>
 
@@ -401,23 +401,23 @@
                     <h3>ٹرک</h3>
                     <span>Truck</span>
                   </header>
-                  <label class="finance-field">
-                    <span class="finance-field__label">بیس فیئر (PKR)</span>
-                    <input type="number" data-rate-field="baseFare" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-truck-baseFare">
+                    <span class="finance-field__label" id="rate-truck-baseFareLabel">بیس فیئر (PKR) / Base fare (PKR)</span>
+                    <input id="rate-truck-baseFare" type="number" data-rate-field="baseFare" aria-labelledby="rate-truck-baseFareLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">فی کلومیٹر (PKR)</span>
-                    <input type="number" data-rate-field="perKmRate" min="0" step="1" inputmode="numeric" required />
+                  <label class="finance-field" for="rate-truck-perKmRate">
+                    <span class="finance-field__label" id="rate-truck-perKmRateLabel">فی کلومیٹر (PKR) / Per km (PKR)</span>
+                    <input id="rate-truck-perKmRate" type="number" data-rate-field="perKmRate" aria-labelledby="rate-truck-perKmRateLabel" min="0" step="1" inputmode="numeric" required />
                   </label>
-                  <label class="finance-field">
-                    <span class="finance-field__label">کمیشن (%)</span>
-                    <input type="number" data-rate-field="commissionPercent" min="0" max="100" step="0.1" inputmode="decimal" required />
+                  <label class="finance-field" for="rate-truck-commissionPercent">
+                    <span class="finance-field__label" id="rate-truck-commissionPercentLabel">کمیشن (%) / Commission (%)</span>
+                    <input id="rate-truck-commissionPercent" type="number" data-rate-field="commissionPercent" aria-labelledby="rate-truck-commissionPercentLabel" min="0" max="100" step="0.1" inputmode="decimal" required />
                   </label>
                 </section>
               </div>
 
-              <label class="finance-field finance-field--wallet">
-                <span class="finance-field__label">والٹ حد (Max Negative Balance - PKR) · تمام ڈرائیورز</span>
+              <label class="finance-field finance-field--wallet" for="pricingWalletThreshold">
+                <span class="finance-field__label" id="pricingWalletThresholdLabel">والٹ حد (Max Negative Balance - PKR) · تمام ڈرائیورز / Wallet threshold (PKR)</span>
                 <input
                   type="number"
                   id="pricingWalletThreshold"
@@ -426,6 +426,7 @@
                   step="1"
                   inputmode="numeric"
                   required
+                  aria-labelledby="pricingWalletThresholdLabel"
                 />
               </label>
 
@@ -444,9 +445,9 @@
               <p>نئی بکنگ کتنے قریبی ڈرائیورز کو دکھے · <code>settings/dispatch.candidateDriverLimit</code> · صرف 10 یا 20</p>
             </div>
             <form class="finance-form" id="dispatchSettingsForm" novalidate>
-              <label class="finance-field">
-                <span class="finance-field__label">امیدوار ڈرائیور حد (10 یا 20)</span>
-                <select id="candidateDriverLimitInput" name="candidateDriverLimit" required>
+              <label class="finance-field" for="candidateDriverLimitInput">
+                <span class="finance-field__label" id="candidateDriverLimitLabel">امیدوار ڈرائیور حد (10 یا 20) / Candidate driver limit</span>
+                <select id="candidateDriverLimitInput" name="candidateDriverLimit" required aria-labelledby="candidateDriverLimitLabel">
                   <option value="10">10 ڈرائیورز</option>
                   <option value="20">20 ڈرائیورز</option>
                 </select>
@@ -467,24 +468,24 @@
               <p>Discount codes · <code>promoCodes/{code}</code></p>
             </div>
             <form class="promo-form" id="promoCodeForm" novalidate>
-              <label class="promo-field">
-                <span class="promo-field__label">کوڈ</span>
-                <input type="text" id="promoCodeInput" name="code" maxlength="32" required placeholder="SWIFT10" autocapitalize="characters" />
+              <label class="promo-field" for="promoCodeInput">
+                <span class="promo-field__label" id="promoCodeLabel">کوڈ / Code</span>
+                <input type="text" id="promoCodeInput" name="code" maxlength="32" required placeholder="SWIFT10" autocapitalize="characters" aria-labelledby="promoCodeLabel" />
               </label>
-              <label class="promo-field">
-                <span class="promo-field__label">قسم</span>
-                <select id="promoTypeInput" name="type">
+              <label class="promo-field" for="promoTypeInput">
+                <span class="promo-field__label" id="promoTypeLabel">قسم / Type</span>
+                <select id="promoTypeInput" name="type" aria-labelledby="promoTypeLabel">
                   <option value="percent">Percent (%)</option>
                   <option value="fixed">Fixed (PKR)</option>
                 </select>
               </label>
-              <label class="promo-field">
-                <span class="promo-field__label">ویلیو</span>
-                <input type="number" id="promoValueInput" name="value" min="1" step="1" required />
+              <label class="promo-field" for="promoValueInput">
+                <span class="promo-field__label" id="promoValueLabel">ویلیو / Value</span>
+                <input type="number" id="promoValueInput" name="value" min="1" step="1" required aria-labelledby="promoValueLabel" />
               </label>
-              <label class="promo-field">
-                <span class="promo-field__label">زیادہ سے زیادہ استعمال</span>
-                <input type="number" id="promoMaxUsesInput" name="maxUses" min="0" step="1" placeholder="0 = unlimited" />
+              <label class="promo-field" for="promoMaxUsesInput">
+                <span class="promo-field__label" id="promoMaxUsesLabel">زیادہ سے زیادہ استعمال / Max uses</span>
+                <input type="number" id="promoMaxUsesInput" name="maxUses" min="0" step="1" placeholder="0 = unlimited" aria-labelledby="promoMaxUsesLabel" />
               </label>
               <button type="submit" class="promo-save-btn" id="promoSaveBtn">نیا کوڈ شامل کریں</button>
             </form>

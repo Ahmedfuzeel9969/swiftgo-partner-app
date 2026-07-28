@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-07-28T06:11:10.542Z",
+  "passed": 9,
+  "failed": 0,
+  "blocked": 0,
+  "skipped": 0,
+  "results": [
+    {
+      "name": "customer_required_names",
+      "expected": 0,
+      "actual": 0,
+      "status": "PASS",
+      "missing": []
+    },
+    {
+      "name": "customer_keyboard_moves",
+      "expected": "focus_changes",
+      "actual": "ok",
+      "status": "PASS",
+      "order": [
+        "map",
+        "DIV",
+        "A",
+        "A",
+        "A",
+        "A",
+        "whereToTrigger",
+        "btnLayersFab"
+      ]
+    },
+    {
+      "name": "partner_required_names",
+      "expected": 0,
+      "actual": 0,
+      "status": "PASS",
+      "missing": []
+    },
+    {
+      "name": "partner_auth_focus_contained",
+      "expected": "dialog_focusable",
+      "actual": "ok",
+      "status": "PASS",
+      "order": [
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn"
+      ]
+    },
+    {
+      "name": "owner_auth_focus_contained",
+      "expected": "dialog_focusable",
+      "actual": "ok",
+      "status": "PASS",
+      "order": [
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn",
+        "driverGoogleLoginBtn"
+      ]
+    },
+    {
+      "name": "admin_required_names",
+      "expected": 0,
+      "actual": 0,
+      "status": "PASS",
+      "missing": []
+    },
+    {
+      "name": "admin_auth_focus_contained",
+      "expected": "dialog_focusable",
+      "actual": "ok",
+      "status": "PASS",
+      "order": [
+        "adminGoogleLoginBtn",
+        "adminGoogleLoginBtn",
+        "adminGoogleLoginBtn",
+        "adminGoogleLoginBtn",
+        "adminGoogleLoginBtn",
+        "adminGoogleLoginBtn",
+        "adminGoogleLoginBtn",
+        "adminGoogleLoginBtn"
+      ]
+    },
+    {
+      "name": "reduced_motion_css",
+      "expected": 4,
+      "actual": 4,
+      "status": "PASS"
+    },
+    {
+      "name": "a11y_helpers_packaged",
+      "expected": true,
+      "actual": true,
+      "status": "PASS"
+    }
+  ]
+}
