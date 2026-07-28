@@ -1,0 +1,234 @@
+{
+  "phase": "4H",
+  "generatedAt": "2026-07-28T10:18:17.284Z",
+  "adbDevicesAttached": false,
+  "pass": 19,
+  "fail": 0,
+  "blocked": 18,
+  "pending": 0,
+  "results": [
+    {
+      "name": "doc-PHASE-4H-INTERNAL-TEST-REPORT.md",
+      "status": "PASS",
+      "detail": "docs/PHASE-4H-INTERNAL-TEST-REPORT.md",
+      "evidence": ""
+    },
+    {
+      "name": "doc-PHASE-4H-PILOT-EVIDENCE.md",
+      "status": "PASS",
+      "detail": "docs/PHASE-4H-PILOT-EVIDENCE.md",
+      "evidence": ""
+    },
+    {
+      "name": "doc-PHASE-4H-INCIDENT-LOG.md",
+      "status": "PASS",
+      "detail": "docs/PHASE-4H-INCIDENT-LOG.md",
+      "evidence": ""
+    },
+    {
+      "name": "doc-PHASE-4H-LAUNCH-READINESS.md",
+      "status": "PASS",
+      "detail": "docs/PHASE-4H-LAUNCH-READINESS.md",
+      "evidence": ""
+    },
+    {
+      "name": "synthetic-account-protocol",
+      "status": "PASS",
+      "detail": "docs/phase4h-synthetic-accounts.md",
+      "evidence": ""
+    },
+    {
+      "name": "device-runbook",
+      "status": "PASS",
+      "detail": "docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "four-customer-booking-limit",
+      "status": "PASS",
+      "detail": "prior suite evidence",
+      "evidence": "tests/phase2a-bargaining-results.json"
+    },
+    {
+      "name": "ten-driver-bargaining-limit",
+      "status": "PASS",
+      "detail": "prior suite evidence",
+      "evidence": "tests/phase2a-bargaining-results.json"
+    },
+    {
+      "name": "duplicate-settlement-guard",
+      "status": "PASS",
+      "detail": "prior suite evidence",
+      "evidence": "tests/phase2a-settlement-results.json"
+    },
+    {
+      "name": "duplicate-completion-denied",
+      "status": "PASS",
+      "detail": "prior suite evidence",
+      "evidence": "tests/phase1-emulator-results.json"
+    },
+    {
+      "name": "geo-matching-contract",
+      "status": "PASS",
+      "detail": "phase3b matching suite",
+      "evidence": "tests/phase3b-matching-results.json"
+    },
+    {
+      "name": "ops-health-callable",
+      "status": "PASS",
+      "detail": "phase4f ops",
+      "evidence": "tests/phase4f-ops-results.json"
+    },
+    {
+      "name": "android-pipeline",
+      "status": "PASS",
+      "detail": "phase4g android",
+      "evidence": "tests/phase4g-android-results.json"
+    },
+    {
+      "name": "account-deletion-path",
+      "status": "PASS",
+      "detail": "phase4e trust",
+      "evidence": "tests/phase4e-trust-results.json"
+    },
+    {
+      "name": "canonical-audit",
+      "status": "PASS",
+      "detail": "audit 257/0",
+      "evidence": "tests/audit-results.json"
+    },
+    {
+      "name": "real-customer-phone",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "real-driver-phone",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "android-version-matrix",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "weak-mobile-data",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "temporary-internet-loss",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "gps-unavailable",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "gps-permission-denied",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "partner-background-location",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "app-closed-reopened",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "phone-restarted",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "duplicate-booking-taps-ui",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "duplicate-final-acceptance-ui",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "blocked-suspended-users-ui",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "kyc-privacy-on-device",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "pin-lockout-on-device",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "receipt-history-on-device",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "support-deletion-on-device",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "monitoring-rollback-drill-live",
+      "status": "BLOCKED",
+      "detail": "No USB/wireless Android device attached (adb devices empty). Use docs/phase4h-device-runbook.md",
+      "evidence": ""
+    },
+    {
+      "name": "play-upload-not-performed",
+      "status": "PASS",
+      "detail": "Phase 4H forbids Play publish",
+      "evidence": ""
+    },
+    {
+      "name": "paid-ads-not-started",
+      "status": "PASS",
+      "detail": "Phase 4H forbids paid advertising",
+      "evidence": ""
+    },
+    {
+      "name": "no-production-deploy-this-phase",
+      "status": "PASS",
+      "detail": "No Production deploy in 4H scripts",
+      "evidence": ""
+    },
+    {
+      "name": "admin-not-public-play",
+      "status": "PASS",
+      "detail": "Admin remains web-only per 4G",
+      "evidence": ""
+    }
+  ],
+  "verdict": "CONDITIONAL_PASS"
+}

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-27T13:51:28.290Z",
+  "generatedAt": "2026-07-28T10:17:30.785Z",
   "baseUrl": "https://swiftgo-ride-app.web.app",
   "total": 257,
   "passed": 257,
@@ -839,13 +839,13 @@
       "suite": "i18n",
       "name": "i18n EN keys > 60",
       "status": "PASS",
-      "detail": "count=312"
+      "detail": "count=351"
     },
     {
       "suite": "i18n",
       "name": "i18n UR keys > 60",
       "status": "PASS",
-      "detail": "count=312"
+      "detail": "count=351"
     },
     {
       "suite": "i18n",

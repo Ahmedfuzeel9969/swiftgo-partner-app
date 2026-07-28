@@ -24,6 +24,7 @@
     "test:phase4f-storage": "firebase emulators:exec --only storage --project demo-swiftgo-phase1 \"node tests/phase4f-storage-rules.mjs\"",
     "test:phase4f-ops": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/phase4f-ops-verify.mjs\"",
     "test:phase4g": "node tests/phase4g-android-verify.mjs",
+    "test:phase4h": "node tests/phase4h-pilot-readiness.mjs",
     "mobile:sync": "node tools/phase4g-sync-mobile.mjs",
     "mobile:harden": "node tools/phase4g-apply-android-hardening.mjs",
     "build:hosting": "node tools/build-hosting.mjs",
