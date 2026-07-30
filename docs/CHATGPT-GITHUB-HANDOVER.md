@@ -17,7 +17,7 @@ Purpose: Safe repository handover so ChatGPT can inspect, modify, test, commit, 
 | Current working branch | `main` |
 | Production branch | `main` (GitHub default) |
 | Safety branch | `handover/chatgpt-baseline` |
-| Latest commit hash | _(filled after push — see section “Push status”)_ |
+| Latest commit hash | Tip of `handover/chatgpt-baseline` / `main` after handover push (content baseline `c918f6c68922b945cf32ed75c102dacbdaea9b96`) |
 | Live site | https://swiftgo-ride-app.web.app/ |
 | Firebase project ID | `swiftgo-ride-app` |
 | Firebase Hosting | default site for project `swiftgo-ride-app` (public dir `hosting-dist`) |
@@ -29,10 +29,11 @@ Purpose: Safe repository handover so ChatGPT can inspect, modify, test, commit, 
 
 Recorded at handover completion:
 
-- All legitimate local work from this tree committed on `main`
-- Safety branch `handover/chatgpt-baseline` created from that tip and pushed
-- Working tree expected clean after push
+- Baseline content commit on `main`: `c918f6c68922b945cf32ed75c102dacbdaea9b96`
+- Safety branch `handover/chatgpt-baseline` created from the pushed tip
+- Working tree clean after push (aside from intentional follow-up hash note if any)
 - No force-push, no history rewrite, no deploy during handover
+- Pre-commit: local was synced with `origin/main` (no unpushed commits; no GitHub-ahead commits missing locally)
 
 ---
 
