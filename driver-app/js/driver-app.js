@@ -37,6 +37,7 @@ import { initDriverHome } from "./DriverHome.js";
 import { subscribePendingRadarRides } from "./ride-radar-service.js";
 import { requestRideSettlement } from "./settlement-client.js";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
+import { cancelAssignedRideByDriverClient } from "./ride-radar-actions.js";
 import { hashVehiclePin } from "./pin-hash.js";
 import {
   AudioService,
@@ -96,6 +97,7 @@ const els = {
   mapElement: null,
   statusToggle: document.getElementById("driverStatusToggle"),
   statusText: document.getElementById("driverStatusText"),
+  availDiag: document.getElementById("driverAvailDiag"),
   earningsCard: document.getElementById("driverEarningsCard"),
   driverWalletBalance: document.getElementById("driverWalletBalance"),
   driverWalletWarning: document.getElementById("driverWalletWarning"),
@@ -115,6 +117,7 @@ const els = {
   activeRideDropoff: document.getElementById("activeRideDropoff"),
   activeRideFare: document.getElementById("activeRideFare"),
   activeRideActionBtn: document.getElementById("activeRideActionBtn"),
+  activeRideCancelBtn: document.getElementById("activeRideCancelBtn"),
   rideCompleteSheet: document.getElementById("rideCompleteSheet"),
   rideCompleteFare: document.getElementById("rideCompleteFare"),
   findNewRideBtn: document.getElementById("findNewRideBtn"),
@@ -186,6 +189,18 @@ let walletLocked = false;
 let partnerView = "home";
 let lastVehicleLocationWrite = 0;
 const VEHICLE_LOCATION_WRITE_MS = 60_000; // Phase 3A: approved 1-minute Firebase snapshot (was 8s accidental waste)
+/** Last successful browser GPS fix (ms) — diagnostic only, never shown as exact coords. */
+let lastGpsFixAtMs = 0;
+let lastGpsErrorCode = "";
+let locationPermissionState = "unknown";
+/** Last match-geoCell written to Firestore (force write when this changes). */
+let lastMatchGeoCell = null;
+/** Last vehicle location sync error message (diag only). */
+let lastLocationSyncError = "";
+/** Soft GPS: consecutive transient failures before forcing offline. */
+let transientGpsFailCount = 0;
+const TRANSIENT_GPS_FAIL_LIMIT = 3;
+const FRESH_GPS_MS = 2 * 60 * 1000;
 /** ~1 km Karachi grid cell for zone-change writes (approved model). */
 const LOCATION_GRID_DEG = 0.009;
 /** ~400 m matching cell (Phase 3B geo-scoped dispatch). */
@@ -260,6 +275,73 @@ function setOnlineUi(value) {
   online = value;
   syncOnlineToggleUi(value);
   syncRideRadarFab();
+  paintDriverAvailabilityDiag();
+}
+
+/**
+ * Small readiness strip — no exact coordinates exposed.
+ */
+function paintDriverAvailabilityDiag() {
+  const el = els.availDiag;
+  if (!el) return;
+  const matchingReady =
+    online &&
+    linkedVehicle?.id &&
+    !activeExecutionRide?.id &&
+    lastGpsFixAtMs > 0 &&
+    Date.now() - lastGpsFixAtMs <= 10 * 60 * 1000 &&
+    lastVehicleLocationWrite > 0 &&
+    Boolean(lastMatchGeoCell) &&
+    !lastLocationSyncError &&
+    Date.now() - lastVehicleLocationWrite <= 2 * 60 * 1000;
+
+  let msg = "";
+  if (partnerAccountBlocked) {
+    msg = "اکاؤنٹ بلاک/معطل ہے — درخواستیں نہیں ملیں گی";
+  } else if (!linkedVehicle?.id) {
+    msg = "گاڑی منسلک نہیں — پہلے PIN سے لنک کریں";
+  } else if (!online) {
+    msg = "آف لائن — قریبی درخواستوں کے لیے آن لائن ہوں";
+  } else if (activeExecutionRide?.id) {
+    msg = "آپ ایک فعال سواری پر مصروف ہیں";
+  } else if (lastGpsErrorCode === "permission_denied") {
+    msg = "لوکیشن کی اجازت درکار ہے";
+  } else if (lastLocationSyncError) {
+    msg = "سرور پر لوکیشن نہیں لکھی جا سکی — نیٹ ورک/اجازت چیک کریں";
+  } else if (!lastGpsFixAtMs) {
+    msg = "لوکیشن نہیں ملی — GPS چیک کریں";
+  } else if (Date.now() - lastGpsFixAtMs > 10 * 60 * 1000) {
+    msg = "لوکیشن پرانی ہے — مقام تازہ کریں";
+  } else if (!lastVehicleLocationWrite || !lastMatchGeoCell) {
+    msg = "میچنگ کے لیے لوکیشن سنک ہو رہی ہے…";
+  } else if (Date.now() - lastVehicleLocationWrite > 2 * 60 * 1000) {
+    msg = "سرور پر لوکیشن سنک رک گئی — دوبارہ آن لائن کریں";
+  } else if (matchingReady) {
+    msg = "میچنگ تیار — قریبی درخواستیں موصول ہو سکتی ہیں";
+  } else {
+    msg = "آن لائن اور قریبی درخواستوں کے لیے تیار";
+  }
+  el.textContent = msg;
+  el.hidden = !msg;
+  el.dataset.state = partnerAccountBlocked
+    ? "blocked"
+    : !linkedVehicle?.id
+      ? "no_vehicle"
+      : !online
+        ? "offline"
+        : activeExecutionRide?.id
+          ? "busy"
+          : lastGpsErrorCode === "permission_denied"
+            ? "need_permission"
+            : lastLocationSyncError
+              ? "sync_error"
+              : !lastGpsFixAtMs
+                ? "no_location"
+                : !lastVehicleLocationWrite || !lastMatchGeoCell
+                  ? "syncing"
+                  : matchingReady
+                    ? "matching_ready"
+                    : "ready";
 }
 
 let driverToastTimer = 0;
@@ -619,7 +701,7 @@ function startPartnerDocListener(uid, sequence) {
       }
     },
     (error) => {
-      console.warn("[SwiftGo Partner] partners doc listener", error);
+      console.warn("[SwiftGo Partner] Firestore listen retry... partners", error);
     }
   );
 }
@@ -662,7 +744,15 @@ function setActiveView(view = "home") {
 
   if (key === "dashboard") {
     dashboardUi?.activate();
-    requestAnimationFrame(() => dashboardUi?.resize());
+    requestAnimationFrame(() => {
+      try {
+        if (dashboardUi && typeof dashboardUi.resize === "function") {
+          dashboardUi.resize();
+        }
+      } catch (error) {
+        console.warn("[SwiftGo Driver] dashboard resize", error);
+      }
+    });
   } else if (prev === "dashboard" && key !== "dashboard") {
     dashboardUi?.deactivate();
   }
@@ -674,8 +764,12 @@ function setActiveView(view = "home") {
     homeUi?.activate();
     ensureDriverMap();
     requestAnimationFrame(() => {
-      map?.invalidateSize();
-      homeUi?.invalidateMap();
+      try {
+        map?.invalidateSize?.();
+        homeUi?.invalidateMap?.();
+      } catch (error) {
+        console.warn("[SwiftGo Driver] home map resize", error);
+      }
     });
   }
 
@@ -944,6 +1038,17 @@ async function routeDriver(vehicleId, sequence = authSequence, partner = null) {
     }
 
     if (!vehicleSnapshot.exists()) {
+      try {
+        if (currentDriver?.uid) {
+          await setDoc(
+            doc(db, "partners", currentDriver.uid),
+            { currentVehicleId: null, updatedAt: serverTimestamp() },
+            { merge: true }
+          );
+        }
+      } catch {
+        /* ignore */
+      }
       showPinGate("منسلک گاڑی دستیاب نہیں، نیا PIN درج کریں۔");
       return;
     }
@@ -952,11 +1057,25 @@ async function routeDriver(vehicleId, sequence = authSequence, partner = null) {
     syncSidebarProfile();
 
     if (
-      linkedVehicle.driverId &&
-      currentDriver?.uid &&
-      linkedVehicle.driverId !== currentDriver.uid
+      !linkedVehicle.driverId ||
+      (currentDriver?.uid && linkedVehicle.driverId !== currentDriver.uid)
     ) {
-      showPinGate("یہ گاڑی کسی اور ڈرائیور سے منسلک ہے۔");
+      try {
+        if (currentDriver?.uid) {
+          await setDoc(
+            doc(db, "partners", currentDriver.uid),
+            { currentVehicleId: null, updatedAt: serverTimestamp() },
+            { merge: true }
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+      showPinGate(
+        linkedVehicle.driverId
+          ? "یہ گاڑی کسی اور ڈرائیور سے منسلک ہے۔"
+          : "مالک نے گاڑی کا لنک ختم کر دیا۔ نیا PIN درج کریں۔"
+      );
       linkedVehicle = null;
       return;
     }
@@ -966,6 +1085,23 @@ async function routeDriver(vehicleId, sequence = authSequence, partner = null) {
   } catch (error) {
     console.warn("[SwiftGo Driver] routeDriver", error);
     if (isStaleAuthSequence(sequence)) return;
+    const code = String(error?.code || "");
+    if (code.includes("permission-denied")) {
+      try {
+        const { db } = getFirebase();
+        if (currentDriver?.uid) {
+          await setDoc(
+            doc(db, "partners", currentDriver.uid),
+            { currentVehicleId: null, updatedAt: serverTimestamp() },
+            { merge: true }
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+      showPinGate("مالک نے گاڑی کا لنک ختم کر دیا۔ نیا PIN درج کریں۔");
+      return;
+    }
     finishDriverSessionEntry();
     setAuthStatus("گاڑی کی معلومات لوڈ نہیں ہو سکیں — دوبارہ کوشش کریں۔");
     showAuthOverlay("گاڑی کی معلومات لوڈ نہیں ہو سکیں — دوبارہ کوشش کریں۔");
@@ -1050,27 +1186,51 @@ async function verifyVehiclePin(event) {
       driverId: driver.uid,
       status: "online",
     };
+    // Keep local online + location fresh so matching can see this driver.
+    setOnlineUi(true);
+    lastVehicleLocationWrite = 0;
+    lastLocationGridCell = null;
+    startLocationWatch();
     setPinMessage("گاڑی کامیابی سے منسلک ہو گئی!", true);
+    driverToast("گاڑی منسلک — آپ آن لائن ہیں");
     els.pinForm?.reset();
     window.setTimeout(() => {
       showDriverMap();
+      syncRideRadarFab();
     }, 900);
   } catch (error) {
-    console.warn("[SwiftGo Partner] verify vehicle PIN", error?.code || error?.message || error);
-    const code = String(error?.code || error?.message || "");
-    if (code.includes("PIN_LOCKED") || code.includes("resource-exhausted")) {
-      setPinMessage("زیادہ غلط کوششیں — کچھ دیر بعد دوبارہ کوشش کریں");
-    } else if (code.includes("DRIVER_BLOCKED") || code.includes("DRIVER_SUSPENDED")) {
-      setPinMessage("آپ کا اکاؤنٹ بلاک/معطل ہے");
-    } else if (code.includes("VEHICLE_IN_USE")) {
-      setPinMessage("یہ گاڑی پہلے ہی زیر استعمال ہے");
-    } else if (code.includes("PIN_NOT_FOUND") || code.includes("not-found")) {
-      setPinMessage("غلط پن کوڈ! دوبارہ کوشش کریں");
-    } else if (code.includes("FUNCTIONS_UNAVAILABLE")) {
-      setPinMessage("PIN سروس دستیاب نہیں — بعد میں کوشش کریں");
-    } else {
-      setPinMessage("تصدیق مکمل نہیں ہو سکی۔ دوبارہ کوشش کریں۔");
+    const code = String(error?.code || "");
+    const message = String(error?.message || error?.details || "");
+    const blob = `${code} ${message}`;
+    console.warn("[SwiftGo Driver] linkVehicleByPin failed", {
+      code,
+      message,
+      pinLength: enteredPin.length,
+    });
+
+    let userMsg = "تصدیق مکمل نہیں ہو سکی۔ دوبارہ کوشش کریں۔";
+    if (blob.includes("PIN_LOCKED") || blob.includes("resource-exhausted")) {
+      userMsg = "زیادہ غلط کوششیں — کچھ دیر بعد دوبارہ کوشش کریں";
+    } else if (blob.includes("DRIVER_BLOCKED") || blob.includes("DRIVER_SUSPENDED")) {
+      userMsg = "آپ کا اکاؤنٹ بلاک/معطل ہے";
+    } else if (blob.includes("VEHICLE_IN_USE")) {
+      userMsg = "یہ گاڑی پہلے ہی زیر استعمال ہے";
+    } else if (blob.includes("PIN_NOT_FOUND") || blob.includes("not-found")) {
+      userMsg = "غلط پن کوڈ! دوبارہ کوشش کریں";
+    } else if (blob.includes("FUNCTIONS_UNAVAILABLE")) {
+      userMsg = "PIN سروس دستیاب نہیں — بعد میں کوشش کریں";
+    } else if (blob.includes("failed-precondition")) {
+      userMsg =
+        "گاڑی کا PIN درست نہیں یا ڈرائیور اکاؤنٹ منظوری/حالت درست نہیں۔ دوبارہ کوشش کریں۔";
+      console.warn(
+        "[SwiftGo Driver] linkVehicleByPin failed-precondition — check vehicle free, PIN, partner accountStatus"
+      );
+    } else if (blob.includes("permission-denied")) {
+      userMsg = "اجازت نہیں — اکاؤنٹ کی حیثیت چیک کریں";
     }
+
+    setPinMessage(userMsg);
+    driverToast(userMsg);
   } finally {
     setPinBusy(false);
   }
@@ -1157,7 +1317,7 @@ function driverRideFare(ride) {
 }
 
 function warnDriverHistoryIndexError(error) {
-  console.warn("[SwiftGo] driver ride history", error);
+  console.warn("[SwiftGo] Firestore listen retry... driver ride history", error);
   if (error?.code === "failed-precondition" || /index/i.test(error?.message || "")) {
     console.warn(
       "[SwiftGo] Firestore composite index required for rides (driverId + createdAt). " +
@@ -1342,7 +1502,7 @@ function startOwnerRidesListener() {
       renderOwnerRides();
     },
     (error) => {
-      console.warn("[SwiftGo Partner] owner ride history", error);
+      console.warn("[SwiftGo Partner] Firestore listen retry... owner rides", error);
       if (els.ownerRideMessage) {
         els.ownerRideMessage.textContent = "سواریوں کی ہسٹری لوڈ نہیں ہو سکی۔";
       }
@@ -1442,7 +1602,7 @@ function startVehiclesListener() {
       renderOwnerVehicles();
     },
     (error) => {
-      console.warn("[SwiftGo Partner] owner vehicles", error);
+      console.warn("[SwiftGo Partner] Firestore listen retry... owner vehicles", error);
       setOwnerMessage("گاڑیوں کی فہرست لوڈ نہیں ہو سکی۔ Firestore rules deploy کریں۔");
     }
   );
@@ -1549,6 +1709,7 @@ function startRadarBackgroundFeed() {
     uid,
     (state) => {
       const count = state?.rides?.length ?? 0;
+      const dropped = Number(state?.rideFetchErrors || 0);
       if (radarFeedPrimed && count > lastRadarFeedCount) {
         AudioService.playAlert();
         AudioService.showNotification(
@@ -1556,6 +1717,8 @@ function startRadarBackgroundFeed() {
           "«رائٹ حاصل کریں» دبائیں اور فہرست میں دیکھیں۔"
         );
         driverToast("نئی رائٹ آ گئی — «رائٹ حاصل کریں» دبائیں");
+      } else if (dropped > 0 && count === 0 && (state?.invitedCandidateCount || 0) > 0) {
+        driverToast("دعوت ملی مگر سواری پڑھ نہیں سکی — دوبارہ کوشش کریں");
       }
       radarFeedPrimed = true;
       lastRadarFeedCount = count;
@@ -1567,14 +1730,15 @@ function startRadarBackgroundFeed() {
 }
 
 function syncRideRadarFab() {
-  const show =
+  const canListen =
     Boolean(currentDriver?.uid) &&
     Boolean(linkedVehicle?.id) &&
     online &&
-    !activeExecutionRide?.id &&
-    partnerView === "home";
-  if (els.openRideRadarBtn) els.openRideRadarBtn.hidden = !show;
-  if (show) startRadarBackgroundFeed();
+    !activeExecutionRide?.id;
+  // FAB only on home; candidate listen stays up on other partner views while online.
+  const showFab = canListen && partnerView === "home";
+  if (els.openRideRadarBtn) els.openRideRadarBtn.hidden = !showFab;
+  if (canListen) startRadarBackgroundFeed();
   else stopRadarBackgroundFeed();
   updateRideRadarButtonLabel();
 }
@@ -1662,6 +1826,17 @@ function invalidateHomeMapIfActive() {
 function updateDriverLocation(position) {
   const { latitude, longitude, accuracy } = position.coords;
   lastDriverPosition = { lat: latitude, lng: longitude };
+  lastGpsFixAtMs = Date.now();
+  lastGpsErrorCode = "";
+  locationPermissionState = "granted";
+  transientGpsFailCount = 0;
+
+  // Matching must receive server location even when the map canvas is not mounted.
+  if (online && linkedVehicle?.id) {
+    syncVehicleLocationToFirestore(latitude, longitude, { force: !lastVehicleLocationWrite });
+  }
+  paintDriverAvailabilityDiag();
+
   if (!map) {
     if (partnerView === "home") ensureDriverMap();
     if (!map) return;
@@ -1701,23 +1876,28 @@ function updateDriverLocation(position) {
     map.flyTo(latlng, 16, { duration: 0.8 });
     hasCenteredOnDriver = true;
   }
-
-  syncVehicleLocationToFirestore(latitude, longitude);
 }
 
-async function syncVehicleLocationToFirestore(lat, lng) {
+async function syncVehicleLocationToFirestore(lat, lng, { force = false } = {}) {
   if (!linkedVehicle?.id || !online || !currentDriver?.uid) return;
 
   const now = Date.now();
   const cell = `${Math.floor(Number(lat) / LOCATION_GRID_DEG)}_${Math.floor(Number(lng) / LOCATION_GRID_DEG)}`;
+  const geoCell = matchGeoCellId(lat, lng);
   const zoneChanged = cell !== lastLocationGridCell;
-  if (!zoneChanged && now - lastVehicleLocationWrite < VEHICLE_LOCATION_WRITE_MS) return;
+  const matchCellChanged = geoCell !== lastMatchGeoCell;
+  if (
+    !force &&
+    !zoneChanged &&
+    !matchCellChanged &&
+    now - lastVehicleLocationWrite < VEHICLE_LOCATION_WRITE_MS
+  ) {
+    return;
+  }
   lastLocationGridCell = cell;
-  lastVehicleLocationWrite = now;
 
   try {
     const { db } = getFirebase();
-    const geoCell = matchGeoCellId(lat, lng);
     const hotspotId = matchHotspotId(lat, lng);
     await updateDoc(doc(db, "vehicles", linkedVehicle.id), {
       location: { lat, lng },
@@ -1731,8 +1911,14 @@ async function syncVehicleLocationToFirestore(lat, lng) {
         "SwiftGo Driver",
       status: activeExecutionRide?.id ? "in_ride" : "online",
     });
+    lastVehicleLocationWrite = now;
+    lastMatchGeoCell = geoCell;
+    lastLocationSyncError = "";
+    paintDriverAvailabilityDiag();
   } catch (error) {
     console.warn("[SwiftGo Partner] vehicle location sync", error);
+    lastLocationSyncError = String(error?.code || error?.message || "sync_failed").slice(0, 80);
+    paintDriverAvailabilityDiag();
   }
 }
 
@@ -1812,11 +1998,25 @@ async function changeLinkedVehicle() {
 
 function handleLocationError(error) {
   const denied = error?.code === 1;
-  setDriverOffline(
-    denied
-      ? "لائیو مقام کے لیے براؤزر میں لوکیشن کی اجازت دیں"
-      : "موجودہ مقام حاصل نہیں ہو سکا، دوبارہ کوشش کریں"
-  );
+  lastGpsErrorCode = denied ? "permission_denied" : "unavailable";
+  locationPermissionState = denied ? "denied" : "error";
+  paintDriverAvailabilityDiag();
+
+  if (denied) {
+    transientGpsFailCount = 0;
+    setDriverOffline("لائیو مقام کے لیے براؤزر میں لوکیشن کی اجازت دیں");
+    return;
+  }
+
+  // Transient GPS blip: keep online + radar if last fix is still fresh.
+  const fresh = lastGpsFixAtMs > 0 && Date.now() - lastGpsFixAtMs < FRESH_GPS_MS;
+  if (fresh) {
+    transientGpsFailCount += 1;
+    setLocationMessage("مقام عارضی طور پر نہیں ملا — آخری مقام استعمال ہو رہا ہے");
+    if (transientGpsFailCount < TRANSIENT_GPS_FAIL_LIMIT) return;
+  }
+
+  setDriverOffline("موجودہ مقام حاصل نہیں ہو سکا، دوبارہ کوشش کریں");
 }
 
 function startLocationWatch() {
@@ -1828,6 +2028,21 @@ function startLocationWatch() {
 
   hasCenteredOnDriver = false;
   setLocationMessage("آپ کا موجودہ مقام تلاش کیا جا رہا ہے...");
+
+  // Immediate fix for matching — don't wait for watchPosition throttle.
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      updateDriverLocation(pos);
+      syncVehicleLocationToFirestore(pos.coords.latitude, pos.coords.longitude, {
+        force: true,
+      });
+    },
+    () => {
+      /* watchPosition will surface errors */
+    },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 }
+  );
+
   watchId = navigator.geolocation.watchPosition(
     updateDriverLocation,
     handleLocationError,
@@ -1915,8 +2130,14 @@ function toggleDriverStatus() {
   }
 
   setOnlineUi(true);
+  lastVehicleLocationWrite = 0;
+  lastLocationGridCell = null;
+  lastMatchGeoCell = null;
+  lastLocationSyncError = "";
+  transientGpsFailCount = 0;
   startLocationWatch();
   hideIncomingRide();
+  paintDriverAvailabilityDiag();
 }
 
 function setRequestButtonsBusy(busy) {
@@ -2021,6 +2242,11 @@ function renderActiveRideControls(ride) {
     els.activeRideActionBtn.dataset.nextStatus = action.nextStatus;
     els.activeRideActionBtn.disabled = false;
   }
+  if (els.activeRideCancelBtn) {
+    const canCancel = ride.status === "accepted" || ride.status === "arrived";
+    els.activeRideCancelBtn.hidden = !canCancel;
+    els.activeRideCancelBtn.disabled = !canCancel;
+  }
 
   if (els.activeRideSheet) els.activeRideSheet.hidden = false;
   els.app?.classList.add("has-active-ride");
@@ -2049,7 +2275,7 @@ function startActiveRideWatch(rideId, collectionName = "rides") {
       renderActiveRideControls(activeExecutionRide);
     },
     (error) => {
-      console.warn("[SwiftGo Partner] active ride watch", error);
+      console.warn("[SwiftGo Partner] Firestore listen retry... active ride", error);
       setLocationMessage("فعال سواری کی صورتحال لوڈ نہیں ہو سکی");
     }
   );
@@ -2134,6 +2360,38 @@ async function completeRideWithEarnings(ride) {
     estimatedFare: Number(result?.grossFare) || rideFareAmount(ride),
     alreadySettled: Boolean(result?.alreadySettled),
   };
+}
+
+async function cancelAssignedActiveRideByDriver() {
+  const ride = activeExecutionRide;
+  if (!ride?.id) return;
+  if (ride.status !== "accepted" && ride.status !== "arrived") {
+    driverToast("سواری شروع ہونے کے بعد یہاں سے منسوخ نہیں ہو سکتی");
+    return;
+  }
+  const ok = window.confirm("کیا آپ یہ تفویض شدہ سواری منسوخ کر کے دوبارہ میچ کرنا چاہتے ہیں؟");
+  if (!ok) return;
+  if (els.activeRideCancelBtn) els.activeRideCancelBtn.disabled = true;
+  try {
+    const result = await cancelAssignedRideByDriverClient(ride.id, {
+      cancelReasonKey: "other",
+      cancelReason: "driver_cancelled_before_start",
+    });
+    stopActiveRideWatch();
+    activeExecutionRide = null;
+    hideActiveRideSheet();
+    paintDriverAvailabilityDiag();
+    driverToast(
+      result?.candidateCount
+        ? `سواری دوبارہ تلاش میں ہے (${result.candidateCount} امیدوار)`
+        : "سواری دوبارہ تلاش میں ہے"
+    );
+  } catch (err) {
+    console.warn("[SwiftGo Driver] cancel assigned", err);
+    driverToast(String(err?.message || "منسوخ نہیں ہو سکی"));
+  } finally {
+    if (els.activeRideCancelBtn) els.activeRideCancelBtn.disabled = false;
+  }
 }
 
 async function advanceActiveRideStatus() {
@@ -2347,6 +2605,7 @@ function boot() {
   els.googleLoginBtn?.addEventListener("click", signInDriverWithGoogle);
   // Phase 4C: legacy incoming accept/decline remain disabled (Ride Radar is canonical)
   els.activeRideActionBtn?.addEventListener("click", advanceActiveRideStatus);
+  els.activeRideCancelBtn?.addEventListener("click", cancelAssignedActiveRideByDriver);
   els.findNewRideBtn?.addEventListener("click", findNewRideAfterCompletion);
   els.pinLogoutBtn?.addEventListener("click", logoutPartner);
   els.blockedLogoutBtn?.addEventListener("click", logoutPartner);

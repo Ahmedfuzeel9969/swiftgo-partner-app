@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-28T10:46:16.287Z",
+  "generatedAt": "2026-07-30T16:07:17.177Z",
   "command": "npm exec --package=@firebase/rules-unit-testing --package=firebase -- node tests/phase1-emulator-contract.mjs",
   "results": [
     {
       "name": "T01-customer-create-driver-read-open",
       "status": "PASS",
-      "detail": "Customer created searching_driver ride; candidate driver get succeeded",
+      "detail": "client create denied; trusted seed + candidate get succeeded",
       "rules": "rides/{rideId} create + get"
     },
     {
@@ -54,6 +54,18 @@
       "name": "T11-owner-not-super-admin",
       "status": "PASS",
       "detail": "role admin_driver denied on self-update",
+      "rules": "partners"
+    },
+    {
+      "name": "T11b-driver-role-flip-denied",
+      "status": "PASS",
+      "detail": "driver→owner self role flip denied",
+      "rules": "partners"
+    },
+    {
+      "name": "T11c-rating-aggregate-forge-denied",
+      "status": "PASS",
+      "detail": "client partner rating aggregate denied",
       "rules": "partners"
     },
     {
@@ -123,7 +135,7 @@
       "rules": "storage"
     }
   ],
-  "passed": 20,
+  "passed": 22,
   "failed": 0,
   "blocked": 0
 }

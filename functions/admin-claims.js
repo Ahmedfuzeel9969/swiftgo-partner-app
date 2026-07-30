@@ -26,9 +26,9 @@ function isClaimAdmin(auth) {
 
 async function isEmailBootstrapEnabled(db) {
   const snap = await db.collection("settings").doc("security").get();
-  if (!snap.exists) return true; // transitional default
-  const enabled = snap.data()?.adminBootstrapEnabled;
-  return enabled !== false;
+  // Default OFF — must explicitly enable transitional bootstrap.
+  if (!snap.exists) return false;
+  return snap.data()?.adminBootstrapEnabled === true;
 }
 
 async function isAdminAuth(db, auth) {

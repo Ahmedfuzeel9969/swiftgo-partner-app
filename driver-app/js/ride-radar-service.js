@@ -180,7 +180,7 @@ function persistRadar(driverUid, rides) {
 
 /**
  * @param {string} driverUid
- * @param {(state: { rides: RadarRide[], source: "cache"|"remote", syncing: boolean, savedAt?: string }) => void} onData
+ * @param {(state: { rides: RadarRide[], source: "cache"|"remote", syncing: boolean, savedAt?: string, invitedCandidateCount?: number, rideFetchErrors?: number }) => void} onData
  * @param {() => { lat: number, lng: number } | null} getDriverPosition
  */
 export function subscribePendingRadarRides(driverUid, onData, getDriverPosition) {
@@ -210,7 +210,7 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition)
   const merged = new Map();
   let stopped = false;
 
-  const emit = (syncing) => {
+  const emit = (syncing, meta = {}) => {
     if (stopped) return;
     const list = enrichRadarList([...merged.values()], getDriverPosition());
     persistRadar(
@@ -222,8 +222,12 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition)
       source: "remote",
       syncing: Boolean(syncing),
       savedAt: new Date().toISOString(),
+      invitedCandidateCount: meta.invitedCandidateCount ?? snapInvitedCount,
+      rideFetchErrors: meta.rideFetchErrors ?? 0,
     });
   };
+
+  let snapInvitedCount = 0;
 
   // Phase 2A: only rides where this driver is an invited candidate.
   const candQuery = query(
@@ -237,6 +241,8 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition)
     candQuery,
     async (snap) => {
       const next = new Map();
+      let rideFetchErrors = 0;
+      snapInvitedCount = snap.size;
       await Promise.all(
         snap.docs.map(async (candDoc) => {
           const cand = candDoc.data() || {};
@@ -244,7 +250,10 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition)
           if (!rideId) return;
           try {
             const rideSnap = await getDoc(doc(db, "rides", rideId));
-            if (!rideSnap.exists()) return;
+            if (!rideSnap.exists()) {
+              rideFetchErrors += 1;
+              return;
+            }
             const data = rideSnap.data() || {};
             if (data.status !== "searching_driver") return;
             next.set(
@@ -256,6 +265,7 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition)
               })
             );
           } catch (err) {
+            rideFetchErrors += 1;
             console.warn("[SwiftGo Radar] ride get", rideId, err);
           }
         })
@@ -263,11 +273,11 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition)
       if (stopped) return;
       merged.clear();
       for (const [k, v] of next) merged.set(k, v);
-      emit(false);
+      emit(false, { invitedCandidateCount: snapInvitedCount, rideFetchErrors });
     },
     (err) => {
-      console.warn("[SwiftGo Radar] ride_candidates", err);
-      emit(false);
+      console.warn("[SwiftGo Radar] Firestore listen retry... ride_candidates", err);
+      emit(false, { invitedCandidateCount: snapInvitedCount, rideFetchErrors: 1 });
     }
   );
 

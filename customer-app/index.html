@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="css/styles.css?v=no_sidebar_traffic_1" />
+  <link rel="stylesheet" href="css/styles.css?v=no_earn_driver_1" />
 </head>
 <body>
   <div class="app" id="app">
@@ -90,9 +90,6 @@
               <a class="sidebar__legal-link" data-legal="terms" href="/legal/terms.html" target="_blank" rel="noopener noreferrer" data-i18n="legalTerms">Terms</a>
               <a class="sidebar__legal-link" data-legal="dataUse" href="/legal/data-use.html" target="_blank" rel="noopener noreferrer" data-i18n="legalDataUse">Data use</a>
             </div>
-            <button type="button" class="sidebar__earn-driver" id="earnDriverBtn" data-i18n="earnAsDriver">
-              Earn as a Driver
-            </button>
             <button type="button" class="signout-btn" id="signOutBtn" hidden data-i18n="signOut">Sign out</button>
           </footer>
         </div>
@@ -308,6 +305,10 @@
             <header class="panel__head">
               <h1 class="panel__title" data-i18n="navHistory">History</h1>
             </header>
+            <section class="active-bookings" id="activeBookingsSection" hidden>
+              <h2 class="active-bookings__title" data-i18n="activeBookingsTitle">Active bookings</h2>
+              <div class="active-bookings__list" id="activeBookingsList" role="list"></div>
+            </section>
             <div class="history-chat" id="historyChatList" hidden role="log" aria-live="polite"></div>
             <div class="empty-state glass" id="historyEmpty">
               <h2 class="empty-state__title" data-i18n="historyEmptyTitle">No trips yet</h2>
@@ -691,6 +692,7 @@
               <span class="searching-spinner__pulse"></span>
             </div>
             <p class="searching-panel__text" id="searchingPanelText" data-i18n="searchingDriver">Searching for your nearest driver...</p>
+            <p class="searching-panel__timer" id="searchingTimer" hidden aria-live="polite"></p>
             <div class="driver-offer-panel" id="driverOfferPanel" hidden>
               <p class="driver-offer-panel__eyebrow" data-i18n="driverOfferEyebrow">Driver offer</p>
               <h3 class="driver-offer-panel__title" id="driverOfferDriverName">—</h3>
@@ -708,7 +710,7 @@
                 </div>
               </div>
             </div>
-            <button type="button" class="cancel-ride-btn" id="cancelRideBtn" data-i18n="cancelRide">Cancel Ride</button>
+            <button type="button" class="cancel-ride-btn" id="cancelRideBtn" data-i18n="cancelRide">کینسل کریں</button>
           </div>
 
           <!-- Phase 17.2 / 32: accepted ride / live status -->
@@ -811,197 +813,6 @@
     </div>
 
     <div class="loc-suggest" id="locSuggest" hidden role="listbox" aria-label="Location suggestions" data-i18n-aria="locSuggestAria"></div>
-
-    <!-- Phase 11.1: Driver onboarding UI + camera -->
-    <div class="driver-onboarding" id="driverOnboarding" hidden aria-hidden="true">
-      <div class="driver-onboarding__backdrop" id="driverOnboardingBackdrop"></div>
-      <section
-        class="driver-onboarding__panel glass"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="driverOnboardingTitle"
-      >
-        <header class="driver-onboarding__header">
-          <div>
-            <p class="driver-onboarding__eyebrow" data-i18n="driverEyebrow">Drive with SwiftGo</p>
-            <h2 id="driverOnboardingTitle" data-i18n="driverTitle">Driver application</h2>
-            <p data-i18n="driverIntro">Add your details and identity documents to get started.</p>
-          </div>
-          <button
-            type="button"
-            class="driver-onboarding__close"
-            id="driverOnboardingClose"
-            data-i18n-aria="driverClose"
-            aria-label="Close driver application"
-          >×</button>
-        </header>
-
-        <form class="driver-form" id="driverApplicationForm">
-          <div class="driver-form__grid">
-            <label class="driver-field" for="driverFullName" data-config-key="requireFullName">
-              <span class="driver-field__label" id="driverFullNameLabel">
-                <span data-i18n="driverFullName">Full Name</span>
-                <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
-              </span>
-              <input id="driverFullName" name="fullName" type="text" autocomplete="name" required aria-labelledby="driverFullNameLabel" />
-            </label>
-            <label class="driver-field" for="driverCnic" data-config-key="requireCnic">
-              <span class="driver-field__label" id="driverCnicLabel">
-                <span data-i18n="driverCnic">CNIC Number</span>
-                <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
-              </span>
-              <input
-                id="driverCnic"
-                name="cnic"
-                type="text"
-                inputmode="numeric"
-                maxlength="15"
-                placeholder="00000-0000000-0"
-                required
-                aria-labelledby="driverCnicLabel"
-              />
-            </label>
-            <label class="driver-field" for="driverLicense" data-config-key="requireLicense">
-              <span class="driver-field__label" id="driverLicenseLabel">
-                <span data-i18n="driverLicense">Driving License Number</span>
-                <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
-              </span>
-              <input id="driverLicense" name="licenseNumber" type="text" maxlength="30" required aria-labelledby="driverLicenseLabel" />
-            </label>
-            <label class="driver-field" for="driverVehicleType" data-config-key="requireVehicleType">
-              <span class="driver-field__label" id="driverVehicleTypeLabel">
-                <span data-i18n="driverVehicleType">Vehicle Type</span>
-                <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
-              </span>
-              <select id="driverVehicleType" name="vehicleType" required aria-labelledby="driverVehicleTypeLabel">
-                <option value="" data-i18n="driverVehicleChoose">Choose vehicle</option>
-                <option value="bike" data-i18n="vehBike">Bike</option>
-                <option value="economy" data-i18n="vehEconomy">Economy</option>
-                <option value="comfort" data-i18n="vehComfort">Comfort</option>
-                <option value="cargo" data-i18n="vehCargo">Cargo</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="driver-section">
-            <div class="driver-section__heading">
-              <h3 data-i18n="driverDocuments">Identity documents</h3>
-              <p data-i18n="driverDocumentsHint">Upload clear JPG, PNG or WebP images.</p>
-            </div>
-            <div class="driver-upload-grid">
-              <label class="driver-upload" for="driverCnicFront" data-upload-zone="cnicFront" data-config-key="requireCnicFront">
-                <input
-                  id="driverCnicFront"
-                  name="cnicFront"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  required
-                  aria-label="CNIC Front"
-                />
-                <span class="driver-upload__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <rect x="3" y="5" width="18" height="14" rx="3"/>
-                    <path d="m7 15 3-3 2.5 2.5L15 12l3 3M8 9h.01"/>
-                  </svg>
-                </span>
-                <span class="driver-upload__title" data-i18n="driverCnicFront">CNIC Front</span>
-                <span class="driver-upload__optional" data-i18n="driverOptional" hidden>Optional</span>
-                <span class="driver-upload__hint" data-i18n="driverUploadHint">Click or drop image</span>
-                <span class="driver-upload__file" aria-live="polite"></span>
-                <span class="driver-upload__scan" id="driverCnicScan" hidden aria-live="polite">
-                  <span class="driver-upload__scan-spinner" aria-hidden="true"></span>
-                  <span class="driver-upload__scan-text" data-i18n="driverScanning">Scanning Card…</span>
-                </span>
-              </label>
-
-              <label class="driver-upload" for="driverCnicBack" data-upload-zone="cnicBack" data-config-key="requireCnicBack">
-                <input
-                  id="driverCnicBack"
-                  name="cnicBack"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  required
-                  aria-label="CNIC Back"
-                />
-                <span class="driver-upload__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <rect x="3" y="5" width="18" height="14" rx="3"/>
-                    <path d="M7 10h10M7 14h6"/>
-                  </svg>
-                </span>
-                <span class="driver-upload__title" data-i18n="driverCnicBack">CNIC Back</span>
-                <span class="driver-upload__optional" data-i18n="driverOptional" hidden>Optional</span>
-                <span class="driver-upload__hint" data-i18n="driverUploadHint">Click or drop image</span>
-                <span class="driver-upload__file" aria-live="polite"></span>
-              </label>
-
-              <label class="driver-upload" for="driverLicenseFile" data-upload-zone="license" data-config-key="requireLicenseImage">
-                <input
-                  id="driverLicenseFile"
-                  name="licenseImage"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  required
-                  aria-label="Driving License"
-                />
-                <span class="driver-upload__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <rect x="4" y="3" width="16" height="18" rx="3"/>
-                    <circle cx="9" cy="10" r="2"/>
-                    <path d="M7 16h10M13 9h4M13 12h4"/>
-                  </svg>
-                </span>
-                <span class="driver-upload__title" data-i18n="driverLicenseUpload">Driving License</span>
-                <span class="driver-upload__optional" data-i18n="driverOptional" hidden>Optional</span>
-                <span class="driver-upload__hint" data-i18n="driverUploadHint">Click or drop image</span>
-                <span class="driver-upload__file" aria-live="polite"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="driver-section driver-selfie" data-config-key="requireSelfie">
-            <div class="driver-section__heading">
-              <h3 data-i18n="driverSelfieTitle">Live selfie</h3>
-              <p data-i18n="driverSelfieHint">Use your front camera in good lighting.</p>
-              <span class="driver-field__optional" data-i18n="driverOptional" hidden>Optional</span>
-            </div>
-            <div class="driver-selfie__stage" id="driverSelfieStage">
-              <video id="driverSelfieVideo" playsinline muted hidden></video>
-              <canvas id="driverSelfieCanvas" hidden></canvas>
-              <img id="driverSelfiePreview" alt="" hidden />
-              <div class="driver-selfie__empty" id="driverSelfieEmpty">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                  <circle cx="12" cy="8" r="4"/>
-                  <path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>
-                </svg>
-                <span data-i18n="driverSelfieEmpty">Your selfie will appear here</span>
-              </div>
-            </div>
-            <input id="driverSelfieFile" name="selfie" type="file" accept="image/jpeg" hidden aria-label="Driver selfie" />
-            <div class="driver-selfie__actions">
-              <button type="button" class="driver-camera-btn" id="driverCameraBtn">
-                <span data-i18n="driverTakeSelfie">Take Selfie</span>
-              </button>
-              <button type="button" class="driver-camera-btn driver-camera-btn--capture" id="driverCaptureBtn" hidden>
-                <span data-i18n="driverCapture">Capture Photo</span>
-              </button>
-              <button type="button" class="driver-camera-btn driver-camera-btn--retake" id="driverRetakeBtn" hidden>
-                <span data-i18n="driverRetake">Retake</span>
-              </button>
-            </div>
-            <p class="driver-camera-status" id="driverCameraStatus" aria-live="polite"></p>
-          </div>
-
-          <p class="driver-form-message" id="driverFormMessage" hidden aria-live="polite"></p>
-          <button type="submit" class="cta-btn cta-btn--block driver-submit" id="driverSubmitBtn">
-            <span data-i18n="driverSubmit">Submit application</span>
-          </button>
-          <p class="driver-submit-note" id="driverConfigSource" data-i18n="driverConfigFallback">
-            Form requirements load from Super Admin settings (with local fallback).
-          </p>
-        </form>
-      </section>
-    </div>
 
     <!-- Phase 13.3: universal utility drawer (forms + active ride) -->
     <aside
@@ -1198,6 +1009,33 @@
       </div>
     </div>
 
+    <!-- Cancel ride reason modal -->
+    <div class="confirm-dialog" id="cancelRideDialog" hidden aria-hidden="true">
+      <div class="confirm-dialog__backdrop" id="cancelRideBackdrop"></div>
+      <div class="confirm-dialog__panel glass" role="dialog" aria-modal="true" aria-labelledby="cancelRideTitle">
+        <h2 id="cancelRideTitle" data-i18n="cancelRideTitle">کینسل کی وجہ</h2>
+        <p data-i18n="cancelRideHint">بکنگ منسوخ کرنے کی وجہ منتخب کریں</p>
+        <div class="cancel-reason-list" id="cancelReasonList" role="radiogroup" aria-labelledby="cancelRideTitle"></div>
+        <div class="confirm-dialog__actions">
+          <button type="button" class="confirm-dialog__btn confirm-dialog__btn--ghost" id="cancelRideDismissBtn" data-i18n="bookingExtraNo">منسوخ</button>
+          <button type="button" class="confirm-dialog__btn confirm-dialog__btn--primary" id="cancelRideSubmitBtn" data-i18n="cancelRideConfirm">کینسل کریں</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- No driver available modal -->
+    <div class="confirm-dialog" id="noDriverDialog" hidden aria-hidden="true">
+      <div class="confirm-dialog__backdrop" id="noDriverBackdrop"></div>
+      <div class="confirm-dialog__panel glass" role="alertdialog" aria-modal="true" aria-labelledby="noDriverTitle">
+        <h2 id="noDriverTitle" data-i18n="noDriverAvailable">کوئی ڈرائیور اس وقت میسر نہیں ہے</h2>
+        <p data-i18n="noDriverAvailableHint">تین منٹ میں کوئی ڈرائیور نہیں ملا۔ دوبارہ کوشش کریں۔</p>
+        <div class="confirm-dialog__actions">
+          <button type="button" class="confirm-dialog__btn confirm-dialog__btn--ghost" id="noDriverDismissBtn" data-i18n="bookingExtraNo">بند کریں</button>
+          <button type="button" class="confirm-dialog__btn confirm-dialog__btn--primary" id="noDriverRetryBtn" data-i18n="tryAgainBooking">دوبارہ کوشش کریں</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Phase 4E — permission / deletion confirm -->
     <div class="confirm-dialog" id="trustConfirmDialog" hidden aria-hidden="true">
       <div class="confirm-dialog__backdrop" id="trustConfirmBackdrop"></div>
@@ -1264,6 +1102,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script type="module" src="js/app.js?v=no_sidebar_traffic_1"></script>
+  <script type="module" src="js/app.js?v=no_earn_driver_1"></script>
 </body>
 </html>

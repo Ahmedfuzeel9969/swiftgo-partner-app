@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-28T10:58:45.460Z",
-  "command": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/phase2a-run-all.mjs\"",
+  "generatedAt": "2026-07-29T19:02:54.519Z",
+  "command": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/phase2a-emulator-suite.mjs\"",
   "results": [
     {
       "name": "T01-customer-create-driver-read-open",
       "status": "PASS",
-      "detail": "candidate can read; non-candidate denied",
+      "detail": "client create denied; candidate can read; non-candidate denied",
       "rules": "rides"
     },
     {
@@ -217,201 +217,10 @@
       "status": "PASS",
       "detail": "Evidence: T03 second accept denied under same accept rules",
       "rules": "rides"
-    },
-    {
-      "name": "F22-trusted-completion-consistent",
-      "status": "PASS",
-      "detail": "{\"alreadySettled\":false,\"rideId\":\"settle-1\",\"collectionName\":\"rides\",\"settlementId\":\"settle_rides_settle-1\",\"commissionAmount\":35,\"driverEarnings\":315,\"grossFare\":350,\"commissionPercent\":10}",
-      "rules": "settlement"
-    },
-    {
-      "name": "F15-simultaneous-completion-one-settlement",
-      "status": "PASS",
-      "detail": "ledgerCount=1",
-      "rules": "settlement"
-    },
-    {
-      "name": "F16-repeat-completion-no-duplicate-commission",
-      "status": "PASS",
-      "detail": "wallet=-35",
-      "rules": "settlement"
-    },
-    {
-      "name": "F17-repeat-completion-no-duplicate-earnings",
-      "status": "PASS",
-      "detail": "earn=315 rides=1",
-      "rules": "settlement"
-    },
-    {
-      "name": "F18-repeat-completion-no-duplicate-ledger",
-      "status": "PASS",
-      "detail": "ledgerCount=1",
-      "rules": "settlement"
-    },
-    {
-      "name": "F19-invalid-fare-rejected",
-      "status": "PASS",
-      "detail": "INVALID_FARE",
-      "rules": "settlement"
-    },
-    {
-      "name": "F20-cancelled-cannot-complete",
-      "status": "PASS",
-      "detail": "RIDE_CANCELLED",
-      "rules": "settlement"
-    },
-    {
-      "name": "F21-completed-not-re-settled",
-      "status": "PASS",
-      "detail": "{\"alreadySettled\":true,\"wallet\":-35}",
-      "rules": "settlement"
-    },
-    {
-      "name": "F23-wrong-driver-denied",
-      "status": "PASS",
-      "detail": "NOT_ASSIGNED_DRIVER",
-      "rules": "settlement"
-    },
-    {
-      "name": "F24-server-timestamp-and-audit",
-      "status": "PASS",
-      "detail": "audits=1 creator=completeRideSettlement",
-      "rules": "settlement"
-    },
-    {
-      "name": "B01-candidate-limit-10-20-only",
-      "status": "PASS",
-      "detail": "10/20 ok; 15 rejected",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B02-candidate-limit-10-works",
-      "status": "PASS",
-      "detail": "n=10",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B03-candidate-limit-20-works",
-      "status": "PASS",
-      "detail": "n=20",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B04-progressive-rings-1-2-3",
-      "status": "PASS",
-      "detail": "[1,1,1]",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B05-match-writes-candidates",
-      "status": "PASS",
-      "detail": "candidates=2",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B06-invalid-candidate-limit-rejected",
-      "status": "PASS",
-      "detail": "INVALID_CANDIDATE_LIMIT",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B07-first-booking-allowed",
-      "status": "PASS",
-      "detail": "{\"allowed\":true,\"count\":0,\"activeBookings\":[]}",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B08-second-needs-confirmation",
-      "status": "PASS",
-      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"activeBookings\":[{\"id\":\"cZFROEtVMgactUBpHLsO\",\"status\":\"searching_driver\"}]}",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B09-cancel-confirm-no-create",
-      "status": "PASS",
-      "detail": "CONFIRM_EXTRA_BOOKING",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B10-four-bookings-ok",
-      "status": "PASS",
-      "detail": "count=4",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B11-fifth-booking-rejected",
-      "status": "PASS",
-      "detail": "MAX_ACTIVE_BOOKINGS",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B12-four-booking-race-safe",
-      "status": "PASS",
-      "detail": "ok=1 fail=1 count=4",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B13-cancelled-excluded-from-limit",
-      "status": "PASS",
-      "detail": "count=0",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B14-bargaining-not-assigned",
-      "status": "PASS",
-      "detail": "status=searching_driver",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B15-multi-driver-offers",
-      "status": "PASS",
-      "detail": "barg-ride_barg-d1,barg-ride_barg-d2",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B16-expired-offer-not-accepted",
-      "status": "PASS",
-      "detail": "OFFER_CLOSED",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B17-simultaneous-assign-one-winner",
-      "status": "PASS",
-      "detail": "driver=race-d1 fulfilled=fulfilled,rejected",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B18-active-driver-cannot-bargain-another",
-      "status": "PASS",
-      "detail": "driver=race-d1",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B19-sibling-offers-closed",
-      "status": "PASS",
-      "detail": "openLeft=0",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B20-eleventh-bargain-rejected",
-      "status": "PASS",
-      "detail": "MAX_OPEN_BARGAINS",
-      "rules": "bargaining"
-    },
-    {
-      "name": "B21-customer-counter-offer",
-      "status": "PASS",
-      "detail": "{\"status\":\"countered\",\"fare\":260}",
-      "rules": "bargaining"
     }
   ],
-  "passed": 67,
+  "passed": 36,
   "failed": 0,
   "blocked": 0,
-  "exitCodes": {
-    "rules": 0,
-    "settlement": 0,
-    "bargaining": 0
-  },
-  "total": 67
+  "total": 36
 }

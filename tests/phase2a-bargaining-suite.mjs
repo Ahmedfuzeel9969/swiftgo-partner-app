@@ -245,8 +245,9 @@ async function main() {
   }
   record("B11-fifth-booking-rejected", fifthDenied ? "PASS" : "FAIL", "MAX_ACTIVE_BOOKINGS");
 
-  // Race: simultaneous creates from empty slots for another customer
-  await db.doc("booking_slots/cust-race").set({ count: 3 });
+  // Race: two concurrent creates when customer already has 3 live non-terminal rides.
+  // Slot counter alone must not invent a block; live rides are authority after reconcile.
+  // Expect exactly one create to reach 4, the other to hit MAX_ACTIVE_BOOKINGS.
   const racePayload = {
     pickupLocation: { ...pickup, address: "P" },
     dropoffLocation: { lat: 24.9, lng: 67.05, address: "D" },
@@ -256,6 +257,13 @@ async function main() {
     farePkr: 100,
     estimatedFare: 100,
   };
+  for (let i = 0; i < 3; i += 1) {
+    await createCustomerBooking(db, {
+      customerUid: "cust-race",
+      confirmedExtraBooking: true,
+      ridePayload: racePayload,
+    });
+  }
   const raceResults = await Promise.allSettled([
     createCustomerBooking(db, {
       customerUid: "cust-race",
@@ -271,10 +279,17 @@ async function main() {
   const raceOk = raceResults.filter((r) => r.status === "fulfilled").length;
   const raceFail = raceResults.filter((r) => r.status === "rejected").length;
   const raceSlot = (await db.doc("booking_slots/cust-race").get()).data();
+  const raceActive = await db
+    .collection("rides")
+    .where("userId", "==", "cust-race")
+    .where("status", "in", ["searching_driver", "accepted", "arrived", "in_progress"])
+    .get();
   record(
     "B12-four-booking-race-safe",
-    raceOk === 1 && raceFail === 1 && raceSlot?.count === 4 ? "PASS" : "FAIL",
-    `ok=${raceOk} fail=${raceFail} count=${raceSlot?.count}`
+    raceOk === 1 && raceFail === 1 && raceSlot?.count === 4 && raceActive.size === 4
+      ? "PASS"
+      : "FAIL",
+    `ok=${raceOk} fail=${raceFail} count=${raceSlot?.count} live=${raceActive.size}`
   );
 
   // Terminal bookings excluded: reset via completed not counting — use fresh user

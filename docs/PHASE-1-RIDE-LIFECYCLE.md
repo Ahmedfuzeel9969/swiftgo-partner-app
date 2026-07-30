@@ -1,99 +1,99 @@
 # Phase 1 — Ride Lifecycle Trace
 
-**Primary path:** Customer `rides` + Driver Ride Radar / execution.  
-**Secondary / legacy:** Driver `incomingRideSheet` + `resolveActiveRequest`.
+**Audit date:** 2026-07-29  
+**Scope:** Audit-only. Canonical path = Cloud Functions + Driver Rules advances.
 
----
-
-## Status machine (canonical intent)
+Status machine:
 
 ```
 searching_driver → accepted → arrived → in_progress → completed
-                 ↘ cancelled_by_user (customer)
-                 ↘ declined (driver, searching only)
+                 ↘ expired | cancelled_by_customer | cancelled_by_user (client)
+accepted|arrived ↘ driver cancel → searching_driver (+ rematch, exclude self)
+any pre-start    ↘ admin cancel → cancelled_by_admin
 ```
 
-**Rules also allow:** Customer `accepted → completed` (status only) — **conflicts** with driver path.
+---
+
+## Lifecycle steps
+
+| # | Step | App | Function / file | Reads | Writes | Prev → New | Permission | Rules | Server | Race / failure |
+|---|------|-----|-----------------|-------|--------|------------|------------|-------|--------|----------------|
+| 1 | Gate | Customer | `booking-gate.js` → `checkCustomerBookingGate` | Live rides; may expire overdue; slots | Possible expire + reconcile | — | Auth customer | — | Yes | TOCTOU mitigated in create TX |
+| 2 | Create | Customer | `ride-flow.js` → `createCustomerBooking` | Reconcile + slots TX | `rides` + slot++ | → `searching_driver` (+`expiresAt`) | Auth | Client create **still allowed** (bypass risk) | Yes | Soft match after create |
+| 3 | Match | Server (+ customer rematch ~30s) | `matchRideCandidates` + `geo-match.js` | dispatch, vehicles geo, partners, candidates | ≤10/20 candidates; ride matching meta | stays searching | Cust/Admin callable | Candidates client W deny | Yes | Empty → probe; injection denied |
+| 4 | Radar | Driver | `ride-radar-service.js` | Listen invited candidates; get ride | Local cache | — | Candidate driver | Read if invited + searching | — | getDoc drop surfaced |
+| 5 | Offer | Driver | `submitRideOffer` | Capacity, candidate, ride TX | `ride_offers` open | ride unchanged | Active driver | Offers W deny | Yes | Busy / capacity 10 |
+| 6 | Counter/reject | Customer | CF counter/reject | Offer TX | Offer status | — | Ride owner | — | Yes | vs finalize |
+| 7 | Decline/withdraw | Driver | CF decline/withdraw | Candidate/offer | closed | ride stays searching | Invited driver | — | Yes | Rematch skips declined |
+| 8 | Assign | Cust or Drv | `finalizeAssignmentFromOffer` | Offer+ride+partner TX | ride accepted; offer accepted; `activeRideId` | searching → accepted | Party UID | Client accept **denied** | Yes TX | Dual finalize → one winner |
+| 9 | Close siblings | Server | `closeSiblingOffers` | Offers | expire/withdraw others | — | — | — | Yes | Brief open window |
+| 10 | Arrived | Driver | `driver-app.js` updateDoc | — | status only | accepted → arrived | Assigned | Rules allow | No CF | Double-tap; cancel race |
+| 11 | Start | Driver | same | — | status only | arrived → in_progress | Assigned | Rules allow | No CF | No financial cancel after |
+| 12 | Complete | Driver | `completeRideSettlement` | ride, ledger, pricing, partner, slot | completed + ledger + wallet + slot | in_progress → completed | Assigned/Admin | Client complete **denied** | Yes + idempotent | Retry safe |
+| 13 | Rate | Customer | `submitRideRating` | ride | rating fields (+ partner aggregates UI) | stays completed | Ride owner | Ride rating OK; **partner aggregate Rules weak** | — | Forge risk |
+| 14 | Owner observe | Owner | `owner-app.js` | rides by ownerId / fleet | location on own vehicles | observe | Owner | Rules list | — | Listener cost |
+| 15 | Admin observe/cancel | Admin | `admin-app.js` / `cancelRideByAdmin` | rides, settings | cancel / settings | → cancelled_by_admin | Claim/email | Settings Admin; cancel CF | Cancel CF | `in_progress` cancel undefined |
+| 16 | Expire | Customer timer / CF / gate | `expireSearchingBooking` | ride / indexed query | expired; close cand/offers; slot | searching → expired | Owner/Admin | — | Yes | vs assign one winner |
 
 ---
 
-## Step-by-step trace
+## High-risk transitions
 
-| Step | App | File / function | Read | Write | From → To | Permission |
-|------|-----|-----------------|------|-------|-----------|------------|
-| 1 Create request | Customer | `data.js` `createRideRequest` | — | `rides` add | → `searching_driver` | Rules `isValidRide` |
-| 2 Validate | Rules | `isValidRide` | — | — | — | Server rules only |
-| 3 List for drivers | Driver | `ride-radar-service.js` | Query `rides` + `ride_requests` | — | — | Any signed-in list open rides |
-| 4 Notify drivers | Driver | `subscribePendingRadarRides` | Snapshots | — | — | **Not** push to 10; broadcast query |
-| 5 Driver offer | Driver | `ride-radar-actions.js` `submitDriverOffer` | Transaction get ride | Update offer fields | stays open | Rules offer branch |
-| 6 Customer accept offer | Customer | `data.js` `acceptDriverOffer` | Transaction | `accepted` + driver fields | searching → accepted | Rules + transaction |
-| 6b Driver accept bid | Driver | `ride-radar-actions.js` `acceptRideWithBid` | Transaction | `accepted` | searching → accepted | Rules + transaction |
-| 6c Legacy accept | Driver | `driver-app.js` `resolveActiveRequest` | Transaction | partial fields | searching → accepted | **May violate rules** (missing farePkr) |
-| 7 Other drivers blocked | Rules | accept branch | — | — | — | Second accept fails (T03 PASS) |
-| 8 En route | Driver | `advanceActiveRideStatus` | — | `arrived` | accepted → arrived | Assigned driver only |
-| 9 Start | Driver | same | — | `in_progress` | arrived → in_progress | Rules |
-| 10 Complete | Driver | `completeRideWithEarnings` | `settings/pricing` | ride complete + **partners batch** | in_progress → completed | Ride rules OK; **partners batch allowed — P0** |
-| 11 Customer dev complete | Customer | `data.js` `completeRideRequest` | — | `completed` only | accepted → completed | **Rules allow — P0** |
-| 12 Rating | Customer | `submitRideRating` | Transaction | ride + partners aggregates | — | Rules |
-| 13 Owner view | Owner | `owner-app.js` ride listeners | `rides` by ownerId | — | — | Rules list/get |
-| 14 Admin view | Admin | `admin-app.js` | `rides` queries | — | — | Super admin get/list |
-| 15 Cancel search | Customer | `cancelRideRequest` | — | `cancelled_by_user` | searching → cancelled | Rules |
+| Transition | Expected control | Actual | Gap |
+|------------|------------------|--------|-----|
+| searching → accepted | Server TX | CF finalize | OK; sibling cleanup lag |
+| Dual accept | One winner | Client accept denied; CF TX | OK for CF path |
+| accepted → arrived | Assigned driver | Client Rules | No server audit |
+| arrived → in_progress | Assigned driver | Client Rules | No server audit |
+| in_progress → completed | Settlement CF | Enforced | OK |
+| Customer skip complete | Denied | Phase1 T05 PASS | OK |
+| Cancel vs assign | Last TX | Both require searching/unassigned appropriately | UX race remains |
+| Client create without match | Should deny | Rules still allow | **P0** |
 
 ---
 
-## High-risk transitions vs rules
+## Matching foundation (Task 7)
 
-| Transition | Code path | Rules | Match? |
-|------------|-----------|-------|--------|
-| searching → accepted (full) | `acceptRideWithBid` | Requires vehicle verify + fare fields | **Yes** |
-| searching → accepted (partial) | `resolveActiveRequest` | Requires farePkr, estimatedFare, driverBidFare | **No** |
-| accepted → arrived | `advanceActiveRideStatus` | status-only, assigned driver | **Yes** |
-| arrived → in_progress | same | **Yes** |
-| in_progress → completed | `completeRideWithEarnings` | + commission fields | **Yes** |
-| accepted → completed (customer) | `completeRideRequest` | status-only customer | **Yes (undesired)** |
-| searching → cancelled_by_user | `cancelRideRequest` | **Yes** |
-| searching → declined | `resolveActiveRequest("declined")` | status + driverId | **Yes** |
+| Question | Finding |
+|----------|---------|
+| Online storage | `vehicles.status` (+ partner `activeRideId`) |
+| Location collection | Browser geolocation → Firestore ≤60s or on match-`geoCell` change |
+| Local history upload | No trajectory upload; point snapshots only |
+| Stale reject | ≥10 min or missing timestamp on geo path |
+| Zones/hotspots | `geoCell` grid + Golden `hotspotId` ≤0.5 km |
+| 1→2→3 km | Progressive rings; sorted by haversine |
+| Max drivers | 10 or 20 only |
+| Suspended/busy/offline/stale | Excluded |
+| Fake eligibility client | Candidate/offer writes denied; vehicle online requires active partner |
+| Indexes | `status+geoCell`, candidate `driverId+status`, ride `status+expiresAt` |
+| Client vs server match | Server only; `onlineDrivers` injection denied |
+| Latest-driver-in-city | **No** — geo-scoped, not city-wide latest |
 
----
-
-## Race conditions
-
-| Race | Mitigation | Gap |
-|------|------------|-----|
-| Two drivers accept | `runTransaction` on ride doc | OK for radar path |
-| Customer cancel vs accept | Last write wins / transaction error | UI message only |
-| Double complete | Second update denied if already completed | Customer shortcut may complete without commission |
-| Duplicate wallet debit | No idempotency key | Batch could run twice if first commit succeeded client-side but UI retries |
+**Match R/W estimate (limit 10, early fill):** ~45–55 reads + ≤11 writes. Sparse+probe adds ≤25 vehicle reads. Not full-fleet.
 
 ---
 
-## Financial side effects on complete
+## Error / recovery (Task 9) — foundation
 
-`driver-app/js/driver-app.js` `completeRideWithEarnings` (≈ L1992–2022):
-
-- Computes `commissionAmount`, `driverEarnings` client-side from `settings/pricing`.
-- `writeBatch`: ride `completed` + `partners` increment earnings and **decrement wallet**.
-
-Emulator **T19:** partner wallet batch **succeeds** under current rules — financial integrity depends on client honesty.
-
----
-
-## Cancellation / dispute
-
-- Customer cancel while searching: supported.
-- No dedicated `disputed` status in rules or code.
-- `declined` clears driver from searching ride but does not model customer notification beyond snapshot.
+| Scenario | Behavior | Risk |
+|----------|----------|------|
+| Disconnect before create | No ride | Controlled |
+| Create OK, match empty | Soft `no_candidates`; rematch ~30s | Driver may appear late |
+| Dual finalize | One TX wins | OK |
+| Driver disconnect after accept | Ride stays accepted; no auto-reassign | Stuck until cancel/rematch |
+| Refresh mid-ride | Listeners reattach to `rides/{id}` | Generally recovers |
+| Duplicate complete | Ledger idempotent | OK |
+| Cancel while assign | One winner | Possible customer “failed cancel” UX |
+| False success toast | Guarded by `ride?.id` | Fixed in current tree |
+| Stale GPS | Soft offline after repeated fails; matching excludes stale | Intermittent no-invite |
 
 ---
 
-## Field name alignment (Customer ↔ Driver ↔ Rules)
+## App roles summary
 
-| Concept | Customer | Driver | Rules |
-|---------|----------|--------|-------|
-| Pickup | `pickupLocation` | same | same |
-| Dropoff | `dropoffLocation` | same | same |
-| Fare | `farePkr` | `farePkr` / bid | `farePkr` |
-| Cancel | `cancelled_by_user` | — | same |
-| Open status | `searching_driver` | radar maps to pending | same |
-
-**No** `rideRequests` camelCase collection — use `ride_requests`.
+| App | Role in lifecycle |
+|-----|-------------------|
+| Customer | Gate, create, rematch, bargain, cancel pre-start, rate, expire client |
+| Driver | Presence, radar, offer, assign, arrived/start, settle, pre-start cancel→rematch |
+| Owner | Fleet observe + vehicle PIN; execution forked off |
+| Super Admin | Dispatch limit, visibility, admin cancel, ops metrics |

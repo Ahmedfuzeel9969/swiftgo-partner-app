@@ -17,7 +17,7 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
-  <link rel="stylesheet" href="css/driver-style.css?v=drawer_vehicle_switch_1" />
+  <link rel="stylesheet" href="css/driver-style.css?v=ghost_rides_expiry_1" />
   <link rel="stylesheet" href="css/ride-radar.css?v=radar_sheet_collapse_1" />
   <link rel="stylesheet" href="css/driver-home.css?v=driver_home_1" />
 </head>
@@ -230,6 +230,7 @@
           </button>
         </div>
       </header>
+      <p class="driver-avail-diag" id="driverAvailDiag" role="status" aria-live="polite" hidden></p>
 
       <section class="partner-content" id="partnerContent" data-active-view="home">
         <div class="partner-view is-active" id="homeSection" data-view-panel="home">
@@ -379,6 +380,7 @@
     </div>
     <p class="active-ride-sheet__fare">کرایہ: <strong id="activeRideFare">Rs. —</strong></p>
     <button type="button" class="active-ride-action-btn" id="activeRideActionBtn">میں پہنچ گیا ہوں</button>
+    <button type="button" class="active-ride-cancel-btn" id="activeRideCancelBtn" hidden>سواری منسوخ کریں</button>
   </section>
 
   <section class="ride-complete-sheet" id="rideCompleteSheet" aria-live="polite" aria-label="سواری مکمل" hidden>
@@ -479,6 +481,6 @@
 
   <p class="driver-toast" id="driverToast" role="status" aria-live="polite" hidden></p>
 
-  <script type="module" src="js/driver-app.js?v=surface_stay_1"></script>
+  <script type="module" src="js/driver-app.js?v=booking_driver_reach_1"></script>
 </body>
 </html>

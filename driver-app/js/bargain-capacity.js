@@ -35,7 +35,10 @@ export function subscribeOpenBargainCount(config) {
     unsub = onSnapshot(
       q,
       (snap) => onChange({ count: snap.size, max: MAX }),
-      () => onChange({ count: 0, max: MAX })
+      (error) => {
+        console.warn("[SwiftGo] Firestore listen retry... bargain capacity", error);
+        onChange({ count: 0, max: MAX });
+      }
     );
   };
 

@@ -72,7 +72,6 @@ const requiredFiles = [
   "customer-app/js/firebase-config.js",
   "customer-app/js/support.js",
   "customer-app/js/dashboard.js",
-  "customer-app/js/driver-onboarding.js",
   "customer-app/js/utility-drawer.js",
   "customer-app/js/routing.js",
   "customer-app/js/fare.js",
@@ -132,7 +131,6 @@ const requiredIds = [
   "payMethodBtn",
   "extraStops",
   "addStopBtn",
-  "earnDriverBtn",
   "btnLayerTraffic",
   "promoTrigger",
   "promoInput",
@@ -140,16 +138,6 @@ const requiredIds = [
   "mapPinMode",
   "mapPinConfirm",
   "locSuggest",
-  "driverOnboarding",
-  "driverApplicationForm",
-  "driverCnicFront",
-  "driverCnicBack",
-  "driverLicenseFile",
-  "driverSelfieVideo",
-  "driverSelfieCanvas",
-  "driverSelfieFile",
-  "driverCameraBtn",
-  "driverCaptureBtn",
   "utilityDrawer",
   "utilityPanelRent",
   "utilityPanelCargo",
@@ -258,7 +246,6 @@ assert(
 
 const phase8Keys = [
   "qaSettings",
-  "earnAsDriver",
   "showTraffic",
   "appLanguage",
   "paymentMethod",
@@ -273,6 +260,12 @@ const phase8Keys = [
 for (const k of phase8Keys) {
   assert("i18n", `Phase key present: ${k}`, enSet.has(k) && urSet.has(k));
 }
+
+assert(
+  "i18n",
+  "Customer app has no earn-as-driver i18n keys",
+  !enSet.has("earnAsDriver") && !urSet.has("earnAsDriver") && !enSet.has("earnDriverSoon")
+);
 
 assert("i18n", "setLang / applyTranslations exported", i18nSrc.includes("export function setLang"));
 assert("i18n", "RTL dir switch for Urdu", i18nSrc.includes('dir') && i18nSrc.includes('"rtl"'));
@@ -484,67 +477,18 @@ assert(
   "Booking requires sign-in gate",
   appJs.includes("bookingNeedSignIn") || appJs.includes("openAuthModal")
 );
-const driverJs = read("customer-app/js/driver-onboarding.js");
 assert(
   "wiring",
-  "Earn as Driver opens onboarding overlay",
-  appJs.includes("initDriverOnboarding") &&
-    driverJs.includes('getElementById("earnDriverBtn")') &&
-    driverJs.includes("openDriverOnboarding")
-);
-assert(
-  "wiring",
-  "Driver uploads support click + drag/drop",
-  driverJs.includes("bindUploadZones") &&
-    driverJs.includes('addEventListener("drop"') &&
-    html.includes('accept="image/jpeg,image/png,image/webp"')
-);
-assert(
-  "wiring",
-  "Front camera uses getUserMedia",
-  driverJs.includes("navigator.mediaDevices?.getUserMedia") &&
-    driverJs.includes('facingMode: "user"')
-);
-assert(
-  "wiring",
-  "Selfie captured to canvas and File",
-  driverJs.includes("drawImage") &&
-    driverJs.includes("toBlob") &&
-    driverJs.includes("new File") &&
-    driverJs.includes("getDriverOnboardingFiles")
-);
-assert(
-  "wiring",
-  "CNIC Front OCR simulation auto-fills name + CNIC",
-  driverJs.includes("runCnicOcrSimulation") &&
-    driverJs.includes("MOCK_CNIC_OCR") &&
-    driverJs.includes("applyOcrFields") &&
-    driverJs.includes("2000") &&
-    html.includes('id="driverCnicScan"')
-);
-assert(
-  "wiring",
-  "OCR insert point documented for Cloud Vision",
-  driverJs.includes("INSERT REAL OCR") &&
-    driverJs.includes("Google Cloud Vision") &&
-    driverJs.includes(">>> INSERT REAL OCR")
-);
-assert(
-  "wiring",
-  "Driver form loads settings/driverForm with fallback",
-  dataJs.includes("getDriverFormConfig") &&
-    dataJs.includes("FALLBACK_DRIVER_FORM_CONFIG") &&
-    dataJs.includes('doc(db, "settings", "driverForm")') &&
-    driverJs.includes("applyDriverFormConfig")
-);
-assert(
-  "wiring",
-  "Driver application uploads Storage then Firestore",
-  dataJs.includes("submitDriverApplication") &&
-    dataJs.includes("uploadBytes") &&
-    dataJs.includes("driver_applications") &&
-    dataJs.includes("getDownloadURL") &&
-    driverJs.includes("handleDriverSubmit")
+  "Customer app has no earn-as-driver / driver-onboarding UI",
+  !html.includes("earnDriverBtn") &&
+    !html.includes("driverOnboarding") &&
+    !html.includes("id=\"driverApplicationForm\"") &&
+    !exists("customer-app/js/driver-onboarding.js") &&
+    !appJs.includes("initDriverOnboarding") &&
+    !appJs.includes("driver-onboarding") &&
+    !dataJs.includes("getDriverFormConfig") &&
+    !dataJs.includes("submitDriverApplication") &&
+    !dataJs.includes("FALLBACK_DRIVER_FORM_CONFIG")
 );
 assert(
   "wiring",
@@ -700,17 +644,17 @@ const rideFlowJs = read("customer-app/js/ride-flow.js");
 assert(
   "wiring",
   "Phase 16.1 rides collection write + searching_driver status",
-  dataJs.includes('collection(db, "rides")') &&
-    dataJs.includes("searching_driver") &&
-    dataJs.includes("cancelled_by_user") &&
+  dataJs.includes("USE_CREATE_CUSTOMER_BOOKING_CF") &&
     dataJs.includes("export async function createRideRequest") &&
+    dataJs.includes("cancelled_by_user") &&
     read("customer-app/js/booking-client.js").includes('"createCustomerBooking"') &&
     rideFlowJs.includes("startRideRequest") &&
     rideFlowJs.includes("createCustomerBookingClient") &&
     appJs.includes("startRideRequest") &&
     rules.includes("match /rides/{rideId}") &&
     rules.includes("searching_driver") &&
-    rules.includes("cancelled_by_user")
+    rules.includes("cancelled_by_user") &&
+    /allow create:\s*if false/.test(rules)
 );
 assert(
   "wiring",

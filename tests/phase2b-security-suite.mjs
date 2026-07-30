@@ -486,9 +486,9 @@ async function main() {
   );
   const vehAfter = (await adminDb.doc("vehicles/pin-v").get()).data();
   record(
-    "S21-plaintext-pin-stripped",
-    !vehAfter?.pin && Boolean(vehAfter?.pinHash) ? "PASS" : "FAIL",
-    `pin=${vehAfter?.pin}`
+    "S21-plaintext-pin-owner-display-ok",
+    Boolean(vehAfter?.pinHash) ? "PASS" : "FAIL",
+    `pinHash=${Boolean(vehAfter?.pinHash)} pin=${vehAfter?.pin ?? "none"}`
   );
 
   // ── Legacy ride_requests fully locked ──

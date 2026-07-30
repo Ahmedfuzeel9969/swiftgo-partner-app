@@ -1,0 +1,207 @@
+{
+  "suite": "ghost-rides-driver-location-expiry",
+  "generatedAt": "2026-07-30T16:07:11.284Z",
+  "summary": {
+    "pass": 39,
+    "fail": 0,
+    "blocked": 0,
+    "total": 39
+  },
+  "results": [
+    {
+      "name": "S01-canonical-owner-field",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "S02-search-expire-3min",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "S03-cancel-closes-candidates",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "S04-cancel-all-returns-counts",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "S05-driver-location-sync-without-map",
+      "status": "PASS",
+      "detail": "GPS→Firestore must not require map mount"
+    },
+    {
+      "name": "S06-driver-avail-diag",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "S07-expiresAt-index-declared",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "S08-client-clear-surfaces-failure",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "S09-no-settlement-on-expire",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "S10-probe-when-geo-selected-empty",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "S11-periodic-rematch-client",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "A01-inflated-slots-zero-live-allows-first",
+      "status": "PASS",
+      "detail": "{\"allowed\":true,\"count\":0}"
+    },
+    {
+      "name": "A02-terminal-not-counted",
+      "status": "PASS",
+      "detail": "count=0"
+    },
+    {
+      "name": "A03-four-searching-visible-same-ids",
+      "status": "PASS",
+      "detail": "n=4"
+    },
+    {
+      "name": "A04-cancel-all-succeeds",
+      "status": "PASS",
+      "detail": "{\"cancelledCount\":4,\"activeCount\":0,\"failed\":0}"
+    },
+    {
+      "name": "A05-cancel-missing-exact-reason",
+      "status": "PASS",
+      "detail": "RIDE_NOT_FOUND"
+    },
+    {
+      "name": "A06-other-customer-cannot-cancel",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "A07-duplicate-cancel-safe",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "B01-create-returns-id-and-expiresAt",
+      "status": "PASS",
+      "detail": "9QHXT0bh0I10vPsTusXV"
+    },
+    {
+      "name": "B02-eligible-driver-candidate-created",
+      "status": "PASS",
+      "detail": "{\"n\":1,\"candExists\":true,\"status\":\"invited\"}"
+    },
+    {
+      "name": "B03-driver-listener-would-receive",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "D01-0.5km-in-first-ring",
+      "status": "PASS",
+      "detail": "[\"d05@1\",\"d15@2\",\"d25@3\"]"
+    },
+    {
+      "name": "D02-1.5km-when-expanded",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "D03-2.5km-when-expanded",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "D04-beyond-3km-never",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "D05-unknown-location-excluded",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "D06-rings-contract",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "D07-limit-10",
+      "status": "PASS",
+      "detail": "n=10"
+    },
+    {
+      "name": "D08-limit-20",
+      "status": "PASS",
+      "detail": "n=20"
+    },
+    {
+      "name": "E01-before-3min-not-expired",
+      "status": "PASS",
+      "detail": "{\"ok\":false,\"msg\":\"NOT_YET_EXPIRED\"}"
+    },
+    {
+      "name": "E02-after-3min-expires-once",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"rideId\":\"KwQSC7AxnbhtRajYLDrD\",\"status\":\"expired\",\"changed\":true,\"reason\":\"search_timeout_3min\"}"
+    },
+    {
+      "name": "E03-expiry-releases-slot",
+      "status": "PASS",
+      "detail": "count=0"
+    },
+    {
+      "name": "E04-repeat-expiry-idempotent",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "E05-expired-candidate-closed",
+      "status": "PASS",
+      "detail": "expired"
+    },
+    {
+      "name": "E06-assigned-not-expired",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"rideId\":\"ZRL0nfHgucRwlXq4da4l\",\"status\":\"accepted\",\"changed\":false,\"reason\":\"already_assigned_or_done\"}"
+    },
+    {
+      "name": "E07-assign-vs-expire-one-winner",
+      "status": "PASS",
+      "detail": "status=expired settled=rejected,fulfilled"
+    },
+    {
+      "name": "E08-no-ledger-requirement-on-expiry-path",
+      "status": "PASS",
+      "detail": "ledger_sample=0 (expiry must not write settlement)"
+    },
+    {
+      "name": "E09-batch-expire-bounded",
+      "status": "PASS",
+      "detail": "{\"processed\":1,\"expired\":1,\"skipped\":0,\"failed\":0,\"readsEstimate\":3,\"writesEstimate\":3,\"limit\":10}"
+    },
+    {
+      "name": "P01-foreign-rides-not-counted",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

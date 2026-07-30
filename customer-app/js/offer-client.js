@@ -31,11 +31,21 @@ export async function rejectOfferAsCustomer(offerId) {
 }
 
 export async function matchCandidatesForRide(rideId) {
+  if (!rideId) {
+    console.warn("[SwiftGo] matchRideCandidates skipped — missing rideId");
+    return null;
+  }
   try {
     return await call("matchRideCandidates", { rideId });
   } catch (err) {
     console.warn("[SwiftGo] matchRideCandidates", err?.code || err?.message);
-    return null;
+    try {
+      await new Promise((r) => setTimeout(r, 800));
+      return await call("matchRideCandidates", { rideId });
+    } catch (retryErr) {
+      console.warn("[SwiftGo] matchRideCandidates retry", retryErr?.code || retryErr?.message);
+      return null;
+    }
   }
 }
 

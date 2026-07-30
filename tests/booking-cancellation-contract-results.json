@@ -1,0 +1,101 @@
+{
+  "suite": "booking-cancellation-contract",
+  "generatedAt": "2026-07-30T16:07:58.410Z",
+  "summary": {
+    "pass": 18,
+    "fail": 0,
+    "total": 18
+  },
+  "results": [
+    {
+      "name": "C00-cancellable-includes-pre-start",
+      "status": "PASS",
+      "detail": "[\"searching_driver\",\"accepted\",\"arrived\"]"
+    },
+    {
+      "name": "C01-customer-cancel-searching",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"rideId\":\"WStJ6sR5bn3h0uGENJfo\",\"status\":\"cancelled_by_customer\",\"already\":false,\"cancelledCount\":1,\"skippedCount\":0,\"failedCount\":0}"
+    },
+    {
+      "name": "C02-other-customer-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "C03-repeat-cancel-safe",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "C04-cancel-after-start-rejected",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "C05-customer-cancel-accepted",
+      "status": "PASS",
+      "detail": "status=cancelled_by_customer activeRide=undefined"
+    },
+    {
+      "name": "D01-decline-candidate-keeps-booking",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "D02-withdraw-own-offer",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "D03-unassigned-cannot-cancel-ride",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "D04-assigned-cancel-rematch",
+      "status": "PASS",
+      "detail": "{\"status\":\"searching_driver\",\"candidates\":0,\"exclude\":\"cc-drv\",\"selfCand\":\"expired\",\"gateCount\":1}"
+    },
+    {
+      "name": "D05-rematch-same-booking-no-extra-slot",
+      "status": "PASS",
+      "detail": "count=1"
+    },
+    {
+      "name": "D06-driver-cancel-after-start-rejected",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "A01-admin-cancel",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "A02-admin-repeat-safe",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "A03-admin-reason-required",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "A04-admin-started-not-silent",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "E01-before-3min",
+      "status": "PASS",
+      "detail": "NOT_YET_EXPIRED"
+    },
+    {
+      "name": "E02-after-3min",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

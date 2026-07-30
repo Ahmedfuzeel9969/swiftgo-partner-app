@@ -1293,6 +1293,37 @@ button {
   cursor: pointer;
 }
 
+.fleet-vehicle-card__driver {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.fleet-vehicle-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.fleet-action-btn {
+  border: 1px solid rgba(8, 119, 71, 0.28);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--green);
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+}
+
+.fleet-action-btn--danger {
+  border-color: rgba(176, 48, 48, 0.35);
+  color: #a02828;
+  background: rgba(176, 48, 48, 0.06);
+}
+
 .owner-empty-state {
   padding: 2rem 1rem;
   border: 1px dashed rgba(8, 119, 71, 0.2);

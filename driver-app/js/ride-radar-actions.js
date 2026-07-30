@@ -69,3 +69,23 @@ export async function acceptRideWithBid(params) {
     driverId: result?.driverId,
   };
 }
+
+/** Decline only this Driver's candidate invitation (does not cancel the booking). */
+export async function declineRideCandidateClient(rideId) {
+  return call("declineRideCandidate", { rideId });
+}
+
+/** Withdraw only this Driver's open offer. */
+export async function withdrawRideOfferClient(rideId, driverUid) {
+  const offerId = `${rideId}_${driverUid}`;
+  return call("withdrawRideOffer", { offerId });
+}
+
+/** Assigned Driver cancels before start → trusted rematch. */
+export async function cancelAssignedRideByDriverClient(rideId, { cancelReason, cancelReasonKey } = {}) {
+  return call("cancelAssignedRideByDriver", {
+    rideId,
+    cancelReason,
+    cancelReasonKey,
+  });
+}

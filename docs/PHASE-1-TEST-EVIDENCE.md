@@ -1,118 +1,119 @@
 # Phase 1 — Test Evidence
 
-**Date:** 2026-07-27  
-**Environment:** Windows, Node v24.16.0, Firebase CLI 15.22.0  
-**Production Firebase:** Not written to. Emulator project: `demo-swiftgo-phase1`.
+**Audit date:** 2026-07-29  
+**Emulator:** Firebase Emulator Suite, project `demo-swiftgo-phase1`  
+**Safety:** No production Firestore/Storage writes; no billing enablement; account limits respected in suites
 
 ---
 
-## Build
+## 1. Task 6 — Cross-app contract map (20 scenarios)
 
-```text
-Command: node tools/build-hosting.mjs
-Exit code: 0
-Output: hosting-dist/ (customer root + /customer, /partner, /owner, /admin)
-```
+Source suite: `tests/phase1-emulator-contract.mjs` via `npm run test:phase1`  
+**Exit code: 0** · Results file: `tests/phase1-emulator-results.json` (regenerated this run)
 
----
+| # | Test name | Expected | Actual | Status | Evidence / Rules |
+|---|-----------|----------|--------|--------|------------------|
+| 1 | T01-customer-create-driver-read-open | Customer creates searching ride; invited driver can read | Succeeded | **PASS** | `rides` create + get; candidate seeded admin |
+| 2 | T02-driver-accept-customer-sees-driver | Client accept denied; trusted assign visible to customer | Denied + seed visible | **PASS** | Client accept branch denied |
+| 3 | T03-dual-accept-second-denied | Second driver cannot accept | Denied | **PASS** | rides update |
+| 4 | T04-non-assigned-driver-update-denied | Other driver cannot set arrived | Denied | **PASS** | rides |
+| 5 | T05-customer-skip-to-completed-denied | Customer cannot jump to completed | Denied | **PASS** | rides |
+| 6 | T06-driver-skip-stages-denied | Driver cannot skip to completed | Denied | **PASS** | rides |
+| 7 | T07-suspended-driver-online | Blocked partner cannot set vehicle online | Denied | **PASS** | vehicles + partners |
+| 8 | T08-customer-fare-tamper | Customer fare update on accepted denied | Denied | **PASS** | rides |
+| 9 | T09-driver-wallet-increase-denied | Self walletBalance denied | Denied | **PASS** | partners |
+| 10 | T10-owner-other-vehicle-denied | Cross-owner vehicle update denied | Denied | **PASS** | vehicles |
+| 11 | T11-owner-not-super-admin | Self `admin_driver` denied | Denied | **PASS** | partners |
+| 12 | T12-super-admin-block-driver | Bootstrap admin can set blocked | Succeeded | **PASS** | partners (Admin action; audit log write not asserted in this test — see Unverified) |
+| 13 | T13-invalid-ride-create-denied | Missing fields denied | Denied | **PASS** | isValidRide |
+| 14 | T14-client-driver-completion-denied | Client complete+commission denied | Denied | **PASS** | rides |
+| 15 | T15-duplicate-completion-denied | Repeat client complete denied | Denied | **PASS** | rides |
+| 16 | T16-customer-cancel-searching | Searching → cancelled_by_user | Succeeded | **PASS** | rides (note: CF uses cancelled_by_customer) |
+| 17 | T17-unauth-read-denied | Unauthenticated get denied | Denied | **PASS** | rides (= logout/unauth) |
+| 18 | T18-ride-requests-create-denied | Legacy create denied | Denied | **PASS** | ride_requests |
+| 19 | T19-driver-partner-wallet-batch-denied | Batch wallet debit denied | Denied | **PASS** | partners |
+| 20 | T20-storage-kyc-privacy | Owner R/W KYC; other user denied | Pass | **PASS** | storage.rules |
 
-## Static / repo tests
+**Totals:** passed **20** · failed **0** · blocked **0**
 
-### `node tests/audit.test.mjs`
+### Coverage notes vs Task 6 wording
 
-```text
-Exit code: 1
-Failure: SyntaxError importing customer-app/js/firebase-config.js (ESM export in .js while package.json "type":"commonjs")
-```
-
-No suite counts — process exited before assertions.
-
-### `node tests/i18n-purity-scan.mjs`
-
-```text
-Exit code: 1
-EN keys: 308 · UR keys: 308
-UR latin leftovers: 1 (driverOfferCounterLabel)
-```
-
-### `npm test`
-
-```text
-Exit code: 1
-Message: "Error: no test specified"
-```
-
----
-
-## Firestore emulator contract tests
-
-**Harness:** `tests/phase1-emulator-contract.mjs`  
-**Rules file:** `firestore.rules` (production copy, unmodified)  
-**Dependency install (audit only):** `@firebase/rules-unit-testing@3.0.4`, `firebase@10.14.1` (devDependencies)
-
-```text
-Command: firebase emulators:exec --only firestore --project demo-swiftgo-phase1 "node tests/phase1-emulator-contract.mjs"
-Exit code: 1 (3 failed assertions — security expectations not met)
-Artifact: tests/phase1-emulator-results.json
-```
-
-| # | Test name | Expected | Actual | Result |
-|---|-----------|----------|--------|--------|
-| T01 | Customer create; driver read open ride | Allow | Allow | **PASS** |
-| T02 | Driver accept; customer sees driver | Accept | Accept | **PASS** |
-| T03 | Dual accept second driver | Deny | Deny | **PASS** |
-| T04 | Non-assigned driver update | Deny | Deny | **PASS** |
-| T05 | Customer skip to completed | Deny | **Allow** | **FAIL** |
-| T06 | Driver skip stages to complete | Deny | Deny | **PASS** |
-| T07 | Suspended driver online | — | — | **BLOCKED** |
-| T08 | Customer fare tamper | — | — | **BLOCKED** |
-| T09 | Driver increase wallet | Deny | **Allow** | **FAIL** |
-| T10 | Owner edit other vehicle | Deny | Deny | **PASS** |
-| T11 | Owner become super admin | Deny | Deny | **PASS** |
-| T12 | Super admin block driver | Allow | Allow | **PASS** |
-| T13 | Invalid ride create | Deny | Deny | **PASS** |
-| T14 | Valid driver completion | Allow | Allow | **PASS** |
-| T15 | Duplicate completion | Deny | Deny | **PASS** |
-| T16 | Customer cancel searching | Allow | Allow | **PASS** |
-| T17 | Unauthenticated read | Deny | Deny | **PASS** |
-| T18 | ride_requests client create | Deny | Deny | **PASS** |
-| T19 | Driver partner wallet batch | Deny | **Allow** | **FAIL** |
-| T20 | Storage KYC privacy | — | — | **BLOCKED** |
-
-**Totals:** 14 PASS, 3 FAIL, 3 BLOCKED (of 20 scenarios)
-
-### Interpretation of FAIL rows
-
-- **T05, T09, T19:** Tests expected secure behavior; Firestore allowed insecure operations — documented as **product/rules failures**, not harness bugs.
+| Requirement | Coverage |
+|-------------|----------|
+| Simultaneous accept exactly one succeeds | Rules deny second **client** accept; **server TX** dual-finalize covered in phase2a race tests (not T03 alone) |
+| Super Admin actions logged | T12 proves block write; **ledger/`audit_logs` write not asserted in T12** → partial |
+| Stale session / account status | T07 blocked online; Auth disable mid-session **not** emulator-tested |
+| Invalid status transitions | T05/T06/T14/T15 |
+| Cancellation financial effect | Rules cancel only; settlement cancel covered in cancel-contract suite |
+| Duplicate completion wallet | Client path denied; CF idempotency in settlement / phase2a |
 
 ---
 
-## Storage rules
+## 2. Additional emulator suites (this audit)
 
-**Not executed** in emulator harness. Static review:
+| Suite | Command | Exit | Pass | Fail | Blocked |
+|-------|---------|------|------|------|---------|
+| Phase 2B run-all | `npm run test:phase2b` | 0 | **91** | 0 | 0 |
+| Phase 2A bargaining | emulator + `phase2a-bargaining-suite.mjs` | 0 | **21** | 0 | 0 |
+| False-success booking | `booking-false-success-suite.mjs` | 0 | **23** | 0 | 0 |
+| Ghost / expiry | `ghost-rides-…-suite.mjs` | 0 | **39** | 0 | 0 |
+| Cancel contract | `booking-cancellation-contract-suite.mjs` | 0 | **18** | 0 | 0 |
+| Driver reach | `booking-driver-reach-suite.mjs` | 0 | **11** | 0 | 0 |
 
-- `storage.rules`: `driver_applications/{userId}/{fileName}` owner-only; default deny.
-
----
-
-## Browser / E2E
-
-**BLOCKED** — no Playwright/Cypress config; not run to avoid production interaction.
-
----
-
-## Emulator read/write counts
-
-Not instrumented in harness (Firebase Emulator UI / logs only). Qualitative: each test seeds via `withSecurityRulesDisabled` then performs 1–3 ruled operations.
+**Emulator R/W:** Suites print dispatch debug; Phase 3B historically measured geo reads (~24 vehicles local). Exact counters vary per run — not billed (demo emulator).
 
 ---
 
-## Commands summary
+## 3. Build & static quality gates
 
-| Command | Exit |
-|---------|------|
-| `node tools/build-hosting.mjs` | 0 |
-| `node tests/audit.test.mjs` | 1 |
-| `node tests/i18n-purity-scan.mjs` | 1 |
-| `npm test` | 1 |
-| `firebase emulators:exec --only firestore --project demo-swiftgo-phase1 "node tests/phase1-emulator-contract.mjs"` | 1 |
+| Gate | Command | Exit | Notes |
+|------|---------|------|-------|
+| Four-app hosting build | `npm run build:hosting` | **0** | customer, partner, owner, admin packaged |
+| i18n purity | `npm run test:i18n` | **0** | 368 EN/UR keys; 0 leftovers |
+| Static audit | `npm run test:audit` | **1** | **255 PASS / 2 FAIL** |
+| Lint | — | N/A | No ESLint script for apps |
+| Typecheck | — | N/A | Vanilla JS, no tsc project |
+
+### Audit FAIL details (not silently fixed)
+
+1. **Phase 16.2 searching-for-driver UI state** — static wiring assertion failed (`tests/audit.test.mjs`).  
+2. **Partner auth routes strictly by saved role** — static wiring assertion failed (likely intentional no-redirect of owner role on `/partner/` per later product decision).
+
+---
+
+## 4. Task 2 startup evidence
+
+| App | Build artifact | Start model |
+|-----|----------------|-------------|
+| Customer | `hosting-dist/index.html`, `/customer/` | Static; entry `js/app.js` |
+| Driver | `hosting-dist/partner/` | `js/driver-app.js` |
+| Owner | `hosting-dist/owner/` | `js/owner-app.js` |
+| Admin | `hosting-dist/admin/` | `js/admin-app.js` |
+
+Live HTTP probes inside audit (read-only): `/` and key JS → **200**, projectId `swiftgo-ride-app`.
+
+Playwright `test:phase2e` / interactive console errors: **not re-run** this audit → Unverified.
+
+---
+
+## 5. Aggregate counts (this audit window)
+
+| Category | Passed | Failed | Blocked | Skipped / N/A |
+|----------|--------|--------|---------|---------------|
+| Phase1 contract (Task 6) | 20 | 0 | 0 | 0 |
+| Focused booking suites | 91 | 0 | 0 | 0 |
+| Phase2b | 91 | 0 | 0 | 0 |
+| Phase2a bargaining | 21 | 0 | 0 | 0 |
+| Build hosting | 1 | 0 | 0 | 0 |
+| i18n | 1 | 0 | 0 | 0 |
+| Static audit checks | 255 | 2 | 0 | 0 |
+| Lint/typecheck | — | — | — | N/A |
+| phase2e browser | — | — | — | Unverified |
+
+No placeholder security tests were marked PASS without execution.
+
+---
+
+## 6. Secrets / PII
+
+No API secrets, service-account keys, CNIC images, phone numbers, or production customer UIDs are included in this evidence.

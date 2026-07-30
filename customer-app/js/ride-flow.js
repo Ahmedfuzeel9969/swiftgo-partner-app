@@ -6,7 +6,7 @@ import {
   watchRideRequest,
   submitRideRating,
 } from "./data.js";
-import { createCustomerBookingClient, cancelCustomerBookingClient } from "./booking-client.js";
+import { createCustomerBookingClient, cancelCustomerBookingClient, cancelAllSearchingBookingsClient, expireSearchingBookingClient } from "./booking-client.js";
 import {
   finalizeOfferAsCustomer,
   counterOfferAsCustomer,
@@ -21,6 +21,11 @@ import { clearLocationCue } from "./map.js";
 import { t } from "./i18n.js";
 import { announce } from "./a11y.js";
 import { askExtraBookingConfirm } from "./confirm-dialog.js";
+import { askCancelRideReason, askNoDriverAvailable } from "./cancel-reason-dialog.js";
+
+const SEARCH_TIMEOUT_MS = 180_000;
+/** Re-run match while searching so drivers who come online mid-search get invited. */
+const SEARCH_REMATCH_MS = 30_000;
 
 const VEHICLE_NAME_KEYS = {
   bike: "vehBike",
@@ -51,6 +56,10 @@ let unsubscribeOffers = () => {};
 let activeOffers = [];
 let selectedOfferId = null;
 let pendingExtraBookingConfirm = false;
+let searchTimeoutId = 0;
+let searchTickId = 0;
+let searchRematchId = 0;
+let searchStartedAtMs = 0;
 
 export function initRideFlow(handlers = {}) {
   onToast = handlers.onToast || null;
@@ -60,6 +69,7 @@ export function initRideFlow(handlers = {}) {
     searchingPanel: document.getElementById("searchingPanel"),
     searchingSpinner: document.getElementById("searchingSpinner"),
     searchingPanelText: document.getElementById("searchingPanelText"),
+    searchingTimer: document.getElementById("searchingTimer"),
     driverOfferPanel: document.getElementById("driverOfferPanel"),
     driverOfferDriverName: document.getElementById("driverOfferDriverName"),
     driverOfferVehicle: document.getElementById("driverOfferVehicle"),
@@ -80,12 +90,99 @@ export function initRideFlow(handlers = {}) {
     ratingStars: document.getElementById("rideRatingStars"),
     ratingThanks: document.getElementById("rideRatingThanks"),
   };
-  els.cancelBtn?.addEventListener("click", cancelActiveRide);
+  els.cancelBtn?.addEventListener("click", () => {
+    void cancelActiveRide();
+  });
   els.acceptDriverOfferBtn?.addEventListener("click", onAcceptDriverOffer);
   els.rejectDriverOfferBtn?.addEventListener("click", onRejectDriverOffer);
   els.sendCounterOfferBtn?.addEventListener("click", onSendCounterOffer);
   els.invoiceDoneBtn?.addEventListener("click", dismissInvoiceAndReset);
   initRatingStars();
+}
+
+function clearSearchTimers() {
+  window.clearTimeout(searchTimeoutId);
+  window.clearInterval(searchTickId);
+  window.clearInterval(searchRematchId);
+  searchTimeoutId = 0;
+  searchTickId = 0;
+  searchRematchId = 0;
+  searchStartedAtMs = 0;
+  if (els.searchingTimer) {
+    els.searchingTimer.textContent = "";
+    els.searchingTimer.hidden = true;
+  }
+}
+
+function formatSearchCountdown(remainingMs) {
+  const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function paintSearchTimer() {
+  if (!els.searchingTimer || !searchStartedAtMs) return;
+  const remaining = SEARCH_TIMEOUT_MS - (Date.now() - searchStartedAtMs);
+  els.searchingTimer.hidden = false;
+  els.searchingTimer.textContent = `${t("searchingTimerLabel") || "وقت باقی"} ${formatSearchCountdown(remaining)}`;
+}
+
+function startSearchTimers(rideId) {
+  clearSearchTimers();
+  searchStartedAtMs = Date.now();
+  paintSearchTimer();
+  searchTickId = window.setInterval(paintSearchTimer, 1000);
+  searchRematchId = window.setInterval(() => {
+    void rematchWhileSearching(rideId);
+  }, SEARCH_REMATCH_MS);
+  searchTimeoutId = window.setTimeout(() => {
+    void onSearchTimedOut(rideId);
+  }, SEARCH_TIMEOUT_MS);
+}
+
+async function rematchWhileSearching(rideId) {
+  if (!rideId || activeRide?.id !== rideId) return;
+  if (String(activeRide?.status || "searching_driver") !== "searching_driver") return;
+  try {
+    const result = await matchCandidatesForRide(rideId);
+    const count = Number(result?.candidates?.length ?? result?.candidateCount ?? 0);
+    if (count > 0) {
+      // Soft signal only — offers UI already watches Firestore.
+      console.info("[SwiftGo] rematch invited", count);
+    }
+  } catch (err) {
+    console.warn("[SwiftGo] rematch while searching", err?.code || err?.message);
+  }
+}
+
+async function onSearchTimedOut(rideId) {
+  if (!rideId || activeRide?.id !== rideId) return;
+  if (activeRide?.status && activeRide.status !== "searching_driver") return;
+  clearSearchTimers();
+  try {
+    const result = await expireSearchingBookingClient(rideId);
+    // Only show no-driver message when expiry actually applied (or already expired).
+    if (result?.changed === false && result?.reason === "already_assigned_or_done") {
+      return;
+    }
+  } catch (err) {
+    console.warn("[SwiftGo] expire searching", err);
+    const code = String(err?.message || err?.code || "");
+    if (code.includes("RIDE_NOT_EXPIREABLE") || code.includes("already_assigned")) {
+      return;
+    }
+  }
+  stopRideWatch();
+  activeRide = null;
+  if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
+  restoreVehicleState();
+  onToast?.(t("noDriverAvailable") || "کوئی ڈرائیور دستیاب نہ ہوا");
+  announce(t("noDriverAvailable") || "No driver available", { assertive: true });
+  const choice = await askNoDriverAvailable();
+  if (choice === "retry") {
+    onReset?.();
+  }
 }
 
 function initRatingStars() {
@@ -160,6 +257,10 @@ function showSearchingState() {
   setSearchingOfferVisible(false);
   requestAnimationFrame(() => els.searchingPanel.classList.add("is-visible"));
   announce(t("searchingDriver") || "Searching for drivers");
+  if (els.cancelBtn) {
+    els.cancelBtn.hidden = false;
+    els.cancelBtn.textContent = t("cancelRide") || "کینسل کریں";
+  }
 }
 
 function setSearchingOfferVisible(hasOffer) {
@@ -338,6 +439,7 @@ function showInvoicePanel(ride) {
 }
 
 function stopRideWatch() {
+  clearSearchTimers();
   unsubscribeRide();
   unsubscribeRide = () => {};
   unsubscribeOffers();
@@ -411,6 +513,7 @@ function handleRideSnapshot(ride) {
   if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
 
   if (ride.status === "accepted" || ride.status === "arrived" || ride.status === "in_progress") {
+    clearSearchTimers();
     const firstActive =
       previousStatus !== "accepted" &&
       previousStatus !== "arrived" &&
@@ -442,11 +545,23 @@ function handleRideSnapshot(ride) {
       showInvoicePanel(ride);
       announce(t("rideCompleted") || "Ride completed");
     }
-  } else if (ride.status === "cancelled_by_user") {
-    if (previousStatus !== "cancelled_by_user") {
+  } else if (ride.status === "cancelled_by_user" || ride.status === "cancelled_by_customer" || ride.status === "cancelled_by_system") {
+    if (previousStatus !== ride.status) {
       announce(t("rideCancelled") || "Booking cancelled", { assertive: true });
     }
     resetToVehicleSelection();
+  } else if (ride.status === "no_driver_found" || ride.status === "expired") {
+    if (previousStatus !== ride.status) {
+      clearSearchTimers();
+      stopRideWatch();
+      activeRide = null;
+      if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
+      restoreVehicleState();
+      onToast?.(t("noDriverAvailable") || "کوئی ڈرائیور اس وقت میسر نہیں ہے");
+      void askNoDriverAvailable().then((choice) => {
+        if (choice === "retry") onReset?.();
+      });
+    }
   } else if (ride.status === "searching_driver") {
     if (previousStatus !== "searching_driver") showSearchingState();
     updateDriverOfferUi(ride);
@@ -475,13 +590,70 @@ export async function startRideRequest(state) {
         : state.basePrice ?? state.price ?? 0;
 
   try {
+    if (
+      !Number.isFinite(route.pickup?.lat) ||
+      !Number.isFinite(route.pickup?.lng) ||
+      !Number.isFinite(route.dropoff?.lat) ||
+      !Number.isFinite(route.dropoff?.lng)
+    ) {
+      onToast?.(t("bookingNeedRoute") || "پک اپ اور منزل نقشے پر سیٹ کریں");
+      announce(t("bookingNeedRoute") || "Set pickup and destination on the map", {
+        assertive: true,
+      });
+      return null;
+    }
+
     const gate = await checkCustomerBookingGate({
       confirmedExtraBooking: pendingExtraBookingConfirm,
     });
     if (!gate.allowed) {
       if (gate.reason === "MAX_ACTIVE_BOOKINGS") {
-        onToast?.(t("bookingMaxActive"));
+        // This confirm only clears stale searching rides — it does NOT create a booking.
+        const clear = window.confirm(
+          `${t("bookingMaxActive")}\n\n${t("bookingClearSearchingAsk") || "پرانی تلاش والی بکنگز منسوخ کریں؟"}`
+        );
+        if (clear) {
+          try {
+            const cleared = await cancelAllSearchingBookingsClient();
+            const n = Number(cleared?.cancelledCount ?? 0);
+            const still = Number(cleared?.activeCount ?? 0);
+            const assigned = Array.isArray(cleared?.blockingAssigned)
+              ? cleared.blockingAssigned.length
+              : 0;
+            if (cleared?.failed?.length) {
+              onToast?.(
+                t("bookingClearFailed") ||
+                  `کچھ بکنگز منسوخ نہیں ہو سکیں (${cleared.failed[0]?.reason || "error"})`
+              );
+            } else if (still > 0 && assigned > 0) {
+              onToast?.(
+                t("bookingStillAssigned") ||
+                  `تلاش والی بکنگز صاف ہو گئیں، لیکن ${assigned} تفویض شدہ بکنگ ابھی فعال ہے`
+              );
+            } else if (still > 0) {
+              onToast?.(t("bookingMaxActive"));
+            } else {
+              onToast?.(
+                t("bookingClearedSearching") ||
+                  (n
+                    ? `${n} پرانی بکنگز منسوخ ہو گئیں — دوبارہ بکنگ کریں۔`
+                    : "سلاٹ صاف ہو گئے — دوبارہ بکنگ کریں۔")
+              );
+            }
+          } catch (clearErr) {
+            console.warn("[SwiftGo] clear searching", clearErr);
+            const reason = String(clearErr?.message || clearErr?.code || "");
+            onToast?.(
+              `${t("bookingClearFailed") || "پرانی بکنگز منسوخ نہیں ہو سکیں"}${
+                reason ? ` (${reason})` : ""
+              }`
+            );
+          }
+        } else {
+          onToast?.(t("bookingMaxActive"));
+        }
         announce(t("bookingMaxActive") || "Booking limit reached", { assertive: true });
+        // Explicit null — caller must not show booking success.
         return null;
       }
       if (gate.needsConfirmation || gate.reason === "CONFIRM_EXTRA_BOOKING") {
@@ -535,8 +707,16 @@ export async function startRideRequest(state) {
       paymentMethod: getPaymentMethod(),
     });
 
+    const rideId = String(created?.id || "").trim();
+    if (!rideId) {
+      console.warn("[SwiftGo] createCustomerBooking returned no ride id", created);
+      onToast?.(t("rideRequestFailed"));
+      announce(t("rideRequestFailed") || "Booking failed", { assertive: true });
+      throw new Error("MISSING_RIDE_ID");
+    }
+
     const ride = {
-      id: created.id,
+      id: rideId,
       status: "searching_driver",
       farePkr: estimatedFare,
       estimatedFare,
@@ -548,8 +728,9 @@ export async function startRideRequest(state) {
     activeRide = ride;
     if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
     announce(t("bookingCreated") || "Booking created");
-    showSearchingState();
     stopRideWatch();
+    showSearchingState();
+    startSearchTimers(ride.id);
     unsubscribeRide = watchRideRequest(
       ride.id,
       handleRideSnapshot,
@@ -563,7 +744,26 @@ export async function startRideRequest(state) {
       },
       (err) => console.warn("[SwiftGo] offers watch", err)
     );
-    matchCandidatesForRide(ride.id);
+    // Prefer server auto-match from createCustomerBooking; still call as backup.
+    if (!created.candidateCount && created.matchingStatus !== "candidates_ready") {
+      await matchCandidatesForRide(ride.id);
+    }
+    if (created.matchingStatus === "no_candidates" || created.candidateCount === 0) {
+      onToast?.(
+        t("bookingNoDriversNearby") ||
+          "قریبی ڈرائیور نہیں ملا — تلاش جاری ہے، ڈرائیور آن لائن اور 3 کلومیٹر کے اندر ہو"
+      );
+    } else if (created.matchingStatus === "candidates_ready" || created.candidateCount > 0) {
+      onToast?.(
+        t("bookingDriversInvited") ||
+          `${created.candidateCount || ""} قریبی ڈرائیور کو دعوت بھیج دی`.trim()
+      );
+    } else if (created.matchingStatus === "match_failed") {
+      onToast?.(
+        t("bookingMatchRetrying") ||
+          "ڈرائیور میچنگ میں مسئلہ — تلاش جاری، دوبارہ کوشش ہو رہی ہے"
+      );
+    }
     return ride;
   } finally {
     requesting = false;
@@ -572,16 +772,32 @@ export async function startRideRequest(state) {
 
 async function cancelActiveRide() {
   const ride = activeRide;
-  stopRideWatch();
-  activeRide = null;
-  if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
-  restoreVehicleState();
+  if (!ride?.id) {
+    restoreVehicleState();
+    return;
+  }
+  const status = String(ride.status || "searching_driver");
+  if (!["searching_driver", "accepted", "arrived"].includes(status)) {
+    onToast?.(t("cancelRideOnlySearching") || "سواری شروع ہونے کے بعد کینسل نہیں ہو سکتی");
+    return;
+  }
 
-  if (!ride?.id) return;
+  const reason = await askCancelRideReason();
+  if (!reason) return;
+
   try {
-    await cancelCustomerBookingClient(ride.id);
-    onToast?.(t("rideCancelled"));
+    await cancelCustomerBookingClient(ride.id, reason);
+    stopRideWatch();
+    activeRide = null;
+    if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
+    restoreVehicleState();
+    onToast?.(t("rideCancelled") || "بکنگ منسوخ ہو گئی");
+    announce(t("rideCancelled") || "Booking cancelled", { assertive: true });
   } catch (err) {
     console.warn("[SwiftGo] cancel ride", err);
+    const code = String(err?.message || err?.code || "");
+    onToast?.(
+      `${t("rideRequestFailed") || "کینسل نہیں ہو سکی"}${code ? ` (${code})` : ""}`
+    );
   }
 }

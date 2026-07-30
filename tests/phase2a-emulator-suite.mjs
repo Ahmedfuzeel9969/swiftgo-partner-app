@@ -107,6 +107,26 @@ async function main() {
       commissionPercent: 10,
       vehicles: { go: { commissionPercent: 10 } },
     });
+    await setDoc(doc(db, "rides", "p1-ride-1"), {
+      userId: "customer-a",
+      pickupLocation: { lat: 24.86, lng: 67.0, address: "A" },
+      dropoffLocation: { lat: 24.9, lng: 67.05, address: "B" },
+      vehicleType: "go",
+      vehicleTypeKey: "go",
+      distanceKm: 5,
+      timeMins: 15,
+      farePkr: 350,
+      estimatedFare: 350,
+      status: "searching_driver",
+      createdAt: new Date(),
+    });
+    await setDoc(doc(db, "ride_candidates", "p1-ride-1_driver-1"), {
+      rideId: "p1-ride-1",
+      driverId: "driver-1",
+      status: "invited",
+      distanceKm: 0.5,
+      ringKm: 1,
+    });
   });
 
   const rideBase = {
@@ -124,24 +144,15 @@ async function main() {
 
   // ── Phase 1 regression (critical) ──
   try {
-    await assertSucceeds(
-      setDoc(doc(customerDb, "rides", "p1-ride-1"), {
+    await assertFails(
+      setDoc(doc(customerDb, "rides", "p1-ride-client-bypass"), {
         ...rideBase,
         status: "searching_driver",
       })
     );
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), "ride_candidates", "p1-ride-1_driver-1"), {
-        rideId: "p1-ride-1",
-        driverId: "driver-1",
-        status: "invited",
-        distanceKm: 0.5,
-        ringKm: 1,
-      });
-    });
     await assertSucceeds(getDoc(doc(driver1Db, "rides", "p1-ride-1")));
     await assertFails(getDoc(doc(driver2Db, "rides", "p1-ride-1")));
-    record("T01-customer-create-driver-read-open", "PASS", "candidate can read; non-candidate denied", "rides");
+    record("T01-customer-create-driver-read-open", "PASS", "client create denied; candidate can read; non-candidate denied", "rides");
   } catch (e) {
     record("T01-customer-create-driver-read-open", "FAIL", e.message, "rides");
   }

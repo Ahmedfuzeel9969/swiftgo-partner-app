@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-07-28T10:58:51.551Z",
+  "generatedAt": "2026-07-29T19:03:18.031Z",
   "results": [
     {
       "name": "S01-claim-admin-can-write-settings",
       "status": "PASS",
-      "detail": "ok",
+      "detail": "set merge ok",
       "suite": "phase2b"
     },
     {
@@ -106,7 +106,7 @@
     {
       "name": "S18-pin-lockout-after-max",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785237230997}",
+      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785352697434}",
       "suite": "phase2b"
     },
     {
@@ -122,9 +122,9 @@
       "suite": "phase2b"
     },
     {
-      "name": "S21-plaintext-pin-stripped",
+      "name": "S21-plaintext-pin-owner-display-ok",
       "status": "PASS",
-      "detail": "pin=undefined",
+      "detail": "pinHash=true pin=none",
       "suite": "phase2b"
     },
     {

@@ -1,5 +1,6 @@
 /**
- * Phase 2A — customer booking gate + trusted create (when Functions available).
+ * Phase 2A — customer booking gate via trusted Cloud Function.
+ * Live non-terminal `rides` for the signed-in UID are the only count source of truth.
  */
 
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
@@ -10,8 +11,10 @@ import {
   getDocs,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getFirebase } from "./firebase.js";
-
-const NON_TERMINAL = ["searching_driver", "accepted", "arrived", "in_progress"];
+import {
+  MAX_CUSTOMER_ACTIVE_BOOKINGS,
+  NON_TERMINAL_RIDE_STATUSES,
+} from "./ride-status.js";
 
 async function listActiveBookingsLocal() {
   const { ready, db, auth } = getFirebase();
@@ -20,10 +23,36 @@ async function listActiveBookingsLocal() {
   const q = query(
     collection(db, "rides"),
     where("userId", "==", user.uid),
-    where("status", "in", NON_TERMINAL)
+    where("status", "in", [...NON_TERMINAL_RIDE_STATUSES])
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs.map((d) => ({ id: d.id, status: d.data()?.status, ...d.data() }));
+}
+
+function evaluateLocalGate(active, confirmedExtraBooking) {
+  const count = active.length;
+  if (count >= MAX_CUSTOMER_ACTIVE_BOOKINGS) {
+    return {
+      allowed: false,
+      reason: "MAX_ACTIVE_BOOKINGS",
+      count,
+      activeBookings: active.map((r) => ({ id: r.id, status: r.status })),
+    };
+  }
+  if (count >= 1 && !confirmedExtraBooking) {
+    return {
+      allowed: false,
+      needsConfirmation: true,
+      reason: "CONFIRM_EXTRA_BOOKING",
+      count,
+      activeBookings: active.map((r) => ({ id: r.id, status: r.status })),
+    };
+  }
+  return {
+    allowed: true,
+    count,
+    activeBookings: active.map((r) => ({ id: r.id, status: r.status })),
+  };
 }
 
 /**
@@ -39,33 +68,29 @@ export async function checkCustomerBookingGate(opts = {}) {
       const result = await fn({
         confirmedExtraBooking: Boolean(opts.confirmedExtraBooking),
       });
-      return result?.data || result;
+      const data = result?.data || result;
+      if (data && typeof data.allowed === "boolean") {
+        return data;
+      }
+      console.warn("[SwiftGo] booking gate CF returned invalid payload", data);
     } catch (err) {
-      // Functions not deployed yet — fall back to local count.
-      console.warn("[SwiftGo] booking gate CF fallback", err?.code || err?.message);
+      const code = String(err?.code || "");
+      // Only fall back when Functions are unreachable; never invent MAX from cache.
+      if (
+        code.includes("unavailable") ||
+        code.includes("not-found") ||
+        code.includes("FUNCTIONS_UNAVAILABLE") ||
+        /internal/i.test(String(err?.message || ""))
+      ) {
+        console.warn("[SwiftGo] booking gate CF fallback to live rides query", code || err?.message);
+      } else {
+        throw err;
+      }
     }
   }
 
   const active = await listActiveBookingsLocal();
-  if (active.length >= 4) {
-    return {
-      allowed: false,
-      reason: "MAX_ACTIVE_BOOKINGS",
-      activeBookings: active.map((r) => ({ id: r.id, status: r.status })),
-    };
-  }
-  if (active.length >= 1 && !opts.confirmedExtraBooking) {
-    return {
-      allowed: false,
-      needsConfirmation: true,
-      reason: "CONFIRM_EXTRA_BOOKING",
-      activeBookings: active.map((r) => ({ id: r.id, status: r.status })),
-    };
-  }
-  return {
-    allowed: true,
-    activeBookings: active.map((r) => ({ id: r.id, status: r.status })),
-  };
+  return evaluateLocalGate(active, Boolean(opts.confirmedExtraBooking));
 }
 
 export async function listActiveCustomerBookings() {

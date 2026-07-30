@@ -46,6 +46,20 @@ export async function createCustomerBookingClient({
   });
 }
 
-export async function cancelCustomerBookingClient(rideId) {
-  return call("cancelCustomerBooking", { rideId });
+export async function cancelCustomerBookingClient(rideId, { cancelReason, cancelReasonKey } = {}) {
+  return call("cancelCustomerBooking", {
+    rideId,
+    cancelReason,
+    cancelReasonKey,
+  });
+}
+
+/** Cancel every searching booking for the signed-in customer. */
+export async function cancelAllSearchingBookingsClient() {
+  return call("cancelAllSearchingBookings", {});
+}
+
+/** 3-minute search timeout — mark ride as expired (server authoritative). */
+export async function expireSearchingBookingClient(rideId) {
+  return call("expireSearchingBooking", { rideId });
 }

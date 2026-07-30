@@ -13,6 +13,9 @@ const {
   evaluateCustomerBookingGate,
   createCustomerBooking,
   cancelCustomerBooking,
+  cancelAllSearchingBookings,
+  expireSearchingBooking,
+  expireDueSearchingBookings,
   matchRideCandidates,
   submitRideOffer,
   counterRideOffer,
@@ -20,6 +23,13 @@ const {
   finalizeAssignmentFromOffer,
   readDispatchSettings,
 } = require("./bargaining");
+const {
+  declineRideCandidate,
+  withdrawRideOffer,
+  cancelAssignedRideByDriver,
+  cancelRideByAdmin,
+} = require("./ride-cancellation");
+const { submitCompletedRideRating } = require("./ride-rating");
 const { validateCandidateDriverLimit } = require("./matching");
 const {
   bootstrapAdminClaim,
@@ -63,6 +73,9 @@ function mapErr(err) {
   if (message === "INVALID_CANDIDATE_LIMIT") return new HttpsError("invalid-argument", message);
   if (message === "MAX_ACTIVE_BOOKINGS" || message === "CONFIRM_EXTRA_BOOKING") {
     return new HttpsError("failed-precondition", message);
+  }
+  if (message === "INVALID_PICKUP" || message === "INVALID_DROPOFF") {
+    return new HttpsError("invalid-argument", message);
   }
   return new HttpsError("internal", message);
 }
@@ -162,12 +175,22 @@ exports.checkCustomerBookingGate = onCall({ region: "us-central1" }, async (requ
   }
 });
 
+/** Cancel all searching bookings for the signed-in customer (unlock slots). */
+exports.cancelAllSearchingBookings = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await cancelAllSearchingBookings(db, request.auth.uid);
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
 /** Race-safe booking create (4 concurrent non-terminal max). */
 exports.createCustomerBooking = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   try {
     const data = request.data || {};
-    return await createCustomerBooking(db, {
+    const created = await createCustomerBooking(db, {
       customerUid: request.auth.uid,
       confirmedExtraBooking: Boolean(data.confirmedExtraBooking),
       ridePayload: {
@@ -187,6 +210,54 @@ exports.createCustomerBooking = onCall({ region: "us-central1" }, async (request
         paymentMethod: data.paymentMethod,
       },
     });
+
+    // Always match on the server after create — do not rely on a second client call
+    // (production logs showed create without matchRideCandidates → drivers never invited).
+    let matching = null;
+    let matchingError = null;
+    try {
+      const rideSnap = await db.collection("rides").doc(created.id).get();
+      const ride = rideSnap.exists ? rideSnap.data() || {} : {};
+      const pickup = {
+        lat: Number(ride.pickupLocation?.lat),
+        lng: Number(ride.pickupLocation?.lng),
+      };
+      if (!Number.isFinite(pickup.lat) || !Number.isFinite(pickup.lng)) {
+        matchingError = "INVALID_PICKUP";
+        await db.collection("rides").doc(created.id).set(
+          {
+            matchingStatus: "invalid_pickup",
+            matchedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } else {
+        matching = await matchRideCandidates(db, {
+          rideId: created.id,
+          pickup,
+        });
+      }
+    } catch (matchErr) {
+      matchingError = String(matchErr?.message || matchErr).slice(0, 200);
+      await recordMatchingFailure(db, matchingError).catch(() => {});
+      logStructured("ERROR", "auto_match_failed", {
+        rideId: created.id,
+        message: matchingError,
+      });
+    }
+
+    return {
+      ...created,
+      matchingStatus: matching
+        ? matching.candidates?.length
+          ? "candidates_ready"
+          : "no_candidates"
+        : matchingError
+          ? "match_failed"
+          : null,
+      candidateCount: matching?.candidates?.length ?? 0,
+      matchingError,
+    };
   } catch (err) {
     throw mapErr(err);
   }
@@ -198,6 +269,40 @@ exports.cancelCustomerBooking = onCall({ region: "us-central1" }, async (request
     return await cancelCustomerBooking(db, {
       customerUid: request.auth.uid,
       rideId: String(request.data?.rideId || "").trim(),
+      cancelReason: request.data?.cancelReason,
+      cancelReasonKey: request.data?.cancelReasonKey,
+    });
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+/** 3-minute search timeout — mark ride as expired and free the slot. */
+exports.expireSearchingBooking = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await expireSearchingBooking(db, {
+      customerUid: request.auth.uid,
+      rideId: String(request.data?.rideId || "").trim(),
+    });
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+/**
+ * Batch expire overdue searching rides (indexed expiresAt).
+ * Admin-only callable for ops/emulator. Do NOT enable Cloud Scheduler
+ * until billing impact is approved (see report).
+ */
+exports.expireDueSearchingBookings = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  const isAdmin = await callerIsAdmin(request);
+  if (!isAdmin) throw new HttpsError("permission-denied", "ADMIN_REQUIRED");
+  try {
+    const limit = request.data?.limit;
+    return await expireDueSearchingBookings(db, {
+      limit: limit != null ? Number(limit) : 25,
     });
   } catch (err) {
     throw mapErr(err);
@@ -281,6 +386,81 @@ exports.rejectRideOffer = onCall({ region: "us-central1" }, async (request) => {
     return await rejectRideOffer(db, {
       offerId: request.data?.offerId,
       customerUid: request.auth.uid,
+    });
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+/** Candidate Driver declines only their invitation (booking stays open). */
+exports.declineRideCandidate = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await declineRideCandidate(db, {
+      rideId: String(request.data?.rideId || "").trim(),
+      driverUid: request.auth.uid,
+    });
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+/** Driver withdraws only their own offer. */
+exports.withdrawRideOffer = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await withdrawRideOffer(db, {
+      offerId: String(request.data?.offerId || "").trim(),
+      driverUid: request.auth.uid,
+    });
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+/**
+ * Assigned Driver cancels before start → rematch same booking with fresh 3-min window.
+ * Cancelling driver excluded from immediate rematch.
+ */
+exports.cancelAssignedRideByDriver = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await cancelAssignedRideByDriver(db, {
+      rideId: String(request.data?.rideId || "").trim(),
+      driverUid: request.auth.uid,
+      cancelReason: request.data?.cancelReason,
+      cancelReasonKey: request.data?.cancelReasonKey,
+    });
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+/** Super Admin cancel eligible non-terminal ride (not silent start financial cancel). */
+exports.cancelRideByAdmin = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  if (!(await callerIsAdmin(request))) {
+    throw new HttpsError("permission-denied", "ADMIN_ONLY");
+  }
+  try {
+    return await cancelRideByAdmin(db, {
+      rideId: String(request.data?.rideId || "").trim(),
+      adminUid: request.auth.uid,
+      reason: request.data?.reason,
+    });
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+/** Customer rates a completed ride; partner aggregates updated server-side only. */
+exports.submitCompletedRideRating = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await submitCompletedRideRating(db, {
+      customerUid: request.auth.uid,
+      rideId: String(request.data?.rideId || "").trim(),
+      rating: request.data?.rating,
     });
   } catch (err) {
     throw mapErr(err);

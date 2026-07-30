@@ -403,6 +403,25 @@ button {
   font-size: 0.82rem;
 }
 
+.driver-avail-diag {
+  margin: 0;
+  padding: 0.45rem 1.25rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #0f3d2e;
+  background: #e8f6ef;
+  border-bottom: 1px solid #cfe8da;
+}
+
+.driver-avail-diag[data-state="blocked"],
+.driver-avail-diag[data-state="need_permission"],
+.driver-avail-diag[data-state="no_location"],
+.driver-avail-diag[data-state="no_vehicle"] {
+  color: #5c2b00;
+  background: #fff4e5;
+  border-bottom-color: #f0d9b5;
+}
+
 .partner-content {
   display: flex;
   flex: 1;

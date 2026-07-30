@@ -193,7 +193,10 @@ function subscribeRideOutcomes(driverUid, onOutcomes) {
       });
       onOutcomes({ completed, cancelled });
     },
-    () => onOutcomes({ completed: 0, cancelled: 0 })
+    (error) => {
+      console.warn("[SwiftGo Dashboard] Firestore listen retry...", error);
+      onOutcomes({ completed: 0, cancelled: 0 });
+    }
   );
 }
 
@@ -257,14 +260,38 @@ export function initDriverDashboard(config) {
   }
 
   function resize() {
-    earningsChart?.resize();
-    ratioChart?.resize();
+    try {
+      if (earningsChart && typeof earningsChart.resize === "function") {
+        earningsChart.resize();
+      }
+    } catch (error) {
+      console.warn("[SwiftGo Dashboard] earningsChart.resize", error);
+    }
+    try {
+      if (ratioChart && typeof ratioChart.resize === "function") {
+        ratioChart.resize();
+      }
+    } catch (error) {
+      console.warn("[SwiftGo Dashboard] ratioChart.resize", error);
+    }
   }
 
   function destroy() {
     deactivate();
-    earningsChart?.destroy();
-    ratioChart?.destroy();
+    try {
+      if (earningsChart && typeof earningsChart.destroy === "function") {
+        earningsChart.destroy();
+      }
+    } catch (error) {
+      console.warn("[SwiftGo Dashboard] earningsChart.destroy", error);
+    }
+    try {
+      if (ratioChart && typeof ratioChart.destroy === "function") {
+        ratioChart.destroy();
+      }
+    } catch (error) {
+      console.warn("[SwiftGo Dashboard] ratioChart.destroy", error);
+    }
     earningsChart = null;
     ratioChart = null;
   }

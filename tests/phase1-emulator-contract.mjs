@@ -46,6 +46,7 @@ async function main() {
   const adminDb = testEnv.authenticatedContext("admin-uid", {
     email: "fuzail1158@gmail.com",
     email_verified: true,
+    admin: true,
   }).firestore();
 
   const customerDb = testEnv.authenticatedContext("customer-a").firestore();
@@ -53,9 +54,10 @@ async function main() {
   const driver2Db = testEnv.authenticatedContext("driver-2", { name: "Driver Two" }).firestore();
   const ownerDb = testEnv.authenticatedContext("owner-1").firestore();
 
-  // Seed vehicle for driver-1
+  // Seed vehicle for driver-1 + searching ride for candidate-read tests
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
+    await setDoc(doc(db, "settings", "security"), { adminBootstrapEnabled: false });
     await setDoc(doc(db, "vehicles", "veh-1"), {
       ownerId: "owner-1",
       driverId: "driver-1",
@@ -76,13 +78,30 @@ async function main() {
       walletBalance: 0,
     });
     await setDoc(doc(db, "partners", "owner-1"), { role: "owner", accountStatus: "active" });
+    await setDoc(doc(db, "rides", "ride-1"), {
+      userId: "customer-a",
+      pickupLocation: { lat: 24.86, lng: 67.0, address: "A" },
+      dropoffLocation: { lat: 24.9, lng: 67.05, address: "B" },
+      vehicleType: "go",
+      distanceKm: 5,
+      timeMins: 15,
+      farePkr: 350,
+      status: "searching_driver",
+      createdAt: new Date(),
+    });
+    await setDoc(doc(db, "ride_candidates", "ride-1_driver-1"), {
+      rideId: "ride-1",
+      driverId: "driver-1",
+      status: "invited",
+      distanceKm: 0.4,
+      ringKm: 1,
+    });
   });
 
-  // 1 — Customer creates valid ride; invited candidate can read open ride
+  // 1 — Client ride create denied; trusted seed + invited candidate can read
   try {
-    const rideRef = doc(customerDb, "rides", "ride-1");
-    await assertSucceeds(
-      setDoc(rideRef, {
+    await assertFails(
+      setDoc(doc(customerDb, "rides", "ride-client-bypass"), {
         userId: "customer-a",
         pickupLocation: { lat: 24.86, lng: 67.0, address: "A" },
         dropoffLocation: { lat: 24.9, lng: 67.05, address: "B" },
@@ -94,20 +113,11 @@ async function main() {
         createdAt: new Date(),
       })
     );
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), "ride_candidates", "ride-1_driver-1"), {
-        rideId: "ride-1",
-        driverId: "driver-1",
-        status: "invited",
-        distanceKm: 0.4,
-        ringKm: 1,
-      });
-    });
     await assertSucceeds(getDoc(doc(driver1Db, "rides", "ride-1")));
     record(
       "T01-customer-create-driver-read-open",
       "PASS",
-      "Customer created searching_driver ride; candidate driver get succeeded",
+      "client create denied; trusted seed + candidate get succeeded",
       "rides/{rideId} create + get"
     );
   } catch (e) {
@@ -271,6 +281,29 @@ async function main() {
     record("T11-owner-not-super-admin", "PASS", "role admin_driver denied on self-update", "partners");
   } catch (e) {
     record("T11-owner-not-super-admin", "FAIL", String(e.message), "partners");
+  }
+
+  // 9b — Driver cannot self-flip role to owner
+  try {
+    await assertFails(
+      updateDoc(doc(driver1Db, "partners", "driver-1"), { role: "owner" })
+    );
+    record("T11b-driver-role-flip-denied", "PASS", "driver→owner self role flip denied", "partners");
+  } catch (e) {
+    record("T11b-driver-role-flip-denied", "FAIL", String(e.message), "partners");
+  }
+
+  // 9c — Arbitrary user cannot forge partner rating aggregates
+  try {
+    await assertFails(
+      updateDoc(doc(customerDb, "partners", "driver-1"), {
+        customerRatingSum: 5,
+        customerRatingCount: 1,
+      })
+    );
+    record("T11c-rating-aggregate-forge-denied", "PASS", "client partner rating aggregate denied", "partners");
+  } catch (e) {
+    record("T11c-rating-aggregate-forge-denied", "FAIL", String(e.message), "partners");
   }
 
   // 10 — Super admin can block driver

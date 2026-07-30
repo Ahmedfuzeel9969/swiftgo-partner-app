@@ -9,23 +9,15 @@ import {
   orderBy,
   onSnapshot,
   addDoc,
-  runTransaction,
   increment,
   serverTimestamp,
   deleteField,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import {
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
 import { getFirebase, isFirebaseConfigured } from "./firebase.js";
 
 /**
  * users/{uid}: { displayName, email, walletBalance, createdAt, updatedAt }
  * bookings/{id}: { userId, status, service, pickup, destination, fare, createdAt }
- * settings/driverForm: Super Admin booleans for driver onboarding requirements
- * driver_applications/{id}: pending driver KYC applications
  */
 
 export async function ensureUserProfile(user, extra = {}) {
@@ -217,117 +209,32 @@ export async function recordPromoUse(code) {
   }
 }
 
-/** Phase 42 — customer rates a completed ride (1–5 stars). */
-export async function submitRideRating(rideId, rating, driverId = null) {
+/** Phase 42 / Phase 2A — customer rates a completed ride via trusted CF (aggregates server-only). */
+export async function submitRideRating(rideId, rating, _driverId = null) {
   const stars = Math.round(Number(rating));
   if (!rideId || stars < 1 || stars > 5) {
     throw new Error("INVALID_RATING");
   }
 
-  const { ready, db, auth } = getFirebase();
+  const { ready, functions, auth } = getFirebase();
   const user = auth?.currentUser;
   if (!ready || !user) {
     throw new Error("NOT_SIGNED_IN");
   }
+  if (!functions) throw new Error("FUNCTIONS_UNAVAILABLE");
 
-  await runTransaction(db, async (tx) => {
-    const rideRef = doc(db, "rides", rideId);
-    const rideSnap = await tx.get(rideRef);
-    if (!rideSnap.exists()) throw new Error("RIDE_NOT_FOUND");
-
-    const ride = rideSnap.data() || {};
-    if (ride.userId !== user.uid || ride.status !== "completed") {
-      throw new Error("NOT_ALLOWED");
-    }
-    if (ride.customerRating) throw new Error("ALREADY_RATED");
-
-    tx.update(rideRef, {
-      customerRating: stars,
-      ratedAt: serverTimestamp(),
-    });
-
-    const partnerId = driverId || ride.driverId;
-    if (!partnerId) return;
-
-    const partnerRef = doc(db, "partners", partnerId);
-    const partnerSnap = await tx.get(partnerRef);
-    if (!partnerSnap.exists()) return;
-
-    tx.update(partnerRef, {
-      customerRatingSum: increment(stars),
-      customerRatingCount: increment(1),
-    });
-  });
+  const { httpsCallable } = await import(
+    "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js"
+  );
+  return httpsCallable(functions, "submitCompletedRideRating")({
+    rideId,
+    rating: stars,
+  }).then((r) => r?.data || r);
 }
 
-export async function createRideRequest({
-  pickupLocation,
-  dropoffLocation,
-  vehicleType,
-  vehicleTypeKey = "",
-  distanceKm = 0,
-  timeMins = 0,
-  farePkr = 0,
-  estimatedFare = null,
-  promoCode = "",
-  discountAmount = 0,
-  paymentMethod = "cash",
-}) {
-  const { ready, db, auth } = getFirebase();
-  const user = auth?.currentUser;
-  if (!ready || !user) {
-    throw new Error("NOT_SIGNED_IN");
-  }
-
-  const clean = (n) => (Number.isFinite(n) && n >= 0 ? n : 0);
-  const point = (loc) => ({
-    lat: Number.isFinite(loc?.lat) ? loc.lat : null,
-    lng: Number.isFinite(loc?.lng) ? loc.lng : null,
-    address: String(loc?.address || "").slice(0, 500),
-  });
-
-  const baseFare = clean(estimatedFare == null ? farePkr : estimatedFare);
-  const discount = clean(discountAmount);
-  const finalFare = Math.max(0, baseFare - discount);
-  const normalizedPromo = String(promoCode || "")
-    .trim()
-    .toUpperCase()
-    .slice(0, 32);
-  const stableKey = String(vehicleTypeKey || "").trim().slice(0, 40);
-  const allowedPay = new Set(["cash", "easypaisa", "jazzcash", "business"]);
-  const pay = allowedPay.has(String(paymentMethod || "").trim())
-    ? String(paymentMethod).trim()
-    : "cash";
-
-  const payload = {
-    userId: user.uid,
-    pickupLocation: point(pickupLocation),
-    dropoffLocation: point(dropoffLocation),
-    vehicleType: String(vehicleType || "").slice(0, 40),
-    distanceKm: clean(distanceKm),
-    timeMins: clean(timeMins),
-    farePkr: finalFare,
-    estimatedFare: finalFare,
-    paymentMethod: pay,
-    status: "searching_driver",
-    createdAt: serverTimestamp(),
-  };
-
-  if (stableKey) payload.vehicleTypeKey = stableKey;
-
-  if (normalizedPromo && discount > 0) {
-    payload.promoCode = normalizedPromo;
-    payload.discountAmount = discount;
-    payload.originalFare = baseFare;
-  }
-
-  const ref = await addDoc(collection(db, "rides"), payload);
-
-  if (normalizedPromo && discount > 0) {
-    await recordPromoUse(normalizedPromo);
-  }
-
-  return { id: ref.id, ...payload };
+/** @deprecated Client ride create denied — use createCustomerBookingClient. */
+export async function createRideRequest(_payload) {
+  throw new Error("USE_CREATE_CUSTOMER_BOOKING_CF");
 }
 
 /** Phase 16.2 — user aborts the search: rides/{id}.status → 'cancelled_by_user'. */
@@ -387,18 +294,6 @@ export function watchRideRequest(rideId, onData, onError = () => {}) {
 export async function completeRideRequest(_rideId) {
   throw new Error("SETTLEMENT_SERVER_ONLY");
 }
-
-/** Local defaults when settings/driverForm is missing or Firestore is offline. */
-export const FALLBACK_DRIVER_FORM_CONFIG = {
-  requireFullName: true,
-  requireCnic: true,
-  requireLicense: true,
-  requireVehicleType: true,
-  requireCnicFront: true,
-  requireCnicBack: true,
-  requireLicenseImage: true,
-  requireSelfie: true,
-};
 
 /**
  * Super Admin config: settings/pricing (Phase 30–47)
@@ -665,86 +560,4 @@ export async function getPricingSettings() {
     console.warn("[SwiftGo] pricing settings", err);
     return { ...normalizePricingSettings(FALLBACK_PRICING), source: "fallback" };
   }
-}
-
-/**
- * Super Admin config: settings/driverForm
- * Booleans control which driver-onboarding fields are required.
- */
-export async function getDriverFormConfig() {
-  if (!isFirebaseConfigured()) {
-    return { ...FALLBACK_DRIVER_FORM_CONFIG, source: "fallback" };
-  }
-
-  try {
-    const { db } = getFirebase();
-    const snap = await getDoc(doc(db, "settings", "driverForm"));
-    if (!snap.exists()) {
-      return { ...FALLBACK_DRIVER_FORM_CONFIG, source: "fallback" };
-    }
-    return {
-      ...FALLBACK_DRIVER_FORM_CONFIG,
-      ...snap.data(),
-      source: "firestore",
-    };
-  } catch (err) {
-    console.warn("[SwiftGo] driver form config", err);
-    return { ...FALLBACK_DRIVER_FORM_CONFIG, source: "fallback" };
-  }
-}
-
-async function uploadDriverImage(storage, userId, key, file) {
-  if (!file) return "";
-  const safeName = String(file.name || key).replace(/[^\w.\-]+/g, "_").slice(0, 80);
-  const path = `driver_applications/${userId}/${key}-${Date.now()}-${safeName}`;
-  const objectRef = storageRef(storage, path);
-  await uploadBytes(objectRef, file, {
-    contentType: file.type || "image/jpeg",
-  });
-  return getDownloadURL(objectRef);
-}
-
-/**
- * Upload identity images to Storage, then create driver_applications/{id}.
- */
-export async function submitDriverApplication({
-  fullName,
-  cnic,
-  licenseNumber,
-  vehicleType,
-  files = {},
-}) {
-  const { ready, db, auth, storage } = getFirebase();
-  const user = auth?.currentUser;
-  if (!ready || !user) {
-    throw new Error("NOT_SIGNED_IN");
-  }
-  if (!storage) {
-    throw new Error("STORAGE_UNAVAILABLE");
-  }
-
-  const [cnicFrontUrl, cnicBackUrl, licenseImageUrl, selfieUrl] = await Promise.all([
-    uploadDriverImage(storage, user.uid, "cnic-front", files.cnicFront),
-    uploadDriverImage(storage, user.uid, "cnic-back", files.cnicBack),
-    uploadDriverImage(storage, user.uid, "license", files.license),
-    uploadDriverImage(storage, user.uid, "selfie", files.selfie),
-  ]);
-
-  const payload = {
-    userId: user.uid,
-    email: user.email || "",
-    fullName: (fullName || "").trim(),
-    cnic: (cnic || "").trim(),
-    licenseNumber: (licenseNumber || "").trim(),
-    vehicleType: vehicleType || "",
-    status: "pending",
-    cnicFrontUrl,
-    cnicBackUrl,
-    licenseImageUrl,
-    selfieUrl,
-    createdAt: serverTimestamp(),
-  };
-
-  const refDoc = await addDoc(collection(db, "driver_applications"), payload);
-  return { id: refDoc.id, ...payload };
 }

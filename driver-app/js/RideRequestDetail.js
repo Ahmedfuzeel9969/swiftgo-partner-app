@@ -3,7 +3,7 @@
  */
 
 import { fetchRideRoute } from "./ride-radar-routing.js";
-import { submitDriverOffer, acceptRideWithBid } from "./ride-radar-actions.js";
+import { submitDriverOffer, acceptRideWithBid, declineRideCandidateClient, withdrawRideOfferClient } from "./ride-radar-actions.js";
 import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getFirebase } from "./firebase.js";
 
@@ -96,6 +96,10 @@ export function initRideRequestDetail(root, opts) {
             <button type="button" class="radar-detail__custom-bid-send" data-send-custom-offer>پیشکش بھیجیں</button>
           </div>
           <p class="radar-detail__offer-status" data-offer-status hidden></p>
+          <div class="radar-detail__actions-row">
+            <button type="button" class="radar-detail__decline" data-decline-candidate>مسترد کریں</button>
+            <button type="button" class="radar-detail__withdraw" data-withdraw-offer>پیشکش واپس</button>
+          </div>
           <div class="radar-detail__counter" data-counter-panel hidden>
             <p class="radar-detail__counter-text" data-counter-text></p>
             <button type="button" class="radar-detail__counter-accept" data-accept-counter>کاؤنٹر قبول کریں</button>
@@ -126,6 +130,33 @@ export function initRideRequestDetail(root, opts) {
   const sheetArrowEl = root.querySelector("[data-sheet-arrow]");
 
   root.querySelector("[data-back]")?.addEventListener("click", () => onBack());
+
+  root.querySelector("[data-decline-candidate]")?.addEventListener("click", async () => {
+    const ride = currentRide;
+    if (!ride?.id) return;
+    try {
+      await declineRideCandidateClient(ride.id);
+      onError("درخواست مسترد کر دی گئی");
+      onBack();
+    } catch (err) {
+      onError(String(err?.message || err || "مسترد نہیں ہو سکی"));
+    }
+  });
+
+  root.querySelector("[data-withdraw-offer]")?.addEventListener("click", async () => {
+    const ride = currentRide;
+    const driver = getDriver();
+    if (!ride?.id || !driver?.uid) return;
+    try {
+      await withdrawRideOfferClient(ride.id, driver.uid);
+      if (offerStatusEl) {
+        offerStatusEl.hidden = false;
+        offerStatusEl.textContent = "پیشکش واپس لے لی گئی";
+      }
+    } catch (err) {
+      onError(String(err?.message || err || "واپسی نہیں ہو سکی"));
+    }
+  });
 
   function setSheetExpanded(expanded) {
     sheetExpanded = expanded;
@@ -278,7 +309,7 @@ export function initRideRequestDetail(root, opts) {
           onAccepted({ rideId: data.id, bidFare: Number(data.farePkr) || 0 });
         }
       },
-      (err) => console.warn("[SwiftGo Radar] detail watch", err)
+      (err) => console.warn("[SwiftGo Radar] Firestore listen retry... detail watch", err)
     );
 
     if (driver?.uid) {
@@ -288,7 +319,7 @@ export function initRideRequestDetail(root, opts) {
           myOfferState = snap.exists() ? { id: snap.id, ...snap.data() } : null;
           if (currentRide) syncOfferUi(currentRide, driver.uid);
         },
-        (err) => console.warn("[SwiftGo Radar] offer watch", err)
+        (err) => console.warn("[SwiftGo Radar] Firestore listen retry... offer watch", err)
       );
     }
   }

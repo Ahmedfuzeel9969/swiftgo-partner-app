@@ -36,10 +36,6 @@ import {
   closePaySheet,
 } from "./dashboard.js";
 import {
-  initDriverOnboarding,
-  refreshDriverOnboardingLabels,
-} from "./driver-onboarding.js";
-import {
   initUtilityDrawer,
   closeUtilityDrawer,
   refreshUtilityDrawerLabels,
@@ -203,10 +199,23 @@ async function handleBookRide(state) {
   }
 
   try {
-    await startRideRequest(state);
-    showToast(`${t("bookingCreated")} · ${paymentMethodLabel(getPaymentMethod())}`);
+    const ride = await startRideRequest(state);
+    // Success / payment toast only after a real canonical ride ID exists.
+    if (ride?.id) {
+      showToast(`${t("bookingCreated")} · ${paymentMethodLabel(getPaymentMethod())}`);
+    }
   } catch (err) {
     console.warn("[SwiftGo] ride request", err);
+    const code = String(err?.code || err?.message || "");
+    if (code.includes("unauthenticated") || code.includes("NOT_SIGNED_IN")) {
+      showToast(t("bookingNeedSignIn"));
+      openAuthModal("signin");
+      return;
+    }
+    if (code.includes("MAX_ACTIVE_BOOKINGS")) {
+      showToast(t("bookingMaxActive"));
+      return;
+    }
     showToast(t("rideRequestFailed"));
   }
 }
@@ -292,7 +301,6 @@ function bindEvents() {
         refreshSheetLabels();
         refreshScreens();
         refreshDashboardLabels();
-        refreshDriverOnboardingLabels();
         refreshLocationLabels();
         refreshStepUiLabels();
         refreshUtilityDrawerLabels();
@@ -330,7 +338,6 @@ function bindEvents() {
     refreshSheetLabels();
     refreshScreens();
     refreshDashboardLabels();
-    refreshDriverOnboardingLabels();
     refreshLocationLabels();
     refreshStepUiLabels();
     refreshUtilityDrawerLabels();
@@ -398,7 +405,6 @@ async function boot() {
   initI18n();
   wireLegalLinks();
   wireTrustActions();
-  initDriverOnboarding({ onToast: showToast });
   initUtilityDrawer({
     onToast: showToast,
     onNavClose: closeDrawer,

@@ -369,6 +369,51 @@ async function main() {
     !busySel.selected.some((c) => c.driverId === `${prefix}-busy-d`) ? "PASS" : "FAIL"
   );
 
+  // Probe gap: stale docs in cells (vehicleDocsRead > 0) + fresh online without geoCell.
+  const probePickup = { lat: 24.75, lng: 67.12 };
+  const probeCell = gridCellId(probePickup.lat, probePickup.lng);
+  const staleTs = Timestamp.fromMillis(Date.now() - 60 * 60 * 1000);
+  await seedVehicle(`${prefix}-probe-stale-v`, `${prefix}-probe-stale-d`, probePickup.lat + 0.001, probePickup.lng, {
+    locationUpdatedAt: staleTs,
+    geoCell: probeCell,
+  });
+  await db.collection("vehicles").doc(`${prefix}-probe-fresh-v`).set({
+    ownerId: "p3b-own",
+    plate: `${prefix}-probe-fresh-v`,
+    status: "online",
+    driverId: `${prefix}-probe-fresh-d`,
+    location: { lat: probePickup.lat + 0.002, lng: probePickup.lng },
+    locationUpdatedAt: FieldValue.serverTimestamp(),
+  });
+  await db.collection("partners").doc(`${prefix}-probe-fresh-d`).set({ accountStatus: "active" });
+  const probeRide = db.collection("rides").doc();
+  await probeRide.set({
+    userId: `${prefix}-cust`,
+    status: "searching_driver",
+    pickupLocation: { ...probePickup, address: "P" },
+    dropoffLocation: { lat: 24.76, lng: 67.13, address: "D" },
+    createdAt: FieldValue.serverTimestamp(),
+  });
+  const probeMatched = await matchRideCandidates(db, {
+    rideId: probeRide.id,
+    pickup: probePickup,
+    candidateDriverLimit: 10,
+  });
+  record(
+    "probe-when-geo-selected-empty",
+    "capped probe invites fresh cell-less driver",
+    {
+      usedProbe: probeMatched.metrics?.usedCappedOnlineProbe,
+      reason: probeMatched.metrics?.probeReason,
+      vehicleDocsRead: probeMatched.metrics?.vehicleDocsRead,
+      ids: probeMatched.candidates.map((c) => c.driverId),
+    },
+    probeMatched.metrics?.usedCappedOnlineProbe &&
+      probeMatched.candidates.some((c) => c.driverId === `${prefix}-probe-fresh-d`)
+      ? "PASS"
+      : "FAIL"
+  );
+
   // --- Callable security ---
   const custUid = `${prefix}-cf-c`;
   await ensureUser(`${custUid}@example.com`, "Phase3B-test!", custUid);

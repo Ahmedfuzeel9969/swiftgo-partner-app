@@ -12,7 +12,7 @@ service cloud.firestore {
     }
 
     // Super Admin: custom claim `admin: true` is the primary path (Phase 2B).
-    // Email bootstrap remains only while settings/security.adminBootstrapEnabled != false.
+    // Email bootstrap is OFF unless settings/security.adminBootstrapEnabled == true.
     function isClaimAdmin() {
       return isSignedIn()
         && 'admin' in request.auth.token
@@ -28,9 +28,9 @@ service cloud.firestore {
     }
 
     function isAdminBootstrapEnabled() {
-      return !exists(/databases/$(database)/documents/settings/security)
-        || get(/databases/$(database)/documents/settings/security)
-             .data.get('adminBootstrapEnabled', true) == true;
+      return exists(/databases/$(database)/documents/settings/security)
+        && get(/databases/$(database)/documents/settings/security)
+             .data.get('adminBootstrapEnabled', false) == true;
     }
 
     function isSuperAdmin() {
@@ -52,8 +52,8 @@ service cloud.firestore {
     }
 
     // Explicit allowlist for ordinary partner self-updates (Phase 2A — no denylist-only).
-    // Financial fields (walletBalance, totalEarnings, totalRidesCompleted, etc.) are
-    // excluded because they are not in this list.
+    // Financial fields and `role` are excluded (role locked after create; legacy
+    // admin_driver may demote to driver only).
     function isPartnerSelfSafeUpdate(partnerId) {
       return request.auth.uid == partnerId
         && request.resource.data.diff(resource.data).affectedKeys()
@@ -62,7 +62,10 @@ service cloud.firestore {
              ])
         && (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])
-          || request.resource.data.role in ['owner', 'driver']
+          || (
+            resource.data.get('role', '') == 'admin_driver'
+            && request.resource.data.role == 'driver'
+          )
         );
     }
 
@@ -219,8 +222,8 @@ service cloud.firestore {
         )
       );
 
-      allow create: if isSignedIn()
-        && isValidRide(request.resource.data);
+      // Phase 2A (2026-07-29): client ride create denied — trusted createCustomerBooking only.
+      allow create: if false;
 
       allow update: if isSignedIn()
         && (
@@ -465,6 +468,16 @@ service cloud.firestore {
       // Self-update: explicit safe-field allowlist only (P1-001 / P1-003).
       allow update: if isSignedIn() && isPartnerSelfSafeUpdate(partnerId);
 
+      // Fleet owner may clear a driver's currentVehicleId when releasing their vehicle.
+      allow update: if isSignedIn()
+        && resource.data.currentVehicleId is string
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['currentVehicleId', 'updatedAt'])
+        && request.resource.data.currentVehicleId == null
+        && exists(/databases/$(database)/documents/vehicles/$(resource.data.currentVehicleId))
+        && get(/databases/$(database)/documents/vehicles/$(resource.data.currentVehicleId)).data.ownerId
+             == request.auth.uid;
+
       allow update: if isSuperAdmin()
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['accountStatus'])
@@ -478,16 +491,8 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['walletBalance'])
         && request.resource.data.walletBalance >= resource.data.walletBalance;
 
-      // Phase 42: customer rating aggregate after a completed ride (non-financial).
-      allow update: if isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['customerRatingSum', 'customerRatingCount'])
-        && request.resource.data.customerRatingCount
-             == resource.data.get('customerRatingCount', 0) + 1
-        && request.resource.data.customerRatingSum
-             >= resource.data.get('customerRatingSum', 0) + 1
-        && request.resource.data.customerRatingSum
-             <= resource.data.get('customerRatingSum', 0) + 5;
+      // Phase 42 / Phase 2A (2026-07-29): partner rating aggregates are Admin SDK / CF only.
+      // Client increments were forgeable (any signed-in user). Ride doc rating remains client-OK.
 
       allow delete: if false;
     }
@@ -513,6 +518,32 @@ service cloud.firestore {
     match /audit_logs/{logId} {
       allow read: if isSuperAdmin();
       allow create, update, delete: if false;
+    }
+
+    // ── vehicle_pins/{vehicleId} ── Owner-only permanent PIN display (survives pin-link strip).
+    match /vehicle_pins/{vehicleId} {
+      allow get, list: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.pin is string
+        && request.resource.data.pin.size() >= 4
+        && request.resource.data.pin.size() <= 8
+        && exists(/databases/$(database)/documents/vehicles/$(vehicleId))
+        && get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.ownerId
+             == request.auth.uid;
+
+      allow update: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['pin', 'updatedAt'])
+        && request.resource.data.pin is string
+        && request.resource.data.pin.size() >= 4
+        && request.resource.data.pin.size() <= 8;
+
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
     }
 
     // ── account_deletion_requests/{uid} ── Phase 4E (Admin SDK writes; owner may read own)

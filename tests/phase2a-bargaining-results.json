@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-28T10:58:45.419Z",
+  "generatedAt": "2026-07-29T18:41:53.630Z",
   "results": [
     {
       "name": "B01-candidate-limit-10-20-only",
@@ -40,13 +40,13 @@
     {
       "name": "B07-first-booking-allowed",
       "status": "PASS",
-      "detail": "{\"allowed\":true,\"count\":0,\"activeBookings\":[]}",
+      "detail": "{\"allowed\":true,\"count\":0,\"expiredStale\":0,\"activeBookings\":[]}",
       "rules": "bargaining"
     },
     {
       "name": "B08-second-needs-confirmation",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"activeBookings\":[{\"id\":\"cZFROEtVMgactUBpHLsO\",\"status\":\"searching_driver\"}]}",
+      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"mhszJw3QmLc3wWr7r8hP\",\"status\":\"searching_driver\"}]}",
       "rules": "bargaining"
     },
     {
@@ -70,7 +70,7 @@
     {
       "name": "B12-four-booking-race-safe",
       "status": "PASS",
-      "detail": "ok=1 fail=1 count=4",
+      "detail": "ok=1 fail=1 count=4 live=4",
       "rules": "bargaining"
     },
     {
@@ -100,13 +100,13 @@
     {
       "name": "B17-simultaneous-assign-one-winner",
       "status": "PASS",
-      "detail": "driver=race-d1 fulfilled=fulfilled,rejected",
+      "detail": "driver=race-d2 fulfilled=rejected,fulfilled",
       "rules": "bargaining"
     },
     {
       "name": "B18-active-driver-cannot-bargain-another",
       "status": "PASS",
-      "detail": "driver=race-d1",
+      "detail": "driver=race-d2",
       "rules": "bargaining"
     },
     {

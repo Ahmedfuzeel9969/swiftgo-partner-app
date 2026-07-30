@@ -11,7 +11,12 @@ const SEARCH_RINGS_KM = Object.freeze([1, 2, 3]);
 const MAX_DRIVER_OPEN_BARGAINS = 10;
 const MAX_CUSTOMER_ACTIVE_BOOKINGS = 4;
 /** Default stale threshold — mirrored in geo-cells.js STALE_LOCATION_MS. */
-const STALE_LOCATION_MS = 3 * 60 * 1000;
+const STALE_LOCATION_MS = 10 * 60 * 1000;
+/** Authoritative searching timeout — createdAt/expiresAt + this → terminal `expired`. */
+const SEARCH_EXPIRE_MS = 3 * 60 * 1000;
+
+/** Canonical Customer ownership field on `rides` (never customerId/riderId). */
+const CUSTOMER_RIDE_OWNER_FIELD = "userId";
 
 const NON_TERMINAL_RIDE_STATUSES = Object.freeze([
   "searching_driver",
@@ -20,8 +25,40 @@ const NON_TERMINAL_RIDE_STATUSES = Object.freeze([
   "in_progress",
 ]);
 
+/** Customer may cancel only these statuses via trusted cancel callables (before trip start). */
+const CANCELLABLE_RIDE_STATUSES = Object.freeze([
+  "searching_driver",
+  "accepted",
+  "arrived",
+]);
+
+/** Terminal status after 3-minute search with no final assignment. */
+const SEARCH_EXPIRED_STATUS = "expired";
+
+/** Assigned statuses a Driver may cancel before start (returns ride to searching). */
+const DRIVER_PRE_START_CANCEL_STATUSES = Object.freeze(["accepted", "arrived"]);
+
 const ACTIVE_RIDE_STATUSES = Object.freeze(["accepted", "arrived", "in_progress"]);
 const OPEN_OFFER_STATUSES = Object.freeze(["open", "countered"]);
+
+/**
+ * Why a driver fixture is ineligible for matching (diagnostic; no PII).
+ */
+function classifyDriverMatchExclusion(d, { nowMs = Date.now(), staleMs = STALE_LOCATION_MS } = {}) {
+  if (!d?.driverId) return "missing_driver_id";
+  if (!Number.isFinite(d.lat) || !Number.isFinite(d.lng)) return "missing_location";
+  if (d.accountStatus === "blocked") return "blocked";
+  if (d.accountStatus === "suspended") return "suspended";
+  if (d.status && d.status !== "online") return "offline";
+  if (d.activeRideId) return "busy";
+  if (d.locationUpdatedAtMs != null) {
+    const age = nowMs - Number(d.locationUpdatedAtMs);
+    if (!Number.isFinite(age) || age >= staleMs) return "stale_location";
+  }
+  if (d.missingGeoCell) return "missing_geo_cell";
+  if (d.wrongVehicleType) return "wrong_vehicle_type";
+  return null;
+}
 
 function validateCandidateDriverLimit(value) {
   const n = Number(value);
@@ -66,7 +103,7 @@ function isEligibleMatchDriver(d, { nowMs = Date.now(), staleMs = STALE_LOCATION
   if (requireFreshLocation && d.locationUpdatedAtMs == null) return false;
   if (d.locationUpdatedAtMs != null) {
     const age = nowMs - Number(d.locationUpdatedAtMs);
-    if (!Number.isFinite(age) || age > staleMs) return false;
+    if (!Number.isFinite(age) || age >= staleMs) return false;
   }
   return true;
 }
@@ -93,7 +130,10 @@ function selectCandidatesProgressive(pickup, drivers, limit, opts = {}) {
       const distanceKm = haversineKm(pickup, { lat: d.lat, lng: d.lng });
       return { ...d, distanceKm };
     })
-    .filter((d) => d.distanceKm != null && isEligibleMatchDriver(d, { nowMs, staleMs, requireFreshLocation: opts.requireFreshLocation }))
+    .filter((d) => {
+      if (opts.excludeDriverIds && opts.excludeDriverIds.has(String(d.driverId))) return false;
+      return d.distanceKm != null && isEligibleMatchDriver(d, { nowMs, staleMs, requireFreshLocation: opts.requireFreshLocation });
+    })
     .sort((a, b) => a.distanceKm - b.distanceKm || String(a.driverId).localeCompare(String(b.driverId)));
 
   for (const ringKm of rings) {
@@ -138,12 +178,18 @@ module.exports = {
   MAX_DRIVER_OPEN_BARGAINS,
   MAX_CUSTOMER_ACTIVE_BOOKINGS,
   STALE_LOCATION_MS,
+  SEARCH_EXPIRE_MS,
+  CUSTOMER_RIDE_OWNER_FIELD,
   NON_TERMINAL_RIDE_STATUSES,
+  CANCELLABLE_RIDE_STATUSES,
+  DRIVER_PRE_START_CANCEL_STATUSES,
+  SEARCH_EXPIRED_STATUS,
   ACTIVE_RIDE_STATUSES,
   OPEN_OFFER_STATUSES,
   validateCandidateDriverLimit,
   haversineKm,
   isEligibleMatchDriver,
+  classifyDriverMatchExclusion,
   selectCandidatesProgressive,
   candidateDocId,
   isNonTerminalRideStatus,

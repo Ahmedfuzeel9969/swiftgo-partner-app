@@ -9,6 +9,15 @@ export async function linkVehicleByPinClient(pin) {
   const { ready, functions } = getFirebase();
   if (!ready || !functions) throw new Error("FUNCTIONS_UNAVAILABLE");
   const fn = httpsCallable(functions, "linkVehicleByPin");
-  const result = await fn({ pin: String(pin || "").trim() });
-  return result?.data || result;
+  try {
+    const result = await fn({ pin: String(pin || "").trim() });
+    return result?.data || result;
+  } catch (error) {
+    console.warn("[SwiftGo] linkVehicleByPin callable error", {
+      code: error?.code,
+      message: error?.message,
+      details: error?.details,
+    });
+    throw error;
+  }
 }

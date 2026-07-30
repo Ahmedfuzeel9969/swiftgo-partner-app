@@ -251,7 +251,7 @@ export function subscribeDriverEarnings(driverUid, onData) {
       emit(!(partnerReady && ridesReady));
     },
     (error) => {
-      console.warn("[SwiftGo Earnings] partner listener", error);
+      console.warn("[SwiftGo Earnings] Firestore listen retry... partner", error);
       partnerReady = true;
       emit(false);
     }
@@ -272,7 +272,7 @@ export function subscribeDriverEarnings(driverUid, onData) {
       emit(false);
     },
     (error) => {
-      console.warn("[SwiftGo Earnings] rides listener", error);
+      console.warn("[SwiftGo Earnings] Firestore listen retry... rides", error);
       ridesReady = true;
       emit(false);
     }

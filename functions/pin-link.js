@@ -100,9 +100,8 @@ async function linkVehicleByPin(db, { driverUid, pin, driverName }) {
       driverId: driverUid,
       driverName: driverName || "SwiftGo Driver",
       status: "online",
-      // Migrate legacy plaintext pin → hash when possible; strip plaintext.
+      // Keep pinHash for matching; preserve owner-display pin when present.
       pinHash: vehicle.pinHash || pinHash,
-      pin: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
     });
     tx.set(

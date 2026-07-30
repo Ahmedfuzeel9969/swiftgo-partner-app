@@ -1,0 +1,110 @@
+{
+  "suite": "booking-false-success",
+  "generatedAt": "2026-07-30T16:06:49.711Z",
+  "summary": {
+    "pass": 13,
+    "fail": 0,
+    "blocked": 1,
+    "total": 14
+  },
+  "results": [
+    {
+      "name": "S01-success-toast-requires-ride-id",
+      "status": "PASS",
+      "detail": "app.js must not toast success unless startRideRequest returns ride.id",
+      "expected": "guarded success toast",
+      "actual": "guarded"
+    },
+    {
+      "name": "S02-no-blind-success-after-await",
+      "status": "PASS",
+      "detail": "must not show bookingCreated immediately after await without checking return",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "S03-create-requires-canonical-ride-id",
+      "status": "PASS",
+      "detail": "ride-flow must reject createCustomerBooking responses without id",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "S04-trusted-createCustomerBooking-only",
+      "status": "PASS",
+      "detail": "booking path must call trusted callable; no direct rides write in ride-flow",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "S05-shared-non-terminal-status-helper",
+      "status": "PASS",
+      "detail": "Customer gate + history must share ride-status.js non-terminal list",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "S06-backend-non-terminal-matches-contract",
+      "status": "PASS",
+      "detail": "",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "S07-gate-counts-live-rides-not-inflated-slots",
+      "status": "PASS",
+      "detail": "evaluateCustomerBookingGate must use active.length after reconcile",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "S08-create-reconciles-slots-before-limit",
+      "status": "PASS",
+      "detail": "",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "S09-four-booking-limit-preserved",
+      "status": "PASS",
+      "detail": "",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "S10-production-project-and-region",
+      "status": "PASS",
+      "detail": "customer firebase-config projectId + functions region us-central1",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "S11-emulator-not-forced-on-hosting",
+      "status": "PASS",
+      "detail": "",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "S12-no-legacy-ride_requests-writes",
+      "status": "PASS",
+      "detail": "",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "S13-max-active-returns-null-not-success",
+      "status": "PASS",
+      "detail": "",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "E00-firestore-emulator",
+      "status": "BLOCKED",
+      "detail": "Firestore emulator not reachable at 127.0.0.1:8080 — behavioural E-tests skipped",
+      "expected": "",
+      "actual": ""
+    }
+  ]
+}

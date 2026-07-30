@@ -1,17 +1,20 @@
 # Phase 1 — Foundation, Data Flow, and Four-App Integration Audit
 
-**Project:** SwiftGo ride-hailing (Karachi-oriented)  
-**Audit date:** 2026-07-27  
-**Scope:** Audit-only — no production code changes, no rules changes, no deploy, no production writes  
-**Repository:** `F:/ride-app` (git working tree included uncommitted driver home-hub work)
+**Project:** SwiftGo (`swiftgo-ride-app`) — Karachi-oriented ride-hailing  
+**Audit date:** 2026-07-29  
+**Scope:** AUDIT ONLY — no production code changes, no Rules changes, no deploy, no production Firestore/Storage writes, no billing enablement  
+**Emulator project:** `demo-swiftgo-phase1`  
+**Supersedes:** prior Phase 1 docs dated 2026-07-27 (those predated Cloud Functions and geo matching)
 
 ---
 
 ## A. Executive Verdict
 
-**FAIL**
+**CONDITIONAL PASS**
 
-The four apps share one Firebase project and a mostly consistent `rides`-centric model, but **financial and ride-completion protections are not reliably enforced** at Firestore Rules for `partners/{uid}`, and **there is no trusted server layer** (no Cloud Functions). Emulator-backed rules tests confirmed that drivers can mutate partner wallet aggregates and that customers can force `accepted → completed` without the driver lifecycle. Client transactions help accept races but do not replace server-side settlement.
+The four apps share one Firebase project, a mostly consistent `rides` / `userId` contract, and a **trusted Cloud Functions layer** for booking create, matching, offers, assignment, settlement, cancel/expire, and PIN link. Emulator contract suites for Rules (20/20), bargaining, security, booking reach, ghost/expiry, and cancel are green.
+
+Foundation is **not** production-ready because residual Rules gaps still allow unauthorized or bypass states (client `rides` create without slot accounting; partner rating aggregate forge; driver↔owner self-role flip; email bootstrap Super Admin default-on).
 
 ---
 
@@ -19,32 +22,33 @@ The four apps share one Firebase project and a mostly consistent `rides`-centric
 
 | Area | Max | Score | Notes |
 |------|-----|-------|-------|
-| Project structure and build | 10 | **8** | Static four-app hosting bundle builds cleanly |
-| Authentication and roles | 15 | **9** | Google Auth + UI role routing; weak rules-side role model |
-| Shared data contracts | 20 | **11** | Dual ride stores, split wallet semantics |
-| Ride lifecycle consistency | 20 | **9** | Multiple accept/complete paths; legacy incoming-ride flow |
-| Firestore/Storage rule alignment | 15 | **6** | Gaps on `partners`, customer complete shortcut |
-| Server-side protection | 10 | **1** | No Cloud Functions / Run |
-| Error/recovery foundation | 5 | **2** | Transactions in some paths; batch completion fragile |
-| Existing test health | 5 | **2** | Audit suite broken on Node 24; npm test placeholder |
-| **Total** | **100** | **48** | |
+| Project structure and build | 10 | **9** | Four vanilla apps + Functions; `build:hosting` exit 0 |
+| Authentication and roles | 15 | **11** | Google + claim admin; bootstrap email + role flip remain |
+| Shared data contracts | 20 | **15** | Canonical `userId` path strong; dual cancel enums / legacy debt |
+| Ride lifecycle consistency | 20 | **16** | CF create→match→offer→assign→settle; arrived/start still client Rules |
+| Firestore/Storage rule alignment | 15 | **11** | Wallet/complete hardened; create + rating gaps |
+| Server-side protection | 10 | **8** | Settlement/match/assign trusted; recharge still client Admin write |
+| Error/recovery foundation | 5 | **4** | TX assign/settle; soft match; rematch; GPS soft-offline |
+| Existing test health | 5 | **4** | Phase1 20/20; phase2a/2b green; static audit 2 FAIL |
+| **Total** | **100** | **78** | |
 
 ---
 
 ## C. Critical Risks (summary)
 
-| ID | Sev | Title | Apps |
-|----|-----|-------|------|
-| P1-001 | **P0** | `partners.walletBalance` writable by driver self-update | Driver, Owner, Admin |
-| P1-002 | **P0** | Customer `accepted → completed` allowed by rules (skips commission) | Customer, Driver |
-| P1-003 | **P0** | `completeRideWithEarnings` partner batch aligns with open wallet rule | Driver |
-| P1-004 | **P0** | Super Admin = single hardcoded email in rules | All |
-| P1-005 | **P1** | Legacy `resolveActiveRequest` accept missing fare fields vs rules | Driver |
-| P1-006 | **P1** | No geo dispatch (1/2/3 km, max 10 drivers) — global query limit 40 | Customer, Driver |
-| P1-007 | **P1** | `users` vs `partners` duplicate wallet/identity | Customer, Driver |
-| P1-008 | **P2** | `drivers/{uid}` fully writable by owner uid | Driver |
-| P1-009 | **P2** | No audit log collection for admin actions | Admin |
-| P1-010 | **P3** | Four duplicated `firebase-config.js` / `firebase.js` per app | All |
+| ID | Sev | Title |
+|----|-----|-------|
+| P1-2026-001 | **P0** | Client can still `create` `rides` (Rules) bypassing `booking_slots` / auto-match |
+| P1-2026-002 | **P0** | Any signed-in user can increment any partner’s `customerRatingSum/Count` |
+| P1-2026-003 | **P0** | Super Admin email bootstrap default-on when `settings/security` missing |
+| P1-2026-004 | **P1** | Partner may self-switch `role` between `driver` and `owner` |
+| P1-2026-005 | **P1** | No KYC gate before Driver go-live / matching |
+| P1-2026-006 | **P1** | Dual cancel statuses (`cancelled_by_user` vs `cancelled_by_customer`) |
+| P1-2026-007 | **P1** | Arrived / in_progress are client Rules writes (no server audit) |
+| P1-2026-008 | **P1** | Admin recharge wallet credit is client batch, not callable/ledger |
+| P1-2026-009 | **P2** | Dual audit collections (`audit_logs` vs `admin_audit`) |
+| P1-2026-010 | **P2** | Matching depends on fresh `geoCell` + location; soft create+empty match |
+| P1-2026-011 | **P3** | Duplicated firebase/i18n modules across four apps |
 
 Full register: [PHASE-1-RISK-REGISTER.md](./PHASE-1-RISK-REGISTER.md)
 
@@ -54,38 +58,45 @@ Full register: [PHASE-1-RISK-REGISTER.md](./PHASE-1-RISK-REGISTER.md)
 
 | Connection | Reliable? | Evidence |
 |------------|-----------|----------|
-| Customer ↔ Driver | **Partial** | Same `rides` collection; radar + offer flow; rules gaps on completion/wallet |
-| Driver ↔ Owner | **Partial** | Shared `vehicles`, `ownerId` on rides; owner app mirrors driver ride ops |
-| Customer ↔ Owner | **Weak** | Indirect via rides only; no customer-facing owner API |
-| All apps ↔ Super Admin | **Partial** | Admin reads/writes pricing, partners, recharges; no audit trail |
-| All clients ↔ Firestore Rules | **Unreliable** | Emulator tests: 14 pass, 3 fail, 3 blocked |
-| Client ↔ trusted server | **Missing** | No backend functions |
+| Customer ↔ Driver | **Mostly yes** | CF booking + candidates + offers + assign; radar listens invites |
+| Driver ↔ Owner | **Partial** | Shared `vehicles` / `ownerId`; same Google may own both roles |
+| Customer ↔ Owner | **Indirect** | Via rides `ownerId` only |
+| All apps ↔ Super Admin | **Partial** | Claim/email gate; ops callables; client settings writes |
+| All clients ↔ Firestore Rules | **Mostly aligned** | Phase1 T01–T20 PASS; residual create/rating gaps |
+| Client ↔ trusted server | **Strong for money/match** | Settlement, match, assign, cancel CF; recharge gap |
 
 ---
 
-## E. Test Evidence
+## E. Test Evidence (this audit run)
 
-| Command | Exit code | Result |
-|---------|-----------|--------|
-| `node tools/build-hosting.mjs` | **0** | 76 files → `hosting-dist/` (customer, partner, owner, admin) |
-| `node tests/audit.test.mjs` | **1** | Crashes importing `customer-app/js/firebase-config.js` (ESM in `.js`, root `"type":"commonjs"`) |
-| `node tests/i18n-purity-scan.mjs` | **1** | 1 UR latin leftover (`driverOfferCounterLabel`) |
-| `npm test` | **1** | Placeholder script only |
-| `firebase emulators:exec --only firestore --project demo-swiftgo-phase1 "node tests/phase1-emulator-contract.mjs"` | **1** | 14 PASS, 3 FAIL, 3 BLOCKED — see [PHASE-1-TEST-EVIDENCE.md](./PHASE-1-TEST-EVIDENCE.md) |
+| Command | Exit | Result |
+|---------|------|--------|
+| `npm run build:hosting` | **0** | 4 apps → `hosting-dist/` |
+| `npm run test:phase1` | **0** | **20 PASS / 0 FAIL / 0 BLOCKED** |
+| `npm run test:phase2b` | **0** | phase2b-run-all **91 PASS** |
+| `node tests/phase2a-bargaining-suite.mjs` (emulator) | **0** | **21 PASS** |
+| `booking-false-success-suite.mjs` | **0** | **23 PASS** |
+| `ghost-rides-driver-location-expiry-suite.mjs` | **0** | **39 PASS** |
+| `booking-cancellation-contract-suite.mjs` | **0** | **18 PASS** |
+| `booking-driver-reach-suite.mjs` | **0** | **11 PASS** |
+| `npm run test:i18n` | **0** | EN/UR 368 keys, 0 leftovers |
+| `npm run test:audit` | **1** | 255 PASS / **2 FAIL** (static wiring assertions) |
 
-**Emulator:** Firestore only, demo project `demo-swiftgo-phase1`, no production data.  
-**Dev tooling added for audit:** `devDependencies`: `@firebase/rules-unit-testing@3.0.4`, `firebase@10.14.1` (required to run contract tests; not deployed).
+Details: [PHASE-1-TEST-EVIDENCE.md](./PHASE-1-TEST-EVIDENCE.md)
 
 ---
 
 ## F. Unverified Items
 
-- Browser startup console errors for all four SPAs (no Playwright in repo; audit HTTP smoke not re-run after Node audit failure).
-- Storage Rules enforcement (KYC paths) — **BLOCKED** in Firestore-only harness.
-- Suspended driver online toggle end-to-end — **BLOCKED** (needs Auth + app UI emulator).
-- Real simultaneous accept under production latency — inferred from rules + `runTransaction` code only.
-- Push notifications / FCM — browser notification API only; no server push audit.
-- `settings/driverForm` document — read in customer app with fallback; not verified in production Firestore.
+| Item | Why |
+|------|-----|
+| Live browser console / Playwright four-app E2E (`test:phase2e`) | Not re-run this audit (heavy; Hosting+Functions emulator) — marked **unverified**, not FAIL |
+| Production Firestore live forensics (Account A/B UIDs) | Forbidden by audit safety rules |
+| FCM push when app backgrounded | Not implemented — N/A |
+| Lint / TypeScript typecheck | No ESLint/tsc project scripts for apps (vanilla JS) — **N/A** |
+| Cloud Scheduler batch expire | Intentionally off (billing) — not tested as live trigger |
+| Started-ride (`in_progress`) financial admin cancel | Explicitly undefined in product (`STARTED_RIDE_ADMIN_CANCEL_UNDEFINED`) |
+| Real GPS load / Maps quota | Forbidden this phase |
 
 ---
 
@@ -93,122 +104,67 @@ Full register: [PHASE-1-RISK-REGISTER.md](./PHASE-1-RISK-REGISTER.md)
 
 **Phase 2A: Critical contract/rules correction**
 
-Fix `partners` wallet immutability, remove or tighten customer `accepted → completed`, align all accept/complete clients with one rules path, then re-run emulator contract suite before security load work.
+Priority corrections (audit-only recommendation — do not implement until approved):
+
+1. Deny client `rides` create (trusted `createCustomerBooking` only).  
+2. Tie partner rating increments to completed ride ownership.  
+3. Lock `partners.role` after create (or Admin-only change).  
+4. Disable email bootstrap by default (`adminBootstrapEnabled: false`) after claim migration.  
+5. Align cancel status enums; move arrived/start to trusted callables if product requires audit.
+
+Do **not** begin Phase 2B/2C/2D until 2A Rules gaps above are closed or explicitly accepted.
 
 ---
 
 ## Task 1 — Project Structure Map
 
-| App / Component | Main path | Responsibility | Shared or separate | Risk / observation |
-|-----------------|-----------|----------------|--------------------|--------------------|
-| Customer app | `customer-app/` | Book rides, wallet UI, KYC apply, map/fare | Separate static SPA | Uses `users` + `rides` |
-| Driver / Partner app | `driver-app/` → `/partner/` | PIN link, radar, ride execution, wallet recharge | Separate | Duplicated owner logic fragments |
-| Owner app | `owner-app/` → `/owner/` | Fleet, PIN, ride history, drive mode (super) | Separate | Large overlap with driver-app patterns |
-| Super Admin | `super-admin-panel/` → `/admin/` | Pricing, promos, block drivers, recharges, fleet map | Separate | Email gate in UI + rules |
-| Hosting bundle | `tools/build-hosting.mjs` → `hosting-dist/` | Copy four apps | Shared output | No bundler per app |
-| Firestore rules | `firestore.rules` | Authorization | Shared | Email-based super admin |
-| Storage rules | `storage.rules` | KYC images | Shared | Narrow allow paths |
-| Indexes | `firestore.indexes.json` | Composite queries | Shared | No geo indexes |
-| Cloud Functions | *(none)* | — | **Missing** | All logic client-side |
-| Auth | `*/js/firebase.js`, Google popup | Firebase Auth | Per-app duplicate config | Same project ID |
-| Maps / routing | Leaflet + OSRM/Nominatim | Client-only | Per app | External HTTP |
-| Notifications | `audio-service.js`, `Notification` API | Local alerts | Per app | No FCM server |
-| Wallet | `partners.walletBalance`, `users.walletBalance`, `rechargeRequests` | Client + admin approve | Split model | **P0** partner wallet writes |
-| Ride matching | `ride-radar-service.js` | Query + client sort by distance | Driver client | Not server dispatch |
-| Tests | `tests/audit.test.mjs`, `tests/phase1-emulator-contract.mjs` | Static + rules | Repo root | Audit suite fragile |
-| Secrets | `*/firebase-config.js` | Public web API keys | Duplicated ×4 | Expected for Firebase web; no `.env` |
+| App/Component | Main Path | Responsibility | Shared or Separate | Risk/Observation |
+|---------------|-----------|----------------|--------------------|------------------|
+| Customer | `customer-app/` | Book, map, wallet UI, history | Separate SPA | Served at `/` and `/customer/` |
+| Driver/Partner | `driver-app/` | Online, GPS/`geoCell`, radar, offers, settle | Separate SPA | `/partner/`; first login seeds `partners.role=driver` |
+| Owner | `owner-app/` | Fleet, PIN share, owner rides | Separate SPA | `/owner/`; may seed `role=owner` |
+| Super Admin | `super-admin-panel/` | Ops, pricing, block, recharges, map | Separate SPA | `/admin/`; claim + email bootstrap |
+| Cloud Functions | `functions/` | Booking, match, bargain, settle, cancel, PIN, claims | Server | Region `us-central1`, Node 22 |
+| Firestore Rules | `firestore.rules` | Client AuthZ | Shared | Naming: `isOwner` = UID owner, not fleet owner |
+| Storage Rules | `storage.rules` | KYC under `driver_applications/` | Shared | Claim-admin read only |
+| Indexes | `firestore.indexes.json` | Query indexes | Shared | Includes `status+expiresAt`, `geoCell` |
+| Hosting build | `tools/build-hosting.mjs` | Path mount 4 apps | Tooling | No CDN role gate |
+| Tests | `tests/` | Emulator contracts | Root | Strong phase coverage |
+| Mobile | `mobile/{customer,partner,owner}` | Capacitor shells | Separate | Sync from hosting build |
 
-**Stack:** Vanilla HTML/CSS/ES modules; Firebase JS SDK 10.14.1 from CDN; ApexCharts in driver dashboard; no React/Vue build for apps (root `package.json` lists unused React chart deps).
+**Stack:** Vanilla HTML/CSS/ES modules + Firebase JS SDK 10.14.1 + Leaflet; no React for web apps.  
+**Secrets:** No `.env` in repo; web `apiKey` committed (expected); bootstrap email hardcoded (risk).
 
 ---
 
 ## Task 2 — Application Startup Verification
 
-| App | Build | Start fatal? | Notes |
-|-----|-------|--------------|-------|
-| Customer | Via hosting build | **Not run in browser this phase** | Module entry `js/app.js` |
-| Partner | Via hosting build | **Not run** | `js/driver-app.js` |
-| Owner | Via hosting build | **Not run** | `js/owner-app.js` |
-| Admin | Via hosting build | **Not run** | `js/admin-app.js` |
+| Check | Command / method | Exit | Result |
+|-------|------------------|------|--------|
+| Hosting package all 4 apps | `npm run build:hosting` | **0** | SUCCESS |
+| Customer/Driver/Owner/Admin HTML present | Inspect `hosting-dist/` | — | Present under `/`, `/partner/`, `/owner/`, `/admin/` |
+| Live shell HTTP (read-only) | Via `test:audit` HTTP probes | — | Live `/` → 200 (no writes) |
+| Fatal missing env | Code review | — | Hardcoded firebase-config; demo emulators on localhost + `?emulators=1` |
+| Role cross-open | Code + Hosting | — | Any role can **load** any URL; Admin non-claim redirected to `/partner/` after auth |
+| Logout | Code review | — | Firebase `signOut`; local caches cleared per-app (not fully verified in browser this run) |
 
-- **Build:** `node tools/build-hosting.mjs` → exit **0**.
-- **Missing env:** None required beyond Firebase web config in source.
-- **Firebase failure:** Each `firebase.js` exposes `ready` flag; apps show demo/auth messaging when unconfigured.
-- **Role cross-open:** Driver app redirects `role === "owner"` to `/owner/`; admin UI rejects non-owner email; owner app does not redirect to partner (driver must use partner URL).
-- **Logout:** `signOut(auth)` + `hideProtectedUi()` / listeners stopped in each app.
+**Browser console / unhandled rejections:** Not re-executed in Playwright this audit → **Unverified**.
 
----
-
-## Task 7 — Location & Matching (summary)
-
-| Question | Finding |
-|----------|---------|
-| Online/offline | `vehicles.status` + driver geolocation watch; partner doc for block/wallet |
-| Location write rate | Throttled **8s** (`VEHICLE_LOCATION_WRITE_MS`) to `vehicles.location` |
-| 1 / 2 / 3 km search | **Not implemented** — haversine sort on client over query results |
-| Max 10 drivers | **Not implemented** — `LIST_LIMIT = 40`, all signed-in drivers can list `searching_driver` |
-| Stale location | No server-side staleness filter in queries |
-| Client fake eligibility | Driver can write `vehicles.location` while `online`/`in_ride` per rules |
-| Indexes | status + createdAt on `rides` and `ride_requests` |
-
-**Estimated reads/writes one matching attempt (code analysis):**  
-Customer create ride: **1 write**. Each online driver radar subscription: **2 listeners** (`ride_requests` + `rides`) with snapshot updates — **O(drivers listening × churn)**; not push-to-10-drivers.
+**Do not silently fix:** No production code was modified in this audit.
 
 ---
 
-## Task 8 — Trusted Server Operations (summary)
-
-| Operation | Classification |
-|-----------|----------------|
-| Ride accept (radar) | Must use transaction — **implemented**; rules-validated |
-| Ride accept (incoming sheet) | Transaction but **incomplete payload** — rules may deny |
-| Fare / commission | **Client-only** — calculated in driver/owner app |
-| Wallet debit on complete | **Missing protection** — rules allow partner batch |
-| Recharge approve | Super Admin batch — **rules OK** |
-| Role / block | UI + rules (super admin email) |
-| KYC approve | **Not implemented** in admin (applications read-only after create) |
-
-Detail: [PHASE-1-RISK-REGISTER.md](./PHASE-1-RISK-REGISTER.md)
-
----
-
-## Task 9 — Error / Offline / Recovery (summary)
-
-| Scenario | Behavior |
-|----------|----------|
-| Network drop before ride create | Client throws; no local queue |
-| Dual accept | Transaction second writer fails — **good** (emulator T03) |
-| Driver offline after accept | Ride doc remains; customer sees snapshot |
-| Refresh mid-ride | `onSnapshot` / watch restores state if auth persists |
-| Duplicate complete button | No idempotent server; second complete denied by rules if already completed |
-| Customer cancel vs driver accept | Race — transaction winner; loser gets error in UI |
-| Wallet partial batch | Batch commit atomic; if rules deny, UI shows failure (but rules currently **allow** partner wallet — **risk**) |
-
----
-
-## Task 10 — Baseline Quality Gates
-
-| Suite | Total | Passed | Failed | Skipped | Blocked | Exit |
-|-------|-------|--------|--------|---------|---------|------|
-| Build hosting | 1 | 1 | 0 | 0 | 0 | 0 |
-| audit.test.mjs | — | — | bootstrap | — | — | 1 |
-| i18n-purity-scan | 1 | 0 | 1 | 0 | 0 | 1 |
-| npm test | 1 | 0 | 1 | 0 | 0 | 1 |
-| phase1-emulator-contract | 20 | 14 | 3 | 0 | 3 | 1 |
-| Firestore rules unit (official) | 0 | 0 | 0 | 0 | 0 | n/a |
-| Storage rules unit | 0 | 0 | 0 | 0 | 1 | n/a |
-| Lint / typecheck | 0 | — | — | — | — | n/a |
-
----
-
-## Related deliverables
+## Companion documents
 
 1. [PHASE-1-DATA-CONTRACT.md](./PHASE-1-DATA-CONTRACT.md)  
 2. [PHASE-1-RIDE-LIFECYCLE.md](./PHASE-1-RIDE-LIFECYCLE.md)  
 3. [PHASE-1-PERMISSION-MATRIX.md](./PHASE-1-PERMISSION-MATRIX.md)  
 4. [PHASE-1-TEST-EVIDENCE.md](./PHASE-1-TEST-EVIDENCE.md)  
-5. [PHASE-1-RISK-REGISTER.md](./PHASE-1-RISK-REGISTER.md)
+5. [PHASE-1-RISK-REGISTER.md](./PHASE-1-RISK-REGISTER.md)  
 
 ---
 
-**Stop rule:** Phase 1 complete. Awaiting explicit approval before Phase 2.
+## Final stop
+
+Audit complete. **No deploy. No production code changes. No next phase started.**  
+Awaiting explicit approval before any Rules/contract remediation.

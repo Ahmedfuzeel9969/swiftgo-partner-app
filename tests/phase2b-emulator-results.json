@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-28T10:58:51.595Z",
+  "generatedAt": "2026-07-29T18:41:57.397Z",
   "command": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/phase2b-run-all.mjs\"",
   "results": [
     {
       "name": "T01-customer-create-driver-read-open",
-      "status": "PASS",
-      "detail": "candidate can read; non-candidate denied",
+      "status": "FAIL",
+      "detail": "Firestore has already been started and its settings can no longer be changed. You can only modify settings before calling any other methods on a Firestore object.",
       "rules": "rides"
     },
     {
@@ -317,13 +317,13 @@
     {
       "name": "B07-first-booking-allowed",
       "status": "PASS",
-      "detail": "{\"allowed\":true,\"count\":0,\"activeBookings\":[]}",
+      "detail": "{\"allowed\":true,\"count\":0,\"expiredStale\":0,\"activeBookings\":[]}",
       "rules": "bargaining"
     },
     {
       "name": "B08-second-needs-confirmation",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"activeBookings\":[{\"id\":\"cZFROEtVMgactUBpHLsO\",\"status\":\"searching_driver\"}]}",
+      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"mhszJw3QmLc3wWr7r8hP\",\"status\":\"searching_driver\"}]}",
       "rules": "bargaining"
     },
     {
@@ -347,7 +347,7 @@
     {
       "name": "B12-four-booking-race-safe",
       "status": "PASS",
-      "detail": "ok=1 fail=1 count=4",
+      "detail": "ok=1 fail=1 count=4 live=4",
       "rules": "bargaining"
     },
     {
@@ -377,13 +377,13 @@
     {
       "name": "B17-simultaneous-assign-one-winner",
       "status": "PASS",
-      "detail": "driver=race-d1 fulfilled=fulfilled,rejected",
+      "detail": "driver=race-d2 fulfilled=rejected,fulfilled",
       "rules": "bargaining"
     },
     {
       "name": "B18-active-driver-cannot-bargain-another",
       "status": "PASS",
-      "detail": "driver=race-d1",
+      "detail": "driver=race-d2",
       "rules": "bargaining"
     },
     {
@@ -509,7 +509,7 @@
     {
       "name": "S18-pin-lockout-after-max",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785237230997}",
+      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785351416795}",
       "suite": "phase2b"
     },
     {
@@ -525,9 +525,9 @@
       "suite": "phase2b"
     },
     {
-      "name": "S21-plaintext-pin-stripped",
+      "name": "S21-plaintext-pin-owner-display-ok",
       "status": "PASS",
-      "detail": "pin=undefined",
+      "detail": "pinHash=true pin=none",
       "suite": "phase2b"
     },
     {
@@ -549,11 +549,11 @@
       "suite": "phase2b"
     }
   ],
-  "passed": 91,
-  "failed": 0,
+  "passed": 90,
+  "failed": 1,
   "blocked": 0,
   "exitCodes": {
-    "phase2a": 0,
+    "phase2a": 1,
     "phase2b": 0
   },
   "total": 91
