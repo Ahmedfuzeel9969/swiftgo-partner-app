@@ -1217,13 +1217,8 @@ async function verifyVehiclePin(event) {
       driverId: driver.uid,
       status: "online",
     };
-    // Keep local online + location fresh so matching can see this driver.
-    setOnlineUi(true);
-    lastVehicleLocationWrite = 0;
-    lastLocationGridCell = null;
-    lastMatchGeoCell = null;
-    void markVehicleOnlineInFirestore();
-    startLocationWatch();
+    // GPS first, then online + geoCell so matching sees this driver immediately.
+    await activateDriverOnlineMode();
     setPinMessage("گاڑی کامیابی سے منسلک ہو گئی!", true);
     driverToast("گاڑی منسلک — آپ آن لائن ہیں");
     els.pinForm?.reset();
@@ -2084,11 +2079,52 @@ async function markVehicleOfflineInFirestore() {
 }
 
 /** Write online + geo index immediately — don't wait for first GPS callback. */
+/** One-shot GPS read before going online so matching gets geoCell on first write. */
+async function awaitQuickGpsFix(timeoutMs = 10000) {
+  if (!navigator.geolocation) return null;
+  if (isValidCoord(lastDriverPosition?.lat, lastDriverPosition?.lng)) {
+    return lastDriverPosition;
+  }
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: timeoutMs,
+      });
+    });
+    updateDriverLocation(pos);
+    return lastDriverPosition;
+  } catch {
+    return null;
+  }
+}
+
+async function activateDriverOnlineMode() {
+  setOnlineUi(true);
+  lastVehicleLocationWrite = 0;
+  lastLocationGridCell = null;
+  lastMatchGeoCell = null;
+  lastLocationSyncError = "";
+  transientGpsFailCount = 0;
+  startLocationWatch();
+  await markVehicleOnlineInFirestore();
+  hideIncomingRide();
+  paintDriverAvailabilityDiag();
+}
+
 async function markVehicleOnlineInFirestore() {
   if (!linkedVehicle?.id || !currentDriver?.uid || !online) return;
 
-  const lat = Number(lastDriverPosition?.lat ?? linkedVehicle.location?.lat);
-  const lng = Number(lastDriverPosition?.lng ?? linkedVehicle.location?.lng);
+  let lat = Number(lastDriverPosition?.lat ?? linkedVehicle.location?.lat);
+  let lng = Number(lastDriverPosition?.lng ?? linkedVehicle.location?.lng);
+  if (!isValidCoord(lat, lng)) {
+    const fix = await awaitQuickGpsFix();
+    if (fix) {
+      lat = fix.lat;
+      lng = fix.lng;
+    }
+  }
 
   const payload = {
     status: activeExecutionRide?.id ? "in_ride" : "online",
@@ -2322,16 +2358,7 @@ function toggleDriverStatus() {
     return;
   }
 
-  setOnlineUi(true);
-  lastVehicleLocationWrite = 0;
-  lastLocationGridCell = null;
-  lastMatchGeoCell = null;
-  lastLocationSyncError = "";
-  transientGpsFailCount = 0;
-  void markVehicleOnlineInFirestore();
-  startLocationWatch();
-  hideIncomingRide();
-  paintDriverAvailabilityDiag();
+  void activateDriverOnlineMode();
 }
 
 function setRequestButtonsBusy(busy) {

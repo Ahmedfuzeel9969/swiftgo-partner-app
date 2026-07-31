@@ -1512,6 +1512,12 @@ async function rematchNearbySearchingRidesForVehicle(db, vehicle) {
     return { rematched: 0, skipped: "not_available" };
   }
 
+  const settings = await readDispatchSettings(db);
+  const rematchKm =
+    Number.isFinite(Number(settings.maxSearchRadiusKm)) && Number(settings.maxSearchRadiusKm) > 0
+      ? Number(settings.maxSearchRadiusKm)
+      : NEARBY_REMATCH_KM;
+
   const partnerSnap = await db.collection("partners").doc(driverId).get();
   const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
   if (
@@ -1538,7 +1544,7 @@ async function rematchNearbySearchingRidesForVehicle(db, vehicle) {
     };
     if (!Number.isFinite(pickup.lat) || !Number.isFinite(pickup.lng)) continue;
     const km = haversineKm(pickup, { lat, lng });
-    if (km == null || km > NEARBY_REMATCH_KM) continue;
+    if (km == null || km > rematchKm) continue;
     try {
       await matchRideCandidates(db, { rideId: doc.id, pickup });
       rematched += 1;

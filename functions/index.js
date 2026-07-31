@@ -840,12 +840,19 @@ exports.mirrorDriverLocationOnVehicleUpdate = onDocumentWritten(
     const gotGeoCell = !before?.geoCell && after.geoCell;
     const geoCellChanged =
       before?.geoCell && after.geoCell && before.geoCell !== after.geoCell;
+    const hadValidLoc =
+      Number.isFinite(Number(before?.location?.lat)) &&
+      Number.isFinite(Number(before?.location?.lng));
+    const hasValidLoc =
+      Number.isFinite(Number(after?.location?.lat)) &&
+      Number.isFinite(Number(after?.location?.lng));
+    const gotValidLocation = !hadValidLoc && hasValidLoc;
     if (
       !after.activeRideId &&
       after.status === "online" &&
       after.geoCell &&
-      after.location?.lat != null &&
-      (becameOnline || gotGeoCell || geoCellChanged)
+      hasValidLoc &&
+      (becameOnline || gotGeoCell || geoCellChanged || gotValidLocation)
     ) {
       try {
         const result = await rematchNearbySearchingRidesForVehicle(db, after);
