@@ -88,6 +88,56 @@ service cloud.firestore {
              ]);
     }
 
+    function isValidVehicleGeoCell(cell) {
+      return cell is string && cell.size() >= 3;
+    }
+
+    // Driver ONLINE_READY — single combined geo + online write (writeOnlineReadyVehicle).
+    function isDriverVehicleOnlineReadyUpdate() {
+      return isSignedIn()
+        && partnerIsActiveDriver(request.auth.uid)
+        && resource.data.get('driverId', '') == request.auth.uid
+        && request.resource.data.driverId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'driverId', 'status', 'driverName', 'location', 'locationUpdatedAt',
+          'locationGridCell', 'geoCell', 'hotspotId', 'activeRideId'
+        ])
+        && request.resource.data.status == 'online'
+        && request.resource.data.driverName is string
+        && request.resource.data.location.keys().hasAll(['lat', 'lng'])
+        && request.resource.data.location.lat >= -90
+        && request.resource.data.location.lat <= 90
+        && request.resource.data.location.lng >= -180
+        && request.resource.data.location.lng <= 180
+        && request.resource.data.locationUpdatedAt is timestamp
+        && request.resource.data.locationGridCell is string
+        && isValidVehicleGeoCell(request.resource.data.geoCell)
+        && (
+          !('hotspotId' in request.resource.data)
+          || request.resource.data.hotspotId == null
+          || request.resource.data.hotspotId is string
+        )
+        && (
+          !('activeRideId' in request.resource.data)
+          || request.resource.data.activeRideId == null
+        );
+    }
+
+    // Owner may manage vehicle metadata — not driver assignment or geo/location dispatch fields.
+    function isOwnerVehicleSafeUpdate() {
+      return isSignedIn()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['walletBalance', 'earnings', 'commissionPercent'])
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny([
+               'driverId', 'driverName', 'location', 'locationUpdatedAt',
+               'geoCell', 'hotspotId', 'locationGridCell', 'activeRideId'
+             ]);
+    }
+
     // Allowed booking lifecycle states (audit: enum was unconstrained).
     function isValidStatus(status) {
       return status in ['scheduled', 'current', 'completed', 'cancelled'];
@@ -394,11 +444,10 @@ service cloud.firestore {
       );
 
       // Owner manages own vehicles (ownerId immutable). May set pinHash; should not broaden privacy.
-      allow update: if isSignedIn()
-        && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId
-        && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['walletBalance', 'earnings', 'commissionPercent']);
+      allow update: if isOwnerVehicleSafeUpdate();
+
+      // Driver ONLINE_READY — combined location + geo + online status in one write.
+      allow update: if isDriverVehicleOnlineReadyUpdate();
 
       // Driver claim / go online — blocked/suspended partners denied (T07 / P1-013).
       allow update: if isSignedIn()
