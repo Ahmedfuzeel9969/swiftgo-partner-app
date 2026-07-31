@@ -1,0 +1,55 @@
+# PR-only: run CI gate tests, then deploy a temporary Firebase Hosting preview channel.
+# Does NOT deploy live hosting, Firestore rules, indexes, Storage rules, or Cloud Functions.
+#
+# Required GitHub secret (repository → Settings → Secrets and variables → Actions):
+#   FIREBASE_SERVICE_ACCOUNT_SWIFTGO_RIDE_APP
+# Create via Firebase Console service account (Hosting Admin) or: firebase init hosting:github
+
+name: PR Preview — Tests and Firebase Hosting
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test_and_preview:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Run CI preview gate tests
+        run: npm run test:ci-preview
+
+      - name: Deploy temporary Firebase Hosting preview
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SWIFTGO_RIDE_APP }}
+          projectId: swiftgo-ride-app
+          expires: 7d
+          entryPoint: .
