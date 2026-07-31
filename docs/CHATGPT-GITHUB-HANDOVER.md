@@ -18,7 +18,7 @@ Purpose: Safe repository handover so ChatGPT can inspect, modify, test, commit, 
 | Production branch | `main` (GitHub default `origin/HEAD → origin/main`) |
 | Safety branch (this handover) | `handover/chatgpt-baseline-20260731` |
 | Prior safety branch (do not overwrite) | `handover/chatgpt-baseline` |
-| Latest commit hash | See git tip after handover push (`git rev-parse HEAD`) |
+| Latest commit hash | `16047432d44323e377e3ea803a3f1614f32ab0ec` |
 | Live site | https://swiftgo-ride-app.web.app/ |
 | Firebase project ID | `swiftgo-ride-app` |
 | Firebase Hosting | default site for project `swiftgo-ride-app` (public dir `hosting-dist`, built by predeploy) |
@@ -28,7 +28,8 @@ Purpose: Safe repository handover so ChatGPT can inspect, modify, test, commit, 
 
 ## Push status / Git status (2026-07-31 handover)
 
-Recorded after commit + push of all legitimate local work:
+- **Latest commit:** `16047432d44323e377e3ea803a3f1614f32ab0ec` on `main` and `handover/chatgpt-baseline-20260731`
+- **Working tree:** clean after push
 
 - **Modified tracked files:** customer-app, driver-app, owner-app, super-admin-panel, functions, firestore.rules, firestore.indexes.json, tests (see commit diff)
 - **New untracked files added:** dispatch-latency, partial-fare, pricing-fare, driver-location, rate-details, pricing-client, admin-settings-client, driver-offer-inbox, driver-track modules
