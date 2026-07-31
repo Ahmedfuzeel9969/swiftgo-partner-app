@@ -14,6 +14,7 @@ import { getFirebase } from "./firebase.js";
 import {
   MAX_CUSTOMER_ACTIVE_BOOKINGS,
   FIRESTORE_ACTIVE_RIDE_STATUSES,
+  NON_TERMINAL_RIDE_STATUSES,
   normalizeCustomerRideStatus,
 } from "./ride-status.js";
 

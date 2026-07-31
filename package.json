@@ -33,7 +33,8 @@
     "android:aab:owner": "npm run android:sync && cd mobile/owner && npx cap sync android && cd android && gradlew.bat bundleRelease",
     "build:hosting": "node tools/build-hosting.mjs",
     "test:audit": "node tests/audit.test.mjs",
-    "test:i18n": "node tests/i18n-purity-scan.mjs"
+    "test:i18n": "node tests/i18n-purity-scan.mjs",
+    "test:ci-preview": "node tests/ci-preview-gate.mjs"
   },
   "keywords": [],
   "author": "",

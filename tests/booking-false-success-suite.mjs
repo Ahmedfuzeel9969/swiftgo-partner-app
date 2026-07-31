@@ -101,12 +101,13 @@ function staticContractChecks() {
   );
 
   const gateUsesLiveRides =
-    /const count = active\.length/.test(bargaining) &&
-    bargaining.includes("countCustomerActiveBookings");
+    (/const count = active\.length/.test(bargaining) ||
+      /const count = reconciled\.activeCount/.test(bargaining)) &&
+    bargaining.includes("reconcileCustomerBookingState");
   record(
     "S07-gate-counts-live-rides-not-inflated-slots",
     gateUsesLiveRides ? "PASS" : "FAIL",
-    "evaluateCustomerBookingGate must use active.length after reconcile"
+    "evaluateCustomerBookingGate must count reconciled live rides, not inflated slots"
   );
 
   const createReconciles =
