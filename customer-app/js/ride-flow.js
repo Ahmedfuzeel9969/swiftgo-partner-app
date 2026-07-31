@@ -976,16 +976,11 @@ export async function startRideRequest(state) {
     showSearchingState();
     startSearchTimers(ride.id);
     attachRideWatch(ride.id);
-    // Prefer server auto-match from createCustomerBooking; still call as backup.
     if (!created.candidateCount && created.matchingStatus !== "candidates_ready") {
       await matchCandidatesForRide(ride.id);
     }
-    if (created.matchingStatus === "no_candidates" || created.candidateCount === 0) {
-      onToast?.(
-        t("bookingNoDriversNearby") ||
-          "قریبی ڈرائیور نہیں ملا — تلاش جاری ہے، ڈرائیور آن لائن اور 3 کلومیٹر کے اندر ہو"
-      );
-    } else if (created.matchingStatus === "candidates_ready" || created.candidateCount > 0) {
+    const invited = created.matchingStatus === "candidates_ready" || Number(created.candidateCount) > 0;
+    if (invited) {
       onToast?.(
         t("bookingDriversInvited") ||
           `${created.candidateCount || ""} قریبی ڈرائیور کو دعوت بھیج دی`.trim()
@@ -994,6 +989,11 @@ export async function startRideRequest(state) {
       onToast?.(
         t("bookingMatchRetrying") ||
           "ڈرائیور میچنگ میں مسئلہ — تلاش جاری، دوبارہ کوشش ہو رہی ہے"
+      );
+    } else {
+      onToast?.(
+        t("bookingSearchPending") ||
+          "بکنگ بن گئی — قریبی ڈرائیور تلاش ہو رہے ہیں"
       );
     }
     return ride;

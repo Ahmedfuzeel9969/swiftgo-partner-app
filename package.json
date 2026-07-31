@@ -35,7 +35,8 @@
     "test:audit": "node tests/audit.test.mjs",
     "test:i18n": "node tests/i18n-purity-scan.mjs",
     "test:ci-preview": "node tests/ci-preview-gate.mjs",
-    "test:dispatch-e2e": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/dispatch-booking-radar-e2e.mjs\""
+    "test:dispatch-e2e": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/dispatch-booking-radar-e2e.mjs\"",
+    "test:dispatch-readiness": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/dispatch-readiness-race.mjs\""
   },
   "keywords": [],
   "author": "",
