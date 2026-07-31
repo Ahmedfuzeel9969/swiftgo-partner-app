@@ -11,6 +11,10 @@ import {
   getStorage,
   connectStorageEmulator,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
+import {
+  getFunctions,
+  connectFunctionsEmulator,
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
 import { firebaseConfig as prodConfig, isFirebaseConfigured as isProdConfigured } from "./firebase-config.js";
 
 const EMULATOR_PROJECT = "demo-swiftgo-phase1";
@@ -61,12 +65,14 @@ let app = null;
 let auth = null;
 let db = null;
 let storage = null;
+let functions = null;
 
 if (isFirebaseConfigured()) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
+  functions = getFunctions(app, "us-central1");
   const host = typeof location !== "undefined" ? location.hostname : "";
   if (useEmulators && (host === "localhost" || host === "127.0.0.1")) {
     if (typeof window !== "undefined") {
@@ -75,6 +81,7 @@ if (isFirebaseConfigured()) {
       window.__SWIFTGO_E2E__.projectId = EMULATOR_PROJECT;
       window.__SWIFTGO_E2E__.auth = auth;
       window.__SWIFTGO_E2E__.db = db;
+      window.__SWIFTGO_E2E__.functions = functions;
     }
     try {
       connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
@@ -91,14 +98,19 @@ if (isFirebaseConfigured()) {
     } catch (e) {
       console.warn("[SwiftGo Admin] storage emulator", e);
     }
+    try {
+      connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+    } catch (e) {
+      console.warn("[SwiftGo Admin] functions emulator", e);
+    }
   }
 }
 
-export { app, auth, db, storage, useEmulators };
+export { app, auth, db, storage, functions, useEmulators };
 
 export function getFirebase() {
   if (!isFirebaseConfigured()) {
-    return { ready: false, app: null, auth: null, db: null, storage: null };
+    return { ready: false, app: null, auth: null, db: null, storage: null, functions: null };
   }
-  return { ready: true, app, auth, db, storage };
+  return { ready: true, app, auth, db, storage, functions };
 }

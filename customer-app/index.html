@@ -12,13 +12,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="css/styles.css?v=no_earn_driver_1" />
+  <link rel="stylesheet" href="css/styles.css?v=customer_fare_rates_1" />
 </head>
 <body>
   <div class="app" id="app">
     <div class="drawer-overlay" id="drawerOverlay" hidden></div>
 
-    <aside class="sidebar" id="sidebar" aria-hidden="true" aria-label="Main menu" data-i18n-aria="mainMenuAria">
+    <aside class="sidebar" id="sidebar" inert aria-label="Main menu" data-i18n-aria="mainMenuAria">
       <div class="sidebar__inner glass">
         <header class="sidebar__profile" id="profileTap" role="button" tabindex="0">
           <div class="avatar" aria-hidden="true">
@@ -59,6 +59,12 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="17" cy="15" r="1.5" fill="currentColor"/></svg>
               </span>
               <span data-i18n="navWallet">Wallet</span>
+            </button>
+            <button type="button" class="nav-item" id="navFareRates" data-action="fare-rates">
+              <span class="nav-item__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </span>
+              <span data-i18n="navFareRates">Fare rates</span>
             </button>
             <button type="button" class="nav-item" data-route="missed-call">
               <span class="nav-item__icon" aria-hidden="true">
@@ -305,12 +311,47 @@
             <header class="panel__head">
               <h1 class="panel__title" data-i18n="navHistory">History</h1>
             </header>
-            <section class="active-bookings" id="activeBookingsSection" hidden>
-              <h2 class="active-bookings__title" data-i18n="activeBookingsTitle">Active bookings</h2>
-              <div class="active-bookings__list" id="activeBookingsList" role="list"></div>
-            </section>
-            <div class="history-chat" id="historyChatList" hidden role="log" aria-live="polite"></div>
-            <div class="empty-state glass" id="historyEmpty">
+            <div class="tabs history-tabs" id="historyTabs" role="tablist" aria-label="History categories">
+              <button type="button" class="tab is-active" role="tab" id="historyTabActive" data-history-tab="active" aria-selected="true" aria-controls="historyPanelActive">
+                <span data-i18n="historyTabActive">Active</span>
+                <span class="history-tabs__count" id="historyCountActive" hidden>0</span>
+              </button>
+              <button type="button" class="tab" role="tab" id="historyTabCompleted" data-history-tab="completed" aria-selected="false" aria-controls="historyPanelCompleted">
+                <span data-i18n="historyTabCompleted">Completed</span>
+                <span class="history-tabs__count" id="historyCountCompleted" hidden>0</span>
+              </button>
+              <button type="button" class="tab" role="tab" id="historyTabCancelled" data-history-tab="cancelled" aria-selected="false" aria-controls="historyPanelCancelled">
+                <span data-i18n="historyTabCancelled">Cancelled</span>
+                <span class="history-tabs__count" id="historyCountCancelled" hidden>0</span>
+              </button>
+            </div>
+            <div class="tab-panels history-tab-panels" id="historyTabPanels">
+              <div class="tab-panel is-active" role="tabpanel" id="historyPanelActive" data-history-panel="active" aria-labelledby="historyTabActive">
+                <section class="active-bookings" id="activeBookingsSection" hidden>
+                  <h2 class="active-bookings__title" data-i18n="activeBookingsTitle">Active bookings</h2>
+                  <div class="active-bookings__list" id="activeBookingsList" role="list"></div>
+                </section>
+                <div class="empty-state glass" id="historyEmptyActive" hidden>
+                  <h2 class="empty-state__title" data-i18n="historyEmptyActiveTitle">No active rides</h2>
+                  <p class="empty-state__text" data-i18n="historyEmptyActiveText">Rides that are searching or in progress will appear here.</p>
+                </div>
+              </div>
+              <div class="tab-panel" role="tabpanel" id="historyPanelCompleted" data-history-panel="completed" aria-labelledby="historyTabCompleted" hidden>
+                <div class="history-chat" id="historyChatList" hidden role="log" aria-live="polite"></div>
+                <div class="empty-state glass" id="historyEmptyCompleted" hidden>
+                  <h2 class="empty-state__title" data-i18n="historyEmptyCompletedTitle">No completed rides</h2>
+                  <p class="empty-state__text" data-i18n="historyEmptyCompletedText">Finished trips will appear here.</p>
+                </div>
+              </div>
+              <div class="tab-panel" role="tabpanel" id="historyPanelCancelled" data-history-panel="cancelled" aria-labelledby="historyTabCancelled" hidden>
+                <div class="history-chat" id="historyCancelledList" hidden role="log" aria-live="polite"></div>
+                <div class="empty-state glass" id="historyEmptyCancelled" hidden>
+                  <h2 class="empty-state__title" data-i18n="historyEmptyCancelledTitle">No cancelled rides</h2>
+                  <p class="empty-state__text" data-i18n="historyEmptyCancelledText">Cancelled bookings will appear here with who cancelled and when.</p>
+                </div>
+              </div>
+            </div>
+            <div class="empty-state glass" id="historyEmpty" hidden>
               <h2 class="empty-state__title" data-i18n="historyEmptyTitle">No trips yet</h2>
               <p class="empty-state__text" data-i18n="historyEmptyText">Your past trips will appear here as chat messages.</p>
               <button type="button" class="cta-btn" data-action="book-now" data-i18n="bookNow">Book Now</button>
@@ -727,8 +768,13 @@
                 <p id="activeRideVehicle">Go · KHI-1234</p>
               </div>
             </div>
+            <div class="active-ride-track" id="activeRideDriverTrack" hidden>
+              <p class="active-ride-track__distance" id="activeRideDriverDistance"></p>
+              <p class="active-ride-track__eta" id="activeRideDriverEta" hidden></p>
+            </div>
             <div class="active-ride-panel__actions">
               <a class="active-ride-call-btn" id="activeRideCallLink" href="tel:+923001234567" data-i18n="activeRideCallDirect">Call directly</a>
+              <button type="button" class="cancel-ride-btn active-ride-panel__cancel" id="activeRideCancelBtn" data-i18n="cancelRide" hidden>کینسل کریں</button>
             </div>
           </section>
 
@@ -1010,10 +1056,11 @@
     </div>
 
     <!-- Cancel ride reason modal -->
-    <div class="confirm-dialog" id="cancelRideDialog" hidden aria-hidden="true">
+    <div class="confirm-dialog" id="cancelRideDialog" hidden inert>
       <div class="confirm-dialog__backdrop" id="cancelRideBackdrop"></div>
       <div class="confirm-dialog__panel glass" role="dialog" aria-modal="true" aria-labelledby="cancelRideTitle">
         <h2 id="cancelRideTitle" data-i18n="cancelRideTitle">کینسل کی وجہ</h2>
+        <p class="cancel-ride-fare-preview" id="cancelRideFarePreview" hidden></p>
         <p data-i18n="cancelRideHint">بکنگ منسوخ کرنے کی وجہ منتخب کریں</p>
         <div class="cancel-reason-list" id="cancelReasonList" role="radiogroup" aria-labelledby="cancelRideTitle"></div>
         <div class="confirm-dialog__actions">
@@ -1101,7 +1148,21 @@
     </div>
   </div>
 
+  <div class="rate-details-modal" id="rateDetailsModal" aria-hidden="true" hidden>
+    <button class="rate-details-modal__backdrop" id="rateDetailsBackdrop" type="button" aria-label="Close" data-i18n-aria="closeSheet"></button>
+    <section class="rate-details-modal__panel glass" role="dialog" aria-modal="true" aria-labelledby="rateDetailsTitle">
+      <header class="rate-details-modal__heading">
+        <div>
+          <p>Fare Rates</p>
+          <h2 id="rateDetailsTitle" data-i18n="navFareRates">Fare rates</h2>
+        </div>
+        <button type="button" class="rate-details-modal__close" id="rateDetailsCloseBtn" aria-label="Close" data-i18n-aria="closeSheet">×</button>
+      </header>
+      <div class="rate-details-modal__body" id="rateDetailsBody"></div>
+    </section>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script type="module" src="js/app.js?v=no_earn_driver_1"></script>
+  <script type="module" src="js/app.js?v=in_progress_cancel_1"></script>
 </body>
 </html>

@@ -3,7 +3,9 @@
  */
 
 import { fetchRideRoute } from "./ride-radar-routing.js";
-import { submitDriverOffer, acceptRideWithBid, declineRideCandidateClient, withdrawRideOfferClient } from "./ride-radar-actions.js";
+import { submitDriverOffer, acceptRideWithBid, acceptCustomerInitialFare, declineRideCandidateClient, withdrawRideOfferClient } from "./ride-radar-actions.js";
+import { openRateDetails } from "./rate-details-modal.js";
+import { resolveVehicleKeyFromLabel } from "./pricing-client.js";
 import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getFirebase } from "./firebase.js";
 
@@ -15,6 +17,7 @@ const money = (n) => `Rs. ${Math.round(Math.max(0, Number(n) || 0)).toLocaleStri
  *   getDriver: () => { uid: string, displayName?: string } | null,
  *   getLinkedVehicle: () => { id: string, plate?: string, ownerId?: string } | null,
  *   getDriverPosition?: () => { lat: number, lng: number } | null,
+ *   getOfferForRide?: (rideId: string) => object | null,
  *   onBack: () => void,
  *   onAccepted: (result: { rideId: string, bidFare: number }) => void,
  *   onOfferSent?: (result: { rideId: string, bidFare: number }) => void,
@@ -27,6 +30,7 @@ export function initRideRequestDetail(root, opts) {
   const getDriver = opts.getDriver || (() => null);
   const getLinkedVehicle = opts.getLinkedVehicle || (() => null);
   const getDriverPosition = opts.getDriverPosition || (() => null);
+  const getOfferForRide = opts.getOfferForRide || (() => null);
   const onBack = opts.onBack || (() => {});
   const onAccepted = opts.onAccepted || (() => {});
   const onOfferSent = opts.onOfferSent || (() => {});
@@ -38,6 +42,7 @@ export function initRideRequestDetail(root, opts) {
   let layerGroup = null;
   /** @type {object | null} */
   let currentRide = null;
+  let tripDurationMin = null;
   let routeSeq = 0;
   let sheetExpanded = true;
 
@@ -73,6 +78,9 @@ export function initRideRequestDetail(root, opts) {
             <div><span>فاصلہ</span><strong data-trip-km>— km</strong></div>
             <div><span>تخمینہ کرایہ</span><strong data-base-fare>—</strong></div>
           </div>
+          <button type="button" class="radar-detail__rate-btn" data-rate-details-btn>
+            ریٹ کی مکمل تفصیل دیکھیں
+          </button>
           <div class="radar-detail__rating">
             <span>مسافر کی درجہ بندی</span>
             <strong data-rating>4.8 ★</strong>
@@ -81,7 +89,14 @@ export function initRideRequestDetail(root, opts) {
             <p><span class="radar-detail__tag radar-detail__tag--a">A</span> <span class="radar-detail__addr-label">پک اپ:</span> <span data-pickup-text>—</span></p>
             <p><span class="radar-detail__tag radar-detail__tag--b">B</span> <span class="radar-detail__addr-label">ڈراپ آف:</span> <span data-dropoff-text>—</span></p>
           </div>
-          <p class="radar-detail__bid-label">اپنا کرایہ (Rs.) درج کریں یا تیز اختیار منتخب کریں</p>
+          <div class="radar-detail__customer-offer" data-customer-offer-panel>
+            <p class="radar-detail__customer-offer-label">مسافر کی پہلی پیشکش</p>
+            <p class="radar-detail__customer-offer-fare" data-customer-offer-fare>—</p>
+            <button type="button" class="radar-detail__accept-customer-offer" data-accept-customer-offer>
+              مسافر کی پیشکش قبول کریں
+            </button>
+          </div>
+          <p class="radar-detail__bid-label">یا اپنا کرایہ (Rs.) درج کریں یا تیز اختیار منتخب کریں</p>
           <div class="radar-detail__custom-bid">
             <input
               type="number"
@@ -115,6 +130,9 @@ export function initRideRequestDetail(root, opts) {
   const bidsEl = root.querySelector("[data-bids]");
   const customFareInput = root.querySelector("[data-custom-fare]");
   const sendCustomBtn = root.querySelector("[data-send-custom-offer]");
+  const acceptCustomerOfferBtn = root.querySelector("[data-accept-customer-offer]");
+  const customerOfferFareEl = root.querySelector("[data-customer-offer-fare]");
+  const customerOfferPanel = root.querySelector("[data-customer-offer-panel]");
   const offerStatusEl = root.querySelector("[data-offer-status]");
   const counterPanel = root.querySelector("[data-counter-panel]");
   const counterTextEl = root.querySelector("[data-counter-text]");
@@ -130,6 +148,19 @@ export function initRideRequestDetail(root, opts) {
   const sheetArrowEl = root.querySelector("[data-sheet-arrow]");
 
   root.querySelector("[data-back]")?.addEventListener("click", () => onBack());
+
+  root.querySelector("[data-rate-details-btn]")?.addEventListener("click", () => {
+    const ride = currentRide;
+    if (!ride) return;
+    void openRateDetails({
+      vehicleTypeKey: ride.vehicleTypeKey || resolveVehicleKeyFromLabel(ride.vehicleType),
+      vehicleTypeLabel: ride.vehicleType,
+      distanceKm: ride.tripDistanceKm ?? ride.tripKm,
+      durationMin: tripDurationMin,
+      estimatedFare: ride.estimatedFare,
+      mode: "ride",
+    });
+  });
 
   root.querySelector("[data-decline-candidate]")?.addEventListener("click", async () => {
     const ride = currentRide;
@@ -214,6 +245,10 @@ export function initRideRequestDetail(root, opts) {
     const seq = ++routeSeq;
     const route = await fetchRideRoute(pickup, dropoff);
     if (seq !== routeSeq) return;
+    tripDurationMin = route?.durationMin ?? null;
+    if (currentRide && route?.distanceKm != null && tripKmEl) {
+      tripKmEl.textContent = `${route.distanceKm} km`;
+    }
 
     const a = L.marker([pickup.lat, pickup.lng], {
       icon: L.divIcon({
@@ -266,6 +301,8 @@ export function initRideRequestDetail(root, opts) {
   let offerUnsub = () => {};
   let myOfferState = null;
 
+  acceptCustomerOfferBtn?.addEventListener("click", () => acceptCustomerOffer());
+
   sendCustomBtn?.addEventListener("click", () => {
     if (!currentRide) return;
     const raw = customFareInput?.value ?? "";
@@ -317,20 +354,34 @@ export function initRideRequestDetail(root, opts) {
         doc(db, "ride_offers", `${ride.id}_${driver.uid}`),
         (snap) => {
           myOfferState = snap.exists() ? { id: snap.id, ...snap.data() } : null;
-          if (currentRide) syncOfferUi(currentRide, driver.uid);
+          if (currentRide) syncOfferUi(currentRide, getDriver()?.uid || driver.uid);
         },
         (err) => console.warn("[SwiftGo Radar] Firestore listen retry... offer watch", err)
       );
     }
   }
 
+  function syncFromInbox() {
+    if (!currentRide?.id) return;
+    const cached = getOfferForRide(currentRide.id);
+    if (cached) {
+      myOfferState = cached;
+      syncOfferUi(currentRide, getDriver()?.uid);
+    }
+  }
+
   function syncOfferUi(ride, driverUid) {
     const offer = myOfferState;
-    const myOffer =
+    const offerBelongsToDriver =
       offer &&
-      offer.driverId === driverUid &&
+      driverUid &&
+      (offer.driverId === driverUid ||
+        String(offer.id || "") === `${ride?.id}_${driverUid}` ||
+        String(offer.id || "").endsWith(`_${driverUid}`));
+    const myOffer =
+      offerBelongsToDriver &&
       ["open", "countered"].includes(offer.status) &&
-      ride.status !== "accepted";
+      ride?.status !== "accepted";
     const counter = Math.round(Number(offer?.customerCounterFare) || 0);
     const fare = Math.round(Number(offer?.fare) || 0);
 
@@ -354,6 +405,44 @@ export function initRideRequestDetail(root, opts) {
         counterTextEl.textContent = `مسافر ${money(counter)} پر راضی ہے۔ قبول کریں یا نئی پیشکش بھیجیں۔`;
       }
       acceptCounterBtn.disabled = false;
+      if (showCounter) {
+        setSheetExpanded(true);
+        counterPanel.classList.add("is-highlight");
+        window.setTimeout(() => counterPanel?.classList.remove("is-highlight"), 2400);
+      }
+    }
+
+    const showAcceptInitial =
+      ride.status === "searching_driver" &&
+      !myOffer &&
+      Math.round(Number(ride.estimatedFare ?? ride.farePkr ?? 0)) > 0;
+    if (customerOfferPanel) customerOfferPanel.hidden = !showAcceptInitial;
+    if (acceptCustomerOfferBtn) acceptCustomerOfferBtn.disabled = !showAcceptInitial;
+  }
+
+  async function acceptCustomerOffer() {
+    const ride = currentRide;
+    const driver = getDriver();
+    const vehicle = getLinkedVehicle();
+    if (!ride?.id || !driver?.uid || !vehicle?.id) return;
+    if (acceptCustomerOfferBtn) acceptCustomerOfferBtn.disabled = true;
+    try {
+      const result = await acceptCustomerInitialFare({
+        rideId: ride.id,
+        driver,
+        linkedVehicle: vehicle,
+      });
+      onAccepted({ rideId: ride.id, bidFare: Number(result?.bidFare) || 0 });
+    } catch (err) {
+      const code = err?.message || "";
+      if (code === "RIDE_NOT_AVAILABLE" || code.includes("NOT_NEGOTIATING")) {
+        onError("یہ رائٹ اب دستیاب نہیں");
+      } else if (code === "VEHICLE_NOT_LINKED") onError("گاڑی کی تصدیق نہیں ہو سکی");
+      else if (code === "DRIVER_HAS_ACTIVE_RIDE" || String(code).includes("DRIVER_HAS_ACTIVE_RIDE")) {
+        onError("پہلے فعال سواری مکمل کریں");
+      } else if (code === "NOT_A_CANDIDATE") onError("یہ رائٹ آپ کے لیے دستیاب نہیں");
+      else onError("قبول نہیں ہو سکی، دوبارہ کوشش کریں");
+      if (acceptCustomerOfferBtn) acceptCustomerOfferBtn.disabled = false;
     }
   }
 
@@ -444,6 +533,7 @@ export function initRideRequestDetail(root, opts) {
 
   function show(ride) {
     currentRide = ride;
+    tripDurationMin = null;
     root.hidden = false;
     setSheetExpanded(true);
     requestAnimationFrame(() => {
@@ -460,10 +550,15 @@ export function initRideRequestDetail(root, opts) {
         ride.tripDistanceKm != null ? `${ride.tripDistanceKm} km` : ride.tripKm != null ? `${ride.tripKm} km` : "— km";
     }
     if (baseFareEl) baseFareEl.textContent = money(ride.estimatedFare);
+    if (customerOfferFareEl) {
+      customerOfferFareEl.textContent = money(ride.estimatedFare);
+    }
     if (customFareInput && !customFareInput.value) {
       customFareInput.placeholder = String(Math.round(Number(ride.estimatedFare) || 0) || "450");
     }
     renderBids(ride);
+    const cachedOffer = getOfferForRide(ride.id);
+    if (cachedOffer) myOfferState = cachedOffer;
     syncOfferUi(ride, getDriver()?.uid);
     startRideWatch(ride);
   }
@@ -484,7 +579,7 @@ export function initRideRequestDetail(root, opts) {
     root.replaceChildren();
   }
 
-  return { show, hide, destroy };
+  return { show, hide, destroy, syncFromInbox };
 }
 
 function escapeHtml(str) {

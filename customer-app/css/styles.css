@@ -211,6 +211,63 @@ button {
 
 .screen.is-active[data-screen="home"] {
   z-index: 1;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Map stays inside the home viewport — never paints over sheet / chrome */
+#screen-home #map,
+#screen-home #map.leaflet-container {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  max-height: 100%;
+  z-index: 0 !important;
+}
+
+#screen-home .leaflet-pane {
+  z-index: 1 !important;
+}
+
+#screen-home .leaflet-tile-pane {
+  z-index: 1 !important;
+}
+
+#screen-home .leaflet-overlay-pane {
+  z-index: 2 !important;
+}
+
+#screen-home .leaflet-marker-pane {
+  z-index: 3 !important;
+}
+
+#screen-home .leaflet-shadow-pane {
+  z-index: 4 !important;
+}
+
+#screen-home .leaflet-tooltip-pane {
+  z-index: 5 !important;
+}
+
+#screen-home .leaflet-popup-pane {
+  z-index: 6 !important;
+}
+
+#screen-home .leaflet-control-container {
+  z-index: 7 !important;
+}
+
+/* Floating home controls always above map tiles */
+#screen-home .route-trigger,
+#screen-home .route-pill,
+#screen-home .route-search,
+#screen-home .route-summary,
+#screen-home .map-layers-fab,
+#screen-home .fab-locate,
+#screen-home .map-pin-mode {
+  z-index: 1100;
 }
 
 /* Map */
@@ -815,6 +872,48 @@ body.map-pick-active .sheet {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.assigned-driver-wrap {
+  background: none !important;
+  border: none !important;
+}
+
+.assigned-driver-marker {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  animation: none !important;
+  transform: rotate(var(--rot, 0deg));
+  filter: drop-shadow(0 4px 8px rgba(29, 78, 216, 0.45));
+}
+
+.assigned-driver-marker__pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(29, 78, 216, 0.45);
+  animation: assigned-driver-pulse 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes assigned-driver-pulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.85;
+  }
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.driver-approach-line {
+  pointer-events: none;
 }
 
 @keyframes live-drift {
@@ -2282,6 +2381,36 @@ body.drawer-open {
   padding-top: 0.35rem;
 }
 
+.history-tabs {
+  margin-bottom: 0.85rem;
+}
+
+.history-tabs .tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.history-tabs__count {
+  min-width: 1.25rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #fff;
+  background: var(--brand, #0b7a4b);
+}
+
+.history-tabs .tab:not(.is-active) .history-tabs__count {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.history-tab-panels {
+  min-height: 8rem;
+}
+
 .history-chat {
   display: flex;
   flex-direction: column;
@@ -2315,6 +2444,34 @@ body.drawer-open {
   background: #fff;
   border: 1px solid rgba(15, 31, 23, 0.08);
   box-shadow: 0 4px 14px rgba(6, 40, 24, 0.08);
+}
+
+.history-chat__badge {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.history-chat__badge--completed {
+  color: #0b7a4b;
+}
+
+.history-chat__badge--cancel-customer {
+  color: #b45309;
+}
+
+.history-chat__badge--cancel-other {
+  color: #b91c1c;
+}
+
+.history-chat__meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.45rem;
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  color: #475569;
 }
 
 .history-chat__row {
@@ -2357,6 +2514,16 @@ body.drawer-open {
   font-weight: 650;
   color: var(--ink);
   word-break: break-word;
+}
+
+.history-chat__text--plate {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-weight: 800;
+}
+
+.history-chat__meta--vehicle {
+  margin-top: 0.35rem;
 }
 
 .history-chat__fare {
@@ -3161,12 +3328,47 @@ html[dir="rtl"] .contact-btn__chev {
   color: #334155;
 }
 
+.active-booking-card__vehicle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+}
+
+.active-booking-card__vehicle-label {
+  color: rgba(15, 23, 42, 0.55);
+  font-weight: 700;
+}
+
+.active-booking-card__vehicle-value {
+  color: #0f172a;
+  font-weight: 800;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
 .active-booking-card__timer {
   margin: 0.35rem 0 0;
   font-size: 0.78rem;
   font-weight: 700;
   color: #b45309;
   direction: ltr;
+}
+
+.active-booking-card__actions {
+  margin-top: 0.65rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.active-booking-card__cancel {
+  min-width: 0;
+  width: 100%;
+  max-width: 12rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.82rem;
 }
 
 .driver-offer-panel {
@@ -3337,6 +3539,29 @@ html[dir="rtl"] .contact-btn__chev {
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
+.active-ride-track {
+  margin-top: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  background: rgba(11, 122, 75, 0.08);
+  border: 1px solid rgba(11, 122, 75, 0.14);
+  text-align: center;
+}
+
+.active-ride-track__distance {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0b7a4b;
+}
+
+.active-ride-track__eta {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.68);
+}
+
 .active-ride-driver__avatar {
   display: grid;
   flex: 0 0 58px;
@@ -3377,6 +3602,22 @@ html[dir="rtl"] .contact-btn__chev {
   display: grid;
   gap: 0.65rem;
   margin-top: 1rem;
+}
+
+.active-ride-panel__cancel {
+  margin-top: 0.15rem;
+}
+
+.cancel-ride-fare-preview {
+  margin: 0.35rem 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: start;
 }
 
 .active-ride-call-btn,
@@ -3612,15 +3853,18 @@ html[dir="rtl"] .contact-btn__chev {
   flex: 1 1 0;
   min-height: 0;
   z-index: 0;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .shell.on-home > .sheet {
   position: relative;
   flex: 0 0 auto;
-  z-index: 6;
+  z-index: 1300;
   min-height: 0;
   overflow: hidden;
   background: #fff;
+  box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.12);
 }
 
 .shell.on-home > .sheet[data-state="collapsed"] {
@@ -3640,7 +3884,7 @@ html[dir="rtl"] .contact-btn__chev {
   left: 0;
   right: 0;
   bottom: auto;
-  z-index: 1000;
+  z-index: 1200;
   margin: 0;
   padding: max(0.55rem, var(--safe-top)) 0.75rem 0;
   min-height: 0 !important;
@@ -4510,6 +4754,10 @@ body.map-pick-active .map-layers-fab {
   pointer-events: none;
 }
 
+body.has-active-ride .route-trigger {
+  display: none !important;
+}
+
 body.route-ui-collapsed .route-trigger {
   display: none !important;
 }
@@ -4831,6 +5079,200 @@ html[dir="rtl"] .contact-btn__chev {
   flex-wrap: wrap;
   gap: 0.45rem 0.75rem;
   margin-bottom: 0.75rem;
+}
+/* ── Fare rate details modal (sidebar menu) ── */
+
+.rate-details-modal[hidden] {
+  display: none !important;
+}
+
+.rate-details-modal {
+  position: fixed;
+  z-index: 980;
+  inset: 0;
+  display: grid;
+  align-items: end;
+}
+
+.rate-details-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(4, 14, 9, 0.56);
+  backdrop-filter: blur(4px);
+}
+
+.rate-details-modal__panel {
+  position: relative;
+  width: min(100%, 520px);
+  max-height: min(88vh, 720px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  border-radius: 26px 26px 0 0;
+  overflow: hidden;
+}
+
+.rate-details-modal__heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.65rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.rate-details-modal__heading p {
+  margin: 0;
+  color: var(--green);
+  direction: ltr;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rate-details-modal__heading h2 {
+  margin: 0.1rem 0 0;
+  font-family: var(--urdu);
+  font-size: 1.12rem;
+}
+
+.rate-details-modal__close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.06);
+  color: #506059;
+  font-size: 1.35rem;
+  cursor: pointer;
+}
+
+.rate-details-modal__body {
+  overflow-y: auto;
+  padding: 0.85rem 1rem max(1rem, env(safe-area-inset-bottom));
+}
+
+.rate-details__hero {
+  padding: 0.85rem;
+  margin-bottom: 0.75rem;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(11, 122, 75, 0.08), rgba(11, 122, 75, 0.02));
+  border: 1px solid rgba(11, 122, 75, 0.14);
+}
+
+.rate-details__eyebrow {
+  margin: 0 0 0.55rem;
+  font-family: var(--urdu);
+  font-size: 0.78rem;
+  color: #065a36;
+  font-weight: 700;
+}
+
+.rate-details__dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.rate-details__dl div {
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.rate-details__dl dt {
+  margin: 0;
+  font-family: var(--urdu);
+  font-size: 0.62rem;
+  color: #64748b;
+}
+
+.rate-details__dl dd {
+  margin: 0.12rem 0 0;
+  font-weight: 800;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.rate-details__formula {
+  margin: 0.75rem 0 0.25rem;
+  font-family: var(--urdu);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.rate-details__formula strong {
+  color: #0b7a4b;
+}
+
+.rate-details__compare,
+.rate-details__source {
+  margin: 0.25rem 0 0;
+  font-family: var(--urdu);
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.rate-details__section {
+  margin-top: 0.75rem;
+}
+
+.rate-details__section-title {
+  margin: 0 0 0.45rem;
+  font-family: var(--urdu);
+  font-size: 0.82rem;
+  color: #065a36;
+}
+
+.rate-details__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+.rate-details__table th,
+.rate-details__table td {
+  padding: 0.45rem 0.35rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  text-align: right;
+}
+
+.rate-details__table th {
+  font-family: var(--urdu);
+  color: #64748b;
+  font-weight: 700;
+}
+
+.rate-details__all-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.rate-details__vehicle-card {
+  padding: 0.75rem;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+}
+
+.rate-details__vehicle-card h3 {
+  margin: 0 0 0.45rem;
+  font-family: var(--urdu);
+  font-size: 0.92rem;
+}
+
+.rate-details__loading,
+.rate-details__error {
+  font-family: var(--urdu);
+  text-align: center;
+  color: #64748b;
+  padding: 1.5rem 0.5rem;
 }
 .sidebar__legal-link,
 .trust-link,

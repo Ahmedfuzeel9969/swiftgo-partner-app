@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Nastaliq+Urdu:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/owner-style.css?v=owner_pin_persist_1" />
+  <link rel="stylesheet" href="css/owner-style.css?v=owner_fare_rates_1" />
 </head>
 <body>
   <section class="driver-auth-overlay" id="driverAuthOverlay" role="dialog" aria-modal="true" aria-labelledby="driverAuthTitle">
@@ -70,6 +70,19 @@
         <button type="button" class="partner-nav-item is-active" id="navFleet" data-view="fleet" aria-current="page">
           <span data-i18n="navFleet">میری گاڑیاں</span>
           <span class="partner-nav-item__en">My Fleet</span>
+        </button>
+        <button
+          type="button"
+          class="partner-nav-item partner-nav-item--rates"
+          id="openRateDetailsBtn"
+          aria-label="کرائے کی تفصیل"
+          data-i18n-aria="navRatesAria"
+          title="کرائے کی تفصیل"
+          data-i18n-title="navRatesAria"
+        >
+          <span class="partner-nav-item__icon" aria-hidden="true">💰</span>
+          <span data-i18n="navRates">کرائے کی تفصیل</span>
+          <span class="partner-nav-item__en">Fare rates</span>
         </button>
       </nav>
 
@@ -194,6 +207,20 @@
     </section>
   </div>
 
-  <script type="module" src="js/owner-app.js?v=owner_pin_persist_1"></script>
+  <div class="rate-details-modal" id="rateDetailsModal" aria-hidden="true" hidden>
+    <button class="rate-details-modal__backdrop" id="rateDetailsBackdrop" type="button" aria-label="بند کریں" data-i18n-aria="closeSheet"></button>
+    <section class="rate-details-modal__panel" role="dialog" aria-modal="true" aria-labelledby="rateDetailsTitle">
+      <div class="rate-details-modal__heading">
+        <div>
+          <p>SwiftGo</p>
+          <h2 id="rateDetailsTitle" data-i18n="navRates">کرائے کی تفصیل</h2>
+        </div>
+        <button type="button" class="rate-details-modal__close" id="rateDetailsCloseBtn" aria-label="بند کریں" data-i18n-aria="closeSheet">×</button>
+      </div>
+      <div class="rate-details-modal__body" id="rateDetailsBody"></div>
+    </section>
+  </div>
+
+  <script type="module" src="js/owner-app.js?v=owner_fare_rates_1"></script>
 </body>
 </html>

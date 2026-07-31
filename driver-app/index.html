@@ -17,9 +17,9 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
-  <link rel="stylesheet" href="css/driver-style.css?v=ghost_rides_expiry_1" />
-  <link rel="stylesheet" href="css/ride-radar.css?v=radar_sheet_collapse_1" />
-  <link rel="stylesheet" href="css/driver-home.css?v=driver_home_1" />
+  <link rel="stylesheet" href="css/driver-style.css?v=driver_active_ride_persist_1" />
+  <link rel="stylesheet" href="css/ride-radar.css?v=driver_rate_details_1" />
+  <link rel="stylesheet" href="css/driver-home.css?v=driver_home_2" />
 </head>
 <body>
   <!-- ── Auth & gate overlays (fullscreen) ── -->
@@ -147,6 +147,18 @@
           </button>
           <button type="button" class="partner-nav-item" id="navDashboard" data-view="dashboard">
             <span data-i18n="navDashboard">ڈیش بورڈ</span>
+          </button>
+          <button
+            type="button"
+            class="partner-nav-item partner-nav-item--rates"
+            id="openRateDetailsBtn"
+            aria-label="کرائے کی تفصیل"
+            data-i18n-aria="navRatesAria"
+            title="کرائے کی تفصیل"
+            data-i18n-title="navRatesAria"
+          >
+            <span class="partner-nav-item__icon" aria-hidden="true">💰</span>
+            <span data-i18n="navRates">کرائے کی تفصیل</span>
           </button>
           <button type="button" class="partner-nav-item" data-view="rides">
             <span data-i18n="navRides">میری سواریاں</span>
@@ -379,6 +391,7 @@
       <p><span>ڈراپ آف</span><strong id="activeRideDropoff">—</strong></p>
     </div>
     <p class="active-ride-sheet__fare">کرایہ: <strong id="activeRideFare">Rs. —</strong></p>
+    <button type="button" class="active-ride-rate-btn" id="activeRideRateBtn">ریٹ کی تفصیل</button>
     <button type="button" class="active-ride-action-btn" id="activeRideActionBtn">میں پہنچ گیا ہوں</button>
     <button type="button" class="active-ride-cancel-btn" id="activeRideCancelBtn" hidden>سواری منسوخ کریں</button>
   </section>
@@ -468,6 +481,20 @@
     </section>
   </div>
 
+  <div class="rate-details-modal" id="rateDetailsModal" aria-hidden="true" hidden>
+    <button class="rate-details-modal__backdrop" id="rateDetailsBackdrop" type="button" aria-label="بند کریں"></button>
+    <section class="rate-details-modal__panel" role="dialog" aria-modal="true" aria-labelledby="rateDetailsTitle">
+      <div class="rate-details-modal__heading">
+        <div>
+          <p>Fare Rates</p>
+          <h2 id="rateDetailsTitle">ریٹ کی مکمل تفصیل</h2>
+        </div>
+        <button type="button" class="rate-details-modal__close" id="rateDetailsCloseBtn" aria-label="بند کریں">×</button>
+      </div>
+      <div class="rate-details-modal__body" id="rateDetailsBody"></div>
+    </section>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/apexcharts@4.7.0/dist/apexcharts.min.js"></script>
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -481,6 +508,18 @@
 
   <p class="driver-toast" id="driverToast" role="status" aria-live="polite" hidden></p>
 
-  <script type="module" src="js/driver-app.js?v=booking_driver_reach_1"></script>
+  <div class="driver-confirm-dialog" id="driverCancelConfirmDialog" hidden aria-hidden="true">
+    <button type="button" class="driver-confirm-dialog__backdrop" data-driver-cancel-backdrop aria-label="بند کریں"></button>
+    <section class="driver-confirm-dialog__panel" role="alertdialog" aria-modal="true" aria-labelledby="driverCancelConfirmTitle">
+      <h2 id="driverCancelConfirmTitle">سواری منسوخ کریں؟</h2>
+      <p id="driverCancelConfirmMessage">کیا آپ واقعی یہ سواری منسوخ کرنا چاہتے ہیں؟</p>
+      <div class="driver-confirm-dialog__actions">
+        <button type="button" class="driver-confirm-dialog__no" id="driverCancelConfirmNo">نہیں</button>
+        <button type="button" class="driver-confirm-dialog__yes" id="driverCancelConfirmYes">ہاں، منسوخ کریں</button>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="js/driver-app.js?v=dispatch_latency_1"></script>
 </body>
 </html>

@@ -33,8 +33,17 @@ service cloud.firestore {
              .data.get('adminBootstrapEnabled', false) == true;
     }
 
+    // Doc role set only by Admin SDK (initSuperAdminAccess). Clients cannot forge it.
+    function isDocSuperAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+             .data.get('role', '') == 'super_admin';
+    }
+
     function isSuperAdmin() {
       return isClaimAdmin()
+        || isDocSuperAdmin()
         || (isAdminBootstrapEnabled() && isBootstrapAdminEmail());
     }
 
@@ -135,13 +144,19 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isSuperAdmin();
 
+      // Clients may seed a profile, but never assign super_admin / privileged roles.
       allow create: if isOwner(userId)
         && request.resource.data.walletBalance == 0
-        && request.resource.data.keys().hasAll(['displayName', 'email', 'walletBalance']);
+        && request.resource.data.keys().hasAll(['displayName', 'email', 'walletBalance'])
+        && (
+          !request.resource.data.keys().hasAny(['role'])
+          || request.resource.data.role in ['customer', 'user']
+        );
 
+      // role + walletBalance are Admin-SDK / trusted-server only.
       allow update: if isOwner(userId)
         && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['walletBalance']);
+             .hasAny(['walletBalance', 'role']);
 
       allow delete: if false;
     }
@@ -251,6 +266,21 @@ service cloud.firestore {
           )
           ||
           (
+            // Live driver GPS mirror for customer map (assigned driver only).
+            resource.data.driverId == request.auth.uid
+            && partnerIsActiveDriver(request.auth.uid)
+            && resource.data.status in ['accepted', 'arrived', 'in_progress']
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'driverLocation', 'driverLocationUpdatedAt', 'driverDistanceKm', 'driverEtaMin'
+            ])
+            && request.resource.data.driverLocation.keys().hasAll(['lat', 'lng'])
+            && request.resource.data.driverLocation.lat >= -90
+            && request.resource.data.driverLocation.lat <= 90
+            && request.resource.data.driverLocation.lng >= -180
+            && request.resource.data.driverLocation.lng <= 180
+          )
+          ||
+          (
             // Phase 42: customer rates a completed ride (one time).
             resource.data.userId == request.auth.uid
             && resource.data.status == 'completed'
@@ -345,11 +375,17 @@ service cloud.firestore {
           || ('pin' in request.resource.data && request.resource.data.pin is string)
         );
 
-      // Not world-readable: owner, assigned driver, or Super Admin only.
+      // Not world-readable: owner, assigned driver, active-ride customer, or Super Admin.
       allow get: if isSignedIn() && (
         isSuperAdmin()
         || resource.data.ownerId == request.auth.uid
         || resource.data.driverId == request.auth.uid
+        || (
+          resource.data.activeRideId is string
+          && exists(/databases/$(database)/documents/rides/$(resource.data.activeRideId))
+          && get(/databases/$(database)/documents/rides/$(resource.data.activeRideId)).data.userId
+               == request.auth.uid
+        )
       );
       allow list: if isSignedIn() && (
         isSuperAdmin()
@@ -567,7 +603,7 @@ service cloud.firestore {
 
     // ── settings/{document} ──
     // Phase 30: dynamic pricing (settings/pricing). Signed-in apps may read;
-    // only Super Admin may write.
+    // write: claim admin OR users/{uid}.role == super_admin OR bootstrap email.
     match /settings/{document} {
       allow read: if request.auth != null;
       allow write: if isSuperAdmin();

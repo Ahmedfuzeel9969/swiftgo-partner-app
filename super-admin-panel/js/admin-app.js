@@ -10,7 +10,7 @@ import {
 } from "./audio-service.js";
 
 import { firebaseConfig } from "./firebase-config.js";
-import { getFirebase, isFirebaseConfigured } from "./firebase.js";
+import { getFirebase, isFirebaseConfigured } from "./firebase.js?v=dispatch_dynamic_1";
 import {
   GoogleAuthProvider,
   getRedirectResult,
@@ -39,6 +39,13 @@ import {
   getCountFromServer,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
+import {
+  bootstrapAdminClaim as bootstrapAdminClaimClient,
+  ensureFreshAuthUser,
+  initSuperAdminAccess,
+  saveAdminDispatchSettings,
+  saveAdminPricingSettings as saveAdminPricingSettingsClient,
+} from "./admin-settings-client.js?v=dispatch_dynamic_1";
 
 /** Sole authorized Super Admin (Owner). No driver may enter Command Center. */
 const SUPER_ADMIN_EMAIL = "fuzail1158@gmail.com";
@@ -150,7 +157,10 @@ const els = {
   pricingSuccessMessage: document.getElementById("pricingSuccessMessage"),
   pricingStatusNote: document.getElementById("pricingStatusNote"),
   dispatchForm: document.getElementById("dispatchSettingsForm"),
-  candidateDriverLimitInput: document.getElementById("candidateDriverLimitInput"),
+  candidateDriverLimitInput: document.getElementById("candidateDriverLimit"),
+  dispatchRadiusKmInput: document.getElementById("dispatchRadiusKm"),
+  dispatchRadiusMetersInput: document.getElementById("dispatchRadiusMeters"),
+  dispatchRadiusPreview: document.getElementById("dispatchRadiusPreview"),
   dispatchSaveBtn: document.getElementById("dispatchSaveBtn"),
   dispatchStatusNote: document.getElementById("dispatchStatusNote"),
   promoCodeForm: document.getElementById("promoCodeForm"),
@@ -199,6 +209,8 @@ let pendingRechargeCache = [];
 let pricingLoaded = false;
 let pricingSuccessTimer = 0;
 let cachedWalletThreshold = DEFAULT_PRICING.walletThreshold;
+/** @type {boolean | null} null = checking */
+let adminCanWriteSettings = null;
 let rechargeListenerPrimed = false;
 let allRidesListenerPrimed = false;
 /** @type {Array<Record<string, unknown>>} */
@@ -268,6 +280,271 @@ function showDashboard(user) {
   if (els.displayEmail) {
     els.displayEmail.textContent = user.email || SUPER_ADMIN_EMAIL;
   }
+  void ensureAdminWriteAccess(user);
+}
+
+async function ensureAdminWriteAccess(user) {
+  adminCanWriteSettings = null;
+  updateFinanceWriteUi();
+  if (!user) {
+    adminCanWriteSettings = false;
+    updateFinanceWriteUi();
+    return false;
+  }
+
+  try {
+    const token = await user.getIdTokenResult(true);
+    if (token?.claims?.admin === true) {
+      adminCanWriteSettings = true;
+      updateFinanceWriteUi();
+      return true;
+    }
+  } catch {
+    /* try bootstrap below */
+  }
+
+  if (isAuthorizedAdmin(user)) {
+    try {
+      const { db } = getFirebase();
+      if (db) {
+        const snap = await getDoc(doc(db, "settings", "security"));
+        if (snap.exists() && snap.data()?.adminBootstrapEnabled === true) {
+          adminCanWriteSettings = true;
+          updateFinanceWriteUi();
+          return true;
+        }
+      }
+    } catch {
+      /* continue */
+    }
+  }
+
+  try {
+    await initSuperAdminAccess();
+    await user.getIdToken(true);
+    adminCanWriteSettings = true;
+    showAdminToast("Super Admin access فعال — ترتیبات محفوظ ہوں گی");
+    updateFinanceWriteUi();
+    return true;
+  } catch (error) {
+    console.warn("[SwiftGo Admin] initSuperAdminAccess", error);
+  }
+
+  try {
+    await bootstrapAdminClaimClient();
+    await user.getIdToken(true);
+    adminCanWriteSettings = true;
+    showAdminToast("Admin claim فعال — ترتیبات اب محفوظ ہوں گی");
+    updateFinanceWriteUi();
+    return true;
+  } catch (error) {
+    console.warn("[SwiftGo Admin] bootstrapAdminClaim", error);
+  }
+
+  adminCanWriteSettings = false;
+  updateFinanceWriteUi();
+  if (els.pricingStatusNote) {
+    els.pricingStatusNote.textContent =
+      "محفوظ نہیں ہو سکتا — Firebase Console میں settings/security → adminBootstrapEnabled: true کریں، پھر دوبارہ لاگ اِن کریں۔";
+  }
+  return false;
+}
+
+/**
+ * Resolve live auth.currentUser (not a stale snapshot), force-refresh ID token,
+ * bootstrap super_admin role/claim, then allow finance writes.
+ */
+async function prepareAdminSaveForWrite(_userHint) {
+  const { functions, auth } = getFirebase();
+  if (!functions) {
+    const err = new Error("FUNCTIONS_UNAVAILABLE");
+    err.code = "functions/unavailable";
+    throw err;
+  }
+
+  let user;
+  try {
+    user = await ensureFreshAuthUser();
+  } catch (error) {
+    console.error("[Financial Settings Error]:", error?.code, error?.message);
+    throw error;
+  }
+  currentAdminUser = user;
+
+  if (!isAuthorizedAdmin(user) && !(await isAuthorizedAdminAsync(user))) {
+    adminCanWriteSettings = false;
+    updateFinanceWriteUi();
+    const err = new Error("NOT_SUPER_ADMIN");
+    err.code = "permission-denied";
+    throw err;
+  }
+
+  // Self-heal: claim + users/{uid}.role = super_admin (Admin SDK via CF).
+  try {
+    await initSuperAdminAccess();
+    await user.getIdToken(true);
+    adminCanWriteSettings = true;
+    updateFinanceWriteUi();
+    return true;
+  } catch (error) {
+    console.warn("[SwiftGo Admin] prepareAdminSaveForWrite init", error?.code, error?.message);
+    // Claim may already exist; saveAdminPricingSettings can still grant access.
+    if (
+      String(error?.code || "").includes("unauthenticated") ||
+      String(error?.message || "").includes("AUTH_REQUIRED")
+    ) {
+      // One more hard refresh, then continue — final save will re-check auth.
+      try {
+        await auth?.currentUser?.getIdToken?.(true);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  if (adminCanWriteSettings !== true) {
+    await ensureAdminWriteAccess(user);
+  }
+  return adminCanWriteSettings === true || isAuthorizedAdmin(user);
+}
+
+function adminSaveErrorMessage(error) {
+  const code = String(error?.code || "");
+  const msg = String(error?.message || "");
+  const lower = msg.toLowerCase();
+
+  if (
+    code === "functions/unavailable" ||
+    code === "unavailable" ||
+    msg === "FUNCTIONS_UNAVAILABLE"
+  ) {
+    return "Network Error — Cloud Functions دستیاب نہیں؛ صفحہ refresh کریں";
+  }
+  if (code === "functions/not-found" || code === "not-found") {
+    return "Network Error — save function deploy نہیں ہوئی";
+  }
+
+  // Logged in but lacking Super Admin rights (do not say "sign in").
+  if (
+    code === "permission-denied" ||
+    code === "functions/permission-denied" ||
+    msg === "NOT_SUPER_ADMIN" ||
+    msg.includes("ADMIN_ONLY") ||
+    msg.includes("NOT_BOOTSTRAP_ADMIN") ||
+    lower.includes("missing or insufficient permissions")
+  ) {
+    return "آپ کے اکاؤنٹ کے پاس سوپر ایڈمن کے حقوق نہیں ہیں";
+  }
+
+  // Truly not signed in / auth token missing on callable.
+  if (
+    code === "functions/unauthenticated" ||
+    code === "unauthenticated" ||
+    code === "auth/user-token-expired" ||
+    msg === "AUTH_REQUIRED" ||
+    msg === "NOT_SIGNED_IN" ||
+    msg === "AUTH_UNAVAILABLE" ||
+    lower.includes("please sign in") ||
+    lower.includes("سائن ان")
+  ) {
+    return "براہ کرم دوبارہ لاگ اِن کریں — سیشن / ٹوکن کی تجدید درکار ہے";
+  }
+
+  if (
+    code === "invalid-argument" ||
+    code === "functions/invalid-argument" ||
+    msg.includes("INVALID_") ||
+    msg.includes("NaN")
+  ) {
+    return `Invalid Number Format — ${msg || "اعداد درست درج کریں"}`;
+  }
+  return `محفوظ نہیں: ${msg || code || "unknown error"}`;
+}
+
+/** Client Firestore write — after token refresh; rules use claim / role / bootstrap. */
+async function savePricingViaFirestore(values) {
+  const { db } = getFirebase();
+  if (!db) {
+    const err = new Error("FIRESTORE_UNAVAILABLE");
+    err.code = "unavailable";
+    throw err;
+  }
+  const user = await ensureFreshAuthUser();
+  currentAdminUser = user;
+  await setDoc(
+    doc(db, "settings", "pricing"),
+    {
+      walletThreshold: Number(values.walletThreshold),
+      baseFare: Number(values.baseFare),
+      perKmRate: Number(values.perKmRate),
+      commissionPercent: Number(values.commissionPercent),
+      vehicles: values.vehicles,
+      updatedAt: serverTimestamp(),
+      updatedBy: user.uid,
+    },
+    { merge: true }
+  );
+}
+
+async function persistPricingSettings(values) {
+  try {
+    await saveAdminPricingSettingsClient(values);
+    return "callable";
+  } catch (callableError) {
+    console.error(
+      "[Financial Settings Error]:",
+      callableError?.code,
+      callableError?.message
+    );
+    try {
+      if (isAuthorizedAdmin(currentAdminUser) || getFirebase().auth?.currentUser) {
+        try {
+          await initSuperAdminAccess();
+          await ensureFreshAuthUser();
+        } catch (initErr) {
+          console.warn("[SwiftGo Admin] init before Firestore fallback", initErr);
+        }
+      }
+      await savePricingViaFirestore(values);
+      console.info("[SwiftGo Admin] pricing saved via Firestore fallback");
+      return "firestore";
+    } catch (firestoreError) {
+      console.error(
+        "[Financial Settings Error]:",
+        firestoreError?.code,
+        firestoreError?.message
+      );
+      // Prefer the more specific permission/auth signal from either path.
+      if (
+        String(firestoreError?.code || "").includes("permission-denied") ||
+        String(callableError?.code || "").includes("permission-denied")
+      ) {
+        const err = new Error("NOT_SUPER_ADMIN");
+        err.code = "permission-denied";
+        throw err;
+      }
+      throw callableError;
+    }
+  }
+}
+
+function updateFinanceWriteUi() {
+  // Save buttons stay clickable — errors show on submit. Avoid disabled+wait cursor (Windows spinning circle on hover).
+  const blocked = adminCanWriteSettings === false;
+  for (const btn of [els.pricingSaveBtn, els.dispatchSaveBtn]) {
+    if (!btn || btn.classList.contains("is-saving")) continue;
+    btn.disabled = false;
+    btn.classList.toggle("finance-save-btn--blocked", blocked);
+    btn.title = blocked
+      ? "Admin write access درکار — محفوظ کرنے پر ہدایت دکھائی جائے گی"
+      : "";
+  }
+}
+
+function setFinanceSaveBusy(btn, busy) {
+  if (!btn) return;
+  btn.disabled = Boolean(busy);
+  btn.classList.toggle("is-saving", Boolean(busy));
 }
 
 async function denyAndSignOut(auth) {
@@ -1596,12 +1873,25 @@ async function loadDispatchSettings() {
   if (!db || !els.candidateDriverLimitInput) return;
   try {
     const snapshot = await getDoc(doc(db, "settings", "dispatch"));
-    const limit = Number(snapshot.exists() ? snapshot.data()?.candidateDriverLimit : 10);
-    els.candidateDriverLimitInput.value = limit === 20 ? "20" : "10";
+    const data = snapshot.exists() ? snapshot.data() || {} : {};
+    const limit = Number(data.candidateDriverLimit);
+    els.candidateDriverLimitInput.value =
+      Number.isInteger(limit) && limit >= 1 && limit <= 100 ? String(limit) : "10";
+
+    const totalMeters =
+      data.maxSearchRadiusMeters != null && Number.isFinite(Number(data.maxSearchRadiusMeters))
+        ? Math.max(0, Math.round(Number(data.maxSearchRadiusMeters)))
+        : Math.round(Number(data.maxSearchRadiusKm || 3) * 1000);
+    const km = Math.floor(totalMeters / 1000);
+    const meters = totalMeters % 1000;
+    if (els.dispatchRadiusKmInput) els.dispatchRadiusKmInput.value = String(km);
+    if (els.dispatchRadiusMetersInput) els.dispatchRadiusMetersInput.value = String(meters);
+    updateDispatchRadiusPreview();
+
     if (els.dispatchStatusNote) {
       els.dispatchStatusNote.textContent = snapshot.exists()
-        ? `موجودہ حد: ${els.candidateDriverLimitInput.value} · settings/dispatch`
-        : "Default 10 — document not found yet.";
+        ? `موجودہ: ${els.candidateDriverLimitInput.value} ڈرائیور · ${formatDispatchRadiusPreview(totalMeters)} · settings/dispatch`
+        : "Default 10 drivers · 3 km — document not found yet.";
     }
   } catch (error) {
     console.warn("[SwiftGo Admin] loadDispatchSettings", error);
@@ -1611,44 +1901,92 @@ async function loadDispatchSettings() {
   }
 }
 
+function parseDispatchRadiusInputs() {
+  const km = Math.max(0, Math.floor(Number(els.dispatchRadiusKmInput?.value) || 0));
+  const meters = Math.max(0, Math.floor(Number(els.dispatchRadiusMetersInput?.value) || 0));
+  const totalMeters = km * 1000 + meters;
+  const totalKm = totalMeters / 1000;
+  return { km, meters, totalMeters, totalKm };
+}
+
+function formatDispatchRadiusPreview(totalMeters) {
+  const totalKm = totalMeters / 1000;
+  const kmLabel = totalKm.toLocaleString("en-PK", { maximumFractionDigits: 2 });
+  const metersLabel = totalMeters.toLocaleString("en-PK");
+  return `کل فاصلہ: ${kmLabel} کلومیٹر / ${metersLabel} میٹر`;
+}
+
+function updateDispatchRadiusPreview() {
+  const { totalMeters } = parseDispatchRadiusInputs();
+  if (!els.dispatchRadiusPreview) return;
+  els.dispatchRadiusPreview.textContent =
+    totalMeters > 0 ? formatDispatchRadiusPreview(totalMeters) : "کل فاصلہ: —";
+}
+
 async function saveDispatchSettings(event) {
   event.preventDefault();
-  const { db } = getFirebase();
-  if (!db) {
-    if (els.dispatchStatusNote) els.dispatchStatusNote.textContent = "Firestore is not configured.";
-    return;
-  }
   const limit = Number(els.candidateDriverLimitInput?.value);
-  if (limit !== 10 && limit !== 20) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     if (els.dispatchStatusNote) {
-      els.dispatchStatusNote.textContent = "صرف 10 یا 20 منتخب کریں۔";
+      els.dispatchStatusNote.textContent = "امیدوار حد 1 سے 100 کے درمیان ہونی چاہیے۔";
     }
     return;
   }
-  if (els.dispatchSaveBtn) els.dispatchSaveBtn.disabled = true;
-  if (els.dispatchStatusNote) els.dispatchStatusNote.textContent = "محفوظ ہو رہا ہے…";
-  try {
-    await setDoc(
-      doc(db, "settings", "dispatch"),
-      {
-        candidateDriverLimit: limit,
-        maxDriverOpenBargains: 10,
-        maxCustomerActiveBookings: 4,
-        searchRingsKm: [1, 2, 3],
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+
+  const { km, meters, totalMeters, totalKm } = parseDispatchRadiusInputs();
+  if (totalMeters <= 0) {
     if (els.dispatchStatusNote) {
-      els.dispatchStatusNote.textContent = `محفوظ: candidateDriverLimit=${limit}`;
+      els.dispatchStatusNote.textContent = "تلاش حلقہ کم از کم 1 میٹر ہونا چاہیے۔";
+    }
+    return;
+  }
+  if (km > 50 || meters > 999 || totalKm > 50.999) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = "تلاش حلقہ زیادہ سے زیادہ 50 کلومیٹر + 999 میٹر ہو سکتا ہے۔";
+    }
+    return;
+  }
+
+  const liveUser = getFirebase().auth?.currentUser || currentAdminUser;
+  if (!liveUser) {
+    showAdminToast("براہ کرم دوبارہ لاگ اِن کریں — سیشن / ٹوکن کی تجدید درکار ہے");
+    return;
+  }
+
+  try {
+    const ready = await prepareAdminSaveForWrite(liveUser);
+    if (!ready && !isAuthorizedAdmin(getFirebase().auth?.currentUser || currentAdminUser)) {
+      showAdminToast("آپ کے اکاؤنٹ کے پاس سوپر ایڈمن کے حقوق نہیں ہیں");
+      return;
     }
   } catch (error) {
-    console.warn("[SwiftGo Admin] saveDispatchSettings", error);
+    console.error("[Financial Settings Error]:", error?.code, error?.message);
+    showAdminToast(adminSaveErrorMessage(error));
+    return;
+  }
+
+  setFinanceSaveBusy(els.dispatchSaveBtn, true);
+  if (els.dispatchStatusNote) els.dispatchStatusNote.textContent = "محفوظ ہو رہا ہے…";
+  try {
+    await saveAdminDispatchSettings({
+      candidateDriverLimit: limit,
+      dispatchRadiusKm: km,
+      dispatchRadiusMeters: meters,
+      maxSearchRadiusKm: totalKm,
+      maxSearchRadiusMeters: totalMeters,
+    });
     if (els.dispatchStatusNote) {
-      els.dispatchStatusNote.textContent = error?.message || "Save failed";
+      els.dispatchStatusNote.textContent = `محفوظ: ${limit} ڈرائیور · ${formatDispatchRadiusPreview(totalMeters)}`;
     }
+    showAdminToast("ڈسپیچ سیٹنگ محفوظ ہو گئی");
+  } catch (error) {
+    console.error("[Financial Settings Error]:", error?.code, error?.message);
+    const msg = adminSaveErrorMessage(error);
+    if (els.dispatchStatusNote) els.dispatchStatusNote.textContent = msg;
+    showAdminToast(msg);
   } finally {
-    if (els.dispatchSaveBtn) els.dispatchSaveBtn.disabled = false;
+    setFinanceSaveBusy(els.dispatchSaveBtn, false);
+    updateFinanceWriteUi();
   }
 }
 
@@ -1692,9 +2030,29 @@ async function savePricingSettings(event) {
   event.preventDefault();
   hidePricingSuccess();
 
-  const { db } = getFirebase();
-  if (!db) {
-    if (els.pricingStatusNote) els.pricingStatusNote.textContent = "Firestore is not configured.";
+  const liveUser = getFirebase().auth?.currentUser || currentAdminUser;
+  if (!liveUser) {
+    const msg = "براہ کرم دوبارہ لاگ اِن کریں — سیشن / ٹوکن کی تجدید درکار ہے";
+    console.error("[Financial Settings Error]:", "unauthenticated", msg);
+    showAdminToast(msg);
+    if (els.pricingStatusNote) els.pricingStatusNote.textContent = msg;
+    return;
+  }
+
+  try {
+    const ready = await prepareAdminSaveForWrite(liveUser);
+    if (!ready && !isAuthorizedAdmin(getFirebase().auth?.currentUser || currentAdminUser)) {
+      const msg = "آپ کے اکاؤنٹ کے پاس سوپر ایڈمن کے حقوق نہیں ہیں";
+      console.error("[Financial Settings Error]:", "permission-denied", msg);
+      showAdminToast(msg);
+      if (els.pricingStatusNote) els.pricingStatusNote.textContent = msg;
+      return;
+    }
+  } catch (error) {
+    console.error("[Financial Settings Error]:", error?.code, error?.message);
+    const msg = adminSaveErrorMessage(error);
+    showAdminToast(msg);
+    if (els.pricingStatusNote) els.pricingStatusNote.textContent = msg;
     return;
   }
 
@@ -1702,37 +2060,37 @@ async function savePricingSettings(event) {
   try {
     values = readPricingFormValues();
   } catch (error) {
-    if (els.pricingStatusNote) els.pricingStatusNote.textContent = error.message;
+    console.error("[Financial Settings Error]:", "invalid-argument", error?.message);
+    const msg = `Invalid Number Format — ${error.message}`;
+    if (els.pricingStatusNote) els.pricingStatusNote.textContent = msg;
+    showAdminToast(msg);
     return;
   }
 
-  if (els.pricingSaveBtn) els.pricingSaveBtn.disabled = true;
+  setFinanceSaveBusy(els.pricingSaveBtn, true);
   if (els.pricingStatusNote) els.pricingStatusNote.textContent = "محفوظ ہو رہا ہے…";
 
   try {
-    await setDoc(
-      doc(db, "settings", "pricing"),
-      {
-        ...values,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+    const via = await persistPricingSettings(values);
     pricingLoaded = true;
     cachedWalletThreshold = values.walletThreshold;
     refreshDriversUi();
-    if (els.pricingStatusNote) els.pricingStatusNote.textContent = "";
-    showPricingSuccess();
-  } catch (error) {
-    console.warn("[SwiftGo Admin] savePricingSettings", error);
     if (els.pricingStatusNote) {
       els.pricingStatusNote.textContent =
-        error?.code === "permission-denied"
-          ? "Permission denied — Super Admin write rules required for settings."
-          : `Save failed: ${error?.message || "unknown error"}`;
+        via === "firestore"
+          ? "Firestore settings/pricing میں محفوظ ہو گیا (direct)"
+          : "Firestore settings/pricing میں محفوظ ہو گیا";
     }
+    showPricingSuccess();
+    showAdminToast("مالی ترتیبات محفوظ ہو گئیں");
+  } catch (error) {
+    console.error("[Financial Settings Error]:", error?.code, error?.message);
+    const msg = adminSaveErrorMessage(error);
+    if (els.pricingStatusNote) els.pricingStatusNote.textContent = msg;
+    showAdminToast(msg);
   } finally {
-    if (els.pricingSaveBtn) els.pricingSaveBtn.disabled = false;
+    setFinanceSaveBusy(els.pricingSaveBtn, false);
+    updateFinanceWriteUi();
   }
 }
 
@@ -1947,6 +2305,8 @@ function startLiveData() {
   loadWalletThresholdForAdmin()
     .then(() => refreshDriversUi())
     .catch(() => {});
+  loadPricingSettings().catch(() => {});
+  loadDispatchSettings().catch(() => {});
   setStat(els.statTotalRides, null);
   setStat(els.statActiveDrivers, null);
   setRevenueStat(null);
@@ -2103,8 +2463,14 @@ function boot() {
   wirePromoTableActions();
   els.pricingForm?.addEventListener("submit", savePricingSettings);
   els.dispatchForm?.addEventListener("submit", saveDispatchSettings);
+  for (const input of [els.dispatchRadiusKmInput, els.dispatchRadiusMetersInput]) {
+    input?.addEventListener("input", updateDispatchRadiusPreview);
+    input?.addEventListener("change", updateDispatchRadiusPreview);
+  }
   els.promoCodeForm?.addEventListener("submit", createPromoCode);
-  fillPricingForm(DEFAULT_PRICING);
+  if (els.pricingStatusNote) {
+    els.pricingStatusNote.textContent = "لاگ اِن کے بعد Firestore سے ریٹس لوڈ ہوں گے…";
+  }
 
   if (!firebase.auth) {
     setStatus("Firebase is not configured.");

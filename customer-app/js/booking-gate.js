@@ -13,7 +13,8 @@ import {
 import { getFirebase } from "./firebase.js";
 import {
   MAX_CUSTOMER_ACTIVE_BOOKINGS,
-  NON_TERMINAL_RIDE_STATUSES,
+  FIRESTORE_ACTIVE_RIDE_STATUSES,
+  normalizeCustomerRideStatus,
 } from "./ride-status.js";
 
 async function listActiveBookingsLocal() {
@@ -23,10 +24,17 @@ async function listActiveBookingsLocal() {
   const q = query(
     collection(db, "rides"),
     where("userId", "==", user.uid),
-    where("status", "in", [...NON_TERMINAL_RIDE_STATUSES])
+    where("status", "in", [...FIRESTORE_ACTIVE_RIDE_STATUSES])
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, status: d.data()?.status, ...d.data() }));
+  return snap.docs.map((d) => {
+    const data = d.data() || {};
+    return {
+      id: d.id,
+      ...data,
+      status: normalizeCustomerRideStatus(data.status),
+    };
+  });
 }
 
 function evaluateLocalGate(active, confirmedExtraBooking) {

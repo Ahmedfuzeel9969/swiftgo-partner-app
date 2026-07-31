@@ -10,15 +10,21 @@ const {
   SEARCH_RINGS_KM,
   selectCandidatesProgressive,
   STALE_LOCATION_MS,
+  haversineKm,
 } = require("./matching");
 const {
   GEO_QUERY_CHUNK,
+  MATCH_GRID_DEG,
   cellsCoveringDisk,
   hotspotsIntersectingDisk,
   chunkArray,
   gridCellId,
   nearestGoldenHotspot,
 } = require("./geo-cells");
+
+/** Cap geo cell fan-out per ring so large admin radius cannot spawn thousands of queries. */
+const MAX_GEO_CELLS_PER_RING = 48;
+const MAX_GEO_QUERY_BATCHES_PER_RING = 8;
 
 function toMillis(ts) {
   if (ts == null) return null;
@@ -29,7 +35,7 @@ function toMillis(ts) {
 }
 
 /**
- * Progressive geo load: expand rings until enough eligible candidates or 3 km.
+ * Progressive geo load: expand rings until enough eligible candidates or max radius.
  *
  * @returns {Promise<{
  *   drivers: object[],
@@ -41,6 +47,12 @@ async function loadAndSelectGeoCandidates(db, pickup, limit, opts = {}) {
   const nowMs = opts.nowMs != null ? opts.nowMs : Date.now();
   const staleMs = opts.staleMs != null ? opts.staleMs : STALE_LOCATION_MS;
   const rings = opts.ringsKm || SEARCH_RINGS_KM;
+  const maxRadiusKm =
+    opts.maxRadiusKm != null && Number.isFinite(Number(opts.maxRadiusKm))
+      ? Number(opts.maxRadiusKm)
+      : rings.length
+        ? Math.max(...rings.map(Number).filter((v) => Number.isFinite(v)))
+        : SEARCH_RINGS_KM[SEARCH_RINGS_KM.length - 1];
 
   const metrics = {
     queriedCells: [],
@@ -50,6 +62,7 @@ async function loadAndSelectGeoCandidates(db, pickup, limit, opts = {}) {
     partnerDocsRead: 0,
     candidatesInspected: 0,
     ringExpandedToKm: 0,
+    maxRadiusKm,
     pickupCell: gridCellId(pickup.lat, pickup.lng),
     pickupHotspot: nearestGoldenHotspot(pickup.lat, pickup.lng)?.id || null,
     usedFullFleetScan: false,
@@ -59,6 +72,14 @@ async function loadAndSelectGeoCandidates(db, pickup, limit, opts = {}) {
   const queriedHotspots = new Set();
   const vehicleByDriver = new Map();
   const partnersLoaded = new Set();
+
+  function cellCenterKm(cellId) {
+    const m = /^g_(-?\d+)_(-?\d+)$/.exec(String(cellId || ""));
+    if (!m) return Infinity;
+    const cellLat = (Number(m[1]) + 0.5) * MATCH_GRID_DEG;
+    const cellLng = (Number(m[2]) + 0.5) * MATCH_GRID_DEG;
+    return haversineKm(pickup, { lat: cellLat, lng: cellLng }) ?? Infinity;
+  }
 
   async function fetchChunk(field, ids) {
     const pending = [];
@@ -77,44 +98,75 @@ async function loadAndSelectGeoCandidates(db, pickup, limit, opts = {}) {
       }
     }
 
-    for (const group of chunkArray(pending, GEO_QUERY_CHUNK)) {
+    let toQuery = pending;
+    if (field === "geoCell" && pending.length > MAX_GEO_CELLS_PER_RING) {
+      toQuery = pending
+        .slice()
+        .sort((a, b) => cellCenterKm(a) - cellCenterKm(b))
+        .slice(0, MAX_GEO_CELLS_PER_RING);
+      metrics.geoCellsCapped = true;
+    }
+
+    const groups = chunkArray(toQuery, GEO_QUERY_CHUNK).slice(0, MAX_GEO_QUERY_BATCHES_PER_RING);
+    if (groups.length < chunkArray(toQuery, GEO_QUERY_CHUNK).length) {
+      metrics.geoQueryBatchesCapped = true;
+    }
+
+    for (const group of groups) {
       if (!group.length) continue;
       metrics.queryCount += 1;
-      const snap = await db
-        .collection("vehicles")
-        .where("status", "==", "online")
-        .where(field, "in", group)
-        .get();
-      metrics.vehicleDocsRead += snap.size;
-      for (const doc of snap.docs) {
-        const v = doc.data() || {};
-        const driverId = v.driverId;
-        if (!driverId || vehicleByDriver.has(driverId)) continue;
-        vehicleByDriver.set(driverId, {
-          vehicleId: doc.id,
-          driverId,
-          lat: Number(v.location?.lat),
-          lng: Number(v.location?.lng),
-          status: v.status,
-          activeRideId: v.activeRideId || null,
-          locationUpdatedAtMs: toMillis(v.locationUpdatedAt),
-          geoCell: v.geoCell || null,
-          hotspotId: v.hotspotId || null,
-        });
+      try {
+        const snap = await db
+          .collection("vehicles")
+          .where("status", "==", "online")
+          .where(field, "in", group)
+          .get();
+        metrics.vehicleDocsRead += snap.size;
+        for (const doc of snap.docs) {
+          const v = doc.data() || {};
+          const driverId = v.driverId;
+          if (!driverId || vehicleByDriver.has(driverId)) continue;
+          vehicleByDriver.set(driverId, {
+            vehicleId: doc.id,
+            driverId,
+            lat: Number(v.location?.lat),
+            lng: Number(v.location?.lng),
+            status: v.status,
+            activeRideId: v.activeRideId || null,
+            locationUpdatedAtMs: toMillis(v.locationUpdatedAt),
+            geoCell: v.geoCell || null,
+            hotspotId: v.hotspotId || null,
+          });
+        }
+      } catch (queryErr) {
+        metrics.queryErrors = (metrics.queryErrors || 0) + 1;
+        console.warn("[geo-match] vehicle query failed:", String(queryErr?.message || queryErr));
       }
     }
   }
 
   async function enrichPartners() {
+    const pending = [];
     for (const d of vehicleByDriver.values()) {
       if (partnersLoaded.has(d.driverId)) continue;
       partnersLoaded.add(d.driverId);
-      metrics.partnerDocsRead += 1;
-      const partner = await db.collection("partners").doc(d.driverId).get();
-      const p = partner.exists ? partner.data() || {} : {};
-      d.accountStatus = p.accountStatus || "active";
-      if (p.activeRideId) d.activeRideId = d.activeRideId || p.activeRideId;
+      pending.push(
+        db
+          .collection("partners")
+          .doc(d.driverId)
+          .get()
+          .then((partner) => {
+            metrics.partnerDocsRead += 1;
+            const p = partner.exists ? partner.data() || {} : {};
+            d.accountStatus = p.accountStatus || "active";
+            if (p.activeRideId) d.activeRideId = d.activeRideId || p.activeRideId;
+          })
+          .catch(() => {
+            d.accountStatus = d.accountStatus || "active";
+          })
+      );
     }
+    if (pending.length) await Promise.all(pending);
   }
 
   let selected = [];
@@ -122,8 +174,10 @@ async function loadAndSelectGeoCandidates(db, pickup, limit, opts = {}) {
 
   for (const ringKm of rings) {
     metrics.ringExpandedToKm = ringKm;
-    await fetchChunk("geoCell", cellsCoveringDisk(pickup.lat, pickup.lng, ringKm));
-    await fetchChunk("hotspotId", hotspotsIntersectingDisk(pickup.lat, pickup.lng, ringKm));
+    await Promise.all([
+      fetchChunk("geoCell", cellsCoveringDisk(pickup.lat, pickup.lng, ringKm)),
+      fetchChunk("hotspotId", hotspotsIntersectingDisk(pickup.lat, pickup.lng, ringKm)),
+    ]);
     await enrichPartners();
 
     drivers = [...vehicleByDriver.values()];

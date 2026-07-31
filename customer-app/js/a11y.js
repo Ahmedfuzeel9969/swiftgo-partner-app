@@ -168,3 +168,22 @@ export function initKeyboardInset(root = document.documentElement) {
     document.removeEventListener("focusin", onFocusIn);
   };
 }
+
+/** Blur focused descendant before hiding overlay — avoids aria-hidden / inert warnings. */
+export function releaseFocusFrom(container) {
+  if (!container) return;
+  const active = document.activeElement;
+  if (active && container.contains(active)) active.blur();
+}
+
+/** Toggle inert on overlays; always release trapped focus when closing. */
+export function setOverlayInert(container, inert) {
+  if (!container) return;
+  if (inert) {
+    releaseFocusFrom(container);
+    container.setAttribute("inert", "");
+    container.removeAttribute("aria-hidden");
+  } else {
+    container.removeAttribute("inert");
+  }
+}

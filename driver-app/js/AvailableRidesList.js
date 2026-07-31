@@ -7,18 +7,22 @@ import {
   readCachedRadarRides,
   subscribePendingRadarRides,
 } from "./ride-radar-service.js";
+import { openRateDetails } from "./rate-details-modal.js";
+import { resolveVehicleKeyFromLabel } from "./pricing-client.js";
 
 const money = (n) => `Rs. ${Math.round(Math.max(0, Number(n) || 0)).toLocaleString("en-PK")}`;
 
 /**
  * @param {HTMLElement | null} root
- * @param {{ getDriverUid: () => string|null, getDriverPosition: () => {lat:number,lng:number}|null, onSelectRide: (ride: object) => void, onBack: () => void }} opts
+ * @param {{ getDriverUid: () => string|null, getDriverPosition: () => {lat:number,lng:number}|null, getHasActiveRide?: () => boolean, getCounterRideIds?: () => string[], onSelectRide: (ride: object) => void, onBack: () => void }} opts
  */
 export function initAvailableRidesList(root, opts) {
   if (!root) return { show: () => {}, hide: () => {}, destroy: () => {} };
 
   const getDriverUid = opts.getDriverUid || (() => null);
   const getDriverPosition = opts.getDriverPosition || (() => null);
+  const getHasActiveRide = opts.getHasActiveRide || (() => false);
+  const getCounterRideIds = opts.getCounterRideIds || (() => []);
   const onSelectRide = opts.onSelectRide || (() => {});
   const onBack = opts.onBack || (() => {});
 
@@ -36,6 +40,9 @@ export function initAvailableRidesList(root, opts) {
           <h2 class="radar-list__title">رائٹ حاصل کریں</h2>
           <p class="radar-list__sub" data-sync-note>لوڈ ہو رہا ہے…</p>
         </div>
+        <button type="button" class="radar-list__rates-btn" data-all-rates-btn aria-label="تمام گاڑیوں کے ریٹ">
+          ریٹ کی تفصیل
+        </button>
       </header>
       <p class="radar-list__hint" data-list-hint>جب ایک سے زیادہ رائٹ ہوں تو جس کو چاہیں منتخب کریں — تفصیل کے لیے تھپتھپائیں</p>
       <div class="radar-list__body" data-list></div>
@@ -49,11 +56,17 @@ export function initAvailableRidesList(root, opts) {
   const hintEl = root.querySelector("[data-list-hint]");
 
   root.querySelector("[data-back]")?.addEventListener("click", () => onBack());
+  root.querySelector("[data-all-rates-btn]")?.addEventListener("click", () => {
+    void openRateDetails({ mode: "all", title: "تمام گاڑیوں کے ریٹ" });
+  });
 
   function renderCard(ride) {
+    const counterIds = new Set(getCounterRideIds());
+    const hasCounter = counterIds.has(ride.id);
     const card = document.createElement("button");
     card.type = "button";
     card.className = "radar-card";
+    if (hasCounter) card.classList.add("radar-card--has-counter");
     card.setAttribute("aria-label", `رائٹ: ${ride.pickup?.address || ""} سے ${ride.dropoff?.address || ""}`);
     card.innerHTML = `
       <div class="radar-card__top">
@@ -62,6 +75,8 @@ export function initAvailableRidesList(root, opts) {
           <strong>${escapeHtml(ride.vehicleType || "Ride")}</strong>
           <span class="radar-card__fare">${money(ride.estimatedFare)}</span>
         </div>
+        <button type="button" class="radar-card__rate-btn" data-rate-btn aria-label="ریٹ کی تفصیل">ℹ️ ریٹ</button>
+        ${hasCounter ? '<span class="radar-card__counter-badge">مسافر کا جواب</span>' : ""}
       </div>
       <div class="radar-card__route">
         <div class="radar-card__point radar-card__point--a">
@@ -82,12 +97,28 @@ export function initAvailableRidesList(root, opts) {
       <span class="radar-card__cta">تفصیل دیکھیں ←</span>
     `;
     card.addEventListener("click", () => onSelectRide(ride));
+    card.querySelector("[data-rate-btn]")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void openRateDetails({
+        vehicleTypeKey: ride.vehicleTypeKey || resolveVehicleKeyFromLabel(ride.vehicleType),
+        vehicleTypeLabel: ride.vehicleType,
+        distanceKm: ride.tripDistanceKm,
+        estimatedFare: ride.estimatedFare,
+        mode: "ride",
+      });
+    });
     return card;
   }
 
   function render(state) {
     lastState = state;
     if (!visible) return;
+    if (getHasActiveRide()) {
+      if (syncEl) syncEl.textContent = "آپ ایک سواری پر ہیں — نئی رائٹس نہیں دکھائی جائیں گی";
+      if (listEl) listEl.replaceChildren();
+      if (emptyEl) emptyEl.hidden = true;
+      return;
+    }
     const rides = state?.rides || [];
     if (syncEl) {
       syncEl.textContent = state?.syncing
@@ -113,7 +144,7 @@ export function initAvailableRidesList(root, opts) {
   }
 
   function startSubscription() {
-    if (subscribed) return;
+    if (subscribed || getHasActiveRide()) return;
     const uid = getDriverUid();
     if (!uid) return;
     subscribed = true;
@@ -122,7 +153,8 @@ export function initAvailableRidesList(root, opts) {
       (state) => {
         render(state);
       },
-      getDriverPosition
+      getDriverPosition,
+      getHasActiveRide
     );
   }
 
@@ -133,6 +165,10 @@ export function initAvailableRidesList(root, opts) {
   }
 
   function show(options = {}) {
+    if (getHasActiveRide()) {
+      onBack();
+      return;
+    }
     visible = true;
     root.hidden = false;
     requestAnimationFrame(() => root.querySelector(".radar-list")?.classList.add("is-visible"));
@@ -171,7 +207,7 @@ export function initAvailableRidesList(root, opts) {
     lastState = null;
   }
 
-  return { show, hide, destroy };
+  return { show, hide, destroy, refresh: () => lastState && render(lastState) };
 }
 
 function escapeHtml(str) {

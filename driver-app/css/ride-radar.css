@@ -136,6 +136,25 @@
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
+.radar-list__header > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.radar-list__rates-btn {
+  flex-shrink: 0;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid rgba(11, 122, 75, 0.25);
+  border-radius: 999px;
+  background: rgba(11, 122, 75, 0.08);
+  color: #065a36;
+  font-family: var(--urdu);
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .radar-list__back {
   width: 40px;
   height: 40px;
@@ -227,6 +246,40 @@
   color: #0b7a4b;
 }
 
+.radar-card__rate-btn {
+  flex-shrink: 0;
+  align-self: start;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(11, 122, 75, 0.22);
+  border-radius: 999px;
+  background: #fff;
+  color: #065a36;
+  font-family: var(--urdu);
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.radar-detail__rate-btn {
+  width: 100%;
+  margin: 0.35rem 0 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(11, 122, 75, 0.28);
+  border-radius: 12px;
+  background: rgba(11, 122, 75, 0.1);
+  color: #065a36;
+  font-family: var(--urdu);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.radar-detail__rate-btn:active,
+.radar-list__rates-btn:active,
+.radar-card__rate-btn:active {
+  transform: scale(0.98);
+}
+
 .radar-card__route {
   display: flex;
   flex-direction: column;
@@ -288,6 +341,23 @@
   font-size: 0.82rem;
   line-height: 1.45;
   color: #334155;
+}
+
+.radar-card--has-counter {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
+}
+
+.radar-card__counter-badge {
+  display: inline-block;
+  margin-top: 0.25rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-family: var(--urdu);
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
 .radar-detail {
@@ -635,6 +705,54 @@
   cursor: pointer;
 }
 
+.radar-detail__customer-offer {
+  margin: 0.65rem 0 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.75rem;
+  background: rgba(11, 122, 75, 0.14);
+  border: 1px solid rgba(20, 184, 106, 0.35);
+}
+
+.radar-detail__customer-offer[hidden] {
+  display: none !important;
+}
+
+.radar-detail__customer-offer-label {
+  margin: 0;
+  font-family: var(--urdu);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #86efac;
+}
+
+.radar-detail__customer-offer-fare {
+  margin: 0.35rem 0 0.65rem;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.radar-detail__accept-customer-offer {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border: none;
+  border-radius: 0.65rem;
+  background: linear-gradient(135deg, #22c55e, #0b7a4b);
+  color: #fff;
+  font-family: var(--urdu);
+  font-weight: 800;
+  font-size: 0.92rem;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(11, 122, 75, 0.35);
+}
+
+.radar-detail__accept-customer-offer:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .radar-detail__offer-status {
   margin: 0.5rem 0 0;
   font-family: var(--urdu);
@@ -668,6 +786,22 @@
   font-family: var(--urdu);
   font-weight: 800;
   cursor: pointer;
+}
+
+.radar-detail__counter.is-highlight {
+  animation: radar-counter-pulse 0.8s ease-in-out 3;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.18);
+}
+
+@keyframes radar-counter-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+  }
 }
 
 .radar-detail__bids {

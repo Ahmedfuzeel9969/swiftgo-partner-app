@@ -15,6 +15,7 @@ import {
   where,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getFirebase } from "./firebase.js";
+import { markT3DriverCandidate } from "./dispatch-latency.js";
 import { readLocalCache, writeLocalCache } from "./local-first-cache.js";
 
 const CACHE_NAMESPACE = "ride_radar";
@@ -182,9 +183,14 @@ function persistRadar(driverUid, rides) {
  * @param {string} driverUid
  * @param {(state: { rides: RadarRide[], source: "cache"|"remote", syncing: boolean, savedAt?: string, invitedCandidateCount?: number, rideFetchErrors?: number }) => void} onData
  * @param {() => { lat: number, lng: number } | null} getDriverPosition
+ * @param {() => boolean} [getIsBusy] — when true, no radar feed (driver on active ride)
  */
-export function subscribePendingRadarRides(driverUid, onData, getDriverPosition) {
+export function subscribePendingRadarRides(driverUid, onData, getDriverPosition, getIsBusy) {
   if (!driverUid) return () => {};
+  if (getIsBusy?.()) {
+    onData({ rides: [], source: "remote", syncing: false });
+    return () => {};
+  }
 
   const cached = readCachedRadarRides(driverUid);
   if (cached) {
@@ -212,6 +218,10 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition)
 
   const emit = (syncing, meta = {}) => {
     if (stopped) return;
+    if (getIsBusy?.()) {
+      onData({ rides: [], source: "remote", syncing: false });
+      return;
+    }
     const list = enrichRadarList([...merged.values()], getDriverPosition());
     persistRadar(
       driverUid,
@@ -273,6 +283,9 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition)
       if (stopped) return;
       merged.clear();
       for (const [k, v] of next) merged.set(k, v);
+      for (const ride of next.values()) {
+        markT3DriverCandidate(ride.id, { invitedCount: snapInvitedCount });
+      }
       emit(false, { invitedCandidateCount: snapInvitedCount, rideFetchErrors });
     },
     (err) => {

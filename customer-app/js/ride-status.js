@@ -24,11 +24,33 @@ export const NON_TERMINAL_RIDE_STATUSES = Object.freeze([
   "in_progress",
 ]);
 
-/** Customer may cancel only these statuses via trusted cancel callables (before trip start). */
+/** Legacy / alias statuses still seen on older ride docs — treated as active searching. */
+export const LEGACY_SEARCHING_STATUSES = Object.freeze(["created", "pending", "searching"]);
+
+/** Firestore `in` query list for customer active-ride discovery. */
+export const FIRESTORE_ACTIVE_RIDE_STATUSES = Object.freeze([
+  ...NON_TERMINAL_RIDE_STATUSES,
+  ...LEGACY_SEARCHING_STATUSES,
+]);
+
+/** Normalize status for UI + gate logic. */
+export function normalizeCustomerRideStatus(status) {
+  const raw = String(status || "").trim().toLowerCase();
+  if (LEGACY_SEARCHING_STATUSES.includes(raw)) return "searching_driver";
+  return raw;
+}
+
+export function isCustomerActiveRideStatus(status) {
+  const normalized = normalizeCustomerRideStatus(status);
+  return NON_TERMINAL_RIDE_STATUSES.includes(normalized);
+}
+
+/** Customer may cancel these statuses via trusted cancel callables. */
 export const CANCELLABLE_RIDE_STATUSES = Object.freeze([
   "searching_driver",
   "accepted",
   "arrived",
+  "in_progress",
 ]);
 
 /** Terminal statuses that must never count toward the four-booking limit. */
@@ -47,7 +69,7 @@ export const TERMINAL_RIDE_STATUSES = Object.freeze([
 ]);
 
 export function isNonTerminalRideStatus(status) {
-  return NON_TERMINAL_RIDE_STATUSES.includes(String(status || ""));
+  return isCustomerActiveRideStatus(status);
 }
 
 export function isTerminalRideStatus(status) {

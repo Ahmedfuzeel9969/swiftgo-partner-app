@@ -5,8 +5,11 @@
 import {
   watchRideRequest,
   submitRideRating,
+  fetchRideById,
+  watchAssignedVehicle,
 } from "./data.js";
-import { createCustomerBookingClient, cancelCustomerBookingClient, cancelAllSearchingBookingsClient, expireSearchingBookingClient } from "./booking-client.js";
+import { createCustomerBookingClient, cancelCustomerBookingClient, cancelAllSearchingBookingsClient, expireSearchingBookingClient, previewCancellationFareClient } from "./booking-client.js";
+import { CANCELLABLE_RIDE_STATUSES } from "./ride-status.js";
 import {
   finalizeOfferAsCustomer,
   counterOfferAsCustomer,
@@ -14,7 +17,14 @@ import {
   matchCandidatesForRide,
   watchRideOffers,
 } from "./offer-client.js";
-import { checkCustomerBookingGate } from "./booking-gate.js";
+import { checkCustomerBookingGate, listActiveCustomerBookings } from "./booking-gate.js";
+import {
+  startDispatchSession,
+  markT1RideCreated,
+  markT2MatchFromCreate,
+  markT4CustomerOffer,
+  clearDispatchSession,
+} from "./dispatch-latency.js";
 import { getPaymentMethod } from "./dashboard.js";
 import { getRouteInfo, clearRoutePoint } from "./routing.js";
 import { clearLocationCue } from "./map.js";
@@ -22,10 +32,19 @@ import { t } from "./i18n.js";
 import { announce } from "./a11y.js";
 import { askExtraBookingConfirm } from "./confirm-dialog.js";
 import { askCancelRideReason, askNoDriverAvailable } from "./cancel-reason-dialog.js";
+import { expandSheet } from "./sheet.js";
+import { syncActiveRideDrawer } from "./utility-drawer.js";
+import {
+  isNonTerminalRideStatus,
+  normalizeCustomerRideStatus,
+  isCustomerActiveRideStatus,
+} from "./ride-status.js";
+import { updateDriverTrack, stopDriverTrack } from "./driver-track.js";
 
 const SEARCH_TIMEOUT_MS = 180_000;
 /** Re-run match while searching so drivers who come online mid-search get invited. */
 const SEARCH_REMATCH_MS = 30_000;
+const ACTIVE_RIDE_STORAGE_KEY = "swiftgo_customer_active_ride_id";
 
 const VEHICLE_NAME_KEYS = {
   bike: "vehBike",
@@ -46,6 +65,7 @@ const STATUS_MESSAGE_KEYS = {
 let els = {};
 let onToast = null;
 let onReset = null;
+let onGoHome = null;
 let activeRide = null;
 let requesting = false;
 let selectedRating = 0;
@@ -53,6 +73,8 @@ let ratingSubmitting = false;
 let offerBusy = false;
 let unsubscribeRide = () => {};
 let unsubscribeOffers = () => {};
+let unsubscribeVehicle = () => {};
+let watchedVehicleId = "";
 let activeOffers = [];
 let selectedOfferId = null;
 let pendingExtraBookingConfirm = false;
@@ -61,9 +83,77 @@ let searchTickId = 0;
 let searchRematchId = 0;
 let searchStartedAtMs = 0;
 
+function rideCreatedAtMs(ride) {
+  const ts = ride?.createdAt;
+  if (ts && typeof ts.toMillis === "function") return ts.toMillis();
+  if (typeof ts?.seconds === "number") return ts.seconds * 1000;
+  if (typeof ts === "number") return ts;
+  return 0;
+}
+
+function isGhostSearchingRide(ride) {
+  const status = normalizeCustomerRideStatus(ride?.status);
+  if (status !== "searching_driver" || ride?.driverId) return false;
+  if (ride?.matchingStatus === "match_failed" || ride?.matchingStatus === "invalid_pickup") {
+    return true;
+  }
+  if (!ride?.matchedAt && !ride?.matchingStatus) return true;
+  return false;
+}
+
+async function purgeGhostSearchingRides() {
+  try {
+    const active = await listActiveCustomerBookings();
+    const ghosts = active.filter(isGhostSearchingRide);
+    if (!ghosts.length) return 0;
+    for (const ride of ghosts) {
+      try {
+        await cancelCustomerBookingClient(ride.id, {
+          cancelReasonKey: "other",
+          cancelReason: "ghost_cleanup",
+        });
+      } catch (err) {
+        console.warn("[SwiftGo] ghost ride cancel", ride.id, err);
+      }
+    }
+    return ghosts.length;
+  } catch (err) {
+    console.warn("[SwiftGo] purge ghost rides", err);
+    return 0;
+  }
+}
+
+function pickLatestActiveRide(rides = []) {
+  return (
+    [...rides]
+      .filter((r) => isCustomerActiveRideStatus(r?.status))
+      .sort((a, b) => rideCreatedAtMs(b) - rideCreatedAtMs(a))[0] || null
+  );
+}
+
+function mountActiveRideUi(ride, rideId) {
+  const status = normalizeCustomerRideStatus(ride.status || "searching_driver");
+  activeRide = { id: rideId, ...ride, status };
+  if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
+  document.body.classList.add("has-active-ride");
+  persistActiveRideId(rideId);
+  attachRideWatch(rideId);
+
+  if (status === "searching_driver") {
+    showSearchingState();
+    startSearchTimers(rideId);
+    updateDriverOfferUi(activeRide);
+  } else if (status === "accepted" || status === "arrived" || status === "in_progress") {
+    showActiveRideState(status);
+  } else if (status === "completed") {
+    showInvoicePanel(activeRide);
+  }
+}
+
 export function initRideFlow(handlers = {}) {
   onToast = handlers.onToast || null;
   onReset = handlers.onReset || null;
+  onGoHome = handlers.onGoHome || null;
   els = {
     ridePanel: document.getElementById("ridePanel"),
     searchingPanel: document.getElementById("searchingPanel"),
@@ -79,6 +169,7 @@ export function initRideFlow(handlers = {}) {
     driverOfferCounterInput: document.getElementById("driverOfferCounterInput"),
     sendCounterOfferBtn: document.getElementById("sendCounterOfferBtn"),
     cancelBtn: document.getElementById("cancelRideBtn"),
+    activeCancelBtn: document.getElementById("activeRideCancelBtn"),
     activePanel: document.getElementById("activeRidePanel"),
     activeVehicle: document.getElementById("activeRideVehicle"),
     activeStatusText: document.getElementById("activeRideStatusText"),
@@ -91,6 +182,9 @@ export function initRideFlow(handlers = {}) {
     ratingThanks: document.getElementById("rideRatingThanks"),
   };
   els.cancelBtn?.addEventListener("click", () => {
+    void cancelActiveRide();
+  });
+  els.activeCancelBtn?.addEventListener("click", () => {
     void cancelActiveRide();
   });
   els.acceptDriverOfferBtn?.addEventListener("click", onAcceptDriverOffer);
@@ -174,7 +268,10 @@ async function onSearchTimedOut(rideId) {
     }
   }
   stopRideWatch();
+  stopDriverTrack();
   activeRide = null;
+  clearActiveRideId();
+  document.body.classList.remove("has-active-ride");
   if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
   restoreVehicleState();
   onToast?.(t("noDriverAvailable") || "کوئی ڈرائیور دستیاب نہ ہوا");
@@ -247,14 +344,106 @@ function rideFareAmount(ride) {
   return Number.isFinite(value) && value >= 0 ? Math.round(value) : 0;
 }
 
+function persistActiveRideId(rideId) {
+  if (!rideId || typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(ACTIVE_RIDE_STORAGE_KEY, String(rideId));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+function clearActiveRideId() {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.removeItem(ACTIVE_RIDE_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function vehicleLabelForRide(ride) {
+  const key = String(ride?.vehicleTypeKey || "").trim();
+  if (key && VEHICLE_NAME_KEYS[key]) return t(VEHICLE_NAME_KEYS[key]);
+  return ride?.vehicleType || t("vehGo");
+}
+
+function paintActiveRideDetails(ride) {
+  const source = ride || activeRide;
+  if (!source) return;
+  const plate = source.vehiclePlate || "—";
+  const driverName = source.driverName || t("activeRideDriver");
+  if (els.activeDriverName) els.activeDriverName.textContent = driverName;
+  if (els.activeVehicle) {
+    els.activeVehicle.textContent = `${vehicleLabelForRide(source)} · ${plate}`;
+  }
+  syncActiveRideDrawer(source);
+}
+
+function syncVehicleWatch(ride) {
+  const vehicleId = String(ride?.vehicleId || "").trim();
+  const trackable = ["accepted", "arrived", "in_progress"].includes(String(ride?.status || ""));
+
+  if (!vehicleId || !trackable) {
+    watchedVehicleId = "";
+    unsubscribeVehicle();
+    unsubscribeVehicle = () => {};
+    return;
+  }
+
+  if (vehicleId === watchedVehicleId) return;
+  watchedVehicleId = vehicleId;
+  unsubscribeVehicle();
+  unsubscribeVehicle = watchAssignedVehicle(
+    vehicleId,
+    (vehicle) => {
+      if (!activeRide || activeRide.vehicleId !== vehicleId) return;
+      if (!vehicle?.location?.lat || !vehicle?.location?.lng) return;
+      activeRide = {
+        ...activeRide,
+        driverLocation: vehicle.location,
+        driverLocationUpdatedAt: vehicle.locationUpdatedAt || activeRide.driverLocationUpdatedAt,
+        driverLocationReceivedAt: Date.now(),
+      };
+      if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
+      updateDriverTrack(activeRide);
+    },
+    (err) => console.warn("[SwiftGo] vehicle watch", err)
+  );
+}
+
+function attachRideWatch(rideId) {
+  if (!rideId) return;
+  stopRideWatch();
+  unsubscribeRide = watchRideRequest(
+    rideId,
+    handleRideSnapshot,
+    (err) => console.warn("[SwiftGo] ride watch", err)
+  );
+  unsubscribeOffers = watchRideOffers(
+    rideId,
+    (offers) => {
+      activeOffers = offers || [];
+      if (activeOffers.length) {
+        markT4CustomerOffer(rideId, { offerCount: activeOffers.length });
+      }
+      updateDriverOfferUi(activeRide);
+    },
+    (err) => console.warn("[SwiftGo] offers watch", err)
+  );
+  syncVehicleWatch(activeRide);
+}
+
 function showSearchingState() {
   hideInvoicePanel();
+  stopDriverTrack();
   if (els.ridePanel) els.ridePanel.hidden = true;
   els.activePanel?.classList.remove("is-visible");
   if (els.activePanel) els.activePanel.hidden = true;
   if (!els.searchingPanel) return;
   els.searchingPanel.hidden = false;
   setSearchingOfferVisible(false);
+  expandSheet();
   requestAnimationFrame(() => els.searchingPanel.classList.add("is-visible"));
   announce(t("searchingDriver") || "Searching for drivers");
   if (els.cancelBtn) {
@@ -384,6 +573,10 @@ function updateActiveRideStatusUi(status) {
     els.activeStatusText.textContent = t(key);
     els.activeStatusText.dataset.i18n = key;
   }
+  if (els.activeCancelBtn) {
+    const cancellable = CANCELLABLE_RIDE_STATUSES.includes(String(status || ""));
+    els.activeCancelBtn.hidden = !cancellable;
+  }
 }
 
 function showActiveRideState(status = "accepted") {
@@ -393,20 +586,19 @@ function showActiveRideState(status = "accepted") {
   if (els.ridePanel) els.ridePanel.hidden = true;
   hideInvoicePanel();
 
-  const plate = activeRide?.vehiclePlate || "—";
-  const driverName = activeRide?.driverName || t("activeRideDriver");
-  if (els.activeDriverName) els.activeDriverName.textContent = driverName;
-  if (els.activeVehicle) {
-    els.activeVehicle.textContent = `${activeRide?.vehicleType || t("vehGo")} · ${plate}`;
-  }
+  paintActiveRideDetails(activeRide);
   updateActiveRideStatusUi(status);
+  updateDriverTrack(activeRide);
 
   if (!els.activePanel) return;
   els.activePanel.hidden = false;
+  expandSheet();
+  onGoHome?.();
   requestAnimationFrame(() => els.activePanel.classList.add("is-visible"));
 }
 
 function showInvoicePanel(ride) {
+  stopDriverTrack();
   els.searchingPanel?.classList.remove("is-visible");
   els.activePanel?.classList.remove("is-visible");
   if (els.searchingPanel) els.searchingPanel.hidden = true;
@@ -434,16 +626,22 @@ function showInvoicePanel(ride) {
 
   if (!els.invoicePanel) return;
   els.invoicePanel.hidden = false;
+  expandSheet();
+  onGoHome?.();
   requestAnimationFrame(() => els.invoicePanel.classList.add("is-visible"));
   onToast?.(t("rideCompleted"));
 }
 
 function stopRideWatch() {
+  if (activeRide?.id) clearDispatchSession(activeRide.id);
   clearSearchTimers();
   unsubscribeRide();
   unsubscribeRide = () => {};
   unsubscribeOffers();
   unsubscribeOffers = () => {};
+  unsubscribeVehicle();
+  unsubscribeVehicle = () => {};
+  watchedVehicleId = "";
   activeOffers = [];
   selectedOfferId = null;
 }
@@ -457,7 +655,10 @@ function clearMapRouteState() {
 
 function resetToVehicleSelection(messageKey) {
   stopRideWatch();
+  stopDriverTrack();
   activeRide = null;
+  clearActiveRideId();
+  document.body.classList.remove("has-active-ride");
   if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
   restoreVehicleState();
   if (messageKey) onToast?.(t(messageKey));
@@ -471,8 +672,11 @@ function dismissInvoiceAndReset() {
 
   const finish = () => {
     stopRideWatch();
+    stopDriverTrack();
     activeRide = null;
-  if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
+    clearActiveRideId();
+    document.body.classList.remove("has-active-ride");
+    if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
     resetRatingUi();
     hideInvoicePanel();
     clearMapRouteState();
@@ -506,11 +710,20 @@ function dismissInvoiceAndReset() {
     });
 }
 
-function handleRideSnapshot(ride) {
-  if (!ride) return;
+function handleRideSnapshot(rawRide) {
+  if (!rawRide) return;
+  const ride = {
+    ...rawRide,
+    status: normalizeCustomerRideStatus(rawRide.status),
+  };
   const previousStatus = activeRide?.status;
   activeRide = { ...activeRide, ...ride };
+  if (ride?.driverLocation?.lat && ride?.driverLocation?.lng) {
+    activeRide.driverLocationReceivedAt = Date.now();
+  }
   if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
+  document.body.classList.toggle("has-active-ride", Boolean(activeRide));
+  syncVehicleWatch(activeRide);
 
   if (ride.status === "accepted" || ride.status === "arrived" || ride.status === "in_progress") {
     clearSearchTimers();
@@ -525,7 +738,9 @@ function handleRideSnapshot(ride) {
         announce(t("rideAccepted") || "Driver assigned");
       }
     } else if (previousStatus !== ride.status) {
+      paintActiveRideDetails(ride);
       updateActiveRideStatusUi(ride.status);
+      updateDriverTrack(ride);
       if (ride.status === "arrived") {
         onToast?.(t("rideDriverArrived"));
         announce(t("rideDriverArrived") || "Driver arrived");
@@ -535,11 +750,15 @@ function handleRideSnapshot(ride) {
         announce(t("rideInProgress") || "Ride started");
       }
     } else {
+      paintActiveRideDetails(ride);
       updateActiveRideStatusUi(ride.status);
+      updateDriverTrack(ride);
     }
   } else if (ride.status === "declined") {
+    stopDriverTrack();
     if (previousStatus !== "declined") resetToVehicleSelection("driverDeclined");
   } else if (ride.status === "completed") {
+    stopDriverTrack();
     if (previousStatus !== "completed") {
       stopRideWatch();
       showInvoicePanel(ride);
@@ -555,6 +774,8 @@ function handleRideSnapshot(ride) {
       clearSearchTimers();
       stopRideWatch();
       activeRide = null;
+      clearActiveRideId();
+      document.body.classList.remove("has-active-ride");
       if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
       restoreVehicleState();
       onToast?.(t("noDriverAvailable") || "کوئی ڈرائیور اس وقت میسر نہیں ہے");
@@ -601,6 +822,16 @@ export async function startRideRequest(state) {
         assertive: true,
       });
       return null;
+    }
+
+    if (!pendingExtraBookingConfirm) {
+      const purged = await purgeGhostSearchingRides();
+      if (purged > 0) {
+        onToast?.(
+          t("bookingClearedSearching") ||
+            `${purged} stuck booking(s) cleared — continuing with your new ride.`
+        );
+      }
     }
 
     const gate = await checkCustomerBookingGate({
@@ -684,6 +915,7 @@ export async function startRideRequest(state) {
     }
     pendingExtraBookingConfirm = false;
 
+    const bookT0 = performance.now();
     const created = await createCustomerBookingClient({
       confirmedExtraBooking: true,
       pickupLocation: {
@@ -715,6 +947,16 @@ export async function startRideRequest(state) {
       throw new Error("MISSING_RIDE_ID");
     }
 
+    startDispatchSession(rideId);
+    markT1RideCreated(rideId, {
+      cfMs: Math.round(performance.now() - bookT0),
+      serverLatencyMs: created.latencyMs ?? null,
+    });
+    markT2MatchFromCreate(rideId, {
+      candidateCount: created.candidateCount ?? 0,
+      matchingStatus: created.matchingStatus ?? null,
+    });
+
     const ride = {
       id: rideId,
       status: "searching_driver",
@@ -726,24 +968,14 @@ export async function startRideRequest(state) {
     };
 
     activeRide = ride;
+    document.body.classList.add("has-active-ride");
     if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
     announce(t("bookingCreated") || "Booking created");
     stopRideWatch();
+    persistActiveRideId(ride.id);
     showSearchingState();
     startSearchTimers(ride.id);
-    unsubscribeRide = watchRideRequest(
-      ride.id,
-      handleRideSnapshot,
-      (err) => console.warn("[SwiftGo] ride watch", err)
-    );
-    unsubscribeOffers = watchRideOffers(
-      ride.id,
-      (offers) => {
-        activeOffers = offers || [];
-        updateDriverOfferUi(activeRide);
-      },
-      (err) => console.warn("[SwiftGo] offers watch", err)
-    );
+    attachRideWatch(ride.id);
     // Prefer server auto-match from createCustomerBooking; still call as backup.
     if (!created.candidateCount && created.matchingStatus !== "candidates_ready") {
       await matchCandidatesForRide(ride.id);
@@ -777,21 +1009,44 @@ async function cancelActiveRide() {
     return;
   }
   const status = String(ride.status || "searching_driver");
-  if (!["searching_driver", "accepted", "arrived"].includes(status)) {
-    onToast?.(t("cancelRideOnlySearching") || "سواری شروع ہونے کے بعد کینسل نہیں ہو سکتی");
+  if (!CANCELLABLE_RIDE_STATUSES.includes(status)) {
+    onToast?.(t("cancelRideNotAllowed") || "یہ سواری کینسل نہیں ہو سکتی");
     return;
   }
 
-  const reason = await askCancelRideReason();
+  let farePreview = null;
+  if (status === "in_progress") {
+    try {
+      farePreview = await previewCancellationFareClient(ride.id);
+    } catch (err) {
+      console.warn("[SwiftGo] cancellation fare preview", err);
+      onToast?.(t("cancelRidePreviewFailed") || "کرایہ دیکھنے میں مسئلہ — دوبارہ کوشش کریں");
+      return;
+    }
+  }
+
+  const reason = await askCancelRideReason(farePreview);
   if (!reason) return;
 
   try {
-    await cancelCustomerBookingClient(ride.id, reason);
+    const result = await cancelCustomerBookingClient(ride.id, reason);
     stopRideWatch();
+    stopDriverTrack();
     activeRide = null;
+    clearActiveRideId();
+    document.body.classList.remove("has-active-ride");
     if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
     restoreVehicleState();
-    onToast?.(t("rideCancelled") || "بکنگ منسوخ ہو گئی");
+    if (result?.partialFareApplies && Number(result.cancellationFare) > 0) {
+      onToast?.(
+        (t("rideCancelledWithFare") || "بکنگ منسوخ — واجب الادا: Rs. {amount}").replace(
+          "{amount}",
+          Math.round(Number(result.cancellationFare) || 0).toLocaleString("en-PK")
+        )
+      );
+    } else {
+      onToast?.(t("rideCancelled") || "بکنگ منسوخ ہو گئی");
+    }
     announce(t("rideCancelled") || "Booking cancelled", { assertive: true });
   } catch (err) {
     console.warn("[SwiftGo] cancel ride", err);
@@ -800,4 +1055,45 @@ async function cancelActiveRide() {
       `${t("rideRequestFailed") || "کینسل نہیں ہو سکی"}${code ? ` (${code})` : ""}`
     );
   }
+}
+
+/**
+ * Restore live ride UI after reload if a non-terminal booking exists.
+ * @param {string} customerUid
+ */
+export async function resumeActiveRideWatch(customerUid) {
+  if (!customerUid || activeRide || requesting) return;
+
+  let rideId = "";
+  try {
+    rideId = localStorage.getItem(ACTIVE_RIDE_STORAGE_KEY) || "";
+  } catch {
+    rideId = "";
+  }
+
+  let ride = null;
+  if (rideId) {
+    try {
+      ride = await fetchRideById(rideId);
+    } catch (err) {
+      console.warn("[SwiftGo] resume active ride fetch", err);
+    }
+  }
+
+  if (!ride || ride.userId !== customerUid || !isCustomerActiveRideStatus(ride.status)) {
+    try {
+      const active = await listActiveCustomerBookings();
+      ride = pickLatestActiveRide(active);
+      rideId = ride?.id || "";
+    } catch (err) {
+      console.warn("[SwiftGo] resume active ride list", err);
+    }
+  }
+
+  if (!ride || ride.userId !== customerUid || !isCustomerActiveRideStatus(ride.status)) {
+    clearActiveRideId();
+    return;
+  }
+
+  mountActiveRideUi(ride, rideId);
 }

@@ -272,6 +272,28 @@ export async function counterDriverOffer(_rideId, _farePkr) {
   throw new Error("USE_COUNTER_OFFER_CF");
 }
 
+/** Fetch one canonical ride document (customer resume / recovery). */
+export async function fetchRideById(rideId) {
+  const { ready, db, auth } = getFirebase();
+  if (!ready || !auth?.currentUser || !rideId) return null;
+  const snap = await getDoc(doc(db, "rides", rideId));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+/** Live assigned vehicle GPS — allowed when vehicle is on customer's active ride. */
+export function watchAssignedVehicle(vehicleId, onData, onError = () => {}) {
+  const { ready, db, auth } = getFirebase();
+  if (!ready || !auth?.currentUser || !vehicleId) {
+    onError(new Error("NOT_SIGNED_IN"));
+    return () => {};
+  }
+  return onSnapshot(
+    doc(db, "vehicles", vehicleId),
+    (snap) => onData(snap.exists() ? { id: snap.id, ...snap.data() } : null),
+    onError
+  );
+}
+
 /** Phase 17.1 — subscribe to one ride document and stream status changes. */
 export function watchRideRequest(rideId, onData, onError = () => {}) {
   const { ready, db, auth } = getFirebase();

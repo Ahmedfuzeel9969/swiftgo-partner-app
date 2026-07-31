@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-28T10:50:20.305Z",
-  "command": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-swiftgo-phase1 \"node tests/phase2d-functions-runtime.mjs\"",
+  "generatedAt": "2026-07-31T06:32:53.303Z",
+  "error": "Error: Total timeout of API google.firestore.v1.Firestore exceeded 600000 milliseconds retrying error Error: 14 UNAVAILABLE: No connection established. Last error: Error: connect ECONNREFUSED 127.0.0.1:8080. Resolution note:   before any response was received.\n    at repeat (F:\\ride-app\\functions\\node_modules\\google-gax\\build\\src\\normalCalls\\retries.js:66:31)\n    at Timeout._onTimeout (F:\\ride-app\\functions\\node_modules\\google-gax\\build\\src\\normalCalls\\retries.js:108:25)\n    at listOnTimeout (node:internal/timers:588:17)\n    at process.processTimers (node:internal/timers:523:7)\nCaused by: Error\n    at _firestore._traceUtil.startActiveSpan (F:\\ride-app\\functions\\node_modules\\@google-cloud\\firestore\\build\\src\\write-batch.js:438:27)\n    at F:\\ride-app\\functions\\node_modules\\@google-cloud\\firestore\\build\\src\\telemetry\\enabled-trace-util.js:110:30\n    at NoopContextManager.with (F:\\ride-app\\functions\\node_modules\\@opentelemetry\\api\\build\\src\\context\\NoopContextManager.js:14:19)\n    at ContextAPI.with (F:\\ride-app\\functions\\node_modules\\@opentelemetry\\api\\build\\src\\api\\context.js:51:46)\n    at NoopTracer.startActiveSpan (F:\\ride-app\\functions\\node_modules\\@opentelemetry\\api\\build\\src\\trace\\NoopTracer.js:54:31)\n    at ProxyTracer.startActiveSpan (F:\\ride-app\\functions\\node_modules\\@opentelemetry\\api\\build\\src\\trace\\ProxyTracer.js:27:24)\n    at EnabledTraceUtil.startActiveSpan (F:\\ride-app\\functions\\node_modules\\@google-cloud\\firestore\\build\\src\\telemetry\\enabled-trace-util.js:102:28)\n    at WriteBatch.commit (F:\\ride-app\\functions\\node_modules\\@google-cloud\\firestore\\build\\src\\write-batch.js:436:43)\n    at F:\\ride-app\\functions\\node_modules\\@google-cloud\\firestore\\build\\src\\reference\\document-reference.js:350:31\n    at F:\\ride-app\\functions\\node_modules\\@google-cloud\\firestore\\build\\src\\telemetry\\enabled-trace-util.js:110:30",
   "results": [
     {
       "name": "R00-client-region-and-names",
@@ -8,94 +8,9 @@
       "actual": "{\"custRegion\":true,\"drvRegion\":true,\"ownRegion\":true,\"bookingClient\":true,\"rideFlowUsesClient\":true,\"noDirectCreateInFlow\":true,\"offerNames\":true,\"radarSubmit\":true,\"settleName\":true,\"pinName\":true}",
       "status": "PASS",
       "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R01-unauth-denied",
-      "expected": "unauthenticated callable denied",
-      "actual": "denied=true",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R02-createCustomerBooking",
-      "expected": "booking id returned",
-      "actual": "id=tEDaQ6uB58FTLpyGdROu",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R03-match-limits-10-20",
-      "expected": "match callable works for dispatch 10 and request 20",
-      "actual": "m10cands=2 m20limit=20 cands=2",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R04-submitRideOffer",
-      "expected": "offer id returned",
-      "actual": "offerId=tEDaQ6uB58FTLpyGdROu_rt-d1",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R05-counterRideOffer",
-      "expected": "counter accepted",
-      "actual": "{\"offerId\":\"tEDaQ6uB58FTLpyGdROu_rt-d1\",\"status\":\"countered\",\"customerCounterFare\":310}",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R06-finalizeAssignment",
-      "expected": "ride accepted by rt-d1",
-      "actual": "status=accepted driver=rt-d1 fare=310",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R07-one-active-ride",
-      "expected": "second offer blocked",
-      "actual": "blocked=true",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R08-four-booking-limit",
-      "expected": "fifth createCustomerBooking rejected",
-      "actual": "denied=true",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R09-settlement-idempotent",
-      "expected": "one ledger; second alreadySettled",
-      "actual": "comm=31 already=true ledgers=1",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R10-unauthorized-settle",
-      "expected": "non-assigned driver denied",
-      "actual": "denied=true",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R11-linkVehicleByPin",
-      "expected": "link ok without returning pin",
-      "actual": "{\"ok\":true,\"vehicleId\":\"rt-pin\",\"hasPin\":false}",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
-    },
-    {
-      "name": "R12-admin-claims-callables",
-      "expected": "bootstrap/grant/revoke/toggle; ordinary denied",
-      "actual": "{\"ordinaryGrantDenied\":true,\"granted\":true,\"revoked\":true,\"bootDisabled\":true}",
-      "status": "PASS",
-      "suite": "phase2d-functions-runtime"
     }
   ],
-  "passed": 13,
-  "failed": 0,
-  "blocked": 0,
-  "total": 13
+  "passed": 1,
+  "failed": 1,
+  "blocked": 0
 }

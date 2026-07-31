@@ -65,7 +65,8 @@ async function main() {
     "C00-cancellable-includes-pre-start",
     CANCELLABLE_RIDE_STATUSES.includes("searching_driver") &&
       CANCELLABLE_RIDE_STATUSES.includes("accepted") &&
-      CANCELLABLE_RIDE_STATUSES.includes("arrived")
+      CANCELLABLE_RIDE_STATUSES.includes("arrived") &&
+      CANCELLABLE_RIDE_STATUSES.includes("in_progress")
       ? "PASS"
       : "FAIL",
     JSON.stringify(CANCELLABLE_RIDE_STATUSES)
@@ -117,17 +118,41 @@ async function main() {
     again.ok && again2.already === true ? "PASS" : "FAIL"
   );
 
-  // Cancel after start rejected
+  // Cancel in-progress applies partial fare (base + traveled km)
   const r3 = await createCustomerBooking(db, { customerUid: cust, ridePayload: payload });
-  await db.doc(`rides/${r3.id}`).set({ status: "in_progress", driverId: drv }, { merge: true });
-  let startDenied = false;
-  try {
-    await cancelCustomerBooking(db, { customerUid: cust, rideId: r3.id });
-  } catch (e) {
-    startDenied = String(e.message).includes("NOT_CANCELLABLE");
-  }
-  record("C04-cancel-after-start-rejected", startDenied ? "PASS" : "FAIL");
-  await db.doc(`rides/${r3.id}`).set({ status: "cancelled_by_system" }, { merge: true });
+  await db.doc(`rides/${r3.id}`).set(
+    {
+      status: "in_progress",
+      driverId: drv,
+      userId: cust,
+      vehicleTypeKey: "go",
+      pickupLocation: { lat: pickup.lat, lng: pickup.lng },
+      driverLocation: { lat: pickup.lat + 0.004, lng: pickup.lng },
+      traveledDistanceKm: 0.4,
+    },
+    { merge: true }
+  );
+  const c4 = await cancelCustomerBooking(db, {
+    customerUid: cust,
+    rideId: r3.id,
+    cancelReasonKey: "other",
+  });
+  const r3After = (await db.doc(`rides/${r3.id}`).get()).data() || {};
+  record(
+    "C04-cancel-in-progress-partial-fare",
+    c4.ok &&
+      c4.partialFareApplies === true &&
+      Number(c4.cancellationFare) > 0 &&
+      r3After.status === "cancelled_by_customer" &&
+      Number(r3After.cancellationFare) === Number(c4.cancellationFare)
+      ? "PASS"
+      : "FAIL",
+    JSON.stringify({
+      cancellationFare: c4.cancellationFare,
+      traveledDistanceKm: c4.traveledDistanceKm,
+      status: r3After.status,
+    })
+  );
 
   // Customer cancel accepted
   const r4 = await createCustomerBooking(db, { customerUid: cust, ridePayload: payload });

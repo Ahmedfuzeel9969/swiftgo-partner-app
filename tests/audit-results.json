@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-07-30T16:06:26.674Z",
+  "generatedAt": "2026-07-31T09:17:15.108Z",
   "baseUrl": "https://swiftgo-ride-app.web.app",
   "total": 238,
-  "passed": 236,
-  "failed": 2,
-  "passRate": 99.2,
+  "passed": 235,
+  "failed": 3,
+  "passRate": 98.7,
   "bySuite": {
     "structure": {
       "passed": 39,
@@ -32,8 +32,8 @@
       "total": 8
     },
     "security": {
-      "passed": 17,
-      "failed": 0,
+      "passed": 16,
+      "failed": 1,
       "total": 17
     },
     "wiring": {
@@ -53,6 +53,12 @@
     }
   },
   "findings": [
+    {
+      "sev": "Medium",
+      "area": "Backend",
+      "title": "walletBalance client-writable",
+      "detail": "firestore.rules allows owners full write on users/{uid}. A modified client can set any walletBalance."
+    },
     {
       "sev": "Low",
       "area": "Security",
@@ -767,13 +773,13 @@
       "suite": "i18n",
       "name": "i18n EN keys > 60",
       "status": "PASS",
-      "detail": "count=317"
+      "detail": "count=369"
     },
     {
       "suite": "i18n",
       "name": "i18n UR keys > 60",
       "status": "PASS",
-      "detail": "count=317"
+      "detail": "count=369"
     },
     {
       "suite": "i18n",
@@ -988,7 +994,7 @@
     {
       "suite": "security",
       "name": "walletBalance read-only for client (Phase 9)",
-      "status": "PASS",
+      "status": "FAIL",
       "detail": "create must be 0; updates may not touch walletBalance"
     },
     {

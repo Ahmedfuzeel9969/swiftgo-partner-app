@@ -2616,3 +2616,219 @@ html[dir="ltr"] body {
   text-align: center;
   margin: 0 0 0.5rem;
 }
+
+.partner-nav-item--rates {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.partner-nav-item__icon {
+  display: grid;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* ── Rate details modal (owner transparency) ── */
+
+.rate-details-modal[hidden] {
+  display: none !important;
+}
+
+.rate-details-modal {
+  position: fixed;
+  z-index: 980;
+  inset: 0;
+  display: grid;
+  align-items: end;
+}
+
+.rate-details-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(4, 14, 9, 0.56);
+  backdrop-filter: blur(4px);
+}
+
+.rate-details-modal__panel {
+  position: relative;
+  width: min(100%, 520px);
+  max-height: min(88vh, 720px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  border-radius: 26px 26px 0 0;
+  background: #fff;
+  box-shadow: 0 -24px 60px rgba(4, 14, 9, 0.25);
+}
+
+.rate-details-modal__heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.65rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.rate-details-modal__heading p {
+  margin: 0;
+  color: var(--green);
+  direction: ltr;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rate-details-modal__heading h2 {
+  margin: 0.1rem 0 0;
+  font-family: var(--urdu);
+  font-size: 1.12rem;
+}
+
+.rate-details-modal__close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #eef2f0;
+  color: #506059;
+  font-size: 1.35rem;
+  cursor: pointer;
+}
+
+.rate-details-modal__body {
+  overflow-y: auto;
+  padding: 0.85rem 1rem max(1rem, env(safe-area-inset-bottom));
+}
+
+.rate-details__hero {
+  padding: 0.85rem;
+  margin-bottom: 0.75rem;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(11, 122, 75, 0.08), rgba(11, 122, 75, 0.02));
+  border: 1px solid rgba(11, 122, 75, 0.14);
+}
+
+.rate-details__eyebrow {
+  margin: 0 0 0.55rem;
+  font-family: var(--urdu);
+  font-size: 0.78rem;
+  color: #065a36;
+  font-weight: 700;
+}
+
+.rate-details__dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.rate-details__dl div {
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.rate-details__dl dt {
+  margin: 0;
+  font-family: var(--urdu);
+  font-size: 0.62rem;
+  color: #64748b;
+}
+
+.rate-details__dl dd {
+  margin: 0.12rem 0 0;
+  font-weight: 800;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.rate-details__formula {
+  margin: 0.75rem 0 0.25rem;
+  font-family: var(--urdu);
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: #0f172a;
+}
+
+.rate-details__formula strong {
+  color: #0b7a4b;
+}
+
+.rate-details__formula-sub,
+.rate-details__compare,
+.rate-details__source {
+  margin: 0.25rem 0 0;
+  font-family: var(--urdu);
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.rate-details__section {
+  margin-top: 0.75rem;
+}
+
+.rate-details__section-title {
+  margin: 0 0 0.45rem;
+  font-family: var(--urdu);
+  font-size: 0.82rem;
+  color: #065a36;
+}
+
+.rate-details__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+.rate-details__table th,
+.rate-details__table td {
+  padding: 0.45rem 0.35rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  text-align: right;
+}
+
+.rate-details__table th {
+  font-family: var(--urdu);
+  color: #64748b;
+  font-weight: 700;
+}
+
+.rate-details__all-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.rate-details__vehicle-card {
+  padding: 0.75rem;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+}
+
+.rate-details__vehicle-card h3 {
+  margin: 0 0 0.45rem;
+  font-family: var(--urdu);
+  font-size: 0.92rem;
+}
+
+.rate-details__loading,
+.rate-details__error {
+  font-family: var(--urdu);
+  text-align: center;
+  color: #64748b;
+  padding: 1.5rem 0.5rem;
+}

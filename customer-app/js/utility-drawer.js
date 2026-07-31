@@ -155,6 +155,16 @@ export function showActiveRideDrawer(meta = {}) {
   openUtilityDrawer("active-ride", { driver });
 }
 
+/** Keep drawer state in sync with live ride doc (does not open the drawer). */
+export function syncActiveRideDrawer(ride) {
+  if (!ride?.driverName && !ride?.driverId) return;
+  fillActiveRide({
+    name: ride.driverName || t("activeRideDriver"),
+    vehicle: ride.vehicleType || ride.vehicleTypeKey || "—",
+    plate: ride.vehiclePlate || "—",
+  });
+}
+
 function readRentForm() {
   state.rentDuration =
     document.querySelector('input[name="rentDuration"]:checked')?.value || "1h";

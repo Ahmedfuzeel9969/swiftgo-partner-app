@@ -23,6 +23,15 @@ let currentMapStyle = loadMapStyle();
 let trafficEnabled = loadTrafficEnabled();
 /** @type {import('leaflet').Marker[]} */
 let driverMarkers = [];
+/** @type {import('leaflet').Marker | null} */
+let assignedDriverMarker = null;
+/** @type {import('leaflet').Polyline | null} */
+let driverApproachLine = null;
+let suppressSimulatedDrivers = false;
+let assignedDriverPos = null;
+let assignedDriverAnimFrame = 0;
+let assignedDriverMoveListener = null;
+const ASSIGNED_DRIVER_ANIM_MS = 10_000;
 
 /** @type {import('leaflet').Marker | null} */
 let pickupMarker = null;
@@ -95,6 +104,52 @@ function createDriverIcon(rotationDeg, delay) {
   });
 }
 
+function assignedDriverIconHtml(rotationDeg) {
+  return `
+    <div class="live-driver assigned-driver-marker" style="--rot:${rotationDeg}deg" aria-hidden="true">
+      <span class="assigned-driver-marker__pulse" aria-hidden="true"></span>
+      <svg viewBox="0 0 40 40" width="38" height="38">
+        <ellipse cx="20" cy="34" rx="10" ry="2.5" fill="#062818" opacity=".25"/>
+        <path d="M8 24h24l-2-8a4 4 0 0 0-4-3H14a4 4 0 0 0-4 3L8 24z" fill="#1d4ed8"/>
+        <path d="M14 13h12l2 4H12l2-4z" fill="#fff" opacity=".95"/>
+        <circle cx="13" cy="26" r="3.5" fill="#1e3a8a"/>
+        <circle cx="27" cy="26" r="3.5" fill="#1e3a8a"/>
+        <circle cx="13" cy="26" r="1.4" fill="#fff"/>
+        <circle cx="27" cy="26" r="1.4" fill="#fff"/>
+      </svg>
+    </div>
+  `;
+}
+
+function createAssignedDriverIcon(rotationDeg) {
+  return L.divIcon({
+    className: "live-driver-wrap assigned-driver-wrap",
+    html: assignedDriverIconHtml(rotationDeg),
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
+}
+
+function cancelAssignedDriverAnimation() {
+  if (assignedDriverAnimFrame) {
+    cancelAnimationFrame(assignedDriverAnimFrame);
+    assignedDriverAnimFrame = 0;
+  }
+}
+
+function emitAssignedDriverPos(lat, lng) {
+  if (typeof assignedDriverMoveListener === "function") {
+    assignedDriverMoveListener(lat, lng);
+  }
+  document.dispatchEvent(
+    new CustomEvent("swiftgo:assigned-driver-pos", { detail: { lat, lng } })
+  );
+}
+
+export function onAssignedDriverMove(listener) {
+  assignedDriverMoveListener = typeof listener === "function" ? listener : null;
+}
+
 /** Offset meters → approx lat/lng deltas near equator-ish for Karachi */
 function offsetLatLng(lat, lng, eastM, northM) {
   const dLat = northM / 111320;
@@ -137,6 +192,117 @@ export function clearLiveDrivers() {
     }
   });
   driverMarkers = [];
+}
+
+export function setSuppressSimulatedDrivers(suppressed) {
+  suppressSimulatedDrivers = Boolean(suppressed);
+  if (suppressSimulatedDrivers) clearLiveDrivers();
+}
+
+export function setAssignedDriverLocation(lat, lng, rotationDeg = 0) {
+  if (!map || typeof L === "undefined") return;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+  if (!assignedDriverMarker) {
+    assignedDriverPos = { lat, lng };
+    assignedDriverMarker = L.marker([lat, lng], {
+      icon: createAssignedDriverIcon(rotationDeg),
+      interactive: false,
+      keyboard: false,
+      zIndexOffset: 1200,
+    }).addTo(map);
+    emitAssignedDriverPos(lat, lng);
+    return;
+  }
+
+  const from = assignedDriverPos || {
+    lat: assignedDriverMarker.getLatLng().lat,
+    lng: assignedDriverMarker.getLatLng().lng,
+  };
+  const to = { lat, lng };
+  const samePlace =
+    Math.abs(from.lat - to.lat) < 1e-7 && Math.abs(from.lng - to.lng) < 1e-7;
+  if (samePlace) {
+    assignedDriverMarker.setIcon(createAssignedDriverIcon(rotationDeg));
+    return;
+  }
+
+  cancelAssignedDriverAnimation();
+  assignedDriverMarker.setIcon(createAssignedDriverIcon(rotationDeg));
+  const start = performance.now();
+
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / ASSIGNED_DRIVER_ANIM_MS);
+    const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+    const curLat = from.lat + (to.lat - from.lat) * eased;
+    const curLng = from.lng + (to.lng - from.lng) * eased;
+    assignedDriverPos = { lat: curLat, lng: curLng };
+    assignedDriverMarker.setLatLng([curLat, curLng]);
+    emitAssignedDriverPos(curLat, curLng);
+    if (t < 1) {
+      assignedDriverAnimFrame = requestAnimationFrame(tick);
+    } else {
+      assignedDriverPos = to;
+      assignedDriverAnimFrame = 0;
+    }
+  };
+  assignedDriverAnimFrame = requestAnimationFrame(tick);
+}
+
+export function clearAssignedDriver() {
+  cancelAssignedDriverAnimation();
+  assignedDriverPos = null;
+  if (assignedDriverMarker && map) {
+    try {
+      map.removeLayer(assignedDriverMarker);
+    } catch {
+      /* ignore */
+    }
+  }
+  assignedDriverMarker = null;
+  if (driverApproachLine && map) {
+    try {
+      map.removeLayer(driverApproachLine);
+    } catch {
+      /* ignore */
+    }
+  }
+  driverApproachLine = null;
+}
+
+/**
+ * Dashed line from assigned driver to pickup while en route.
+ * @param {{ lat: number, lng: number } | null} from
+ * @param {{ lat: number, lng: number } | null} to
+ */
+export function setDriverApproachLine(from, to) {
+  if (!map || typeof L === "undefined") return;
+  if (driverApproachLine) {
+    try {
+      map.removeLayer(driverApproachLine);
+    } catch {
+      /* ignore */
+    }
+    driverApproachLine = null;
+  }
+  if (!from || !to) return;
+  if (!Number.isFinite(from.lat) || !Number.isFinite(from.lng)) return;
+  if (!Number.isFinite(to.lat) || !Number.isFinite(to.lng)) return;
+  driverApproachLine = L.polyline(
+    [
+      [from.lat, from.lng],
+      [to.lat, to.lng],
+    ],
+    {
+      color: "#0b7a4b",
+      weight: 3,
+      opacity: 0.75,
+      dashArray: "8 10",
+      lineCap: "round",
+      interactive: false,
+      className: "driver-approach-line",
+    }
+  ).addTo(map);
 }
 
 function upsertCircle(existing, latlng, style) {
@@ -319,10 +485,10 @@ function loadMapStyle() {
 function loadTrafficEnabled() {
   try {
     const saved = localStorage.getItem(TRAFFIC_KEY);
-    if (saved === null) return true; // default ON
+    if (saved === null) return false;
     return saved === "1";
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -464,6 +630,9 @@ export function applyMapStyle(style, opts = {}) {
 
   if (opts.persist !== false) persistMapStyle(next);
   if (opts.syncUi !== false) syncLayersUi();
+  const mapEl = document.getElementById("map");
+  mapEl?.classList.toggle("map--satellite", next === "satellite");
+  mapEl?.classList.toggle("map--streets", next === "streets");
   return next;
 }
 
@@ -547,7 +716,7 @@ export function setUserPosition(lat, lng, accuracy) {
   if (!map || !userMarker) return;
   const latlng = [lat, lng];
   userMarker.setLatLng(latlng);
-  spawnLiveDrivers(lat, lng);
+  if (!suppressSimulatedDrivers) spawnLiveDrivers(lat, lng);
 
   if (typeof accuracy === "number" && accuracy > 0) {
     if (accuracyCircle) {

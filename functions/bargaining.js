@@ -19,12 +19,17 @@ const {
   ACTIVE_RIDE_STATUSES,
   OPEN_OFFER_STATUSES,
   DEFAULT_CANDIDATE_LIMIT,
+  DEFAULT_MAX_SEARCH_RADIUS_KM,
+  buildSearchRingsKm,
   isOpenOfferStatus,
   STALE_LOCATION_MS,
   haversineKm,
   classifyDriverMatchExclusion,
 } = require("./matching");
 const { loadAndSelectGeoCandidates } = require("./geo-match");
+const { seedDriverLocationFromVehicle } = require("./driver-location");
+const { computeCancellationFare } = require("./partial-fare");
+const { settlePartialCancellation } = require("./settlement");
 
 const CANCEL_REASON_KEYS = Object.freeze([
   "taking_too_long",
@@ -145,9 +150,14 @@ async function reconcileCustomerBookingState(db, customerUid, { nowMs = Date.now
       });
     }
     await batch.commit();
-    for (const item of toClose) {
-      await closeCandidatesAndOffersForRide(db, item.id, item.reason).catch(() => {});
-    }
+    await Promise.all(
+      toClose.map((item) =>
+        closeCandidatesAndOffersForRide(db, item.id, item.reason).catch(() => ({
+          candidates: 0,
+          offers: 0,
+        }))
+      )
+    );
   }
 
   const refreshed = await countCustomerActiveBookings(db, customerUid);
@@ -179,6 +189,7 @@ async function cancelAllSearchingBookings(db, customerUid) {
     .collection("rides")
     .where(CUSTOMER_RIDE_OWNER_FIELD, "==", customerUid)
     .where("status", "==", "searching_driver")
+    .limit(10)
     .get();
 
   const cancelled = [];
@@ -235,8 +246,32 @@ async function readDispatchSettings(db) {
   } catch {
     limit = DEFAULT_CANDIDATE_LIMIT;
   }
+
+  let maxSearchRadiusMeters = Math.round(DEFAULT_MAX_SEARCH_RADIUS_KM * 1000);
+  if (data.maxSearchRadiusMeters != null && Number.isFinite(Number(data.maxSearchRadiusMeters))) {
+    maxSearchRadiusMeters = Math.max(0, Math.round(Number(data.maxSearchRadiusMeters)));
+  } else if (data.maxSearchRadiusKm != null && Number.isFinite(Number(data.maxSearchRadiusKm))) {
+    maxSearchRadiusMeters = Math.round(Number(data.maxSearchRadiusKm) * 1000);
+  } else if (Array.isArray(data.searchRingsKm) && data.searchRingsKm.length) {
+    const legacyMax = Math.max(
+      ...data.searchRingsKm.map((v) => Number(v)).filter((v) => Number.isFinite(v) && v > 0)
+    );
+    if (Number.isFinite(legacyMax) && legacyMax > 0) {
+      maxSearchRadiusMeters = Math.round(legacyMax * 1000);
+    }
+  }
+  if (maxSearchRadiusMeters <= 0) {
+    maxSearchRadiusMeters = Math.round(DEFAULT_MAX_SEARCH_RADIUS_KM * 1000);
+  }
+  const maxSearchRadiusKm =
+    maxSearchRadiusMeters > 0 ? maxSearchRadiusMeters / 1000 : DEFAULT_MAX_SEARCH_RADIUS_KM;
+  const searchRingsKm = buildSearchRingsKm(maxSearchRadiusKm);
+
   return {
     candidateDriverLimit: limit,
+    maxSearchRadiusKm,
+    maxSearchRadiusMeters,
+    searchRingsKm,
     maxDriverOpenBargains: MAX_DRIVER_OPEN_BARGAINS,
     maxCustomerActiveBookings: MAX_CUSTOMER_ACTIVE_BOOKINGS,
   };
@@ -250,6 +285,7 @@ async function countCustomerActiveBookings(db, customerUid) {
     .collection("rides")
     .where(CUSTOMER_RIDE_OWNER_FIELD, "==", customerUid)
     .where("status", "in", [...NON_TERMINAL_RIDE_STATUSES])
+    .limit(5)
     .get();
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
@@ -262,9 +298,8 @@ async function countCustomerActiveBookings(db, customerUid) {
 async function evaluateCustomerBookingGate(db, customerUid, { confirmedExtraBooking = false } = {}) {
   // Reconcile inflated booking_slots and expire stale searching rides first.
   const reconciled = await reconcileCustomerBookingState(db, customerUid);
-  // Live canonical rides for this UID are the only count that may block booking.
-  const active = await countCustomerActiveBookings(db, customerUid);
-  const count = active.length;
+  const count = reconciled.activeCount;
+  const active = reconciled.activeBookings || [];
 
   if (count >= MAX_CUSTOMER_ACTIVE_BOOKINGS) {
     return {
@@ -312,12 +347,12 @@ async function createCustomerBooking(db, { customerUid, ridePayload, confirmedEx
   }
 
   // Sync slots to live rides and expire stale searching docs before limit checks.
-  await reconcileCustomerBookingState(db, customerUid);
-  const live = await countCustomerActiveBookings(db, customerUid);
-  if (live.length >= MAX_CUSTOMER_ACTIVE_BOOKINGS) {
+  const reconciled = await reconcileCustomerBookingState(db, customerUid);
+  const liveCount = reconciled.activeCount;
+  if (liveCount >= MAX_CUSTOMER_ACTIVE_BOOKINGS) {
     throw err("failed-precondition", "MAX_ACTIVE_BOOKINGS");
   }
-  if (live.length >= 1 && !confirmedExtraBooking) {
+  if (liveCount >= 1 && !confirmedExtraBooking) {
     throw err("failed-precondition", "CONFIRM_EXTRA_BOOKING");
   }
 
@@ -380,8 +415,41 @@ async function releaseCustomerBookingSlot(db, customerUid) {
 }
 
 /**
- * Cancel searching booking + release slot (trusted).
- * Closes candidates/offers; reconciles slots from live rides.
+ * Preview partial fare if customer cancels an in-progress ride.
+ */
+async function previewCancellationFare(db, { customerUid, rideId }) {
+  if (!customerUid || !rideId) throw err("invalid-argument", "MISSING_FIELDS");
+  const rideSnap = await db.collection("rides").doc(rideId).get();
+  if (!rideSnap.exists) throw err("not-found", "RIDE_NOT_FOUND");
+  const ride = rideSnap.data() || {};
+  if (!isOwnedByCustomer(ride, customerUid)) {
+    throw err("permission-denied", "NOT_YOUR_BOOKING");
+  }
+  if (String(ride.status || "") !== "in_progress") {
+    return {
+      rideId,
+      status: ride.status || null,
+      partialFareApplies: false,
+      cancellationFare: 0,
+      traveledDistanceKm: 0,
+      baseFare: 0,
+      perKmRate: 0,
+    };
+  }
+  const pricingSnap = await db.collection("settings").doc("pricing").get();
+  const pricing = pricingSnap.exists ? pricingSnap.data() || {} : {};
+  const breakdown = computeCancellationFare(pricing, ride);
+  return {
+    rideId,
+    status: ride.status,
+    partialFareApplies: true,
+    ...breakdown,
+  };
+}
+
+/**
+ * Cancel booking + release slot (trusted).
+ * Pre-start cancel is free; in_progress charges base fare + traveled distance.
  * @param {{ customerUid: string, rideId: string, cancelReason?: string, cancelReasonKey?: string }} params
  */
 async function cancelCustomerBooking(db, { customerUid, rideId, cancelReason, cancelReasonKey }) {
@@ -391,6 +459,22 @@ async function cancelCustomerBooking(db, { customerUid, rideId, cancelReason, ca
     ? String(cancelReasonKey)
     : "other";
   const reasonText = String(cancelReason || reasonKey).trim().slice(0, 200);
+
+  const preSnap = await rideRef.get();
+  if (!preSnap.exists) throw err("not-found", "RIDE_NOT_FOUND");
+  const preRide = preSnap.data() || {};
+  if (!isOwnedByCustomer(preRide, customerUid)) {
+    throw err("permission-denied", "NOT_YOUR_BOOKING");
+  }
+
+  let partialBreakdown = null;
+  if (String(preRide.status || "") === "in_progress") {
+    const pricingSnap = await db.collection("settings").doc("pricing").get();
+    partialBreakdown = computeCancellationFare(
+      pricingSnap.exists ? pricingSnap.data() || {} : {},
+      preRide
+    );
+  }
 
   const outcome = await db.runTransaction(async (tx) => {
     const rideSnap = await tx.get(rideRef);
@@ -405,15 +489,24 @@ async function cancelCustomerBooking(db, { customerUid, rideId, cancelReason, ca
       ride.status === "cancelled_by_user" ||
       ride.status === "cancelled_by_system"
     ) {
-      return { already: true, status: ride.status };
+      return {
+        already: true,
+        status: ride.status,
+        cancellationFare: Number(ride.cancellationFare ?? ride.farePkr) || 0,
+        traveledDistanceKm: Number(ride.traveledDistanceKm) || 0,
+      };
     }
     if (ride.status === SEARCH_EXPIRED_STATUS || ride.status === "no_driver_found") {
-      return { already: true, status: ride.status };
+      return {
+        already: true,
+        status: ride.status,
+        cancellationFare: 0,
+        traveledDistanceKm: 0,
+      };
     }
     if (!CANCELLABLE_RIDE_STATUSES.includes(String(ride.status || ""))) {
       throw err("failed-precondition", `NOT_CANCELLABLE:${ride.status || "unknown"}`);
     }
-    // searching_driver may still have no driverId; accepted/arrived must release assignee.
     const assignedDriverId = ride.driverId || null;
     let partnerRef = null;
     let partnerSnap = null;
@@ -426,19 +519,28 @@ async function cancelCustomerBooking(db, { customerUid, rideId, cancelReason, ca
       cancelReason: reasonText || reasonKey,
       cancelReasonKey: reasonKey,
       cancelledAt: FieldValue.serverTimestamp(),
+      cancelledFromStatus: ride.status,
     };
+    if (String(ride.status || "") === "in_progress" && partialBreakdown) {
+      patch.traveledDistanceKm = partialBreakdown.traveledDistanceKm;
+      patch.cancellationFare = partialBreakdown.cancellationFare;
+      patch.farePkr = partialBreakdown.cancellationFare;
+      patch.partialCancellation = true;
+    }
     if (assignedDriverId) {
-      patch.driverId = FieldValue.delete();
-      patch.vehicleId = FieldValue.delete();
       patch.previousDriverId = assignedDriverId;
-      patch.cancelledFromStatus = ride.status;
+      if (String(ride.status || "") !== "in_progress") {
+        patch.driverId = FieldValue.delete();
+        patch.vehicleId = FieldValue.delete();
+      }
     }
     tx.update(rideRef, patch);
     if (
       assignedDriverId &&
       partnerRef &&
       partnerSnap?.exists &&
-      partnerSnap.data()?.activeRideId === rideId
+      partnerSnap.data()?.activeRideId === rideId &&
+      String(ride.status || "") !== "in_progress"
     ) {
       tx.set(
         partnerRef,
@@ -446,10 +548,39 @@ async function cancelCustomerBooking(db, { customerUid, rideId, cancelReason, ca
         { merge: true }
       );
     }
-    return { already: false, status: "cancelled_by_customer", releasedDriverId: assignedDriverId };
+    return {
+      already: false,
+      status: "cancelled_by_customer",
+      releasedDriverId: assignedDriverId,
+      cancelledFromStatus: ride.status,
+      partialBreakdown:
+        String(ride.status || "") === "in_progress" ? partialBreakdown : null,
+    };
   });
 
   await closeCandidatesAndOffersForRide(db, rideId, "cancelled_by_customer").catch(() => {});
+
+  let settlement = null;
+  if (
+    !outcome.already &&
+    outcome.partialBreakdown &&
+    outcome.releasedDriverId &&
+    outcome.partialBreakdown.cancellationFare >= 0
+  ) {
+    try {
+      settlement = await settlePartialCancellation(db, {
+        rideId,
+        customerUid,
+        driverId: outcome.releasedDriverId,
+        cancellationFare: outcome.partialBreakdown.cancellationFare,
+        traveledDistanceKm: outcome.partialBreakdown.traveledDistanceKm,
+        cancelledFromStatus: outcome.cancelledFromStatus,
+      });
+    } catch (settleErr) {
+      console.warn("[cancelCustomerBooking] partial settlement failed:", settleErr);
+    }
+  }
+
   await reconcileCustomerBookingState(db, customerUid);
 
   return {
@@ -460,6 +591,11 @@ async function cancelCustomerBooking(db, { customerUid, rideId, cancelReason, ca
     cancelledCount: outcome.already ? 0 : 1,
     skippedCount: outcome.already ? 1 : 0,
     failedCount: 0,
+    partialFareApplies: Boolean(outcome.partialBreakdown),
+    cancellationFare: outcome.partialBreakdown?.cancellationFare ?? outcome.cancellationFare ?? 0,
+    traveledDistanceKm:
+      outcome.partialBreakdown?.traveledDistanceKm ?? outcome.traveledDistanceKm ?? 0,
+    settlement,
   };
 }
 
@@ -607,14 +743,25 @@ async function expireDueSearchingBookings(db, { limit = 25, nowMs = Date.now() }
  * queries only (never full online fleet). Passing `onlineDrivers` remains for
  * pure unit fixtures that already built an in-memory list.
  */
-async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidateDriverLimit, excludeDriverIds }) {
-  const settings = await readDispatchSettings(db);
+async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidateDriverLimit, excludeDriverIds, _latencyTimer }) {
+  const matchStart = Date.now();
+  const [settings, rideMeta] = await Promise.all([
+    readDispatchSettings(db),
+    db.collection("rides").doc(rideId).get(),
+  ]);
   const limit =
     candidateDriverLimit != null
       ? validateCandidateDriverLimit(candidateDriverLimit)
       : settings.candidateDriverLimit;
+  const maxRadiusKm =
+    Number.isFinite(Number(settings.maxSearchRadiusKm)) && Number(settings.maxSearchRadiusKm) > 0
+      ? Number(settings.maxSearchRadiusKm)
+      : DEFAULT_MAX_SEARCH_RADIUS_KM;
+  const searchRingsKm =
+    Array.isArray(settings.searchRingsKm) && settings.searchRingsKm.length
+      ? settings.searchRingsKm
+      : buildSearchRingsKm(maxRadiusKm);
   const excludeSet = new Set((excludeDriverIds || []).map((id) => String(id)));
-  const rideMeta = await db.collection("rides").doc(rideId).get();
   if (rideMeta.exists) {
     const fromRide = rideMeta.data()?.rematchExcludeDriverIds;
     if (Array.isArray(fromRide)) {
@@ -649,16 +796,20 @@ async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidat
         continue;
       }
       const distanceKm = haversineKm(pickup, { lat: d.lat, lng: d.lng });
-      if (distanceKm != null && distanceKm > 3) {
-        exclusions.push({ driverId: d.driverId, reason: "beyond_3km" });
+      if (distanceKm != null && distanceKm > maxRadiusKm) {
+        exclusions.push({ driverId: d.driverId, reason: "beyond_search_radius" });
       }
     }
     selected = selectCandidatesProgressive(pickup, onlineDrivers, limit, {
       excludeDriverIds: excludeSet,
+      ringsKm: searchRingsKm,
     });
     metrics = { usedFullFleetScan: false, source: "in_memory", exclusions };
   } else {
-    const geo = await loadAndSelectGeoCandidates(db, pickup, limit);
+    const geo = await loadAndSelectGeoCandidates(db, pickup, limit, {
+      ringsKm: searchRingsKm,
+      maxRadiusKm,
+    });
     selected = (geo.selected || []).filter((c) => !excludeSet.has(String(c.driverId)));
     const geoExclusions = [];
     for (const d of geo.drivers || []) {
@@ -679,8 +830,8 @@ async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidat
         continue;
       }
       const distanceKm = haversineKm(pickup, { lat: d.lat, lng: d.lng });
-      if (distanceKm != null && distanceKm > 3) {
-        geoExclusions.push({ driverId: d.driverId, reason: "beyond_3km" });
+      if (distanceKm != null && distanceKm > maxRadiusKm) {
+        geoExclusions.push({ driverId: d.driverId, reason: "beyond_search_radius" });
       }
     }
     metrics = {
@@ -690,13 +841,12 @@ async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidat
       vehicleDocsRead: geo.metrics?.vehicleDocsRead || 0,
     };
 
-    // When geo yields zero eligible candidates — including stale/busy docs in cells —
-    // probe a capped online set within 3 km. Not a full-fleet fan-out.
+    // When geo yields zero eligible candidates — probe a capped online set within search radius.
     if (!selected || selected.length === 0) {
       const probe = await db
         .collection("vehicles")
         .where("status", "==", "online")
-        .limit(25)
+        .limit(75)
         .get();
       metrics.usedCappedOnlineProbe = true;
       metrics.probeReason =
@@ -709,7 +859,7 @@ async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidat
         const lat = Number(v.location?.lat);
         const lng = Number(v.location?.lng);
         const distanceKm = haversineKm(pickup, { lat, lng });
-        if (distanceKm == null || distanceKm > 3) continue;
+        if (distanceKm == null || distanceKm > maxRadiusKm) continue;
         let locationUpdatedAtMs = null;
         const ts = v.locationUpdatedAt;
         if (ts && typeof ts.toMillis === "function") locationUpdatedAtMs = ts.toMillis();
@@ -725,16 +875,27 @@ async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidat
           accountStatus: "active",
         });
       }
-      for (const d of probed) {
-        const partner = await db.collection("partners").doc(d.driverId).get();
-        const p = partner.exists ? partner.data() || {} : {};
-        d.accountStatus = p.accountStatus || "active";
-        if (p.activeRideId) d.activeRideId = d.activeRideId || p.activeRideId;
-      }
+      await Promise.all(
+        probed.map((d) =>
+          db
+            .collection("partners")
+            .doc(d.driverId)
+            .get()
+            .then((partner) => {
+              const p = partner.exists ? partner.data() || {} : {};
+              d.accountStatus = p.accountStatus || "active";
+              if (p.activeRideId) d.activeRideId = d.activeRideId || p.activeRideId;
+            })
+            .catch(() => {
+              d.accountStatus = d.accountStatus || "active";
+            })
+        )
+      );
       selected = selectCandidatesProgressive(pickup, probed, limit, {
         requireFreshLocation: false,
         staleMs: Math.max(STALE_LOCATION_MS, 10 * 60 * 1000),
         excludeDriverIds: excludeSet,
+        ringsKm: searchRingsKm,
       });
       metrics.source = "geo_scoped_plus_capped_probe";
     }
@@ -800,7 +961,8 @@ async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidat
       candidateCount,
       candidateDriverLimit: limit,
       matchingStatus: candidateCount ? "candidates_ready" : "no_candidates",
-      matchingRingKm: metrics.ringExpandedToKm || null,
+      matchingRingKm: metrics.ringExpandedToKm || maxRadiusKm || null,
+      maxSearchRadiusKm: maxRadiusKm,
       matchingSource: metrics.source || null,
       matchingExclusions: (metrics.exclusions || []).slice(0, 20),
       matchingVehicleDocsRead: metrics.vehicleDocsRead ?? null,
@@ -811,6 +973,23 @@ async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidat
     { merge: true }
   );
   await batch.commit();
+  const matchMs = Date.now() - matchStart;
+  console.log(
+    JSON.stringify({
+      type: "dispatch_latency",
+      side: "server",
+      label: "matchRideCandidates",
+      rideId,
+      totalMs: matchMs,
+      candidateCount: toInvite.length,
+      source: metrics.source,
+    })
+  );
+  _latencyTimer?.mark?.("candidates_committed", {
+    rideId,
+    candidateCount: toInvite.length,
+    matchMs,
+  });
   return {
     candidates: toInvite,
     candidateDriverLimit: limit,
@@ -1017,6 +1196,15 @@ async function finalizeAssignmentFromOffer(db, params) {
     if (partner.accountStatus === "suspended") throw err("permission-denied", "DRIVER_SUSPENDED");
     if (partner.activeRideId) throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
 
+    const vehicleRef = offer.vehicleId
+      ? db.collection("vehicles").doc(offer.vehicleId)
+      : null;
+    const vehicleSnap = vehicleRef ? await tx.get(vehicleRef) : null;
+    if (!vehicleSnap?.exists || vehicleSnap.data()?.driverId !== offer.driverId) {
+      throw err("permission-denied", "VEHICLE_NOT_LINKED");
+    }
+    if (vehicleSnap.data()?.activeRideId) throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
+
     let finalFare = Math.round(Number(offer.fare) || 0);
     if (actorRole === "driver" && offer.status === "countered") {
       finalFare = Math.round(Number(offer.customerCounterFare) || 0);
@@ -1049,6 +1237,27 @@ async function finalizeAssignmentFromOffer(db, params) {
       { merge: true }
     );
 
+    tx.update(vehicleRef, {
+      status: "in_ride",
+      activeRideId: offer.rideId,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const candRef = db.collection("ride_candidates").doc(
+      candidateDocId(offer.rideId, offer.driverId)
+    );
+    tx.set(
+      candRef,
+      {
+        rideId: offer.rideId,
+        driverId: offer.driverId,
+        status: "accepted",
+        updatedAt: FieldValue.serverTimestamp(),
+        closedReason: "driver_assigned",
+      },
+      { merge: true }
+    );
+
     return {
       alreadyAssigned: false,
       rideId: offer.rideId,
@@ -1060,12 +1269,163 @@ async function finalizeAssignmentFromOffer(db, params) {
     if (result.needsOfferCleanup) {
       await closeSiblingOffers(db, result.rideId, result.driverId, offerId);
     }
+    if (!result.alreadyAssigned && result.rideId) {
+      const offerSnap = await db.collection("ride_offers").doc(offerId).get();
+      const vehicleId = offerSnap.data()?.vehicleId;
+      if (vehicleId) {
+        await seedDriverLocationFromVehicle(db, result.rideId, vehicleId).catch((err) => {
+          console.warn("[seedDriverLocation]", err?.message || err);
+        });
+      }
+    }
     return result;
   });
 }
 
 /**
- * After assignment: expire other offers on the ride; withdraw driver's other open offers.
+ * Driver accepts the customer's initial estimated fare (direct assignment, no counter round-trip).
+ */
+async function acceptCustomerInitialFareAsDriver(db, params) {
+  const {
+    rideId,
+    driverUid,
+    vehicleId,
+    ownerId,
+    driverName,
+    vehiclePlate,
+  } = params;
+
+  if (!rideId || !driverUid || !vehicleId) throw err("invalid-argument", "MISSING_FIELDS");
+
+  if (await driverHasActiveRide(db, driverUid)) {
+    throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
+  }
+
+  const existingOfferId = `${rideId}_${driverUid}`;
+  const rideRef = db.collection("rides").doc(rideId);
+  const candRef = db.collection("ride_candidates").doc(candidateDocId(rideId, driverUid));
+  const offerRef = db.collection("ride_offers").doc(existingOfferId);
+  const partnerRef = db.collection("partners").doc(driverUid);
+  const vehicleRef = db.collection("vehicles").doc(vehicleId);
+
+  const result = await db.runTransaction(async (tx) => {
+    const [rideSnap, candSnap, offerSnap, partnerSnap, vehicleSnap] = await Promise.all([
+      tx.get(rideRef),
+      tx.get(candRef),
+      tx.get(offerRef),
+      tx.get(partnerRef),
+      tx.get(vehicleRef),
+    ]);
+    if (!rideSnap.exists) throw err("not-found", "RIDE_NOT_FOUND");
+    const ride = rideSnap.data() || {};
+    if (ride.status !== "searching_driver") throw err("failed-precondition", "RIDE_NOT_AVAILABLE");
+    if (!candSnap.exists || candSnap.data()?.status !== "invited") {
+      throw err("permission-denied", "NOT_A_CANDIDATE");
+    }
+
+    const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
+    if (partner.accountStatus === "blocked") throw err("permission-denied", "DRIVER_BLOCKED");
+    if (partner.accountStatus === "suspended") throw err("permission-denied", "DRIVER_SUSPENDED");
+    if (partner.activeRideId) throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
+    if (!vehicleSnap.exists || vehicleSnap.data()?.driverId !== driverUid) {
+      throw err("permission-denied", "VEHICLE_NOT_LINKED");
+    }
+    if (vehicleSnap.data()?.activeRideId) throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
+
+    const prev = offerSnap.exists ? offerSnap.data() : null;
+    if (prev?.status === "accepted") {
+      return {
+        alreadyAssigned: true,
+        rideId,
+        driverId: driverUid,
+        fare: Math.round(Number(prev.fare) || Number(ride.estimatedFare) || 0),
+      };
+    }
+
+    const finalFare = Math.round(Number(ride.estimatedFare ?? ride.farePkr ?? 0));
+    if (!Number.isFinite(finalFare) || finalFare <= 0) {
+      throw err("failed-precondition", "INVALID_FARE");
+    }
+
+    tx.update(vehicleRef, {
+      status: "in_ride",
+      activeRideId: rideId,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    tx.update(candRef, {
+      status: "accepted",
+      updatedAt: FieldValue.serverTimestamp(),
+      closedReason: "driver_assigned",
+    });
+
+    tx.update(rideRef, {
+      status: "accepted",
+      driverId: driverUid,
+      vehicleId,
+      ownerId: ownerId || null,
+      driverName: driverName || "SwiftGo Driver",
+      vehiclePlate: vehiclePlate || "—",
+      farePkr: finalFare,
+      estimatedFare: finalFare,
+      driverBidFare: finalFare,
+      assignedAt: FieldValue.serverTimestamp(),
+    });
+
+    const offerPayload = {
+      rideId,
+      driverId: driverUid,
+      customerId: ride.userId,
+      fare: finalFare,
+      status: "accepted",
+      vehicleId,
+      ownerId: ownerId || null,
+      driverName: driverName || "SwiftGo Driver",
+      vehiclePlate: vehiclePlate || "—",
+      acceptedAtCustomerFare: true,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (!offerSnap.exists) {
+      offerPayload.createdAt = FieldValue.serverTimestamp();
+    }
+    tx.set(offerRef, offerPayload, { merge: true });
+
+    tx.set(
+      partnerRef,
+      { activeRideId: rideId, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
+    return {
+      alreadyAssigned: false,
+      rideId,
+      driverId: driverUid,
+      fare: finalFare,
+      needsOfferCleanup: true,
+    };
+  });
+
+  if (result.needsOfferCleanup) {
+    await closeSiblingOffers(db, result.rideId, driverUid, existingOfferId);
+  }
+  if (!result.alreadyAssigned) {
+    await seedDriverLocationFromVehicle(db, result.rideId, vehicleId).catch((err) => {
+      console.warn("[seedDriverLocation]", err?.message || err);
+    });
+  }
+
+  return {
+    ok: true,
+    rideId: result.rideId,
+    driverId: result.driverId,
+    fare: result.fare,
+    assigned: true,
+    alreadyAssigned: Boolean(result.alreadyAssigned),
+  };
+}
+
+/**
+ * After assignment: expire other offers on the ride; withdraw driver's other open offers
+ * and pending ride_candidates invitations on other rides.
  */
 async function closeSiblingOffers(db, rideId, driverId, winningOfferId) {
   const batch = db.batch();
@@ -1095,6 +1455,98 @@ async function closeSiblingOffers(db, rideId, driverId, winningOfferId) {
     });
   }
   await batch.commit();
+  await closeDriverOtherCandidates(db, driverId, rideId);
+}
+
+/**
+ * Driver may serve one ride at a time — withdraw invited candidates on other rides.
+ */
+async function closeDriverOtherCandidates(db, driverId, winningRideId) {
+  const snap = await db
+    .collection("ride_candidates")
+    .where("driverId", "==", driverId)
+    .where("status", "==", "invited")
+    .get();
+  if (snap.empty) return { withdrawn: 0, accepted: 0 };
+
+  const batch = db.batch();
+  let withdrawn = 0;
+  let accepted = 0;
+  for (const doc of snap.docs) {
+    const cand = doc.data() || {};
+    const candRideId = cand.rideId || String(doc.id).split("_")[0];
+    if (candRideId === winningRideId) {
+      batch.update(doc.ref, {
+        status: "accepted",
+        updatedAt: FieldValue.serverTimestamp(),
+        closedReason: "driver_assigned",
+      });
+      accepted += 1;
+    } else {
+      batch.update(doc.ref, {
+        status: "withdrawn",
+        updatedAt: FieldValue.serverTimestamp(),
+        closedReason: "driver_assigned_elsewhere",
+      });
+      withdrawn += 1;
+    }
+  }
+  await batch.commit();
+  return { withdrawn, accepted };
+}
+
+const NEARBY_REMATCH_RIDE_LIMIT = 40;
+const NEARBY_REMATCH_KM = 3;
+
+/**
+ * When a driver becomes matchable (online + location), invite them to nearby searching rides.
+ */
+async function rematchNearbySearchingRidesForVehicle(db, vehicle) {
+  const driverId = vehicle?.driverId;
+  const lat = Number(vehicle?.location?.lat);
+  const lng = Number(vehicle?.location?.lng);
+  if (!driverId || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { rematched: 0, skipped: "no_location" };
+  }
+  if (vehicle.status !== "online" || vehicle.activeRideId) {
+    return { rematched: 0, skipped: "not_available" };
+  }
+
+  const partnerSnap = await db.collection("partners").doc(driverId).get();
+  const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
+  if (
+    partner.accountStatus === "blocked" ||
+    partner.accountStatus === "suspended" ||
+    partner.activeRideId
+  ) {
+    return { rematched: 0, skipped: "partner_unavailable" };
+  }
+
+  const snap = await db
+    .collection("rides")
+    .where("status", "==", "searching_driver")
+    .orderBy("createdAt", "desc")
+    .limit(NEARBY_REMATCH_RIDE_LIMIT)
+    .get();
+
+  let rematched = 0;
+  for (const doc of snap.docs) {
+    const ride = doc.data() || {};
+    const pickup = {
+      lat: Number(ride.pickupLocation?.lat),
+      lng: Number(ride.pickupLocation?.lng),
+    };
+    if (!Number.isFinite(pickup.lat) || !Number.isFinite(pickup.lng)) continue;
+    const km = haversineKm(pickup, { lat, lng });
+    if (km == null || km > NEARBY_REMATCH_KM) continue;
+    try {
+      await matchRideCandidates(db, { rideId: doc.id, pickup });
+      rematched += 1;
+    } catch (err) {
+      console.warn("[rematchOnDriverOnline]", doc.id, err?.message || err);
+    }
+  }
+  return { rematched };
 }
 
 module.exports = {
@@ -1106,6 +1558,7 @@ module.exports = {
   createCustomerBooking,
   releaseCustomerBookingSlot,
   cancelCustomerBooking,
+  previewCancellationFare,
   expireSearchingBooking,
   expireDueSearchingBookings,
   closeCandidatesAndOffersForRide,
@@ -1116,7 +1569,9 @@ module.exports = {
   counterRideOffer,
   rejectRideOffer,
   finalizeAssignmentFromOffer,
+  acceptCustomerInitialFareAsDriver,
   closeSiblingOffers,
+  rematchNearbySearchingRidesForVehicle,
   SEARCH_EXPIRE_MS,
   SEARCH_EXPIRED_STATUS,
 };

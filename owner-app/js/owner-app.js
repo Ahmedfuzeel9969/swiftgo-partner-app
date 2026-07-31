@@ -35,6 +35,7 @@ import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
 import { initI18n, t } from "./i18n.js";
 import { wireLegalLinks, requestAccountDeletionClient } from "./trust.js";
+import { initRateDetailsModal, openRateDetails } from "./rate-details-modal.js";
 import { isNativeShell, getNativePlatform, getNetworkStatus } from "./native-shell.js";
 
 window.__swiftgoNative = { isNativeShell, getNativePlatform, getNetworkStatus };
@@ -2181,6 +2182,10 @@ function boot() {
   els.vehicleModalClose?.addEventListener("click", closeVehicleModal);
   els.vehicleForm?.addEventListener("submit", submitVehicle);
   wirePartnerNavigation();
+  initRateDetailsModal();
+  document.getElementById("openRateDetailsBtn")?.addEventListener("click", () => {
+    void openRateDetails({ mode: "all", title: t("navRates") });
+  });
   els.sidebarLogoutBtn?.addEventListener("click", logoutPartner);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !els.vehicleModal?.hidden) closeVehicleModal();

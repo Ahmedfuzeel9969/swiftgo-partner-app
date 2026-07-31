@@ -5,6 +5,7 @@
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getFirebase } from "./firebase.js";
+import { markDriverOfferSent } from "./dispatch-latency.js";
 
 function call(name, data) {
   const { ready, functions } = getFirebase();
@@ -32,6 +33,7 @@ export async function submitDriverOffer(params) {
   const ownerId = vehicleSnap.data().ownerId || linkedVehicle.ownerId;
   const bid = Math.max(0, Math.round(Number(bidFare) || 0));
 
+  markDriverOfferSent(rideId, { bidFare: bid });
   const result = await call("submitRideOffer", {
     rideId,
     fare: bid,
@@ -47,6 +49,42 @@ export async function submitDriverOffer(params) {
     offerId: result?.offerId,
     pending: true,
     assigned: false,
+  };
+}
+
+/**
+ * Accept customer's initial estimated fare (direct assignment).
+ */
+export async function acceptCustomerInitialFare(params) {
+  const { rideId, driver, linkedVehicle } = params;
+  if (!rideId || !driver?.uid || !linkedVehicle?.id) {
+    throw new Error("VEHICLE_NOT_LINKED");
+  }
+
+  const { db } = getFirebase();
+  if (!db) throw new Error("FIREBASE_UNAVAILABLE");
+
+  const vehicleSnap = await getDoc(doc(db, "vehicles", linkedVehicle.id));
+  if (!vehicleSnap.exists() || vehicleSnap.data().driverId !== driver.uid) {
+    throw new Error("VEHICLE_NOT_LINKED");
+  }
+  const plate = vehicleSnap.data().plate || linkedVehicle.plate || "—";
+  const ownerId = vehicleSnap.data().ownerId || linkedVehicle.ownerId;
+
+  const result = await call("acceptCustomerInitialFare", {
+    rideId,
+    vehicleId: vehicleSnap.id,
+    ownerId,
+    driverName: driver.displayName || "SwiftGo Driver",
+    vehiclePlate: plate,
+  });
+
+  return {
+    rideId,
+    bidFare: result?.fare,
+    collection: "rides",
+    driverId: result?.driverId,
+    assigned: true,
   };
 }
 

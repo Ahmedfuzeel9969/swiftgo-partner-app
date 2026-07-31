@@ -18,6 +18,9 @@ import { initRideRequestDetail } from "./RideRequestDetail.js";
  *   onRideAccepted: (result: { rideId: string, bidFare: number }) => void,
  *   onToast: (msg: string) => void,
  *   getIsOnline?: () => boolean,
+ *   getHasActiveRide?: () => boolean,
+ *   getOfferForRide?: (rideId: string) => object | null,
+ *   getCounterRideIds?: () => string[],
  * }} config
  */
 export function initRideRadarFlow(config) {
@@ -31,6 +34,8 @@ export function initRideRadarFlow(config) {
   const listUi = initAvailableRidesList(config.listHost, {
     getDriverUid: config.getDriverUid,
     getDriverPosition: config.getDriverPosition,
+    getHasActiveRide: config.getHasActiveRide,
+    getCounterRideIds: config.getCounterRideIds,
     onSelectRide: (ride) => {
       listUi.hide({ keepSubscription: true });
       detailUi.show(ride);
@@ -43,6 +48,7 @@ export function initRideRadarFlow(config) {
     getDriver: config.getDriver,
     getLinkedVehicle: config.getLinkedVehicle,
     getDriverPosition: config.getDriverPosition,
+    getOfferForRide: config.getOfferForRide,
     onBack: () => {
       detailUi.hide();
       listUi.show({ resume: true });
@@ -59,7 +65,24 @@ export function initRideRadarFlow(config) {
     onError: (msg) => onToast(msg),
   });
 
+  function openRideDetail(ride) {
+    if (!ride?.id) return;
+    root.hidden = false;
+    root.setAttribute("aria-hidden", "false");
+    root.dataset.radarScreen = "detail";
+    document.getElementById("partnerShell")?.classList.add("has-ride-radar");
+    requestAnimationFrame(() => {
+      root.classList.add("is-open");
+      listUi.hide({ keepSubscription: true });
+      detailUi.show(ride);
+    });
+  }
+
   function openList() {
+    if (config.getHasActiveRide?.()) {
+      onToast("آپ پہلے سے ایک سواری پر ہیں — نئی رائٹ قبول نہیں کر سکتے");
+      return;
+    }
     root.hidden = false;
     root.setAttribute("aria-hidden", "false");
     root.dataset.radarScreen = "list";
@@ -86,6 +109,10 @@ export function initRideRadarFlow(config) {
       onToast("پہلے لاگ اِن کریں");
       return;
     }
+    if (config.getHasActiveRide?.()) {
+      onToast("آپ پہلے سے ایک سواری پر ہیں");
+      return;
+    }
     if (config.getIsOnline && !config.getIsOnline()) {
       onToast("پہلے آن لائن ہوں");
       return;
@@ -99,7 +126,10 @@ export function initRideRadarFlow(config) {
 
   return {
     open: openList,
+    openRideDetail,
     close: closeAll,
+    refreshList: () => listUi.refresh?.(),
+    syncDetailFromInbox: () => detailUi.syncFromInbox?.(),
     destroy: () => {
       listUi.destroy();
       detailUi.destroy();

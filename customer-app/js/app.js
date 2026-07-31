@@ -41,10 +41,12 @@ import {
   refreshUtilityDrawerLabels,
   isUtilityDrawerOpen,
 } from "./utility-drawer.js";
+import { initRateDetailsModal, openRateDetails } from "./rate-details-modal.js";
 import { getRouteInfo, initRoutingUi } from "./routing.js";
 import { initFareCalculation } from "./fare.js";
-import { initRideFlow, startRideRequest } from "./ride-flow.js";
-import { applyReducedMotionClass, initKeyboardInset } from "./a11y.js";
+import { initRideFlow, startRideRequest, resumeActiveRideWatch } from "./ride-flow.js";
+import { initDriverTrack } from "./driver-track.js";
+import { applyReducedMotionClass, initKeyboardInset, setOverlayInert } from "./a11y.js";
 import {
   wireLegalLinks,
   complaintWhatsAppHref,
@@ -85,7 +87,7 @@ function openDrawer() {
   closeUtilityDrawer();
   drawerOpen = true;
   els.sidebar.classList.add("is-open");
-  els.sidebar.setAttribute("aria-hidden", "false");
+  setOverlayInert(els.sidebar, false);
   els.overlay.hidden = false;
   requestAnimationFrame(() => els.overlay.classList.add("is-visible"));
   els.menuBtn.setAttribute("aria-label", t("closeMenu"));
@@ -96,7 +98,7 @@ function openDrawer() {
 function closeDrawer() {
   drawerOpen = false;
   els.sidebar.classList.remove("is-open");
-  els.sidebar.setAttribute("aria-hidden", "true");
+  setOverlayInert(els.sidebar, true);
   els.menuBtn.setAttribute("aria-label", t("openMenu"));
   els.menuBtn.setAttribute("aria-expanded", "false");
   document.body.classList.remove("drawer-open");
@@ -264,6 +266,7 @@ function bindUserData() {
       updateProfileUi(user, profile);
     });
     startCustomerRideHistory(user.uid);
+    void resumeActiveRideWatch(user.uid);
   });
 }
 
@@ -285,6 +288,11 @@ function bindEvents() {
 
   document.querySelectorAll(".nav-item").forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (btn.dataset.action === "fare-rates") {
+        closeDrawer();
+        void openRateDetails({ mode: "all" });
+        return;
+      }
       const route = btn.dataset.route;
       if (route) navigate(route);
     });
@@ -403,6 +411,7 @@ async function boot() {
   applyReducedMotionClass();
   initKeyboardInset();
   initI18n();
+  initRateDetailsModal();
   wireLegalLinks();
   wireTrustActions();
   initUtilityDrawer({
@@ -414,8 +423,13 @@ async function boot() {
   initRideFlow({
     onToast: showToast,
     onReset: resetSheetForNewRide,
+    onGoHome: () => {
+      const home = document.querySelector('.screen[data-screen="home"]');
+      if (home && !home.classList.contains("is-active")) navigate("home");
+    },
   });
-  initRideHistory();
+  initDriverTrack();
+  initRideHistory({ onToast: showToast });
   initLocationModule({
     ensureMap,
     navigateHome: () => navigate("home"),

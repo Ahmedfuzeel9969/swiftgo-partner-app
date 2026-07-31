@@ -1,9 +1,9 @@
 {
   "suite": "booking-false-success",
-  "generatedAt": "2026-07-30T16:06:49.711Z",
+  "generatedAt": "2026-07-31T09:17:11.778Z",
   "summary": {
-    "pass": 13,
-    "fail": 0,
+    "pass": 11,
+    "fail": 2,
     "blocked": 1,
     "total": 14
   },
@@ -38,7 +38,7 @@
     },
     {
       "name": "S05-shared-non-terminal-status-helper",
-      "status": "PASS",
+      "status": "FAIL",
       "detail": "Customer gate + history must share ride-status.js non-terminal list",
       "expected": "",
       "actual": ""
@@ -52,7 +52,7 @@
     },
     {
       "name": "S07-gate-counts-live-rides-not-inflated-slots",
-      "status": "PASS",
+      "status": "FAIL",
       "detail": "evaluateCustomerBookingGate must use active.length after reconcile",
       "expected": "",
       "actual": ""

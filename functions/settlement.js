@@ -268,9 +268,180 @@ async function settleRide(db, params) {
   });
 }
 
+function partialLedgerIdFor(rideId) {
+  return `settle_partial_${rideId}`;
+}
+
+/**
+ * Post partial fare ledger when customer cancels in_progress ride.
+ * Idempotent — safe to retry if ride already carries settlementId.
+ *
+ * @param {FirebaseFirestore.Firestore} db
+ * @param {{
+ *   rideId: string,
+ *   customerUid: string,
+ *   driverId: string,
+ *   cancellationFare: number,
+ *   traveledDistanceKm: number,
+ *   cancelledFromStatus?: string,
+ * }} params
+ */
+async function settlePartialCancellation(db, params) {
+  const rideId = String(params.rideId || "").trim();
+  const customerUid = String(params.customerUid || "").trim();
+  const driverId = String(params.driverId || "").trim();
+  const grossFare = Math.round(Number(params.cancellationFare) || 0);
+  const traveledDistanceKm = Math.max(0, Number(params.traveledDistanceKm) || 0);
+
+  if (!rideId || !customerUid || !driverId) {
+    const err = new Error("INVALID_ARGUMENT");
+    err.code = "invalid-argument";
+    throw err;
+  }
+  if (!Number.isFinite(grossFare) || grossFare < 0) {
+    const err = new Error("INVALID_FARE");
+    err.code = "failed-precondition";
+    throw err;
+  }
+
+  const ledgerId = partialLedgerIdFor(rideId);
+  const rideRef = db.collection("rides").doc(rideId);
+  const ledgerRef = db.collection("ledger_transactions").doc(ledgerId);
+  const pricingRef = db.collection("settings").doc("pricing");
+  const partnerRef = db.collection("partners").doc(driverId);
+  const slotRef = db.collection("booking_slots").doc(customerUid);
+  const auditRef = db.collection("audit_logs").doc(`partial_cancel_${ledgerId}_${Date.now()}`);
+
+  return db.runTransaction(async (tx) => {
+    const [rideSnap, ledgerSnap, pricingSnap, partnerSnap, slotSnap] = await Promise.all([
+      tx.get(rideRef),
+      tx.get(ledgerRef),
+      tx.get(pricingRef),
+      tx.get(partnerRef),
+      tx.get(slotRef),
+    ]);
+
+    if (!rideSnap.exists) {
+      const err = new Error("RIDE_NOT_FOUND");
+      err.code = "not-found";
+      throw err;
+    }
+
+    const ride = rideSnap.data() || {};
+    if (ride.status !== "cancelled_by_customer") {
+      const err = new Error("INVALID_STATUS");
+      err.code = "failed-precondition";
+      throw err;
+    }
+    if (String(ride.userId || "") !== customerUid) {
+      const err = new Error("NOT_YOUR_BOOKING");
+      err.code = "permission-denied";
+      throw err;
+    }
+
+    if (ledgerSnap.exists || ride.settlementId === ledgerId) {
+      const ledger = ledgerSnap.exists ? ledgerSnap.data() || {} : {};
+      return {
+        alreadySettled: true,
+        rideId,
+        settlementId: ledgerId,
+        grossFare: ledger.grossFare ?? grossFare,
+        commissionAmount: ledger.commissionAmount,
+        driverEarnings: ledger.driverEarnings,
+        traveledDistanceKm,
+      };
+    }
+
+    const pricing = pricingSnap.exists ? pricingSnap.data() || {} : {};
+    const commissionPercent = resolveCommissionPercent(pricing, ride);
+    const { commissionAmount, driverEarnings } = calculateSplit(grossFare, commissionPercent);
+
+    const ledgerDoc = {
+      rideId,
+      collectionName: "rides",
+      customerId: customerUid,
+      driverId,
+      ownerId: String(ride.ownerId || ""),
+      grossFare,
+      commissionAmount,
+      driverEarnings,
+      commissionPercent,
+      traveledDistanceKm,
+      type: "partial_cancellation_settlement",
+      idempotencyKey: ledgerId,
+      trustedCreator: "cancelCustomerBooking",
+      status: "posted",
+      createdAt: FieldValue.serverTimestamp(),
+    };
+
+    tx.set(ledgerRef, ledgerDoc);
+    tx.update(rideRef, {
+      farePkr: grossFare,
+      cancellationFare: grossFare,
+      traveledDistanceKm,
+      commissionAmount,
+      driverEarnings,
+      settlementId: ledgerId,
+      settledAt: FieldValue.serverTimestamp(),
+      commissionPercent,
+      partialCancellation: true,
+    });
+
+    if (partnerSnap.exists && grossFare > 0) {
+      const partner = partnerSnap.data() || {};
+      const partnerUpdate = {
+        totalEarnings: FieldValue.increment(driverEarnings),
+        totalRidesCompleted: FieldValue.increment(1),
+        walletBalance: FieldValue.increment(-commissionAmount),
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      if (partner.activeRideId === rideId) {
+        partnerUpdate.activeRideId = FieldValue.delete();
+      }
+      tx.set(partnerRef, partnerUpdate, { merge: true });
+    }
+
+    const count = slotSnap?.exists ? Math.max(0, Number(slotSnap.data()?.count || 0)) : 0;
+    tx.set(
+      slotRef,
+      { count: Math.max(0, count - 1), updatedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
+    tx.set(auditRef, {
+      action: "partial_cancellation_settlement",
+      rideId,
+      settlementId: ledgerId,
+      actorUid: customerUid,
+      driverId,
+      customerId: customerUid,
+      grossFare,
+      traveledDistanceKm,
+      commissionAmount,
+      driverEarnings,
+      cancelledFromStatus: params.cancelledFromStatus || ride.cancelledFromStatus || "in_progress",
+      createdAt: FieldValue.serverTimestamp(),
+      trustedCreator: "cancelCustomerBooking",
+    });
+
+    return {
+      alreadySettled: false,
+      rideId,
+      settlementId: ledgerId,
+      grossFare,
+      commissionAmount,
+      driverEarnings,
+      traveledDistanceKm,
+      commissionPercent,
+    };
+  });
+}
+
 module.exports = {
   settleRide,
+  settlePartialCancellation,
   ledgerIdFor,
+  partialLedgerIdFor,
   resolveGrossFare,
   calculateSplit,
   resolveCommissionPercent,

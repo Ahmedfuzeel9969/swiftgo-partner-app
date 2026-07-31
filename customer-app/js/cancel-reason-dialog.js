@@ -1,7 +1,7 @@
 /** Cancel-ride reason selector modal for searching bookings. */
 
 import { t, applyTranslations } from "./i18n.js";
-import { trapFocus } from "./a11y.js";
+import { trapFocus, setOverlayInert } from "./a11y.js";
 
 /** @type {null | (() => void)} */
 let releaseTrap = null;
@@ -13,16 +13,28 @@ const REASONS = [
   { key: "other", ur: "دیگر", en: "Other" },
 ];
 
+function formatFarePkr(amount) {
+  return `Rs. ${Math.round(Number(amount) || 0).toLocaleString("en-PK")}`;
+}
+
 /**
+ * @param {{
+ *   partialFareApplies?: boolean,
+ *   traveledDistanceKm?: number,
+ *   baseFare?: number,
+ *   perKmRate?: number,
+ *   cancellationFare?: number,
+ * } | null} [farePreview]
  * @returns {Promise<null | { cancelReasonKey: string, cancelReason: string }>}
  */
-export function askCancelRideReason() {
+export function askCancelRideReason(farePreview = null) {
   const root = document.getElementById("cancelRideDialog");
   const panel = root?.querySelector(".confirm-dialog__panel");
   const list = document.getElementById("cancelReasonList");
   const submitBtn = document.getElementById("cancelRideSubmitBtn");
   const dismissBtn = document.getElementById("cancelRideDismissBtn");
   const backdrop = document.getElementById("cancelRideBackdrop");
+  const farePreviewEl = document.getElementById("cancelRideFarePreview");
 
   if (!root || !panel || !list || !submitBtn || !dismissBtn) {
     const picked = window.prompt(
@@ -36,6 +48,21 @@ export function askCancelRideReason() {
   }
 
   applyTranslations(root);
+  if (farePreviewEl) {
+    if (farePreview?.partialFareApplies || Number(farePreview?.cancellationFare) > 0) {
+      const traveled = Number(farePreview.traveledDistanceKm) || 0;
+      const total = Number(farePreview.cancellationFare) || 0;
+      const base = Number(farePreview.baseFare) || 0;
+      const isEn = document.documentElement.lang === "en";
+      farePreviewEl.hidden = false;
+      farePreviewEl.textContent = isEn
+        ? `You will be charged ${formatFarePkr(total)} (base ${formatFarePkr(base)} + ${traveled.toFixed(1)} km traveled).`
+        : `آپ سے ${formatFarePkr(total)} وصول ہوں گے (بیس ${formatFarePkr(base)} + ${traveled.toFixed(1)} km سفر)`;
+    } else {
+      farePreviewEl.hidden = true;
+      farePreviewEl.textContent = "";
+    }
+  }
   list.replaceChildren();
   let selectedKey = "taking_too_long";
 
@@ -62,7 +89,7 @@ export function askCancelRideReason() {
       releaseTrap = null;
       root.classList.remove("is-open");
       root.hidden = true;
-      root.setAttribute("aria-hidden", "true");
+      setOverlayInert(root, true);
       submitBtn.removeEventListener("click", onSubmit);
       dismissBtn.removeEventListener("click", onDismiss);
       backdrop?.removeEventListener("click", onDismiss);
@@ -78,7 +105,7 @@ export function askCancelRideReason() {
     const onDismiss = () => finish(null);
 
     root.hidden = false;
-    root.setAttribute("aria-hidden", "false");
+    setOverlayInert(root, false);
     requestAnimationFrame(() => root.classList.add("is-open"));
     submitBtn.addEventListener("click", onSubmit);
     dismissBtn.addEventListener("click", onDismiss);
@@ -115,7 +142,7 @@ export function askNoDriverAvailable() {
       releaseTrap = null;
       root.classList.remove("is-open");
       root.hidden = true;
-      root.setAttribute("aria-hidden", "true");
+      setOverlayInert(root, true);
       retryBtn.removeEventListener("click", onRetry);
       dismissBtn?.removeEventListener("click", onDismiss);
       backdrop?.removeEventListener("click", onDismiss);
@@ -125,7 +152,7 @@ export function askNoDriverAvailable() {
     const onDismiss = () => finish("dismiss");
 
     root.hidden = false;
-    root.setAttribute("aria-hidden", "false");
+    setOverlayInert(root, false);
     requestAnimationFrame(() => root.classList.add("is-open"));
     retryBtn.addEventListener("click", onRetry);
     dismissBtn?.addEventListener("click", onDismiss);

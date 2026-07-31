@@ -54,6 +54,11 @@ export async function cancelCustomerBookingClient(rideId, { cancelReason, cancel
   });
 }
 
+/** Preview base + traveled-km fare before cancelling in-progress ride. */
+export async function previewCancellationFareClient(rideId) {
+  return call("previewCancellationFare", { rideId });
+}
+
 /** Cancel every searching booking for the signed-in customer. */
 export async function cancelAllSearchingBookingsClient() {
   return call("cancelAllSearchingBookings", {});
