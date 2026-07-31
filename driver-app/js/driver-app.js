@@ -270,6 +270,11 @@ let rideRadarUi = null;
 let driverOfferInbox = null;
 let radarFeedUnsub = () => {};
 let availableRadarCount = 0;
+let radarListenerMeta = {
+  invitedCandidateCount: 0,
+  rideFetchErrors: 0,
+  listenerError: "",
+};
 let radarFeedPrimed = false;
 let lastRadarFeedCount = 0;
 /** @type {{ lat: number, lng: number } | null} */
@@ -337,6 +342,18 @@ function paintDriverAvailabilityDiag() {
     msg = "میچنگ کے لیے لوکیشن سنک ہو رہی ہے…";
   } else if (Date.now() - lastVehicleLocationWrite > 2 * 60 * 1000) {
     msg = "سرور پر لوکیشن سنک رک گئی — دوبارہ آن لائن کریں";
+  } else if (radarListenerMeta.listenerError === "permission_denied") {
+    msg = "دعوتیں نہیں پڑھ سکتیں — Firestore اجازت مسترد";
+  } else if (radarListenerMeta.listenerError === "missing_index") {
+    msg = "دعوتیں نہیں پڑھ سکتیں — Firestore index غائب";
+  } else if (radarListenerMeta.listenerError === "failed_precondition") {
+    msg = "دعوتیں نہیں پڑھ سکتیں — query precondition ناکام";
+  } else if (
+    radarListenerMeta.invitedCandidateCount > 0 &&
+    availableRadarCount === 0 &&
+    radarListenerMeta.rideFetchErrors > 0
+  ) {
+    msg = `دعوت ${radarListenerMeta.invitedCandidateCount} ملی مگر سواری پڑھ نہیں سکی`;
   } else if (matchingReady) {
     msg = "میچنگ تیار — قریبی درخواستیں موصول ہو سکتی ہیں";
   } else {
@@ -1217,13 +1234,8 @@ async function verifyVehiclePin(event) {
       driverId: driver.uid,
       status: "online",
     };
-    // Keep local online + location fresh so matching can see this driver.
-    setOnlineUi(true);
-    lastVehicleLocationWrite = 0;
-    lastLocationGridCell = null;
-    lastMatchGeoCell = null;
-    void markVehicleOnlineInFirestore();
-    startLocationWatch();
+    // GPS first, then online + geoCell so matching sees this driver immediately.
+    await activateDriverOnlineMode();
     setPinMessage("گاڑی کامیابی سے منسلک ہو گئی!", true);
     driverToast("گاڑی منسلک — آپ آن لائن ہیں");
     els.pinForm?.reset();
@@ -1741,6 +1753,12 @@ function startRadarBackgroundFeed() {
   radarFeedUnsub = subscribePendingRadarRides(
     uid,
     (state) => {
+      radarListenerMeta = {
+        invitedCandidateCount: Number(state?.invitedCandidateCount || 0),
+        rideFetchErrors: Number(state?.rideFetchErrors || 0),
+        listenerError: String(state?.listenerError || ""),
+      };
+      paintDriverAvailabilityDiag();
       const count = state?.rides?.length ?? 0;
       const dropped = Number(state?.rideFetchErrors || 0);
       if (radarFeedPrimed && count > lastRadarFeedCount) {
@@ -2084,11 +2102,53 @@ async function markVehicleOfflineInFirestore() {
 }
 
 /** Write online + geo index immediately — don't wait for first GPS callback. */
+/** One-shot GPS read before going online so matching gets geoCell on first write. */
+async function awaitQuickGpsFix(timeoutMs = 10000) {
+  if (!navigator.geolocation) return null;
+  if (isValidCoord(lastDriverPosition?.lat, lastDriverPosition?.lng)) {
+    return lastDriverPosition;
+  }
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: timeoutMs,
+      });
+    });
+    updateDriverLocation(pos);
+    return lastDriverPosition;
+  } catch {
+    return null;
+  }
+}
+
+async function activateDriverOnlineMode() {
+  setOnlineUi(true);
+  lastVehicleLocationWrite = 0;
+  lastLocationGridCell = null;
+  lastMatchGeoCell = null;
+  lastLocationSyncError = "";
+  transientGpsFailCount = 0;
+  startLocationWatch();
+  await markVehicleOnlineInFirestore();
+  syncRideRadarFab();
+  hideIncomingRide();
+  paintDriverAvailabilityDiag();
+}
+
 async function markVehicleOnlineInFirestore() {
   if (!linkedVehicle?.id || !currentDriver?.uid || !online) return;
 
-  const lat = Number(lastDriverPosition?.lat ?? linkedVehicle.location?.lat);
-  const lng = Number(lastDriverPosition?.lng ?? linkedVehicle.location?.lng);
+  let lat = Number(lastDriverPosition?.lat ?? linkedVehicle.location?.lat);
+  let lng = Number(lastDriverPosition?.lng ?? linkedVehicle.location?.lng);
+  if (!isValidCoord(lat, lng)) {
+    const fix = await awaitQuickGpsFix();
+    if (fix) {
+      lat = fix.lat;
+      lng = fix.lng;
+    }
+  }
 
   const payload = {
     status: activeExecutionRide?.id ? "in_ride" : "online",
@@ -2322,16 +2382,7 @@ function toggleDriverStatus() {
     return;
   }
 
-  setOnlineUi(true);
-  lastVehicleLocationWrite = 0;
-  lastLocationGridCell = null;
-  lastMatchGeoCell = null;
-  lastLocationSyncError = "";
-  transientGpsFailCount = 0;
-  void markVehicleOnlineInFirestore();
-  startLocationWatch();
-  hideIncomingRide();
-  paintDriverAvailabilityDiag();
+  void activateDriverOnlineMode();
 }
 
 function setRequestButtonsBusy(busy) {

@@ -240,7 +240,7 @@ async function rematchWhileSearching(rideId) {
   if (String(activeRide?.status || "searching_driver") !== "searching_driver") return;
   try {
     const result = await matchCandidatesForRide(rideId);
-    const count = Number(result?.candidates?.length ?? result?.candidateCount ?? 0);
+    const count = Number(result?.candidateCount ?? result?.candidates?.length ?? 0);
     if (count > 0) {
       // Soft signal only — offers UI already watches Firestore.
       console.info("[SwiftGo] rematch invited", count);

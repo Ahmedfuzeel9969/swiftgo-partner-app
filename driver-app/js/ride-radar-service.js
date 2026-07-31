@@ -1,8 +1,7 @@
 /**
- * Ride Radar — local-first pending ride feed.
- * Primary store: ride_requests (status pending).
- * Compatibility: rides (status searching_driver) from customer app.
- * Phase 2B: ride_requests is legacy archive (not writable); radar uses candidates only.
+ * Ride Radar — local-first pending ride feed via private ride_candidates invitations.
+ * Canonical path: ride_candidates (invited) → rides/{rideId} (searching_driver).
+ * ride_requests is legacy read-only archive — not queried here.
  */
 
 import {
@@ -179,9 +178,17 @@ function persistRadar(driverUid, rides) {
   writeLocalCache(driverUid, CACHE_NAMESPACE, CACHE_KEY, { rides });
 }
 
+function classifyListenerError(err) {
+  const code = String(err?.code || err?.message || "listen_error").toLowerCase();
+  if (code.includes("permission") || code.includes("denied")) return "permission_denied";
+  if (code.includes("index") || code.includes("failed-precondition")) return "missing_index";
+  if (code.includes("precondition")) return "failed_precondition";
+  return "listen_error";
+}
+
 /**
  * @param {string} driverUid
- * @param {(state: { rides: RadarRide[], source: "cache"|"remote", syncing: boolean, savedAt?: string, invitedCandidateCount?: number, rideFetchErrors?: number }) => void} onData
+ * @param {(state: { rides: RadarRide[], source: "cache"|"remote", syncing: boolean, savedAt?: string, invitedCandidateCount?: number, rideFetchErrors?: number, listenerError?: string }) => void} onData
  * @param {() => { lat: number, lng: number } | null} getDriverPosition
  * @param {() => boolean} [getIsBusy] — when true, no radar feed (driver on active ride)
  */
@@ -234,6 +241,7 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition,
       savedAt: new Date().toISOString(),
       invitedCandidateCount: meta.invitedCandidateCount ?? snapInvitedCount,
       rideFetchErrors: meta.rideFetchErrors ?? 0,
+      listenerError: meta.listenerError || "",
     });
   };
 
@@ -289,8 +297,13 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition,
       emit(false, { invitedCandidateCount: snapInvitedCount, rideFetchErrors });
     },
     (err) => {
-      console.warn("[SwiftGo Radar] Firestore listen retry... ride_candidates", err);
-      emit(false, { invitedCandidateCount: snapInvitedCount, rideFetchErrors: 1 });
+      const listenerError = classifyListenerError(err);
+      console.warn("[SwiftGo Radar] Firestore listen ride_candidates", listenerError, err);
+      emit(false, {
+        invitedCandidateCount: snapInvitedCount,
+        rideFetchErrors: 0,
+        listenerError,
+      });
     }
   );
 
