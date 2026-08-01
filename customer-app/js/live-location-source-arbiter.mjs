@@ -1,0 +1,175 @@
+/**
+ * Phase 3 — single customer location-source arbiter (P2P vs Firebase).
+ * One marker pipeline only; never move marker backward in observedAt.
+ */
+
+import { P2P_DIAG, P2P_FALLBACK_AFTER_MS } from "./p2p-protocol.mjs";
+
+/**
+ * @typedef {{
+ *   lat: number,
+ *   lng: number,
+ *   observedAt: number,
+ *   sequence?: number,
+ *   trackingSessionId?: string,
+ *   assignmentVersion?: number,
+ *   source: "p2p"|"firebase",
+ * }} ArbiterFix
+ */
+
+/**
+ * @param {{
+ *   nowMs?: () => number,
+ *   fallbackAfterMs?: number,
+ *   onDiag?: (code: string) => void,
+ *   onRender?: (fix: ArbiterFix, meta: object) => void,
+ * }} [opts]
+ */
+export function createLiveLocationSourceArbiter(opts = {}) {
+  const nowMs = typeof opts.nowMs === "function" ? opts.nowMs : () => Date.now();
+  const fallbackAfterMs = opts.fallbackAfterMs ?? P2P_FALLBACK_AFTER_MS;
+  const diag = opts.onDiag || (() => {});
+  const onRender = opts.onRender || (() => {});
+
+  let generation = 0;
+  let closed = false;
+  let lastRendered = null;
+  let lastP2pAt = 0;
+  let lastFirebase = null;
+  let preferred = "firebase";
+  let p2pHealthy = false;
+
+  const counters = {
+    p2pAccepted: 0,
+    firebaseAccepted: 0,
+    staleRejected: 0,
+    sourceSwitches: 0,
+  };
+
+  function bumpGeneration() {
+    generation += 1;
+    return generation;
+  }
+
+  function isCurrent(gen) {
+    return !closed && Number(gen) === generation;
+  }
+
+  function shouldReplace(prev, next) {
+    if (!prev) return true;
+    if (String(next.trackingSessionId || "") && String(prev.trackingSessionId || "")) {
+      if (next.trackingSessionId !== prev.trackingSessionId) {
+        // Newer session wins only if observedAt is not older.
+        return next.observedAt >= prev.observedAt - 2_000;
+      }
+    }
+    if (next.observedAt < prev.observedAt) return false;
+    if (next.observedAt === prev.observedAt) {
+      const ns = Number(next.sequence) || 0;
+      const ps = Number(prev.sequence) || 0;
+      if (ns && ps && ns <= ps && next.source === prev.source) return false;
+    }
+    return true;
+  }
+
+  function render(fix, reason) {
+    if (!shouldReplace(lastRendered, fix)) {
+      counters.staleRejected += 1;
+      return false;
+    }
+    const prevSource = lastRendered?.source;
+    lastRendered = fix;
+    if (prevSource && prevSource !== fix.source) {
+      counters.sourceSwitches += 1;
+      diag(fix.source === "p2p" ? P2P_DIAG.SOURCE_P2P : P2P_DIAG.SOURCE_FIREBASE);
+    }
+    onRender(fix, { reason, preferred, p2pHealthy, generation });
+    return true;
+  }
+
+  function ingestP2p(fix, gen) {
+    if (!isCurrent(gen) || closed || !fix) {
+      diag(P2P_DIAG.STALE_GENERATION);
+      return false;
+    }
+    lastP2pAt = nowMs();
+    p2pHealthy = true;
+    preferred = "p2p";
+    counters.p2pAccepted += 1;
+    return render({ ...fix, source: "p2p" }, "p2p");
+  }
+
+  function ingestFirebase(fix, gen) {
+    if (!isCurrent(gen) || closed || !fix) {
+      diag(P2P_DIAG.STALE_GENERATION);
+      return false;
+    }
+    lastFirebase = { ...fix, source: "firebase" };
+    counters.firebaseAccepted += 1;
+
+    const ageP2p = lastP2pAt ? nowMs() - lastP2pAt : Infinity;
+    if (p2pHealthy && preferred === "p2p" && ageP2p <= fallbackAfterMs) {
+      // Keep P2P preferred; accept Firebase only if strictly newer.
+      if (lastRendered && fix.observedAt <= lastRendered.observedAt) {
+        counters.staleRejected += 1;
+        return false;
+      }
+    }
+    if (!p2pHealthy || ageP2p > fallbackAfterMs) {
+      preferred = "firebase";
+      p2pHealthy = false;
+    }
+    return render(lastFirebase, "firebase");
+  }
+
+  function noteP2pUnhealthy() {
+    p2pHealthy = false;
+    preferred = "firebase";
+    // Accept newest Firebase without moving marker backward in time.
+    if (lastFirebase && shouldReplace(lastRendered, lastFirebase)) {
+      render(lastFirebase, "fallback");
+      diag(P2P_DIAG.FIREBASE_FALLBACK);
+    } else {
+      diag(P2P_DIAG.FIREBASE_FALLBACK);
+    }
+  }
+
+  function getState() {
+    return {
+      generation,
+      closed,
+      preferred,
+      p2pHealthy,
+      lastRendered,
+      lastP2pAt,
+      counters: { ...counters },
+    };
+  }
+
+  function reset() {
+    bumpGeneration();
+    lastRendered = null;
+    lastP2pAt = 0;
+    lastFirebase = null;
+    preferred = "firebase";
+    p2pHealthy = false;
+  }
+
+  function destroy() {
+    closed = true;
+    bumpGeneration();
+  }
+
+  return {
+    bumpGeneration,
+    getGeneration: () => generation,
+    isCurrent,
+    ingestP2p,
+    ingestFirebase,
+    noteP2pUnhealthy,
+    getState,
+    reset,
+    destroy,
+    getCounters: () => ({ ...counters }),
+  };
+}

@@ -45,6 +45,7 @@ import {
   VIEWER_DIAG,
 } from "./ride-view-lifecycle.mjs";
 import { createViewerPresenceClient } from "./viewer-presence-client.mjs";
+import { createCustomerP2pController } from "./p2p-ride-controller.mjs";
 import { getFirebase } from "./firebase.js";
 
 const SEARCH_TIMEOUT_MS = 180_000;
@@ -93,6 +94,8 @@ let searchStartedAtMs = 0;
 let rideViewLifecycle = null;
 /** @type {ReturnType<typeof createViewerPresenceClient> | null} */
 let presenceClient = null;
+/** @type {ReturnType<typeof createCustomerP2pController> | null} */
+let customerP2p = null;
 let detachBrowserLifecycle = () => {};
 let detachingFromLifecycle = false;
 
@@ -121,6 +124,27 @@ function clearLiveSubscriptions() {
   unsubscribeVehicle = () => {};
   watchedVehicleId = "";
   stopDriverTrack();
+  void customerP2p?.stop({ closeRemote: false });
+}
+
+function renderFromArbiterFix(fix) {
+  if (!activeRide || !fix) return;
+  const rideForTrack = {
+    ...activeRide,
+    driverLocation: {
+      ...(activeRide.driverLocation || {}),
+      lat: fix.lat,
+      lng: fix.lng,
+      observedAt: fix.observedAt,
+      accuracyM: fix.accuracyM ?? null,
+      headingDeg: fix.headingDeg ?? null,
+      speedMps: fix.speedMps ?? null,
+      trackingSessionId: fix.trackingSessionId,
+      sequence: fix.sequence,
+    },
+    driverLocationUpdatedAt: fix.observedAt,
+  };
+  updateDriverTrack(rideForTrack);
 }
 
 function ensureRideViewLifecycle() {
@@ -134,6 +158,17 @@ function ensureRideViewLifecycle() {
     onAttempt: () => rideViewLifecycle?.bumpHeartbeatAttempt(),
     onSuccess: () => rideViewLifecycle?.bumpHeartbeatSuccess(),
     onFailure: () => rideViewLifecycle?.bumpHeartbeatFailure(),
+  });
+
+  customerP2p = createCustomerP2pController({
+    onDiag: (code) => {
+      try {
+        console.info(JSON.stringify({ type: "p2p_diag", reason: String(code || "") }));
+      } catch {
+        /* ignore */
+      }
+    },
+    onRenderFix: (fix) => renderFromArbiterFix(fix),
   });
 
   rideViewLifecycle = createRideViewLifecycle({
@@ -153,6 +188,7 @@ function ensureRideViewLifecycle() {
       }
       if (!ride) {
         stopDriverTrack();
+        void customerP2p?.stop({ closeRemote: true });
         activeRide = null;
         clearActiveRideId();
         document.body.classList.remove("has-active-ride");
@@ -205,15 +241,21 @@ function ensureRideViewLifecycle() {
       const status = normalizeCustomerRideStatus(activeRide?.status);
       if (!TRACKABLE_VIEW_STATUSES.has(status)) return;
       presenceClient.start({ rideId, generation: gen });
+      customerP2p?.setVisible(true);
+      if (activeRide) {
+        customerP2p?.syncForRide(activeRide, { isVisible: true });
+      }
     },
     stopPresenceHeartbeat: () => {
       presenceClient?.stop();
+      customerP2p?.setVisible(false);
     },
   });
 
   detachBrowserLifecycle = attachBrowserLifecycleListeners(rideViewLifecycle);
   if (typeof window !== "undefined") {
     window.__SWIFTGO_VIEWER_COUNTERS__ = () => rideViewLifecycle?.getCounters?.() || null;
+    window.__SWIFTGO_P2P_COUNTERS__ = () => customerP2p?.getCounters?.() || null;
   }
   return rideViewLifecycle;
 }
@@ -738,7 +780,10 @@ function showActiveRideState(status = "accepted") {
 
   paintActiveRideDetails(activeRide);
   updateActiveRideStatusUi(status);
-  updateDriverTrack(activeRide);
+  const visible =
+    typeof document === "undefined" || document.visibilityState !== "hidden";
+  customerP2p?.syncForRide(activeRide, { isVisible: visible });
+  if (!customerP2p && activeRide) updateDriverTrack(activeRide);
 
   if (!els.activePanel) return;
   els.activePanel.hidden = false;
@@ -749,6 +794,7 @@ function showActiveRideState(status = "accepted") {
 
 function showInvoicePanel(ride) {
   stopDriverTrack();
+  void customerP2p?.stop({ closeRemote: true });
   els.searchingPanel?.classList.remove("is-visible");
   els.activePanel?.classList.remove("is-visible");
   if (els.searchingPanel) els.searchingPanel.hidden = true;
@@ -803,6 +849,7 @@ function clearMapRouteState() {
 function resetToVehicleSelection(messageKey) {
   stopRideWatch();
   stopDriverTrack();
+  void customerP2p?.stop({ closeRemote: true });
   activeRide = null;
   clearActiveRideId();
   document.body.classList.remove("has-active-ride");
@@ -875,6 +922,14 @@ function handleRideSnapshot(rawRide) {
   if (ride.status === "accepted" || ride.status === "arrived" || ride.status === "in_progress") {
     clearSearchTimers();
     maybeStartPresenceForActiveRide();
+    const visible =
+      typeof document === "undefined" || document.visibilityState !== "hidden";
+    customerP2p?.syncForRide(ride, { isVisible: visible });
+    if (ride?.driverLocation) {
+      customerP2p?.ingestFirebaseLocation(ride.driverLocation, ride);
+    } else if (!customerP2p) {
+      updateDriverTrack(ride);
+    }
     const firstActive =
       previousStatus !== "accepted" &&
       previousStatus !== "arrived" &&
@@ -888,7 +943,6 @@ function handleRideSnapshot(rawRide) {
     } else if (previousStatus !== ride.status) {
       paintActiveRideDetails(ride);
       updateActiveRideStatusUi(ride.status);
-      updateDriverTrack(ride);
       if (ride.status === "arrived") {
         onToast?.(t("rideDriverArrived"));
         announce(t("rideDriverArrived") || "Driver arrived");
@@ -900,13 +954,14 @@ function handleRideSnapshot(rawRide) {
     } else {
       paintActiveRideDetails(ride);
       updateActiveRideStatusUi(ride.status);
-      updateDriverTrack(ride);
     }
   } else if (ride.status === "declined") {
     stopDriverTrack();
+    void customerP2p?.stop({ closeRemote: true });
     if (previousStatus !== "declined") resetToVehicleSelection("driverDeclined");
   } else if (ride.status === "completed") {
     stopDriverTrack();
+    void customerP2p?.stop({ closeRemote: true });
     if (previousStatus !== "completed") {
       stopRideWatch();
       showInvoicePanel(ride);

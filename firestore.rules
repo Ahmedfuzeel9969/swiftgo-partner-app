@@ -423,6 +423,27 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Phase 3 P2P signaling — Admin/CF writes only; get for current assigned peers.
+    // Doc id: {rideId}. SDP readable only by participants; list denied.
+    match /ridePeerSessions/{rideId} {
+      allow get: if isSignedIn() && (
+        isSuperAdmin()
+        || (
+          resource.data.customerId == request.auth.uid
+          || resource.data.driverId == request.auth.uid
+        )
+        && exists(/databases/$(database)/documents/rides/$(rideId))
+        && get(/databases/$(database)/documents/rides/$(rideId)).data.status
+             in ['accepted', 'arrived', 'in_progress']
+        && (
+          get(/databases/$(database)/documents/rides/$(rideId)).data.userId == request.auth.uid
+          || get(/databases/$(database)/documents/rides/$(rideId)).data.driverId == request.auth.uid
+        )
+      );
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
     // ── ride_requests/{id} ── Phase 2B: legacy archive — read-only; canonical bookings are rides/.
     match /ride_requests/{requestId} {
       allow get, list: if isSignedIn() && (

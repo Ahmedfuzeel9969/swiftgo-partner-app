@@ -62,6 +62,11 @@ const { reportGeoCellCoverage } = require("./geo-coverage");
 const { mirrorDriverLocationToRide } = require("./driver-location");
 const { settleRide } = require("./settlement");
 const { refreshRideViewerPresence } = require("./ride-viewer-presence");
+const {
+  createRidePeerOffer,
+  publishRidePeerAnswer,
+  closeRidePeerSession,
+} = require("./ride-peer-session");
 
 if (!getApps().length) {
   initializeApp();
@@ -926,6 +931,46 @@ exports.refreshRideViewerPresence = onCall({ region: "us-central1" }, async (req
       rideId: request.data?.rideId,
       sessionId: request.data?.sessionId,
       leaseVersion: request.data?.leaseVersion,
+    })
+  );
+});
+
+/** Phase 3 — driver publishes bundled WebRTC offer (non-trickle). */
+exports.createRidePeerOffer = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("createRidePeerOffer", request, () =>
+    createRidePeerOffer(db, {
+      driverUid: request.auth.uid,
+      rideId: request.data?.rideId,
+      offerSdp: request.data?.offerSdp,
+      peerSessionId: request.data?.peerSessionId,
+      trackingSessionId: request.data?.trackingSessionId,
+      assignmentVersion: request.data?.assignmentVersion,
+      vehicleId: request.data?.vehicleId,
+    })
+  );
+});
+
+/** Phase 3 — customer publishes bundled WebRTC answer. */
+exports.publishRidePeerAnswer = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("publishRidePeerAnswer", request, () =>
+    publishRidePeerAnswer(db, {
+      customerUid: request.auth.uid,
+      rideId: request.data?.rideId,
+      answerSdp: request.data?.answerSdp,
+      peerSessionId: request.data?.peerSessionId,
+    })
+  );
+});
+
+/** Phase 3 — either participant closes signaling session. */
+exports.closeRidePeerSession = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("closeRidePeerSession", request, () =>
+    closeRidePeerSession(db, {
+      uid: request.auth.uid,
+      rideId: request.data?.rideId,
     })
   );
 });

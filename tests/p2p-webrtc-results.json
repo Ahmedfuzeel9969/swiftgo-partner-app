@@ -1,0 +1,624 @@
+{
+  "suite": "p2p-webrtc",
+  "generatedAt": "2026-08-01T19:15:59.190Z",
+  "totals": {
+    "pass": 82,
+    "fail": 0,
+    "blocked": 1,
+    "byCategory": {
+      "unit": {
+        "pass": 59,
+        "fail": 0,
+        "blocked": 0
+      },
+      "static": {
+        "pass": 15,
+        "fail": 0,
+        "blocked": 0
+      },
+      "rules": {
+        "pass": 8,
+        "fail": 0,
+        "blocked": 0
+      },
+      "manual": {
+        "pass": 0,
+        "fail": 0,
+        "blocked": 1
+      }
+    }
+  },
+  "results": [
+    {
+      "name": "16-valid-direct-fix-accepted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "17-lat-lng-zero-accepted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "18-numeric-strings-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "19-invalid-coords-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "20-wrong-peer-session-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "21-wrong-tracking-session-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "22-wrong-assignment-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "23-duplicate-sequence-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "24-decreasing-sequence-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "25-stale-observedAt-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "26-far-future-observedAt-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "27-oversized-message-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "28-unexpected-role-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "29-post-terminal-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "30-fresh-p2p-beats-older-firebase",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "31-newer-firebase-beats-delayed-p2p",
+      "status": "PASS",
+      "detail": "src=firebase",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "32-p2p-stale-triggers-firebase-fallback",
+      "status": "PASS",
+      "detail": "preferred=firebase lat=6",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "33-p2p-recovery-requires-fresh-valid",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "34-source-switch-no-marker-rollback",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "35-retired-generation-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "36-exactly-one-marker-pipeline",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "37-resume-firebase-before-p2p",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "38-channel-open-alone-not-healthy",
+      "status": "PASS",
+      "detail": "FIREBASE_FALLBACK",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "39-valid-fix-establishes-healthy-customer",
+      "status": "PASS",
+      "detail": "P2P_HEALTHY invalid=0",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "40-missing-fix-degrades-or-fallback",
+      "status": "PASS",
+      "detail": "FIREBASE_FALLBACK",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "41-missing-ack-not-fully-healthy",
+      "status": "PASS",
+      "detail": "P2P_DEGRADED",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "39b-fix-plus-ack-healthy-driver",
+      "status": "PASS",
+      "detail": "P2P_HEALTHY invalid=0 fixesSent=1",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "50-backpressure-coalesce-instrumented",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "51-queue-bounded-newest-pending",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "59-reconnect-bounded-backoff-jitter",
+      "status": "PASS",
+      "detail": "d1=1200 d2=30000",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "60-missing-turn-firebase-fallback-path",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "58-old-callbacks-cannot-revive-closed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "42-fallback-visible-cadence-4s",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "43-healthy-approach-p2p-60s",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "44-healthy-trip-p2p-30s",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "45-hidden-approach-60s",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "46-hidden-trip-30s",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "47-rapid-health-no-policy-flapping",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE->P2P_SPARSE_APPROACH->P2P_SPARSE_APPROACH->RESPONSIVE_FIREBASE",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "48-unknown-health-fails-to-firebase",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "49-active-ride-tracking-never-stops",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "cadence-constants-documented",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "01-assigned-driver-create-session",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1785612655772,\"protocolVersion\":1}",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "session-schema-fields",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "02-assigned-customer-answer",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "03-unrelated-customer-denied",
+      "status": "PASS",
+      "detail": "NOT_RIDE_CUSTOMER",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "04-unrelated-driver-denied",
+      "status": "PASS",
+      "detail": "NOT_RIDE_DRIVER",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "05-owner-as-driver-denied",
+      "status": "PASS",
+      "detail": "NOT_RIDE_DRIVER",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "06-anonymous-denied",
+      "status": "PASS",
+      "detail": "AUTH_REQUIRED",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "08-terminal-ride-signaling-denied",
+      "status": "PASS",
+      "detail": "RIDE_NOT_TRACKABLE",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "09-stale-assignment-signaling-denied",
+      "status": "PASS",
+      "detail": "STALE_ASSIGNMENT",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "10-wrong-vehicle-binding-denied",
+      "status": "PASS",
+      "detail": "VEHICLE_MISMATCH",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "11-client-cannot-forge-timestamps",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "12-oversized-offer-rejected",
+      "status": "PASS",
+      "detail": "INVALID_OR_OVERSIZED_SDP",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "13-unknown-protocol-rejected",
+      "status": "PASS",
+      "detail": "UNKNOWN_PROTOCOL",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "14-expired-session-rejected",
+      "status": "PASS",
+      "detail": "SESSION_EXPIRED",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "15-rotated-session-rejects-old-answer",
+      "status": "PASS",
+      "detail": "ROTATED_SESSION",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "64-signaling-cleanup-expiry-safe",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "07-list-query-denied",
+      "status": "PASS",
+      "detail": "covered in rules suite",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "52-ride-switch-closes-old-session",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "53-sign-out-closes-session",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "54-terminal-ride-closes-session",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "55-cancellation-closes-session",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "56-customer-hidden-suspends-session",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "57-bfcache-resume-one-session",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "61-one-geolocation-watch",
+      "status": "PASS",
+      "detail": "watches=1",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "62-one-firebase-vehicle-writer",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "63-no-direct-client-ride-location-write",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "63b-customer-no-ride-location-write",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "65-no-sensitive-diagnostic-payloads",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "static-rules-peer-sessions",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "static-cf-exports",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "static-ordered-datachannel",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "static-session-id-crypto",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "static"
+    },
+    {
+      "name": "rules-01-driver-get",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "rules-02-customer-get",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "03-unrelated-customer-denied-rules",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "06-anonymous-denied-rules",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "07-list-query-denied",
+      "status": "PASS",
+      "detail": "rules-text",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "rules-client-write-denied",
+      "status": "PASS",
+      "detail": "rules-text",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "rules-client-delete-denied",
+      "status": "PASS",
+      "detail": "same write deny",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "08-terminal-ride-get-denied-rules",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "manual-two-browser-preview",
+      "status": "BLOCKED",
+      "detail": "Not executed against emulator/browser in this agent run; plan documented in results",
+      "suite": "p2p-webrtc",
+      "category": "manual"
+    },
+    {
+      "name": "phase2-report-arithmetic-10min-60s",
+      "status": "PASS",
+      "detail": "10 minutes @ 60s cadence ≈ 10 writes (not 20)",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    }
+  ],
+  "timings": {
+    "P2P_SEND_INTERVAL_MS": 3000,
+    "P2P_FALLBACK_AFTER_MS": 12000,
+    "P2P_SPARSE_ENTER_HYSTERESIS_MS": 5000,
+    "P2P_SPARSE_EXIT_HYSTERESIS_MS": 3000,
+    "RESPONSIVE_INTERVAL_MS": 4000,
+    "BACKGROUND_APPROACH_INTERVAL_MS": 60000,
+    "BACKGROUND_TRIP_INTERVAL_MS": 30000,
+    "P2P_SESSION_TTL_MS": 900000
+  }
+}

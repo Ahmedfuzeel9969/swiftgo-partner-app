@@ -2,7 +2,8 @@
  * Phase 2 — adaptive Firebase location checkpoint policy (driver).
  *
  * Presence lease only selects cadence; it is never authorization.
- * P2P placeholder stays disabled — visible customers keep responsive ~4s cadence.
+ * Phase 3: when viewer VISIBLE and P2P healthy (hysteresis), use sparse
+ * Firebase (~60s approach / ~30s trip); otherwise visible stays ~4s.
  *
  * Settlement / distance accuracy note (mandatory Phase 2 documentation):
  * - Completed ride settlement uses fare fields, not GPS traveledDistanceKm.
@@ -25,6 +26,8 @@ export const CHECKPOINT_POLICY = Object.freeze({
   SAFE_UNKNOWN_APPROACH: "SAFE_UNKNOWN_APPROACH",
   SAFE_UNKNOWN_TRIP: "SAFE_UNKNOWN_TRIP",
   NO_ACTIVE_RIDE: "NO_ACTIVE_RIDE",
+  P2P_SPARSE_APPROACH: "P2P_SPARSE_APPROACH",
+  P2P_SPARSE_TRIP: "P2P_SPARSE_TRIP",
 });
 
 export const VIEWER_LEASE = Object.freeze({
@@ -39,6 +42,7 @@ export const CHECKPOINT_DIAG = Object.freeze({
   POLICY_BACKGROUND_APPROACH: "checkpoint_policy_background_approach",
   POLICY_BACKGROUND_TRIP: "checkpoint_policy_background_trip",
   POLICY_SAFE_UNKNOWN: "checkpoint_policy_safe_unknown",
+  POLICY_P2P_SPARSE: "checkpoint_policy_p2p_sparse",
   PRESENCE_ATTACHED: "checkpoint_presence_attached",
   PRESENCE_DETACHED: "checkpoint_presence_detached",
   PRESENCE_EXPIRED: "checkpoint_presence_expired",
@@ -56,6 +60,10 @@ export const BACKGROUND_APPROACH_INTERVAL_MS = 60_000;
 export const BACKGROUND_TRIP_INTERVAL_MS = 30_000;
 /** Existing movement gate (metres) — preserved. */
 export const MIN_LOCATION_MOVE_M = 10;
+/** Anti-flap: enter sparse Firebase only after P2P healthy this long. */
+export const P2P_SPARSE_ENTER_HYSTERESIS_MS = 5_000;
+/** Anti-flap: leave sparse only after unhealthy this long. */
+export const P2P_SPARSE_EXIT_HYSTERESIS_MS = 3_000;
 
 export const APPROACH_STATUSES = Object.freeze(["accepted", "arrived"]);
 export const TRIP_STATUSES = Object.freeze(["in_progress"]);
@@ -118,14 +126,11 @@ export function resolveViewerLeaseState(input = {}) {
  *   hasActiveRide: boolean,
  *   rideStatus?: string,
  *   viewerLease?: string,
- *   p2pActive?: boolean,
+ *   p2pHealthy?: boolean,
  * }} input
  * @returns {{ policy: string, intervalMs: number, hardInterval: boolean, diag: string }}
  */
 export function resolveCheckpointPolicy(input = {}) {
-  const p2pActive = Boolean(input.p2pActive); // Phase 2: must remain false / unused for cadence cut
-  void p2pActive;
-
   if (!input.hasActiveRide) {
     return {
       policy: CHECKPOINT_POLICY.NO_ACTIVE_RIDE,
@@ -139,31 +144,23 @@ export function resolveCheckpointPolicy(input = {}) {
   const lease = String(input.viewerLease || VIEWER_LEASE.UNKNOWN);
   const isTrip = TRIP_STATUSES.includes(status);
   const isApproach = APPROACH_STATUSES.includes(status);
+  const p2pHealthy = Boolean(input.p2pHealthy);
 
-  if (lease === VIEWER_LEASE.VISIBLE) {
-    return {
-      policy: CHECKPOINT_POLICY.RESPONSIVE_FIREBASE,
-      intervalMs: RESPONSIVE_INTERVAL_MS,
-      hardInterval: false,
-      diag: CHECKPOINT_DIAG.POLICY_RESPONSIVE,
-    };
-  }
-
-  if (isTrip) {
-    const unknown = lease === VIEWER_LEASE.UNKNOWN;
-    return {
-      policy: unknown
-        ? CHECKPOINT_POLICY.SAFE_UNKNOWN_TRIP
-        : CHECKPOINT_POLICY.BACKGROUND_TRIP_CHECKPOINT,
-      intervalMs: BACKGROUND_TRIP_INTERVAL_MS,
-      hardInterval: true,
-      diag: unknown
-        ? CHECKPOINT_DIAG.POLICY_SAFE_UNKNOWN
-        : CHECKPOINT_DIAG.POLICY_BACKGROUND_TRIP,
-    };
-  }
-
-  if (isApproach || EXECUTION_STATUSES.includes(status)) {
+  // Hidden/expired/unknown: Phase 2 background cadence (P2P not for unseen customers).
+  if (lease !== VIEWER_LEASE.VISIBLE) {
+    if (isTrip) {
+      const unknown = lease === VIEWER_LEASE.UNKNOWN;
+      return {
+        policy: unknown
+          ? CHECKPOINT_POLICY.SAFE_UNKNOWN_TRIP
+          : CHECKPOINT_POLICY.BACKGROUND_TRIP_CHECKPOINT,
+        intervalMs: BACKGROUND_TRIP_INTERVAL_MS,
+        hardInterval: true,
+        diag: unknown
+          ? CHECKPOINT_DIAG.POLICY_SAFE_UNKNOWN
+          : CHECKPOINT_DIAG.POLICY_BACKGROUND_TRIP,
+      };
+    }
     const unknown = lease === VIEWER_LEASE.UNKNOWN || !isApproach;
     return {
       policy: unknown
@@ -177,11 +174,30 @@ export function resolveCheckpointPolicy(input = {}) {
     };
   }
 
+  // Visible + healthy P2P → sparse Firebase (30s trip / 60s approach).
+  if (p2pHealthy) {
+    if (isTrip) {
+      return {
+        policy: CHECKPOINT_POLICY.P2P_SPARSE_TRIP,
+        intervalMs: BACKGROUND_TRIP_INTERVAL_MS,
+        hardInterval: true,
+        diag: CHECKPOINT_DIAG.POLICY_P2P_SPARSE,
+      };
+    }
+    return {
+      policy: CHECKPOINT_POLICY.P2P_SPARSE_APPROACH,
+      intervalMs: BACKGROUND_APPROACH_INTERVAL_MS,
+      hardInterval: true,
+      diag: CHECKPOINT_DIAG.POLICY_P2P_SPARSE,
+    };
+  }
+
+  // Visible + P2P unavailable/degraded/unknown → responsive ~4s.
   return {
-    policy: CHECKPOINT_POLICY.SAFE_UNKNOWN_APPROACH,
-    intervalMs: BACKGROUND_APPROACH_INTERVAL_MS,
-    hardInterval: true,
-    diag: CHECKPOINT_DIAG.POLICY_SAFE_UNKNOWN,
+    policy: CHECKPOINT_POLICY.RESPONSIVE_FIREBASE,
+    intervalMs: RESPONSIVE_INTERVAL_MS,
+    hardInterval: false,
+    diag: CHECKPOINT_DIAG.POLICY_RESPONSIVE,
   };
 }
 
@@ -257,6 +273,10 @@ export function createCheckpointPolicyController(opts = {}) {
   let rideStatus = "";
   let rideId = "";
   let viewerLease = VIEWER_LEASE.UNKNOWN;
+  let p2pRawHealthy = false;
+  let p2pEffectiveHealthy = false;
+  let p2pHealthySince = null;
+  let p2pUnhealthySince = null;
   let lastPolicy = CHECKPOINT_POLICY.NO_ACTIVE_RIDE;
   let immediatePending = false;
 
@@ -287,11 +307,28 @@ export function createCheckpointPolicyController(opts = {}) {
   }
 
   function currentDecision() {
+    const now = nowMs();
+    if (p2pRawHealthy) {
+      p2pUnhealthySince = null;
+      if (p2pHealthySince == null) p2pHealthySince = now;
+      if (now - p2pHealthySince >= P2P_SPARSE_ENTER_HYSTERESIS_MS) {
+        p2pEffectiveHealthy = true;
+      }
+    } else {
+      p2pHealthySince = null;
+      if (p2pUnhealthySince == null) p2pUnhealthySince = now;
+      if (
+        !p2pEffectiveHealthy ||
+        now - p2pUnhealthySince >= P2P_SPARSE_EXIT_HYSTERESIS_MS
+      ) {
+        p2pEffectiveHealthy = false;
+      }
+    }
     return resolveCheckpointPolicy({
       hasActiveRide,
       rideStatus,
       viewerLease,
-      p2pActive: false,
+      p2pHealthy: p2pEffectiveHealthy && viewerLease === VIEWER_LEASE.VISIBLE,
     });
   }
 
@@ -315,6 +352,10 @@ export function createCheckpointPolicyController(opts = {}) {
       rideId = "";
       rideStatus = "";
       viewerLease = VIEWER_LEASE.NONE;
+      p2pRawHealthy = false;
+      p2pEffectiveHealthy = false;
+      p2pHealthySince = null;
+      p2pUnhealthySince = null;
       emitPolicyIfChanged();
       return { generation, decision: currentDecision(), statusChanged: false };
     }
@@ -324,6 +365,10 @@ export function createCheckpointPolicyController(opts = {}) {
       hasActiveRide = true;
       rideStatus = String(status || "");
       viewerLease = VIEWER_LEASE.UNKNOWN;
+      p2pRawHealthy = false;
+      p2pEffectiveHealthy = false;
+      p2pHealthySince = null;
+      p2pUnhealthySince = null;
       emitPolicyIfChanged();
       return {
         generation,
@@ -352,10 +397,21 @@ export function createCheckpointPolicyController(opts = {}) {
       diag(CHECKPOINT_DIAG.PRESENCE_EXPIRED);
     }
     viewerLease = next;
+    if (next !== VIEWER_LEASE.VISIBLE) {
+      p2pRawHealthy = false;
+      p2pEffectiveHealthy = false;
+      p2pHealthySince = null;
+    }
     emitPolicyIfChanged();
     if (next === VIEWER_LEASE.VISIBLE && prev !== VIEWER_LEASE.VISIBLE) {
       requestImmediate("presence_visible");
     }
+    return currentDecision();
+  }
+
+  function setP2pHealthy(healthy) {
+    p2pRawHealthy = Boolean(healthy);
+    emitPolicyIfChanged();
     return currentDecision();
   }
 
@@ -433,6 +489,8 @@ export function createCheckpointPolicyController(opts = {}) {
       rideId,
       rideStatus,
       viewerLease,
+      p2pRawHealthy,
+      p2pEffectiveHealthy,
       lastPolicy,
       immediatePending,
       decision: currentDecision(),
@@ -447,6 +505,7 @@ export function createCheckpointPolicyController(opts = {}) {
     isCurrentGeneration,
     setActiveRide,
     setViewerLease,
+    setP2pHealthy,
     requestImmediate,
     consumeImmediate,
     hasImmediatePending,

@@ -73,6 +73,7 @@ import {
   presenceDocId,
 } from "./location-checkpoint-policy.mjs";
 import { createViewerPresenceConsumer } from "./viewer-presence-consumer.mjs";
+import { createDriverP2pController } from "./p2p-ride-controller.mjs";
 import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { cancelAssignedRideByDriverClient } from "./ride-radar-actions.js";
@@ -277,6 +278,19 @@ const checkpointPolicy = createCheckpointPolicyController({
   diag: checkpointDiag,
 });
 
+const driverP2p = createDriverP2pController({
+  onDiag: (code) => {
+    try {
+      console.info(JSON.stringify({ type: "p2p_diag", reason: String(code || "") }));
+    } catch {
+      /* ignore */
+    }
+  },
+  onHealthyChange: (healthy) => {
+    checkpointPolicy.setP2pHealthy(Boolean(healthy));
+  },
+});
+
 const viewerPresenceConsumer = createViewerPresenceConsumer({
   subscribeDoc: ({ collection: col, id }, onNext, onError) => {
     try {
@@ -298,6 +312,7 @@ const viewerPresenceConsumer = createViewerPresenceConsumer({
   },
   onLeaseChange: (lease) => {
     checkpointPolicy.setViewerLease(lease, { fromPresenceEvent: true });
+    syncDriverP2pForActiveRide();
     maybeFlushImmediateCheckpoint();
   },
   onDiag: checkpointDiag,
@@ -306,11 +321,29 @@ const viewerPresenceConsumer = createViewerPresenceConsumer({
 
 if (typeof window !== "undefined") {
   window.__SWIFTGO_CHECKPOINT_COUNTERS__ = () => checkpointPolicy.getCounters();
+  window.__SWIFTGO_P2P_COUNTERS__ = () => driverP2p.getCounters();
   window.addEventListener("online", () => {
     if (activeExecutionRide?.id && isOnlineReady()) {
       checkpointPolicy.requestImmediate("network_online");
       maybeFlushImmediateCheckpoint();
     }
+  });
+}
+
+function syncDriverP2pForActiveRide() {
+  const ride = activeExecutionRide;
+  const status = String(ride?.status || "");
+  if (!ride?.id || !ACTIVE_EXECUTION_STATUSES.has(status) || !locationTrackingSessionId) {
+    void driverP2p.stop({ closeRemote: true });
+    checkpointPolicy.setP2pHealthy(false);
+    return;
+  }
+  const lease = checkpointPolicy.getState?.()?.viewerLease;
+  const viewerVisible = lease === VIEWER_LEASE.VISIBLE;
+  driverP2p.syncForRide({
+    ride,
+    trackingSessionId: locationTrackingSessionId,
+    viewerVisible,
   });
 }
 
@@ -320,6 +353,7 @@ function syncCheckpointPresenceForActiveRide() {
   if (!ride?.id || !ACTIVE_EXECUTION_STATUSES.has(status)) {
     viewerPresenceConsumer.unbind();
     checkpointPolicy.setActiveRide({ active: false });
+    syncDriverP2pForActiveRide();
     return;
   }
   const result = checkpointPolicy.setActiveRide({
@@ -331,6 +365,7 @@ function syncCheckpointPresenceForActiveRide() {
   if (!customerUid) {
     viewerPresenceConsumer.unbind();
     checkpointPolicy.setViewerLease(VIEWER_LEASE.UNKNOWN);
+    syncDriverP2pForActiveRide();
     return;
   }
   viewerPresenceConsumer.bind({
@@ -339,6 +374,7 @@ function syncCheckpointPresenceForActiveRide() {
     generation: result.generation,
   });
   void presenceDocId; // available for tests / diagnostics without logging IDs
+  syncDriverP2pForActiveRide();
   maybeFlushImmediateCheckpoint();
 }
 
@@ -346,6 +382,8 @@ function detachCheckpointPresence(reason = "") {
   void reason;
   viewerPresenceConsumer.unbind();
   checkpointPolicy.setActiveRide({ active: false });
+  void driverP2p.stop({ closeRemote: true });
+  checkpointPolicy.setP2pHealthy(false);
 }
 
 function maybeFlushImmediateCheckpoint() {
@@ -376,6 +414,7 @@ function beginLocationTrackingSession() {
   if (activeExecutionRide?.id) {
     checkpointPolicy.requestImmediate("session_change");
   }
+  syncDriverP2pForActiveRide();
 }
 
 function endLocationTrackingSession() {
@@ -2415,6 +2454,18 @@ async function syncVehicleLocationToFirestore(
       /* ignore */
     }
     return;
+  }
+
+  // Phase 3: feed validated GPS to P2P data channel (independent of Firebase write gate).
+  if (activeExecutionRide?.id) {
+    driverP2p.onLocationFix({
+      lat: normalized.envelope.lat,
+      lng: normalized.envelope.lng,
+      observedAt: normalized.envelope.observedAt,
+      accuracyM: normalized.envelope.accuracyM,
+      headingDeg: normalized.envelope.headingDeg,
+      speedMps: normalized.envelope.speedMps,
+    });
   }
 
   const now = Date.now();
