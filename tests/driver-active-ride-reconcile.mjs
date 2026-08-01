@@ -434,6 +434,64 @@ async function emulatorChecks() {
     rideBadAfter.status === "in_progress" ? "PASS" : "FAIL",
     rideBadAfter.status
   );
+
+  const healRideId = "reconcile-ride-heal-stale-vehicle";
+  const healLedgerId = `settle_rides_${healRideId}`;
+  const healPartnerBefore = (await db.doc(`partners/${driverUid}`).get()).data();
+  await db.doc(`rides/${healRideId}`).set({
+    ...rideBase,
+    status: "completed",
+    settlementId: healLedgerId,
+    commissionAmount: 40,
+    driverEarnings: 360,
+    commissionPercent: 10,
+  });
+  await db.doc(`ledger_transactions/${healLedgerId}`).set({
+    rideId: healRideId,
+    collectionName: "rides",
+    customerId: "cust-reconcile",
+    driverId: driverUid,
+    grossFare: 400,
+    commissionAmount: 40,
+    driverEarnings: 360,
+    commissionPercent: 10,
+    type: "ride_settlement",
+    idempotencyKey: healLedgerId,
+    trustedCreator: "completeRideSettlement",
+    status: "posted",
+    createdAt: admin.firestore.Timestamp.now(),
+  });
+  await db.doc(`vehicles/${vehicleId}`).set({
+    driverId: driverUid,
+    status: "in_ride",
+    activeRideId: healRideId,
+  }, { merge: true });
+
+  const healRetry = await settleRide(db, {
+    rideId: healRideId,
+    collectionName: "rides",
+    callerUid: driverUid,
+  });
+  const healVehicleAfter = (await db.doc(`vehicles/${vehicleId}`).get()).data();
+  const healPartnerAfter = (await db.doc(`partners/${driverUid}`).get()).data();
+
+  record(
+    "E17-idempotent-heal-stale-vehicle-activeRideId",
+    healRetry?.alreadySettled === true &&
+      !healVehicleAfter.activeRideId &&
+      healVehicleAfter.status === "offline"
+      ? "PASS"
+      : "FAIL",
+    `status=${healVehicleAfter.status}`
+  );
+  record(
+    "E18-idempotent-heal-no-double-earnings",
+    healPartnerAfter.totalEarnings === healPartnerBefore.totalEarnings &&
+      healPartnerAfter.totalRidesCompleted === healPartnerBefore.totalRidesCompleted
+      ? "PASS"
+      : "FAIL",
+    `earn=${healPartnerAfter.totalEarnings} rides=${healPartnerAfter.totalRidesCompleted}`
+  );
 }
 
 async function main() {

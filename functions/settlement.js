@@ -129,6 +129,7 @@ async function settleRide(db, params) {
     // Idempotent retry: return existing settlement without re-posting.
     if (ride.status === "completed" && ledgerSnap.exists) {
       const ledger = ledgerSnap.data() || {};
+      clearVehicleActiveRideIfMatched();
       return {
         alreadySettled: true,
         rideId,
