@@ -33,6 +33,18 @@ const MIN_JUMP_ELAPSED_MS = 800;
 /** Max trackingSessionId / location.sessionId length (Firestore rules + CF). */
 const MAX_TRACKING_SESSION_ID_LEN = 64;
 
+/**
+ * First fix of a new tracking session — observedAt vs authoritative server session start.
+ *
+ * Server trackingSessionStartedAt is authoritative. Device observedAt may skew.
+ * Tolerance chosen for real Android/iOS clocks + brief offline-to-online recovery:
+ * - MAX_AGE 120s: fix may slightly predate the server stamp (queue delay / clock lag)
+ *   without accepting multi-minute-old GPS from a prior session.
+ * - MAX_FUTURE 60s: allow mild clock-ahead without accepting far-future spoofed stamps.
+ */
+const SESSION_FIRST_FIX_MAX_AGE_MS = 120_000;
+const SESSION_FIRST_FIX_MAX_FUTURE_MS = 60_000;
+
 const LOCATION_DIAG = Object.freeze({
   ACCEPTED: "location_fix_accepted",
   DUPLICATE: "location_fix_duplicate",
@@ -140,10 +152,11 @@ function normalizeLocationFix(raw, ctx) {
   }
 
   const sequence = Math.max(1, Math.floor(Number(ctx?.sequence) || 1));
-  const sessionId = String(ctx?.sessionId || "").trim();
-  if (!sessionId) {
+  // Must match Cloud Functions + Firestore rules: string, trimmed 3–64, [A-Za-z0-9_-].
+  if (typeof ctx?.sessionId !== "string" || !isValidTrackingSessionId(ctx.sessionId)) {
     return { ok: false, reason: LOCATION_DIAG.INVALID, envelope: null };
   }
+  const sessionId = ctx.sessionId.trim();
 
   const speedMps =
     raw?.speedMps != null
@@ -175,9 +188,36 @@ function normalizeLocationFix(raw, ctx) {
 }
 
 /**
+ * Validate first-fix observedAt against authoritative server session start.
+ * @returns {{ ok: true } | { ok: false, reason: string }}
+ */
+function validateNewSessionFirstObservedAt(observedAt, vehicleSessionStartedMs) {
+  const obs = Number(observedAt);
+  const start = Number(vehicleSessionStartedMs);
+  if (!Number.isFinite(obs) || obs <= 0) {
+    return { ok: false, reason: LOCATION_DIAG.INVALID };
+  }
+  if (!Number.isFinite(start) || start <= 0) {
+    return { ok: false, reason: LOCATION_DIAG.INVALID };
+  }
+  if (obs < start - SESSION_FIRST_FIX_MAX_AGE_MS) {
+    return { ok: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+  }
+  if (obs > start + SESSION_FIRST_FIX_MAX_FUTURE_MS) {
+    return { ok: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+  }
+  return { ok: true };
+}
+
+/**
  * When sessionCtx.enforceSessionConsistency is true (CF mirror path), require
  * next.sessionId === vehicleSessionId even for the first ride fix.
  * Calls without that flag keep legacy evaluate behaviour for read-side tooling.
+ *
+ * New-session first fix: after proving vehicleSessionStartedMs is newer than the
+ * previously mirrored session start, still validate next.observedAt against that
+ * server session start (clock-skew window). A new sessionId alone never makes an
+ * old or far-future fix acceptable.
  *
  * @param {object|null} previous
  * @param {object} next
@@ -196,6 +236,8 @@ function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
   const nextSession = String(next.sessionId || "");
   const vehicleSessionId = String(sessionCtx.vehicleSessionId || "");
   const enforce = Boolean(sessionCtx.enforceSessionConsistency);
+  const vehicleSessionStartedMs = Number(sessionCtx.vehicleSessionStartedMs) || 0;
+  const previousSessionStartedMs = Number(sessionCtx.previousSessionStartedMs) || 0;
 
   if (enforce) {
     if (!nextSession || !isValidTrackingSessionId(nextSession)) {
@@ -207,13 +249,16 @@ function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
   }
 
   if (!previous || !isValidLatLng(previous.lat, previous.lng)) {
+    // First ride fix: when server session start is known, apply the same freshness window.
+    if (vehicleSessionStartedMs) {
+      const fresh = validateNewSessionFirstObservedAt(next.observedAt, vehicleSessionStartedMs);
+      if (!fresh.ok) return { accept: false, reason: fresh.reason };
+    }
     return { accept: true, reason: LOCATION_DIAG.ACCEPTED };
   }
 
   const prevSession = String(previous.sessionId || "");
   const resolvedVehicleSessionId = vehicleSessionId || nextSession;
-  const vehicleSessionStartedMs = Number(sessionCtx.vehicleSessionStartedMs) || 0;
-  const previousSessionStartedMs = Number(sessionCtx.previousSessionStartedMs) || 0;
 
   // --- Session transition (not lexicographic sessionId compare) ---
   if (prevSession && nextSession && prevSession !== nextSession) {
@@ -227,7 +272,9 @@ function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
     if (previousSessionStartedMs && vehicleSessionStartedMs <= previousSessionStartedMs) {
       return { accept: false, reason: LOCATION_DIAG.RETIRED_SESSION };
     }
-    // Legitimate new session: server session start is newer than previous mirrored session.
+    // Legitimate new session start — still require first-fix observedAt freshness.
+    const fresh = validateNewSessionFirstObservedAt(next.observedAt, vehicleSessionStartedMs);
+    if (!fresh.ok) return { accept: false, reason: fresh.reason };
     return { accept: true, reason: LOCATION_DIAG.ACCEPTED };
   }
 
@@ -405,6 +452,8 @@ export {
   MAX_ACCEPT_ACCURACY_M,
   MAX_PLAUSIBLE_SPEED_MPS,
   MAX_TRACKING_SESSION_ID_LEN,
+  SESSION_FIRST_FIX_MAX_AGE_MS,
+  SESSION_FIRST_FIX_MAX_FUTURE_MS,
   LOCATION_DIAG,
   haversineM,
   normalizeHeadingDeg,
@@ -413,6 +462,7 @@ export {
   coerceCoordNumber,
   timestampToMs,
   normalizeLocationFix,
+  validateNewSessionFirstObservedAt,
   evaluateFixAgainstPrevious,
   derivedDisplayBearingDeg,
   toVehicleLocationField,

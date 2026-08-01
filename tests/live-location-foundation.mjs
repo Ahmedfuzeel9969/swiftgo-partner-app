@@ -22,10 +22,13 @@ import {
 import {
   LOCATION_DIAG,
   MAX_ACCEPT_ACCURACY_M,
+  SESSION_FIRST_FIX_MAX_AGE_MS,
+  SESSION_FIRST_FIX_MAX_FUTURE_MS,
   derivedDisplayBearingDeg,
   estimateLocationWriteComparison,
   evaluateFixAgainstPrevious,
   isValidLatLng,
+  isValidTrackingSessionId,
   normalizeHeadingDeg,
   normalizeLocationFix,
 } from "../driver-app/js/location-envelope.mjs";
@@ -154,7 +157,12 @@ function unitTests() {
     "08-new-session-accepted-when-start-newer",
     evaluateFixAgainstPrevious(
       env,
-      { ...env, sessionId: "sess-b", sequence: 1, observedAt: env.observedAt - 10_000 },
+      {
+        ...env,
+        sessionId: "sess-b",
+        sequence: 1,
+        observedAt: 2_000_000 + 1_000,
+      },
       {
         vehicleSessionId: "sess-b",
         vehicleSessionStartedMs: 2_000_000,
@@ -189,6 +197,218 @@ function unitTests() {
         previousSessionStartedMs: 1_000_000,
       }
     ).reason === LOCATION_DIAG.RETIRED_SESSION
+      ? "PASS"
+      : "FAIL"
+  );
+
+  // A–H: first-fix freshness for new sessions
+  const prevSess = {
+    lat: 24.86,
+    lng: 67.0,
+    observedAt: 1_000_000,
+    sequence: 3,
+    sessionId: "sess-old",
+    source: "gps",
+  };
+  const startMs = 5_000_000;
+  record(
+    "freshA-new-session-fresh-observedAt-accepted",
+    evaluateFixAgainstPrevious(
+      prevSess,
+      {
+        lat: 24.861,
+        lng: 67.001,
+        observedAt: startMs + 5_000,
+        sequence: 1,
+        sessionId: "sess-new",
+        source: "gps",
+      },
+      {
+        vehicleSessionId: "sess-new",
+        vehicleSessionStartedMs: startMs,
+        previousSessionStartedMs: 1_000_000,
+      }
+    ).accept
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "freshB-new-session-old-observedAt-rejected",
+    !evaluateFixAgainstPrevious(
+      prevSess,
+      {
+        lat: 24.861,
+        lng: 67.001,
+        observedAt: startMs - SESSION_FIRST_FIX_MAX_AGE_MS - 1,
+        sequence: 1,
+        sessionId: "sess-new",
+        source: "gps",
+      },
+      {
+        vehicleSessionId: "sess-new",
+        vehicleSessionStartedMs: startMs,
+        previousSessionStartedMs: 1_000_000,
+      }
+    ).accept
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "freshC-new-session-future-observedAt-rejected",
+    !evaluateFixAgainstPrevious(
+      prevSess,
+      {
+        lat: 24.861,
+        lng: 67.001,
+        observedAt: startMs + SESSION_FIRST_FIX_MAX_FUTURE_MS + 1,
+        sequence: 1,
+        sessionId: "sess-new",
+        source: "gps",
+      },
+      {
+        vehicleSessionId: "sess-new",
+        vehicleSessionStartedMs: startMs,
+        previousSessionStartedMs: 1_000_000,
+      }
+    ).accept
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "freshD-observedAt-inside-skew-tolerance-accepted",
+    evaluateFixAgainstPrevious(
+      prevSess,
+      {
+        lat: 24.861,
+        lng: 67.001,
+        observedAt: startMs - SESSION_FIRST_FIX_MAX_AGE_MS + 1_000,
+        sequence: 1,
+        sessionId: "sess-new",
+        source: "gps",
+      },
+      {
+        vehicleSessionId: "sess-new",
+        vehicleSessionStartedMs: startMs,
+        previousSessionStartedMs: 1_000_000,
+      }
+    ).accept &&
+      evaluateFixAgainstPrevious(
+        prevSess,
+        {
+          lat: 24.861,
+          lng: 67.001,
+          observedAt: startMs + SESSION_FIRST_FIX_MAX_FUTURE_MS - 1_000,
+          sequence: 1,
+          sessionId: "sess-new",
+          source: "gps",
+        },
+        {
+          vehicleSessionId: "sess-new",
+          vehicleSessionStartedMs: startMs,
+          previousSessionStartedMs: 1_000_000,
+        }
+      ).accept
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "freshE-same-session-ordering-unchanged",
+    evaluateFixAgainstPrevious(env, {
+      ...env,
+      sequence: env.sequence,
+      observedAt: env.observedAt + 1000,
+      lat: env.lat + 0.0001,
+    }).reason === LOCATION_DIAG.OUT_OF_ORDER &&
+      evaluateFixAgainstPrevious(env, {
+        ...env,
+        sequence: env.sequence + 1,
+        observedAt: env.observedAt + 2000,
+        lat: env.lat + 0.0002,
+      }).accept
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "freshF-retired-session-still-rejected",
+    evaluateFixAgainstPrevious(
+      { ...env, sessionId: "sess-b" },
+      { ...env, sessionId: "sess-a", sequence: 9, observedAt: startMs + 1000 },
+      {
+        vehicleSessionId: "sess-b",
+        vehicleSessionStartedMs: startMs,
+        previousSessionStartedMs: 1_000_000,
+      }
+    ).reason === LOCATION_DIAG.RETIRED_SESSION
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "freshG-first-ride-fix-requires-session-match",
+    evaluateFixAgainstPrevious(
+      null,
+      { ...env, sessionId: "sess-a", observedAt: startMs + 1000 },
+      {
+        enforceSessionConsistency: true,
+        vehicleSessionId: "sess-other",
+        vehicleSessionStartedMs: startMs,
+      }
+    ).reason === LOCATION_DIAG.SESSION_MISMATCH
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "freshH-legacy-read-ok-enforced-write-not-bypassed",
+    evaluateFixAgainstPrevious(null, { lat: 24.8, lng: 67.0, observedAt: 1 }).accept &&
+      buildDriverLocationPatch(
+        {
+          trackingSessionId: "sess-a",
+          trackingSessionStartedAt: { seconds: 1000, nanoseconds: 0 },
+          location: { lat: 24.8, lng: 67.0, observedAt: 1_000_000, sequence: 1 },
+        },
+        { status: "accepted", vehicleId: "v1", pickupLocation: { lat: 1, lng: 2 } }
+      ).reason === LOCATION_DIAG.SESSION_MISMATCH
+      ? "PASS"
+      : "FAIL"
+  );
+
+  // Session ID format (normalizeLocationFix — matches CF + rules)
+  const baseFix = { lat: 24.8607, lng: 67.0011, observedAt: 1_000_000, source: "gps" };
+  record(
+    "sid-valid-min-length-3",
+    normalizeLocationFix(baseFix, { sessionId: "abc", sequence: 1 }).ok ? "PASS" : "FAIL"
+  );
+  record(
+    "sid-valid-64-char",
+    normalizeLocationFix(baseFix, { sessionId: "a".repeat(64), sequence: 1 }).ok ? "PASS" : "FAIL"
+  );
+  record(
+    "sid-empty-rejected",
+    !normalizeLocationFix(baseFix, { sessionId: "", sequence: 1 }).ok ? "PASS" : "FAIL"
+  );
+  record(
+    "sid-2-char-rejected",
+    !normalizeLocationFix(baseFix, { sessionId: "ab", sequence: 1 }).ok ? "PASS" : "FAIL"
+  );
+  record(
+    "sid-65-char-rejected",
+    !normalizeLocationFix(baseFix, { sessionId: "a".repeat(65), sequence: 1 }).ok ? "PASS" : "FAIL"
+  );
+  record(
+    "sid-whitespace-only-rejected",
+    !normalizeLocationFix(baseFix, { sessionId: "   ", sequence: 1 }).ok ? "PASS" : "FAIL"
+  );
+  record(
+    "sid-internal-spaces-rejected",
+    !normalizeLocationFix(baseFix, { sessionId: "ab cd", sequence: 1 }).ok ? "PASS" : "FAIL"
+  );
+  record(
+    "sid-punctuation-rejected",
+    !normalizeLocationFix(baseFix, { sessionId: "sess@id!", sequence: 1 }).ok ? "PASS" : "FAIL"
+  );
+  record(
+    "sid-non-string-rejected",
+    !normalizeLocationFix(baseFix, { sessionId: 12345, sequence: 1 }).ok &&
+      !isValidTrackingSessionId(12345)
       ? "PASS"
       : "FAIL"
   );
@@ -655,6 +875,44 @@ async function unitTestsAsync() {
       JSON.stringify(writes)
     );
   }
+
+  // Completion boundary: enqueue after drain selected no pending but before inFlight clears
+  {
+    const writes = [];
+    /** @type {ReturnType<typeof createLocationWriteSerializer>|null} */
+    let ser = null;
+    let boundaryFired = false;
+    ser = createLocationWriteSerializer({
+      writeFn: async (job) => {
+        writes.push(job.envelope.sequence);
+      },
+      onAfterDrainBeforeClear: () => {
+        if (boundaryFired) return;
+        boundaryFired = true;
+        ser.enqueue({
+          generation: 1,
+          sessionId: "s",
+          stampSessionStart: false,
+          envelope: { sequence: 99 },
+          payload: {},
+        });
+      },
+    });
+    await ser.enqueue({
+      generation: 1,
+      sessionId: "s",
+      stampSessionStart: true,
+      envelope: { sequence: 1 },
+      payload: {},
+    });
+    // Allow finally → re-enqueue flight to finish
+    await new Promise((r) => setTimeout(r, 30));
+    record(
+      "queue-completion-boundary-no-strand",
+      writes.length === 2 && writes[0] === 1 && writes[1] === 99 ? "PASS" : "FAIL",
+      JSON.stringify(writes)
+    );
+  }
 }
 
 function createSerializingTxnRunner(getRide, setRide, { retryOnce = false } = {}) {
@@ -703,9 +961,10 @@ function createSerializingTxnRunner(getRide, setRide, { retryOnce = false } = {}
 }
 
 async function deterministicTxnUnitTestsAsync() {
+  const sessionStartMs = 1_000_000;
   const vehicleBase = {
     trackingSessionId: "sess-race",
-    trackingSessionStartedAt: { seconds: 1000, nanoseconds: 0 },
+    trackingSessionStartedAt: { seconds: Math.floor(sessionStartMs / 1000), nanoseconds: 0 },
     activeRideId: "race-ride",
   };
   const oldV = {
@@ -713,7 +972,7 @@ async function deterministicTxnUnitTestsAsync() {
     location: {
       lat: 24.86,
       lng: 67.0,
-      observedAt: 1_000,
+      observedAt: sessionStartMs + 1_000,
       sequence: 1,
       sessionId: "sess-race",
       source: "gps",
@@ -724,7 +983,7 @@ async function deterministicTxnUnitTestsAsync() {
     location: {
       lat: 24.8605,
       lng: 67.0005,
-      observedAt: 5_000,
+      observedAt: sessionStartMs + 5_000,
       sequence: 2,
       sessionId: "sess-race",
       source: "gps",
@@ -789,12 +1048,15 @@ async function deterministicTxnUnitTestsAsync() {
       driverLocation: {
         lat: 24.86,
         lng: 67.0,
-        observedAt: 1_000,
+        observedAt: sessionStartMs + 1_000,
         sequence: 1,
         sessionId: "sess-race",
       },
       driverTrackingSessionId: "sess-race",
-      driverTrackingSessionStartedAt: { seconds: 1000, nanoseconds: 0 },
+      driverTrackingSessionStartedAt: {
+        seconds: Math.floor(sessionStartMs / 1000),
+        nanoseconds: 0,
+      },
     };
     const diag = [];
     setCfDiagSink((p) => diag.push(p.reason));

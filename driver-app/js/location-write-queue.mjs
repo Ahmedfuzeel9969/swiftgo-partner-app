@@ -1,6 +1,6 @@
 /**
  * Single in-flight vehicle location write with newest-pending coalesce.
- * No unbounded queue: at most one active write + one pending fix.
+ * No unbounded queue: at most one active write + one newest pending fix.
  */
 
 /**
@@ -17,12 +17,17 @@
  * @param {{
  *   writeFn: (job: LocationWriteJob) => Promise<void>,
  *   isCancelled?: (generation: number) => boolean,
+ *   onAfterDrainBeforeClear?: () => void,
  * }} deps
  */
 export function createLocationWriteSerializer(deps) {
   const writeFn = deps.writeFn;
   const isCancelled =
     typeof deps.isCancelled === "function" ? deps.isCancelled : () => false;
+  const onAfterDrainBeforeClear =
+    typeof deps.onAfterDrainBeforeClear === "function"
+      ? deps.onAfterDrainBeforeClear
+      : null;
 
   /** @type {Promise<void>|null} */
   let inFlight = null;
@@ -61,6 +66,9 @@ export function createLocationWriteSerializer(deps) {
 
   /**
    * Enqueue a location write. If one is in flight, keep only the newest pending job.
+   * Always parks the job in `pending` first so a completion-boundary enqueue
+   * (after the drain loop sees null pending but before inFlight is cleared)
+   * cannot strand the newest fix.
    * @param {LocationWriteJob} job
    * @returns {Promise<void>}
    */
@@ -68,23 +76,20 @@ export function createLocationWriteSerializer(deps) {
     if (!job || typeof writeFn !== "function") return Promise.resolve();
     if (isCancelled(job.generation)) return Promise.resolve();
 
-    // Coalesce: always keep the newest pending when busy.
-    if (inFlight) {
-      pending = job;
-      return inFlight;
-    }
+    // Newest-wins pending slot (overwrites any older pending).
+    pending = job;
 
-    const runLoop = async () => {
-      let current = job;
-      while (current) {
-        if (isCancelled(current.generation)) {
-          current = pending;
-          pending = null;
-          continue;
-        }
+    if (inFlight) return inFlight;
+
+    inFlight = (async () => {
+      for (;;) {
+        const current = pending;
+        pending = null;
+        if (!current) break;
+        if (isCancelled(current.generation)) continue;
+
         writesStarted += 1;
         try {
-          // Only the first successful session-start write stamps the server start.
           const toWrite = {
             ...current,
             stampSessionStart: Boolean(current.stampSessionStart) && !sessionStartStamped,
@@ -98,14 +103,28 @@ export function createLocationWriteSerializer(deps) {
           // Propagate only if nothing pending; otherwise try newest pending.
           if (!pending) throw err;
         }
-        current = pending;
-        pending = null;
       }
-    };
-
-    inFlight = runLoop().finally(() => {
+      // Test/production hook: runs after drain sees null pending while inFlight
+      // is still set — the exact completion-boundary window.
+      if (onAfterDrainBeforeClear) {
+        try {
+          onAfterDrainBeforeClear();
+        } catch {
+          /* ignore hook errors */
+        }
+      }
+    })().finally(() => {
       inFlight = null;
+      // Completion boundary: a job may have landed in pending after the loop
+      // observed null but before inFlight was cleared.
+      if (!pending) return;
+      if (isCancelled(pending.generation)) {
+        pending = null;
+        return;
+      }
+      enqueue(pending);
     });
+
     return inFlight;
   }
 
