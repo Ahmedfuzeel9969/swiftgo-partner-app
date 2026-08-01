@@ -20,6 +20,10 @@ export const ORPHANED_RIDE_COMPLETE_URDU =
 export const ACTIVE_RIDE_RECOVERY_URDU =
   "سرور پر آپ کی ایک فعال سواری موجود ہے، مگر گاڑی منسلک نہیں۔ پہلے PIN درج کریں؛ اگر مسئلہ برقرار رہے تو سپورٹ سے رابطہ کریں۔";
 
+/** Shown when server pointers reference a terminal ride — server heals on next offer. */
+export const STALE_POINTER_RECOVERY_URDU =
+  "پرانی سواری سرور پر بند ہو چکی — اب نئی رائٹ/پیشکش بھیج سکتے ہیں";
+
 export function isActiveExecutionStatus(status) {
   return ACTIVE_EXECUTION_STATUSES.has(String(status || ""));
 }

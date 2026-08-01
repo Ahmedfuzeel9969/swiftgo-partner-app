@@ -84,6 +84,28 @@ async function linkVehicleByPin(db, { driverUid, pin, driverName }) {
       : null;
 
   await db.runTransaction(async (tx) => {
+    const partnerSnapTx = await tx.get(partnerRef);
+    const partnerTx = partnerSnapTx.exists ? partnerSnapTx.data() || {} : {};
+    const stalePartnerRideId = String(partnerTx.activeRideId || "").trim();
+    if (stalePartnerRideId) {
+      const staleRideSnap = await tx.get(db.collection("rides").doc(stalePartnerRideId));
+      const { classifyPointerRide } = require("./active-ride-reconcile");
+      const cls = classifyPointerRide(staleRideSnap, {
+        driverUid,
+        pointerSource: "partner",
+      });
+      if (cls.block) {
+        throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
+      }
+      if (cls.stale) {
+        tx.set(
+          partnerRef,
+          { activeRideId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() },
+          { merge: true }
+        );
+      }
+    }
+
     if (previousVehicleId) {
       const prevRef = db.collection("vehicles").doc(previousVehicleId);
       const prevSnap = await tx.get(prevRef);

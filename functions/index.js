@@ -874,7 +874,11 @@ exports.mirrorDriverLocationOnVehicleUpdate = onDocumentWritten(
       (becameOnline || gotGeoCell || geoCellChanged || gotValidLocation)
     ) {
       try {
-        const result = await rematchNearbySearchingRidesForVehicle(db, after);
+        const result = await rematchNearbySearchingRidesForVehicle(
+          db,
+          after,
+          event.params.vehicleId
+        );
         if (result.rematched > 0) {
           logStructured("INFO", "rematch_on_driver_online", {
             vehicleId: event.params.vehicleId,

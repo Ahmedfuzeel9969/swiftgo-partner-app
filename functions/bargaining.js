@@ -31,6 +31,11 @@ const { isValidGeoCell } = require("./geo-coverage");
 const { seedDriverLocationFromVehicle } = require("./driver-location");
 const { computeCancellationFare } = require("./partial-fare");
 const { settlePartialCancellation } = require("./settlement");
+const {
+  reconcileDriverAvailabilityInTx,
+  healStaleDriverPointers,
+  isDriverAvailableForRematch,
+} = require("./active-ride-reconcile");
 
 const CANCEL_REASON_KEYS = Object.freeze([
   "taking_too_long",
@@ -1062,21 +1067,20 @@ async function submitRideOffer(db, params) {
   if (!hasExistingOpen && otherOpen >= MAX_DRIVER_OPEN_BARGAINS) {
     throw err("failed-precondition", "MAX_OPEN_BARGAINS");
   }
-  if (await driverHasActiveRide(db, driverUid)) {
-    throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
-  }
 
   const rideRef = db.collection("rides").doc(rideId);
   const candRef = db.collection("ride_candidates").doc(candidateDocId(rideId, driverUid));
   const offerRef = db.collection("ride_offers").doc(existingOfferId);
   const partnerRef = db.collection("partners").doc(driverUid);
+  const vehicleRef = db.collection("vehicles").doc(vehicleId);
 
   return db.runTransaction(async (tx) => {
-    const [rideSnap, candSnap, offerSnap, partnerSnap] = await Promise.all([
+    const [rideSnap, candSnap, offerSnap, partnerSnap, vehicleSnap] = await Promise.all([
       tx.get(rideRef),
       tx.get(candRef),
       tx.get(offerRef),
       tx.get(partnerRef),
+      tx.get(vehicleRef),
     ]);
     if (!rideSnap.exists) throw err("not-found", "RIDE_NOT_FOUND");
     const ride = rideSnap.data() || {};
@@ -1087,7 +1091,17 @@ async function submitRideOffer(db, params) {
     const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
     if (partner.accountStatus === "blocked") throw err("permission-denied", "DRIVER_BLOCKED");
     if (partner.accountStatus === "suspended") throw err("permission-denied", "DRIVER_SUSPENDED");
-    if (partner.activeRideId) throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
+    if (!vehicleSnap.exists || vehicleSnap.data()?.driverId !== driverUid) {
+      throw err("permission-denied", "VEHICLE_NOT_LINKED");
+    }
+    await reconcileDriverAvailabilityInTx(tx, db, {
+      driverUid,
+      vehicleId,
+      partnerRef,
+      vehicleRef,
+      partnerSnap,
+      vehicleSnap,
+    });
 
     const prev = offerSnap.exists ? offerSnap.data() : null;
     if (prev && ["rejected", "withdrawn", "expired", "accepted"].includes(prev.status)) {
@@ -1209,7 +1223,6 @@ async function finalizeAssignmentFromOffer(db, params) {
     const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
     if (partner.accountStatus === "blocked") throw err("permission-denied", "DRIVER_BLOCKED");
     if (partner.accountStatus === "suspended") throw err("permission-denied", "DRIVER_SUSPENDED");
-    if (partner.activeRideId) throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
 
     const vehicleRef = offer.vehicleId
       ? db.collection("vehicles").doc(offer.vehicleId)
@@ -1218,7 +1231,14 @@ async function finalizeAssignmentFromOffer(db, params) {
     if (!vehicleSnap?.exists || vehicleSnap.data()?.driverId !== offer.driverId) {
       throw err("permission-denied", "VEHICLE_NOT_LINKED");
     }
-    if (vehicleSnap.data()?.activeRideId) throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
+    await reconcileDriverAvailabilityInTx(tx, db, {
+      driverUid: offer.driverId,
+      vehicleId: offer.vehicleId,
+      partnerRef,
+      vehicleRef,
+      partnerSnap,
+      vehicleSnap,
+    });
 
     let finalFare = Math.round(Number(offer.fare) || 0);
     if (actorRole === "driver" && offer.status === "countered") {
@@ -1312,10 +1332,6 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
 
   if (!rideId || !driverUid || !vehicleId) throw err("invalid-argument", "MISSING_FIELDS");
 
-  if (await driverHasActiveRide(db, driverUid)) {
-    throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
-  }
-
   const existingOfferId = `${rideId}_${driverUid}`;
   const rideRef = db.collection("rides").doc(rideId);
   const candRef = db.collection("ride_candidates").doc(candidateDocId(rideId, driverUid));
@@ -1341,11 +1357,17 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
     const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
     if (partner.accountStatus === "blocked") throw err("permission-denied", "DRIVER_BLOCKED");
     if (partner.accountStatus === "suspended") throw err("permission-denied", "DRIVER_SUSPENDED");
-    if (partner.activeRideId) throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
     if (!vehicleSnap.exists || vehicleSnap.data()?.driverId !== driverUid) {
       throw err("permission-denied", "VEHICLE_NOT_LINKED");
     }
-    if (vehicleSnap.data()?.activeRideId) throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
+    await reconcileDriverAvailabilityInTx(tx, db, {
+      driverUid,
+      vehicleId,
+      partnerRef,
+      vehicleRef,
+      partnerSnap,
+      vehicleSnap,
+    });
 
     const prev = offerSnap.exists ? offerSnap.data() : null;
     if (prev?.status === "accepted") {
@@ -1516,14 +1538,19 @@ const NEARBY_REMATCH_KM = 3;
 /**
  * When a driver becomes matchable (online + location), invite them to nearby searching rides.
  */
-async function rematchNearbySearchingRidesForVehicle(db, vehicle) {
+async function rematchNearbySearchingRidesForVehicle(db, vehicle, vehicleDocId = null) {
   const driverId = vehicle?.driverId;
   const lat = Number(vehicle?.location?.lat);
   const lng = Number(vehicle?.location?.lng);
   if (!driverId || !Number.isFinite(lat) || !Number.isFinite(lng)) {
     return { rematched: 0, skipped: "no_location" };
   }
-  if (vehicle.status !== "online" || vehicle.activeRideId) {
+  const vehicleWithId = {
+    ...vehicle,
+    id: vehicleDocId || vehicle.id || vehicle.vehicleId || null,
+  };
+  const available = await isDriverAvailableForRematch(db, vehicleWithId);
+  if (!available) {
     return { rematched: 0, skipped: "not_available" };
   }
 
@@ -1535,11 +1562,7 @@ async function rematchNearbySearchingRidesForVehicle(db, vehicle) {
 
   const partnerSnap = await db.collection("partners").doc(driverId).get();
   const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
-  if (
-    partner.accountStatus === "blocked" ||
-    partner.accountStatus === "suspended" ||
-    partner.activeRideId
-  ) {
+  if (partner.accountStatus === "blocked" || partner.accountStatus === "suspended") {
     return { rematched: 0, skipped: "partner_unavailable" };
   }
 
