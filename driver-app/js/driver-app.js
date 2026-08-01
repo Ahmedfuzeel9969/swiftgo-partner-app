@@ -49,6 +49,7 @@ import {
   collectActiveRideCandidateIds,
   persistActiveRideCache,
   readActiveRideCache,
+  STALE_POINTER_RECOVERY_URDU,
   validateRideForDriverRestore,
 } from "./active-ride-reconcile.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
@@ -2791,6 +2792,21 @@ async function restoreActiveExecutionRide(partner = null) {
       const snap = await getDoc(doc(db, collectionName, rideId));
       if (!snap.exists()) {
         if (cached?.rideId === rideId) clearActiveRideCache();
+        continue;
+      }
+      const validation = validateRideForDriverRestore(snap.data(), currentDriver.uid);
+      if (!validation.ok) {
+        if (cached?.rideId === rideId) clearActiveRideCache();
+        if (
+          validation.reason === "terminal_or_inactive" &&
+          (partner?.activeRideId === rideId || linkedVehicle?.activeRideId === rideId)
+        ) {
+          console.info("[SwiftGo Partner readiness]", {
+            event: "stale_pointer_detected_client",
+            category: validation.reason,
+          });
+          setLocationMessage(STALE_POINTER_RECOVERY_URDU);
+        }
         continue;
       }
       const ok = await resumeActiveRideFromDoc(snap.id, snap.data(), collectionName);

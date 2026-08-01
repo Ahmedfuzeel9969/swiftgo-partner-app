@@ -126,10 +126,23 @@ async function settleRide(db, params) {
       });
     }
 
+    /** Clear partner activeRideId when it still points at this completed ride. */
+    function clearPartnerActiveRideIfMatched() {
+      if (!partnerRef || !partnerSnap?.exists) return;
+      const partner = partnerSnap.data() || {};
+      if (String(partner.activeRideId || "") !== rideId) return;
+      tx.set(
+        partnerRef,
+        { activeRideId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+    }
+
     // Idempotent retry: return existing settlement without re-posting.
     if (ride.status === "completed" && ledgerSnap.exists) {
       const ledger = ledgerSnap.data() || {};
       clearVehicleActiveRideIfMatched();
+      clearPartnerActiveRideIfMatched();
       return {
         alreadySettled: true,
         rideId,

@@ -485,6 +485,13 @@ async function emulatorChecks() {
     `status=${healVehicleAfter.status}`
   );
   record(
+    "E17b-idempotent-heal-stale-partner-activeRideId",
+    healRetry?.alreadySettled === true &&
+      (healPartnerAfter.activeRideId === undefined || healPartnerAfter.activeRideId === null)
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
     "E18-idempotent-heal-no-double-earnings",
     healPartnerAfter.totalEarnings === healPartnerBefore.totalEarnings &&
       healPartnerAfter.totalRidesCompleted === healPartnerBefore.totalRidesCompleted
