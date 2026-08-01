@@ -216,6 +216,8 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) 
 
   const observedAt = Number(opts.observedAt) || Date.now();
   const allowPredict = opts.allowPredict !== false;
+  /** Phase 5 display pipeline owns RAF — place marker without chord interpolation. */
+  const skipAnimation = opts.skipAnimation === true;
 
   if (!assignedDriverMarker) {
     assignedDriverPos = { lat, lng };
@@ -241,6 +243,17 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) 
   if (samePlace) {
     assignedDriverMarker.setIcon(createAssignedDriverIcon(rotationDeg));
     assignedDriverPrevAccepted = { lat, lng, observedAt };
+    return;
+  }
+
+  if (skipAnimation) {
+    cancelAssignedDriverAnimation();
+    assignedDriverPos = to;
+    assignedDriverPrevAccepted = { lat, lng, observedAt };
+    assignedDriverTargetMeta = { lat, lng, observedAt };
+    assignedDriverMarker.setIcon(createAssignedDriverIcon(rotationDeg));
+    assignedDriverMarker.setLatLng([lat, lng]);
+    emitAssignedDriverPos(lat, lng);
     return;
   }
 

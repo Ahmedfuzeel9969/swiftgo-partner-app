@@ -49,6 +49,8 @@ import { createCustomerP2pController } from "./p2p-ride-controller.mjs";
 import { createTwoLegRouteController } from "./two-leg-route-controller.mjs";
 import { createTwoLegRouteLayers } from "./two-leg-route-layers.mjs";
 import { resolveRouteProvider } from "./road-route-provider.mjs";
+import { createDisplayLocationPipeline } from "./display-location-pipeline.mjs";
+import { getMap, setAssignedDriverLocation } from "./map.js";
 import { getFirebase } from "./firebase.js";
 
 const SEARCH_TIMEOUT_MS = 180_000;
@@ -103,6 +105,8 @@ let customerP2p = null;
 let twoLegRoutes = null;
 /** @type {ReturnType<typeof createTwoLegRouteLayers> | null} */
 let twoLegLayers = null;
+/** @type {ReturnType<typeof createDisplayLocationPipeline> | null} */
+let displayPipeline = null;
 let detachBrowserLifecycle = () => {};
 let detachingFromLifecycle = false;
 
@@ -138,18 +142,97 @@ function clearLiveSubscriptions() {
 function clearTwoLegRoutes() {
   twoLegRoutes?.clear({ emitDiag: true });
   twoLegLayers?.clear();
+  displayPipeline?.clearRoute();
   setRoadRouteLineSuppressed(false);
+}
+
+function paintDisplayFrame(pos) {
+  if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lng)) return;
+  setAssignedDriverLocation(pos.lat, pos.lng, Number.isFinite(pos.headingDeg) ? pos.headingDeg : 0, {
+    observedAt: Date.now(),
+    skipAnimation: true,
+    allowPredict: false,
+  });
+}
+
+function syncDisplayPipelineFromModel(model) {
+  if (!displayPipeline || !model) return;
+  const emphasis = model.emphasis;
+  if (emphasis === "none") {
+    displayPipeline.clearRoute();
+    return;
+  }
+  const leg = emphasis === "trip" ? model.trip : model.approach;
+  const geometry = leg?.renderGeometry || leg?.geometry;
+  const ready =
+    leg &&
+    (leg.status === "ready" || leg.status === "fallback") &&
+    Array.isArray(geometry) &&
+    geometry.length >= 2;
+  if (!ready) {
+    displayPipeline.clearRoute();
+    return;
+  }
+  displayPipeline.setActiveRoute({
+    geometry,
+    generation: model.rideGeneration,
+    activeLeg: emphasis === "trip" ? "trip" : "approach",
+    pickupLoc: activeRide?.pickupLocation || null,
+    dropoffLoc: activeRide?.dropoffLocation || null,
+  });
 }
 
 function ensureTwoLegRoutes() {
   if (twoLegRoutes) return twoLegRoutes;
   twoLegLayers = createTwoLegRouteLayers({
+    getMap,
     onDiag: (code) => {
       try {
         console.info(JSON.stringify({ type: "road_route_diag", reason: String(code || "") }));
       } catch {
         /* ignore */
       }
+    },
+  });
+  displayPipeline = createDisplayLocationPipeline({
+    onDisplayFrame: paintDisplayFrame,
+    onRawFallback: paintDisplayFrame,
+    onDiag: (code) => {
+      try {
+        console.info(JSON.stringify({ type: "snap_diag", reason: String(code || "") }));
+      } catch {
+        /* ignore */
+      }
+    },
+    onRerouteNeeded: ({ origin, generation }) => {
+      const ctrl = twoLegRoutes;
+      if (!ctrl) {
+        displayPipeline?.noteRerouteResult(false);
+        return;
+      }
+      const provider = resolveRouteProvider();
+      if (!provider?.route || provider.id === "disabled") {
+        displayPipeline?.noteRerouteResult(false);
+        return;
+      }
+      void (async () => {
+        try {
+          const result = await ctrl.rerouteFromOrigin(origin);
+          if (!result?.ok) {
+            displayPipeline?.noteRerouteResult(false);
+            return;
+          }
+          if (generation != null && Number(generation) > Number(result.generation || 0)) {
+            displayPipeline?.noteRerouteResult(false);
+            return;
+          }
+          const model = ctrl.getModel();
+          syncDisplayPipelineFromModel(model);
+          displayPipeline?.noteRerouteResult(true);
+        } catch {
+          displayPipeline?.noteRerouteResult(false);
+        }
+      })();
     },
   });
   twoLegRoutes = createTwoLegRouteController({
@@ -169,6 +252,7 @@ function ensureTwoLegRoutes() {
         model?.trip?.status === "fallback";
       setRoadRouteLineSuppressed(Boolean(hasRoad && model?.emphasis !== "none"));
       twoLegLayers?.render(model);
+      syncDisplayPipelineFromModel(model);
       if (hasRoad && !model.fittedOnceForRide) {
         twoLegRoutes?.markFitted();
       }
@@ -176,6 +260,7 @@ function ensureTwoLegRoutes() {
   });
   if (typeof window !== "undefined") {
     window.__SWIFTGO_ROUTE_COUNTERS__ = () => twoLegRoutes?.getCounters?.() || null;
+    window.__SWIFTGO_SNAP_COUNTERS__ = () => displayPipeline?.getCounters?.() || null;
   }
   return twoLegRoutes;
 }
@@ -190,6 +275,9 @@ function syncTwoLegForRide(ride, { isVisible = true } = {}) {
   clearRoutePoint("pickup");
   clearRoutePoint("dropoff");
   ensureTwoLegRoutes().syncRide(ride, { isVisible });
+  if (!isVisible) {
+    displayPipeline?.getMotion?.()?.cancel("hidden");
+  }
 }
 
 function renderFromArbiterFix(fix) {
@@ -209,9 +297,11 @@ function renderFromArbiterFix(fix) {
     },
     driverLocationUpdatedAt: fix.observedAt,
   };
-  updateDriverTrack(rideForTrack);
-  // Location feed for approach refresh policy — not a per-fix route request.
+  // Authoritative raw stays on rideForTrack for distance/ETA; marker owned by display pipeline.
+  ensureTwoLegRoutes();
   twoLegRoutes?.noteDriverLocation(fix);
+  updateDriverTrack(rideForTrack, { skipMarker: true });
+  displayPipeline?.ingestValidatedFix(fix);
 }
 
 function ensureRideViewLifecycle() {

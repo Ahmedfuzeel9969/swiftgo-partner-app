@@ -1,6 +1,6 @@
 {
   "suite": "road-routing",
-  "generatedAt": "2026-08-01T19:54:24.818Z",
+  "generatedAt": "2026-08-01T20:31:23.526Z",
   "totals": {
     "pass": 64,
     "fail": 0,
@@ -463,9 +463,9 @@
       "category": "static"
     },
     {
-      "name": "driver-integration-partial",
+      "name": "driver-active-ride-two-leg-wired",
       "status": "PASS",
-      "detail": "shared modules mirrored; active-ride map wiring deferred",
+      "detail": "Phase 4 carry-forward: driver active-ride two-leg map wiring",
       "suite": "road-routing",
       "category": "static"
     },

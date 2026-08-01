@@ -397,6 +397,51 @@ export function createTwoLegRouteController(opts = {}) {
     await requestLeg("approach", driverLoc, pickup, gen);
   }
 
+  /**
+   * Phase 5 — bounded off-route reroute using current raw origin.
+   * Approach: origin → pickup. Trip: origin → dropoff.
+   * Does not request per GPS fix; caller must gate with off-route policy.
+   */
+  async function rerouteFromOrigin(origin) {
+    if (closed || !visible) return { ok: false, reason: "closed_or_hidden" };
+    if (!TRACKABLE.has(rideStatus)) return { ok: false, reason: "not_trackable" };
+    if (!isValidLatLng(origin?.lat, origin?.lng)) return { ok: false, reason: "invalid_origin" };
+    if (!provider?.route) {
+      diag(ROUTE_DIAG.PROVIDER_UNAVAILABLE);
+      return { ok: false, reason: "provider_unavailable" };
+    }
+    // Abort in-flight so this request is not coalesced away.
+    if (rideStatus === "in_progress") {
+      if (tripAbort) {
+        try {
+          tripAbort.abort();
+        } catch {
+          /* ignore */
+        }
+        tripAbort = null;
+      }
+      tripInFlight = null;
+      if (!isValidLatLng(dropoff?.lat, dropoff?.lng)) return { ok: false, reason: "no_dropoff" };
+      const gen = bumpGeneration("reroute_trip");
+      await requestLeg("trip", { lat: origin.lat, lng: origin.lng }, dropoff, gen);
+      return { ok: true, leg: "trip", generation: gen };
+    }
+    if (approachAbort) {
+      try {
+        approachAbort.abort();
+      } catch {
+        /* ignore */
+      }
+      approachAbort = null;
+    }
+    approachInFlight = null;
+    if (!isValidLatLng(pickup?.lat, pickup?.lng)) return { ok: false, reason: "no_pickup" };
+    const gen = bumpGeneration("reroute_approach");
+    lastApproachAt = 0;
+    await requestLeg("approach", { lat: origin.lat, lng: origin.lng }, pickup, gen);
+    return { ok: true, leg: "approach", generation: gen };
+  }
+
   function syncRide(ride, { isVisible = true } = {}) {
     if (closed) return snapshot();
     visible = Boolean(isVisible);
@@ -510,6 +555,7 @@ export function createTwoLegRouteController(opts = {}) {
     markFitted,
     setProvider,
     ensureRoutes,
+    rerouteFromOrigin,
     getModel: snapshot,
     getCounters: () => ({ ...counters }),
     getGeneration: () => generation,

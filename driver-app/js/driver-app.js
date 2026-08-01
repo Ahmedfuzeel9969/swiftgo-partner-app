@@ -74,6 +74,7 @@ import {
 } from "./location-checkpoint-policy.mjs";
 import { createViewerPresenceConsumer } from "./viewer-presence-consumer.mjs";
 import { createDriverP2pController } from "./p2p-ride-controller.mjs";
+import { createDriverActiveRouteController } from "./driver-active-route.mjs";
 import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { cancelAssignedRideByDriverClient } from "./ride-radar-actions.js";
@@ -507,6 +508,52 @@ let radarFeedPrimed = false;
 let lastRadarFeedCount = 0;
 /** @type {{ lat: number, lng: number } | null} */
 let lastDriverPosition = null;
+/** Phase 5 — display-only active-ride route + snap (no second GPS watch). */
+let driverActiveRoute = null;
+
+function ensureDriverActiveRoute() {
+  if (driverActiveRoute) return driverActiveRoute;
+  driverActiveRoute = createDriverActiveRouteController({
+    getMap: () => map,
+    paintDisplayMarker: (pos) => {
+      if (!map || !pos || typeof L === "undefined") return;
+      if (!isValidCoord(pos.lat, pos.lng)) return;
+      const latlng = [pos.lat, pos.lng];
+      if (!locationMarker) {
+        locationMarker = L.marker(latlng, {
+          icon: driverIcon(),
+          keyboard: false,
+          zIndexOffset: 1000,
+        }).addTo(map);
+      } else {
+        locationMarker.setLatLng(latlng);
+      }
+    },
+  });
+  return driverActiveRoute;
+}
+
+function syncDriverActiveRouteFromRide(ride) {
+  if (!ride || !ACTIVE_EXECUTION_STATUSES.has(String(ride.status || ""))) {
+    driverActiveRoute?.clear();
+    return;
+  }
+  const visible =
+    typeof document === "undefined" || document.visibilityState !== "hidden";
+  ensureDriverActiveRoute().syncRide(
+    {
+      ...ride,
+      driverLocation: lastDriverPosition
+        ? { lat: lastDriverPosition.lat, lng: lastDriverPosition.lng }
+        : ride.driverLocation,
+    },
+    { isVisible: visible }
+  );
+}
+
+function clearDriverActiveRoute() {
+  driverActiveRoute?.clear();
+}
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
@@ -2275,6 +2322,7 @@ function updateDriverLocation(position) {
   transientGpsFailCount = 0;
 
   // Matching must receive server location only after ONLINE_READY.
+  // Authoritative raw GPS only — never write display-snapped coordinates.
   if (isOnlineReady() && linkedVehicle?.id) {
     const headingDeg = Number.isFinite(heading) ? heading : null;
     const speedMps = Number.isFinite(speed) && speed >= 0 ? speed : null;
@@ -2299,8 +2347,20 @@ function updateDriverLocation(position) {
   }
 
   const latlng = [latitude, longitude];
+  const trackable =
+    activeExecutionRide &&
+    ACTIVE_EXECUTION_STATUSES.has(String(activeExecutionRide.status || ""));
 
-  if (!locationMarker) {
+  if (trackable) {
+    ensureDriverActiveRoute().noteRawFix({
+      lat: latitude,
+      lng: longitude,
+      accuracyM: Number.isFinite(accuracy) ? accuracy : null,
+      headingDeg: Number.isFinite(heading) ? heading : null,
+      speedMps: Number.isFinite(speed) && speed >= 0 ? speed : null,
+      observedAt: Number(position.timestamp) || Date.now(),
+    });
+  } else if (!locationMarker) {
     locationMarker = L.marker(latlng, {
       icon: driverIcon(),
       keyboard: false,
@@ -2321,6 +2381,7 @@ function updateDriverLocation(position) {
       interactive: false,
     }).addTo(map);
   } else {
+    // Accuracy circle tracks authoritative raw GPS, not display snap.
     accuracyCircle.setLatLng(latlng).setRadius(accuracy || 20);
   }
 
@@ -3016,6 +3077,7 @@ async function refreshLinkedVehicleAndPartner() {
 async function dismissStaleActiveRide() {
   stopActiveRideWatch();
   detachCheckpointPresence("stale_or_terminal");
+  clearDriverActiveRoute();
   activeExecutionRide = null;
   clearActiveRideCache();
   hideActiveRideSheet();
@@ -3091,6 +3153,7 @@ async function finalizeSuccessfulRideCompletion(ride, settlementResult) {
   activeExecutionRide = null;
   activeRideRecoveryPending = false;
   detachCheckpointPresence("ride_completed");
+  clearDriverActiveRoute();
 
   const orphanedCompletion = !linkedVehicle?.id;
 
@@ -3308,6 +3371,7 @@ function showRideCompleteSheet(ride) {
 
 function renderActiveRideControls(ride) {
   if (!ride || ride.status === "completed") {
+    clearDriverActiveRoute();
     if (ride?.status === "completed") showRideCompleteSheet(ride);
     else hideActiveRideSheet();
     return;
@@ -3315,6 +3379,7 @@ function renderActiveRideControls(ride) {
 
   const action = ACTIVE_RIDE_ACTIONS[ride.status];
   if (!action) {
+    clearDriverActiveRoute();
     hideActiveRideSheet();
     return;
   }
@@ -3352,6 +3417,7 @@ function renderActiveRideControls(ride) {
     announce("سواری تفویض / Ride assigned");
   }
   syncRideRadarFab();
+  syncDriverActiveRouteFromRide(ride);
 }
 
 function startActiveRideWatch(rideId, collectionName = "rides") {
@@ -3466,6 +3532,7 @@ async function cancelAssignedActiveRideByDriver() {
     });
     stopActiveRideWatch();
     detachCheckpointPresence("driver_cancelled");
+    clearDriverActiveRoute();
     activeExecutionRide = null;
     clearActiveRideCache();
     hideActiveRideSheet();

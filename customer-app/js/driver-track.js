@@ -159,8 +159,9 @@ export function stopDriverTrack() {
 
 /**
  * @param {object | null} ride
+ * @param {{ skipMarker?: boolean }} [opts] — when true, refresh UI/freshness only (Phase 5 display pipeline owns marker).
  */
-export function updateDriverTrack(ride) {
+export function updateDriverTrack(ride, opts = {}) {
   if (!ride) {
     stopDriverTrack();
     return;
@@ -195,8 +196,9 @@ export function updateDriverTrack(ride) {
   const freshness = resolveFreshness(ageMs);
   const allowPredict = freshness === FRESHNESS.FRESH;
   const hasValidLoc = isValidLatLng(loc?.lat, loc?.lng);
+  const skipMarker = opts.skipMarker === true;
 
-  if (hasValidLoc && tracking.showDriverMarker) {
+  if (hasValidLoc && tracking.showDriverMarker && !skipMarker) {
     const rotation = resolveMarkerRotationDeg({
       headingDeg: loc.headingDeg ?? loc.heading ?? null,
       previousFix: lastAcceptedFix,
@@ -224,6 +226,8 @@ export function updateDriverTrack(ride) {
     }
   } else if (!tracking.showDriverMarker) {
     clearAssignedDriver();
+    paintApproachLine(null, null);
+  } else if (skipMarker && roadRouteLineSuppressed) {
     paintApproachLine(null, null);
   }
 

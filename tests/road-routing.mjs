@@ -698,12 +698,13 @@ function staticIntegrationTests() {
     "static"
   );
   record(
-    "driver-integration-partial",
-    read("driver-app/js/ride-radar-routing.js").includes("road-route-provider") &&
-      fs.existsSync(path.join(ROOT, "driver-app/js/two-leg-route-controller.mjs"))
+    "driver-active-ride-two-leg-wired",
+    read("driver-app/js/driver-app.js").includes("driver-active-route") &&
+      read("driver-app/js/driver-active-route.mjs").includes("createTwoLegRouteController") &&
+      fs.existsSync(path.join(ROOT, "driver-app/js/two-leg-route-layers.mjs"))
       ? "PASS"
       : "FAIL",
-    "shared modules mirrored; active-ride map wiring deferred",
+    "Phase 4 carry-forward: driver active-ride two-leg map wiring",
     "static"
   );
   record(
