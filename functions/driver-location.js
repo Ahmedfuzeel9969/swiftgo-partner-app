@@ -11,6 +11,7 @@ const {
   LOCATION_DIAG,
   evaluateFixAgainstPrevious,
   isValidLatLng,
+  isValidTrackingSessionId,
   logLocationDiag,
   timestampToMs,
   toVehicleLocationField,
@@ -92,6 +93,17 @@ function buildDriverLocationPatch(vehicle, ride) {
   const incoming = envelopeFromVehicleLocation(loc);
   if (!incoming) return { skip: true, reason: LOCATION_DIAG.INVALID };
 
+  const vehicleSessionId = String(vehicle?.trackingSessionId || "");
+  // Non-legacy path: every mirrored write requires matching session IDs.
+  if (
+    !incoming.sessionId ||
+    !isValidTrackingSessionId(incoming.sessionId) ||
+    !vehicleSessionId ||
+    incoming.sessionId !== vehicleSessionId
+  ) {
+    return { skip: true, reason: LOCATION_DIAG.SESSION_MISMATCH };
+  }
+
   const previous = previousEnvelopeFromRide(ride);
   const vehicleSessionStartedMs = timestampToMs(vehicle?.trackingSessionStartedAt);
   const previousSessionStartedMs =
@@ -100,7 +112,8 @@ function buildDriverLocationPatch(vehicle, ride) {
     0;
 
   const gate = evaluateFixAgainstPrevious(previous, incoming, {
-    vehicleSessionId: String(vehicle?.trackingSessionId || incoming.sessionId || ""),
+    enforceSessionConsistency: true,
+    vehicleSessionId,
     vehicleSessionStartedMs,
     previousSessionStartedMs,
   });
@@ -162,50 +175,97 @@ function buildDriverLocationPatch(vehicle, ride) {
 
 /**
  * Shared transactional mirror. All reads precede any write.
+ * Logging happens ONLY after runTransaction resolves (avoids retry duplicate logs).
+ *
  * @param {FirebaseFirestore.Firestore} db
  * @param {string} vehicleId
- * @param {object} vehicleAfter committed vehicle snapshot data (location + session fields)
- * @param {{ rideId?: string }} [opts]
+ * @param {object|null} vehicleAfter committed vehicle snapshot (trigger path); ignored when readVehicleInTxn
+ * @param {{
+ *   rideId?: string,
+ *   readVehicleInTxn?: boolean,
+ *   runTransaction?: Function,
+ *   silent?: boolean,
+ * }} [opts]
  */
 async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts = {}) {
-  const rideId = String(opts.rideId || vehicleAfter?.activeRideId || "").trim();
-  if (!rideId) return { mirrored: false, reason: "no_active_ride" };
   if (!vehicleId) return { mirrored: false, reason: LOCATION_DIAG.INVALID };
 
-  const rideRef = db.collection("rides").doc(rideId);
+  const rideRefHint = String(opts.rideId || vehicleAfter?.activeRideId || "").trim();
+  if (!rideRefHint && !opts.readVehicleInTxn) {
+    return { mirrored: false, reason: "no_active_ride" };
+  }
 
-  return db.runTransaction(async (tx) => {
-    // --- reads only ---
-    const rideSnap = await tx.get(rideRef);
-    if (!rideSnap.exists) {
-      return { mirrored: false, reason: "ride_missing" };
-    }
-    const ride = rideSnap.data() || {};
-    if (ride.vehicleId && ride.vehicleId !== vehicleId) {
-      return { mirrored: false, reason: "vehicle_mismatch" };
-    }
+  const vehicleRef = db.collection("vehicles").doc(vehicleId);
+  const runTx =
+    typeof opts.runTransaction === "function"
+      ? opts.runTransaction
+      : (fn) => db.runTransaction(fn);
 
-    const decision = buildDriverLocationPatch(vehicleAfter || {}, ride);
-    if (decision.skip) {
-      logLocationDiag(decision.reason);
-      return { mirrored: false, reason: decision.reason };
-    }
+  let result;
+  try {
+    result = await runTx(async (tx) => {
+      // --- reads only (vehicle first when needed so rideId can come from live vehicle) ---
+      let vehicle = vehicleAfter || {};
+      if (opts.readVehicleInTxn) {
+        const vehicleSnap = await tx.get(vehicleRef);
+        if (!vehicleSnap.exists) {
+          return { mirrored: false, reason: "vehicle_missing" };
+        }
+        vehicle = vehicleSnap.data() || {};
+      }
 
-    // --- writes after all reads ---
-    tx.update(rideRef, decision.patch);
-    logLocationDiag(LOCATION_DIAG.MIRRORED);
-    return { mirrored: true, reason: LOCATION_DIAG.MIRRORED };
-  });
+      const rideId = String(opts.rideId || vehicle?.activeRideId || "").trim();
+      if (!rideId) {
+        return { mirrored: false, reason: "no_active_ride" };
+      }
+      const rideRef = db.collection("rides").doc(rideId);
+
+      const rideSnap = await tx.get(rideRef);
+      if (!rideSnap.exists) {
+        return { mirrored: false, reason: "ride_missing" };
+      }
+      const ride = rideSnap.data() || {};
+      if (ride.vehicleId && ride.vehicleId !== vehicleId) {
+        return { mirrored: false, reason: "vehicle_mismatch" };
+      }
+
+      const decision = buildDriverLocationPatch(vehicle, ride);
+      if (decision.skip) {
+        return { mirrored: false, reason: decision.reason };
+      }
+
+      // --- writes after all reads ---
+      tx.update(rideRef, decision.patch);
+      return { mirrored: true, reason: LOCATION_DIAG.MIRRORED };
+    });
+  } catch (err) {
+    if (!opts.silent) {
+      logLocationDiag("ride_location_mirror_txn_failed", {
+        code: String(err?.code || err?.message || "txn_error").slice(0, 80),
+      });
+    }
+    throw err;
+  }
+
+  // Log once after successful commit / definitive skip — never inside the txn callback.
+  if (!opts.silent && result?.reason) {
+    logLocationDiag(result.reason);
+  }
+  return result || { mirrored: false, reason: "unknown" };
 }
 
 async function seedDriverLocationFromVehicle(db, rideId, vehicleId) {
   if (!rideId || !vehicleId) return { mirrored: false, reason: "missing_ids" };
-  const vehicleSnap = await db.collection("vehicles").doc(vehicleId).get();
-  if (!vehicleSnap.exists) return { mirrored: false, reason: "vehicle_missing" };
-  return mirrorRideLocationTransactional(db, vehicleId, vehicleSnap.data() || {}, { rideId });
+  // Read current vehicle + ride inside one transaction so a stale outer snapshot
+  // cannot seed a retired/mismatched session as the first ride fix.
+  return mirrorRideLocationTransactional(db, vehicleId, null, {
+    rideId,
+    readVehicleInTxn: true,
+  });
 }
 
 async function mirrorDriverLocationToRide(db, vehicleId, vehicle) {
+  // Trigger path: use immutable event snapshot for vehicle fields.
   return mirrorRideLocationTransactional(db, vehicleId, vehicle || {}, {});
 }
 

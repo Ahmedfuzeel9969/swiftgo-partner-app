@@ -1,5 +1,23 @@
 /** Driver-app Phase 1 location envelope — keep aligned with functions/live-location-envelope.js */
 
+/**
+ * Phase 1 live-location foundation — normalize / validate GPS envelopes.
+ * Privacy: never log coordinates, ride IDs, or driver IDs from this module.
+ *
+ * Session transition rules (server-safe):
+ * - Non-legacy writes require location.sessionId === vehicle.trackingSessionId.
+ * - First ride fix is NOT accepted merely because no previous ride location exists
+ *   when session IDs mismatch or location.sessionId is missing.
+ * - Same sessionId: next.sequence AND next.observedAt must both be strictly greater.
+ * - Exact same sessionId/sequence/observedAt/coords → duplicate.
+ * - Different sessionId alone is NOT enough to accept.
+ * - A new session is accepted only when vehicle.trackingSessionStartedAt (server time)
+ *   is strictly newer than the ride's previously mirrored session start.
+ * - Delayed fixes from a retired session are rejected.
+ * - Legacy ride records without session fields remain readable by customers but
+ *   cannot bypass new envelope writes (CF + rules reject mismatched/missing IDs).
+ */
+
 /** Reject fixes with worse horizontal accuracy than this (metres). */
 const MAX_ACCEPT_ACCURACY_M = 80;
 
@@ -12,6 +30,9 @@ const JUMP_SKIP_IF_PREV_ACCURACY_M = 60;
 /** Minimum elapsed ms before jump speed is evaluated (avoids divide-by-near-zero). */
 const MIN_JUMP_ELAPSED_MS = 800;
 
+/** Max trackingSessionId / location.sessionId length (Firestore rules + CF). */
+const MAX_TRACKING_SESSION_ID_LEN = 64;
+
 const LOCATION_DIAG = Object.freeze({
   ACCEPTED: "location_fix_accepted",
   DUPLICATE: "location_fix_duplicate",
@@ -20,9 +41,17 @@ const LOCATION_DIAG = Object.freeze({
   POOR_ACCURACY: "location_fix_poor_accuracy",
   IMPOSSIBLE_JUMP: "location_fix_impossible_jump",
   RETIRED_SESSION: "location_fix_retired_session",
+  SESSION_MISMATCH: "location_fix_session_mismatch",
   MIRRORED: "ride_location_mirrored",
   NOOP_UNCHANGED: "ride_location_noop_unchanged",
 });
+
+function isValidTrackingSessionId(id) {
+  if (typeof id !== "string") return false;
+  const s = id.trim();
+  if (s.length < 3 || s.length > MAX_TRACKING_SESSION_ID_LEN) return false;
+  return /^[A-Za-z0-9_-]+$/.test(s);
+}
 
 function haversineM(a, b) {
   const R = 6371000;
@@ -146,12 +175,17 @@ function normalizeLocationFix(raw, ctx) {
 }
 
 /**
+ * When sessionCtx.enforceSessionConsistency is true (CF mirror path), require
+ * next.sessionId === vehicleSessionId even for the first ride fix.
+ * Calls without that flag keep legacy evaluate behaviour for read-side tooling.
+ *
  * @param {object|null} previous
  * @param {object} next
  * @param {{
  *   vehicleSessionId?: string,
  *   vehicleSessionStartedMs?: number|null,
  *   previousSessionStartedMs?: number|null,
+ *   enforceSessionConsistency?: boolean,
  * }} [sessionCtx]
  */
 function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
@@ -159,20 +193,32 @@ function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
     return { accept: false, reason: LOCATION_DIAG.INVALID };
   }
 
+  const nextSession = String(next.sessionId || "");
+  const vehicleSessionId = String(sessionCtx.vehicleSessionId || "");
+  const enforce = Boolean(sessionCtx.enforceSessionConsistency);
+
+  if (enforce) {
+    if (!nextSession || !isValidTrackingSessionId(nextSession)) {
+      return { accept: false, reason: LOCATION_DIAG.INVALID };
+    }
+    if (!vehicleSessionId || nextSession !== vehicleSessionId) {
+      return { accept: false, reason: LOCATION_DIAG.SESSION_MISMATCH };
+    }
+  }
+
   if (!previous || !isValidLatLng(previous.lat, previous.lng)) {
     return { accept: true, reason: LOCATION_DIAG.ACCEPTED };
   }
 
   const prevSession = String(previous.sessionId || "");
-  const nextSession = String(next.sessionId || "");
-  const vehicleSessionId = String(sessionCtx.vehicleSessionId || nextSession || "");
+  const resolvedVehicleSessionId = vehicleSessionId || nextSession;
   const vehicleSessionStartedMs = Number(sessionCtx.vehicleSessionStartedMs) || 0;
   const previousSessionStartedMs = Number(sessionCtx.previousSessionStartedMs) || 0;
 
   // --- Session transition (not lexicographic sessionId compare) ---
   if (prevSession && nextSession && prevSession !== nextSession) {
     // Incoming fix must belong to the vehicle's current authoritative session.
-    if (vehicleSessionId && nextSession !== vehicleSessionId) {
+    if (resolvedVehicleSessionId && nextSession !== resolvedVehicleSessionId) {
       return { accept: false, reason: LOCATION_DIAG.RETIRED_SESSION };
     }
     if (!vehicleSessionStartedMs) {
@@ -190,8 +236,8 @@ function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
     prevSession &&
     nextSession &&
     prevSession === nextSession &&
-    vehicleSessionId &&
-    vehicleSessionId !== nextSession
+    resolvedVehicleSessionId &&
+    resolvedVehicleSessionId !== nextSession
   ) {
     return { accept: false, reason: LOCATION_DIAG.RETIRED_SESSION };
   }
@@ -289,15 +335,26 @@ function toVehicleLocationField(envelope) {
   return out;
 }
 
+/** Optional sink for tests — production uses console only. */
+let locationDiagSink = null;
+
+function setLocationDiagSink(fn) {
+  locationDiagSink = typeof fn === "function" ? fn : null;
+}
+
 function logLocationDiag(reason, extra = {}) {
+  const payload = {
+    type: "live_location_diag",
+    reason: String(reason || ""),
+    ...extra,
+  };
   try {
-    console.info(
-      JSON.stringify({
-        type: "live_location_diag",
-        reason: String(reason || ""),
-        ...extra,
-      })
-    );
+    if (locationDiagSink) locationDiagSink(payload);
+  } catch {
+    /* ignore sink errors */
+  }
+  try {
+    console.info(JSON.stringify(payload));
   } catch {
     /* ignore */
   }
@@ -347,10 +404,12 @@ export function estimateLocationWriteComparison(activeRideMinutes = 20, fixEvery
 export {
   MAX_ACCEPT_ACCURACY_M,
   MAX_PLAUSIBLE_SPEED_MPS,
+  MAX_TRACKING_SESSION_ID_LEN,
   LOCATION_DIAG,
   haversineM,
   normalizeHeadingDeg,
   isValidLatLng,
+  isValidTrackingSessionId,
   coerceCoordNumber,
   timestampToMs,
   normalizeLocationFix,
@@ -358,4 +417,5 @@ export {
   derivedDisplayBearingDeg,
   toVehicleLocationField,
   logLocationDiag,
+  setLocationDiagSink,
 };

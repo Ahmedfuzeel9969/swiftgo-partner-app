@@ -11,7 +11,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, updateDoc, Timestamp } from "firebase/firestore";
+import { doc, updateDoc, Timestamp, serverTimestamp } from "firebase/firestore";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -53,16 +53,26 @@ function matchGeoCellId(lat, lng) {
 /** Mirrors driver-app buildOnlineReadyVehiclePayload + client updateDoc fields. */
 function buildOnlineReadyPayload(driverUid, lat = LAT, lng = LNG, { activeRideId = null } = {}) {
   const cell = `${Math.floor(lat / LOCATION_GRID_DEG)}_${Math.floor(lng / LOCATION_GRID_DEG)}`;
+  const sessionId = `s_or_${driverUid.slice(0, 8)}_${Math.floor(lat * 1000)}`;
   return {
     driverId: driverUid,
     status: "online",
     driverName: "Test Driver",
-    location: { lat, lng },
+    location: {
+      lat,
+      lng,
+      observedAt: Date.now(),
+      sequence: 1,
+      sessionId,
+      source: "gps",
+    },
     locationUpdatedAt: Timestamp.now(),
     locationGridCell: cell,
     geoCell: matchGeoCellId(lat, lng),
     hotspotId: null,
     activeRideId,
+    trackingSessionId: sessionId,
+    trackingSessionStartedAt: serverTimestamp(),
   };
 }
 
