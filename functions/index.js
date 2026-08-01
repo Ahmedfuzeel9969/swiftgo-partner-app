@@ -60,6 +60,7 @@ const {
 } = require("./ops-monitor");
 const { reportGeoCellCoverage } = require("./geo-coverage");
 const { mirrorDriverLocationToRide } = require("./driver-location");
+const { settleRide } = require("./settlement");
 
 if (!getApps().length) {
   initializeApp();

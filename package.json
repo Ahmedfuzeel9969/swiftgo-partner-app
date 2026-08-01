@@ -37,7 +37,8 @@
     "test:ci-preview": "node tests/ci-preview-gate.mjs",
     "test:dispatch-e2e": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/dispatch-booking-radar-e2e.mjs\"",
     "test:dispatch-readiness": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/dispatch-readiness-race.mjs\"",
-    "test:dispatch-online-ready-rules": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/dispatch-online-ready-rules.mjs\""
+    "test:dispatch-online-ready-rules": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/dispatch-online-ready-rules.mjs\"",
+    "test:driver-active-ride-reconcile": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/driver-active-ride-reconcile.mjs\""
   },
   "keywords": [],
   "author": "",
