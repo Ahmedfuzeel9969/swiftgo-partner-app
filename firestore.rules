@@ -101,7 +101,8 @@ service cloud.firestore {
         && request.resource.data.ownerId == resource.data.ownerId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'driverId', 'status', 'driverName', 'location', 'locationUpdatedAt',
-          'locationGridCell', 'geoCell', 'hotspotId', 'activeRideId'
+          'locationGridCell', 'geoCell', 'hotspotId', 'activeRideId',
+          'trackingSessionId', 'trackingSessionStartedAt'
         ])
         && request.resource.data.status == 'online'
         && request.resource.data.driverName is string
@@ -121,6 +122,14 @@ service cloud.firestore {
         && (
           !('activeRideId' in request.resource.data)
           || request.resource.data.activeRideId == null
+        )
+        && (
+          !('trackingSessionId' in request.resource.data)
+          || request.resource.data.trackingSessionId is string
+        )
+        && (
+          !('trackingSessionStartedAt' in request.resource.data.diff(resource.data).affectedKeys())
+          || request.resource.data.trackingSessionStartedAt == request.time
         );
     }
 
@@ -463,14 +472,23 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly([
                'location', 'locationUpdatedAt', 'driverName', 'status',
-               'geoCell', 'hotspotId', 'locationGridCell'
+               'geoCell', 'hotspotId', 'locationGridCell',
+               'trackingSessionId', 'trackingSessionStartedAt'
              ])
         && request.resource.data.location.keys().hasAll(['lat', 'lng'])
         && request.resource.data.location.lat >= -90
         && request.resource.data.location.lat <= 90
         && request.resource.data.location.lng >= -180
         && request.resource.data.location.lng <= 180
-        && request.resource.data.status in ['online', 'in_ride'];
+        && request.resource.data.status in ['online', 'in_ride']
+        && (
+          !('trackingSessionId' in request.resource.data)
+          || request.resource.data.trackingSessionId is string
+        )
+        && (
+          !('trackingSessionStartedAt' in request.resource.data.diff(resource.data).affectedKeys())
+          || request.resource.data.trackingSessionStartedAt == request.time
+        );
 
       allow update: if isSignedIn()
         && resource.data.driverId == request.auth.uid

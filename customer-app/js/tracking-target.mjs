@@ -15,9 +15,16 @@ const TERMINAL = new Set(["completed", "cancelled", "cancelled_by_user", "expire
 
 function coordOrNull(point) {
   if (!point) return null;
-  const lat = Number(point.lat);
-  const lng = Number(point.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const lat = point.lat;
+  const lng = point.lng;
+  if (
+    typeof lat !== "number" ||
+    typeof lng !== "number" ||
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng)
+  ) {
+    return null;
+  }
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };
 }

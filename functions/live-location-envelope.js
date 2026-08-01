@@ -1,6 +1,14 @@
 /**
  * Phase 1 live-location foundation — normalize / validate GPS envelopes.
  * Privacy: never log coordinates, ride IDs, or driver IDs from this module.
+ *
+ * Session transition rules (server-safe):
+ * - Same sessionId: next.sequence AND next.observedAt must both be strictly greater.
+ * - Exact same sessionId/sequence/observedAt/coords → duplicate.
+ * - Different sessionId alone is NOT enough to accept.
+ * - A new session is accepted only when vehicle.trackingSessionStartedAt (server time)
+ *   is strictly newer than the ride's previously mirrored session start.
+ * - Delayed fixes from a retired session are rejected.
  */
 
 "use strict";
@@ -24,6 +32,7 @@ const LOCATION_DIAG = Object.freeze({
   INVALID: "location_fix_invalid",
   POOR_ACCURACY: "location_fix_poor_accuracy",
   IMPOSSIBLE_JUMP: "location_fix_impossible_jump",
+  RETIRED_SESSION: "location_fix_retired_session",
   MIRRORED: "ride_location_mirrored",
   NOOP_UNCHANGED: "ride_location_noop_unchanged",
 });
@@ -44,14 +53,19 @@ function normalizeHeadingDeg(raw) {
   if (raw == null || raw === "") return null;
   const n = Number(raw);
   if (!Number.isFinite(n)) return null;
-  // Browser Geolocation: heading NaN or negative when unavailable.
   if (n < 0 || n > 360) return null;
   if (n === 360) return 0;
   return Math.round((n % 360) * 1000) / 1000;
 }
 
+/**
+ * Coordinate policy: only finite JS numbers in range are valid.
+ * Numeric strings, NaN, and out-of-range values are rejected.
+ */
 function isValidLatLng(lat, lng) {
   return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
     Number.isFinite(lat) &&
     Number.isFinite(lng) &&
     lat >= -90 &&
@@ -61,14 +75,31 @@ function isValidLatLng(lat, lng) {
   );
 }
 
-/**
- * Normalize a raw GPS sample into a canonical envelope (no server receivedAt).
- * @param {object} raw
- * @param {{ sessionId: string, sequence: number, nowMs?: number }} ctx
- */
+/** Coerce raw lat/lng only when already a finite number (strings rejected). */
+function coerceCoordNumber(v) {
+  if (typeof v !== "number" || !Number.isFinite(v)) return null;
+  return v;
+}
+
+function timestampToMs(value) {
+  if (value == null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (typeof value.toMillis === "function") {
+    const ms = value.toMillis();
+    return Number.isFinite(ms) && ms > 0 ? ms : null;
+  }
+  if (typeof value.seconds === "number" && Number.isFinite(value.seconds)) {
+    const nanos = typeof value.nanoseconds === "number" ? value.nanoseconds : 0;
+    const ms = value.seconds * 1000 + Math.floor(nanos / 1e6);
+    return ms > 0 ? ms : null;
+  }
+  // Do not use Number(FirestoreTimestamp) — it yields NaN.
+  return null;
+}
+
 function normalizeLocationFix(raw, ctx) {
-  const lat = Number(raw?.latitude ?? raw?.lat);
-  const lng = Number(raw?.longitude ?? raw?.lng);
+  const lat = coerceCoordNumber(raw?.latitude ?? raw?.lat);
+  const lng = coerceCoordNumber(raw?.longitude ?? raw?.lng);
   if (!isValidLatLng(lat, lng)) {
     return { ok: false, reason: LOCATION_DIAG.INVALID, envelope: null };
   }
@@ -128,23 +159,54 @@ function normalizeLocationFix(raw, ctx) {
 }
 
 /**
- * Ordering / duplicate / jump gate against a previously accepted fix.
- * New sessionId always resets ordering (page reload / new online activation).
- * @param {object|null} previous envelope-like
- * @param {object} next envelope
+ * @param {object|null} previous
+ * @param {object} next
+ * @param {{
+ *   vehicleSessionId?: string,
+ *   vehicleSessionStartedMs?: number|null,
+ *   previousSessionStartedMs?: number|null,
+ * }} [sessionCtx]
  */
-function evaluateFixAgainstPrevious(previous, next) {
-  if (!next || !isValidLatLng(Number(next.lat), Number(next.lng))) {
+function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
+  if (!next || !isValidLatLng(next.lat, next.lng)) {
     return { accept: false, reason: LOCATION_DIAG.INVALID };
   }
-  if (!previous || !isValidLatLng(Number(previous.lat), Number(previous.lng))) {
+
+  if (!previous || !isValidLatLng(previous.lat, previous.lng)) {
     return { accept: true, reason: LOCATION_DIAG.ACCEPTED };
   }
 
   const prevSession = String(previous.sessionId || "");
   const nextSession = String(next.sessionId || "");
+  const vehicleSessionId = String(sessionCtx.vehicleSessionId || nextSession || "");
+  const vehicleSessionStartedMs = Number(sessionCtx.vehicleSessionStartedMs) || 0;
+  const previousSessionStartedMs = Number(sessionCtx.previousSessionStartedMs) || 0;
+
+  // --- Session transition (not lexicographic sessionId compare) ---
   if (prevSession && nextSession && prevSession !== nextSession) {
+    // Incoming fix must belong to the vehicle's current authoritative session.
+    if (vehicleSessionId && nextSession !== vehicleSessionId) {
+      return { accept: false, reason: LOCATION_DIAG.RETIRED_SESSION };
+    }
+    if (!vehicleSessionStartedMs) {
+      return { accept: false, reason: LOCATION_DIAG.INVALID };
+    }
+    if (previousSessionStartedMs && vehicleSessionStartedMs <= previousSessionStartedMs) {
+      return { accept: false, reason: LOCATION_DIAG.RETIRED_SESSION };
+    }
+    // Legitimate new session: server session start is newer than previous mirrored session.
     return { accept: true, reason: LOCATION_DIAG.ACCEPTED };
+  }
+
+  // Delayed fix claiming the previous session while vehicle already moved on.
+  if (
+    prevSession &&
+    nextSession &&
+    prevSession === nextSession &&
+    vehicleSessionId &&
+    vehicleSessionId !== nextSession
+  ) {
+    return { accept: false, reason: LOCATION_DIAG.RETIRED_SESSION };
   }
 
   const prevObs = Number(previous.observedAt) || 0;
@@ -152,35 +214,42 @@ function evaluateFixAgainstPrevious(previous, next) {
   const prevSeq = Number(previous.sequence) || 0;
   const nextSeq = Number(next.sequence) || 0;
 
-  // Same session: reject lower sequence.
-  if (prevSession && nextSession && prevSession === nextSession && nextSeq < prevSeq) {
-    return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
-  }
-
-  // Same session: reject older observedAt when sequence did not increase.
-  if (
-    prevSession &&
-    nextSession &&
-    prevSession === nextSession &&
-    nextObs < prevObs &&
-    nextSeq <= prevSeq
-  ) {
-    return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
-  }
-
   const sameCoords =
     Math.abs(Number(previous.lat) - Number(next.lat)) < 1e-7 &&
     Math.abs(Number(previous.lng) - Number(next.lng)) < 1e-7;
+
+  // Exact duplicate (same session + seq + observedAt + coords).
   if (
-    sameCoords &&
-    nextObs === prevObs &&
+    prevSession === nextSession &&
     nextSeq === prevSeq &&
-    prevSession === nextSession
+    nextObs === prevObs &&
+    sameCoords
   ) {
     return { accept: false, reason: LOCATION_DIAG.DUPLICATE };
   }
 
-  // Impossible jump (same session only).
+  // Same session: both sequence and observedAt must strictly increase.
+  if (prevSession && nextSession && prevSession === nextSession) {
+    if (nextSeq <= prevSeq) {
+      return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+    }
+    if (nextObs <= prevObs) {
+      return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+    }
+  } else if (!prevSession || !nextSession) {
+    // Legacy path without session ids: observedAt must strictly increase; equal → duplicate/out_of_order.
+    if (nextObs < prevObs) {
+      return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+    }
+    if (nextObs === prevObs && sameCoords) {
+      return { accept: false, reason: LOCATION_DIAG.DUPLICATE };
+    }
+    if (nextObs === prevObs && !sameCoords) {
+      return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+    }
+  }
+
+  // Impossible jump (same session only, after ordering passed).
   if (prevSession && nextSession && prevSession === nextSession && nextObs > prevObs) {
     const elapsed = nextObs - prevObs;
     if (elapsed >= MIN_JUMP_ELAPSED_MS) {
@@ -203,17 +272,13 @@ function evaluateFixAgainstPrevious(previous, next) {
   return { accept: true, reason: LOCATION_DIAG.ACCEPTED };
 }
 
-/**
- * Bearing between two accepted fixes for display when GPS heading is null.
- * Distinct from actual GPS headingDeg.
- */
 function derivedDisplayBearingDeg(from, to) {
   if (!from || !to) return null;
-  if (!isValidLatLng(Number(from.lat), Number(from.lng))) return null;
-  if (!isValidLatLng(Number(to.lat), Number(to.lng))) return null;
-  const φ1 = (Number(from.lat) * Math.PI) / 180;
-  const φ2 = (Number(to.lat) * Math.PI) / 180;
-  const Δλ = ((Number(to.lng) - Number(from.lng)) * Math.PI) / 180;
+  if (!isValidLatLng(from.lat, from.lng)) return null;
+  if (!isValidLatLng(to.lat, to.lng)) return null;
+  const φ1 = (from.lat * Math.PI) / 180;
+  const φ2 = (to.lat * Math.PI) / 180;
+  const Δλ = ((to.lng - from.lng) * Math.PI) / 180;
   const y = Math.sin(Δλ) * Math.cos(φ2);
   const x =
     Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
@@ -221,7 +286,6 @@ function derivedDisplayBearingDeg(from, to) {
   return Math.round(deg * 1000) / 1000;
 }
 
-/** Strip to Firestore-safe vehicle.location map (lat/lng required). */
 function toVehicleLocationField(envelope) {
   if (!envelope) return null;
   const out = {
@@ -238,7 +302,6 @@ function toVehicleLocationField(envelope) {
   return out;
 }
 
-/** Privacy-safe structured log helper (no coords / ids). */
 function logLocationDiag(reason, extra = {}) {
   try {
     console.info(
@@ -260,6 +323,8 @@ module.exports = {
   haversineM,
   normalizeHeadingDeg,
   isValidLatLng,
+  coerceCoordNumber,
+  timestampToMs,
   normalizeLocationFix,
   evaluateFixAgainstPrevious,
   derivedDisplayBearingDeg,

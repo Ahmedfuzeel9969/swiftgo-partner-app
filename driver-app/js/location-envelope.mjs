@@ -1,37 +1,30 @@
-/**
- * Driver-app Phase 1 location envelope — mirrors functions/live-location-envelope.js.
- * Keep constants and acceptance rules aligned with the Cloud Function module.
- */
+/** Driver-app Phase 1 location envelope — keep aligned with functions/live-location-envelope.js */
 
-export const MAX_ACCEPT_ACCURACY_M = 80;
-export const MAX_PLAUSIBLE_SPEED_MPS = 45;
-export const JUMP_SKIP_IF_PREV_ACCURACY_M = 60;
-export const MIN_JUMP_ELAPSED_MS = 800;
+/** Reject fixes with worse horizontal accuracy than this (metres). */
+const MAX_ACCEPT_ACCURACY_M = 80;
 
-export const LOCATION_DIAG = Object.freeze({
+/** Generous max ground speed for Karachi urban GPS (m/s ≈ 160 km/h). */
+const MAX_PLAUSIBLE_SPEED_MPS = 45;
+
+/** Ignore jump checks when previous accuracy was worse than this. */
+const JUMP_SKIP_IF_PREV_ACCURACY_M = 60;
+
+/** Minimum elapsed ms before jump speed is evaluated (avoids divide-by-near-zero). */
+const MIN_JUMP_ELAPSED_MS = 800;
+
+const LOCATION_DIAG = Object.freeze({
   ACCEPTED: "location_fix_accepted",
   DUPLICATE: "location_fix_duplicate",
   OUT_OF_ORDER: "location_fix_out_of_order",
   INVALID: "location_fix_invalid",
   POOR_ACCURACY: "location_fix_poor_accuracy",
   IMPOSSIBLE_JUMP: "location_fix_impossible_jump",
+  RETIRED_SESSION: "location_fix_retired_session",
   MIRRORED: "ride_location_mirrored",
   NOOP_UNCHANGED: "ride_location_noop_unchanged",
 });
 
-/** In-memory Phase 1 cost/diag counters — never written to Firestore per event. */
-export function createLocationDiagCounters() {
-  return {
-    gpsFixesReceived: 0,
-    fixesRejected: 0,
-    vehicleWritesAttempted: 0,
-    vehicleWritesCompleted: 0,
-    rideMirrorWritesCompleted: 0,
-    duplicateRideWritesPrevented: 0,
-  };
-}
-
-export function haversineM(a, b) {
+function haversineM(a, b) {
   const R = 6371000;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
@@ -43,16 +36,23 @@ export function haversineM(a, b) {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
-export function normalizeHeadingDeg(raw) {
+function normalizeHeadingDeg(raw) {
   if (raw == null || raw === "") return null;
   const n = Number(raw);
-  if (!Number.isFinite(n) || n < 0 || n > 360) return null;
+  if (!Number.isFinite(n)) return null;
+  if (n < 0 || n > 360) return null;
   if (n === 360) return 0;
   return Math.round((n % 360) * 1000) / 1000;
 }
 
-export function isValidLatLng(lat, lng) {
+/**
+ * Coordinate policy: only finite JS numbers in range are valid.
+ * Numeric strings, NaN, and out-of-range values are rejected.
+ */
+function isValidLatLng(lat, lng) {
   return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
     Number.isFinite(lat) &&
     Number.isFinite(lng) &&
     lat >= -90 &&
@@ -62,9 +62,31 @@ export function isValidLatLng(lat, lng) {
   );
 }
 
-export function normalizeLocationFix(raw, ctx) {
-  const lat = Number(raw?.latitude ?? raw?.lat);
-  const lng = Number(raw?.longitude ?? raw?.lng);
+/** Coerce raw lat/lng only when already a finite number (strings rejected). */
+function coerceCoordNumber(v) {
+  if (typeof v !== "number" || !Number.isFinite(v)) return null;
+  return v;
+}
+
+function timestampToMs(value) {
+  if (value == null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (typeof value.toMillis === "function") {
+    const ms = value.toMillis();
+    return Number.isFinite(ms) && ms > 0 ? ms : null;
+  }
+  if (typeof value.seconds === "number" && Number.isFinite(value.seconds)) {
+    const nanos = typeof value.nanoseconds === "number" ? value.nanoseconds : 0;
+    const ms = value.seconds * 1000 + Math.floor(nanos / 1e6);
+    return ms > 0 ? ms : null;
+  }
+  // Do not use Number(FirestoreTimestamp) — it yields NaN.
+  return null;
+}
+
+function normalizeLocationFix(raw, ctx) {
+  const lat = coerceCoordNumber(raw?.latitude ?? raw?.lat);
+  const lng = coerceCoordNumber(raw?.longitude ?? raw?.lng);
   if (!isValidLatLng(lat, lng)) {
     return { ok: false, reason: LOCATION_DIAG.INVALID, envelope: null };
   }
@@ -103,6 +125,7 @@ export function normalizeLocationFix(raw, ctx) {
 
   const headingDeg = normalizeHeadingDeg(raw?.headingDeg ?? raw?.heading);
 
+  /** @type {Record<string, unknown>} */
   const envelope = {
     lat: Math.round(lat * 1e7) / 1e7,
     lng: Math.round(lng * 1e7) / 1e7,
@@ -122,18 +145,55 @@ export function normalizeLocationFix(raw, ctx) {
   return { ok: true, reason: LOCATION_DIAG.ACCEPTED, envelope };
 }
 
-export function evaluateFixAgainstPrevious(previous, next) {
-  if (!next || !isValidLatLng(Number(next.lat), Number(next.lng))) {
+/**
+ * @param {object|null} previous
+ * @param {object} next
+ * @param {{
+ *   vehicleSessionId?: string,
+ *   vehicleSessionStartedMs?: number|null,
+ *   previousSessionStartedMs?: number|null,
+ * }} [sessionCtx]
+ */
+function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
+  if (!next || !isValidLatLng(next.lat, next.lng)) {
     return { accept: false, reason: LOCATION_DIAG.INVALID };
   }
-  if (!previous || !isValidLatLng(Number(previous.lat), Number(previous.lng))) {
+
+  if (!previous || !isValidLatLng(previous.lat, previous.lng)) {
     return { accept: true, reason: LOCATION_DIAG.ACCEPTED };
   }
 
   const prevSession = String(previous.sessionId || "");
   const nextSession = String(next.sessionId || "");
+  const vehicleSessionId = String(sessionCtx.vehicleSessionId || nextSession || "");
+  const vehicleSessionStartedMs = Number(sessionCtx.vehicleSessionStartedMs) || 0;
+  const previousSessionStartedMs = Number(sessionCtx.previousSessionStartedMs) || 0;
+
+  // --- Session transition (not lexicographic sessionId compare) ---
   if (prevSession && nextSession && prevSession !== nextSession) {
+    // Incoming fix must belong to the vehicle's current authoritative session.
+    if (vehicleSessionId && nextSession !== vehicleSessionId) {
+      return { accept: false, reason: LOCATION_DIAG.RETIRED_SESSION };
+    }
+    if (!vehicleSessionStartedMs) {
+      return { accept: false, reason: LOCATION_DIAG.INVALID };
+    }
+    if (previousSessionStartedMs && vehicleSessionStartedMs <= previousSessionStartedMs) {
+      return { accept: false, reason: LOCATION_DIAG.RETIRED_SESSION };
+    }
+    // Legitimate new session: server session start is newer than previous mirrored session.
     return { accept: true, reason: LOCATION_DIAG.ACCEPTED };
+  }
+
+  // Delayed fix claiming the previous session while vehicle already moved on.
+  if (
+    prevSession &&
+    nextSession &&
+    prevSession === nextSession &&
+    vehicleSessionId &&
+    vehicleSessionId !== nextSession
+  ) {
+    return { accept: false, reason: LOCATION_DIAG.RETIRED_SESSION };
   }
 
   const prevObs = Number(previous.observedAt) || 0;
@@ -141,32 +201,42 @@ export function evaluateFixAgainstPrevious(previous, next) {
   const prevSeq = Number(previous.sequence) || 0;
   const nextSeq = Number(next.sequence) || 0;
 
-  if (prevSession && nextSession && prevSession === nextSession && nextSeq < prevSeq) {
-    return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
-  }
-
-  if (
-    prevSession &&
-    nextSession &&
-    prevSession === nextSession &&
-    nextObs < prevObs &&
-    nextSeq <= prevSeq
-  ) {
-    return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
-  }
-
   const sameCoords =
     Math.abs(Number(previous.lat) - Number(next.lat)) < 1e-7 &&
     Math.abs(Number(previous.lng) - Number(next.lng)) < 1e-7;
+
+  // Exact duplicate (same session + seq + observedAt + coords).
   if (
-    sameCoords &&
-    nextObs === prevObs &&
+    prevSession === nextSession &&
     nextSeq === prevSeq &&
-    prevSession === nextSession
+    nextObs === prevObs &&
+    sameCoords
   ) {
     return { accept: false, reason: LOCATION_DIAG.DUPLICATE };
   }
 
+  // Same session: both sequence and observedAt must strictly increase.
+  if (prevSession && nextSession && prevSession === nextSession) {
+    if (nextSeq <= prevSeq) {
+      return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+    }
+    if (nextObs <= prevObs) {
+      return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+    }
+  } else if (!prevSession || !nextSession) {
+    // Legacy path without session ids: observedAt must strictly increase; equal → duplicate/out_of_order.
+    if (nextObs < prevObs) {
+      return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+    }
+    if (nextObs === prevObs && sameCoords) {
+      return { accept: false, reason: LOCATION_DIAG.DUPLICATE };
+    }
+    if (nextObs === prevObs && !sameCoords) {
+      return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+    }
+  }
+
+  // Impossible jump (same session only, after ordering passed).
   if (prevSession && nextSession && prevSession === nextSession && nextObs > prevObs) {
     const elapsed = nextObs - prevObs;
     if (elapsed >= MIN_JUMP_ELAPSED_MS) {
@@ -189,20 +259,21 @@ export function evaluateFixAgainstPrevious(previous, next) {
   return { accept: true, reason: LOCATION_DIAG.ACCEPTED };
 }
 
-export function derivedDisplayBearingDeg(from, to) {
+function derivedDisplayBearingDeg(from, to) {
   if (!from || !to) return null;
-  if (!isValidLatLng(Number(from.lat), Number(from.lng))) return null;
-  if (!isValidLatLng(Number(to.lat), Number(to.lng))) return null;
-  const φ1 = (Number(from.lat) * Math.PI) / 180;
-  const φ2 = (Number(to.lat) * Math.PI) / 180;
-  const Δλ = ((Number(to.lng) - Number(from.lng)) * Math.PI) / 180;
+  if (!isValidLatLng(from.lat, from.lng)) return null;
+  if (!isValidLatLng(to.lat, to.lng)) return null;
+  const φ1 = (from.lat * Math.PI) / 180;
+  const φ2 = (to.lat * Math.PI) / 180;
+  const Δλ = ((to.lng - from.lng) * Math.PI) / 180;
   const y = Math.sin(Δλ) * Math.cos(φ2);
   const x =
     Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-  return Math.round((((Math.atan2(y, x) * 180) / Math.PI + 360) % 360) * 1000) / 1000;
+  const deg = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  return Math.round(deg * 1000) / 1000;
 }
 
-export function toVehicleLocationField(envelope) {
+function toVehicleLocationField(envelope) {
   if (!envelope) return null;
   const out = {
     lat: envelope.lat,
@@ -218,7 +289,32 @@ export function toVehicleLocationField(envelope) {
   return out;
 }
 
-/** Estimated write comparison (not production measurements). */
+function logLocationDiag(reason, extra = {}) {
+  try {
+    console.info(
+      JSON.stringify({
+        type: "live_location_diag",
+        reason: String(reason || ""),
+        ...extra,
+      })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+
+export function createLocationDiagCounters() {
+  return {
+    gpsFixesReceived: 0,
+    fixesRejected: 0,
+    vehicleWritesAttempted: 0,
+    vehicleWritesCompleted: 0,
+    rideMirrorWritesCompleted: 0,
+    duplicateRideWritesPrevented: 0,
+  };
+}
+
 export function estimateLocationWriteComparison(activeRideMinutes = 20, fixEverySec = 4) {
   const fixes = Math.ceil((activeRideMinutes * 60) / fixEverySec);
   return {
@@ -230,14 +326,12 @@ export function estimateLocationWriteComparison(activeRideMinutes = 20, fixEvery
       clientRideWrites: fixes,
       cfMirrorWrites: fixes,
       totalFirestoreLocationWrites: fixes * 3,
-      note: "Driver wrote vehicle + ride; CF also mirrored ≈ double ride path",
     },
     phase1Repaired: {
       vehicleWrites: fixes,
       clientRideWrites: 0,
       cfMirrorWrites: fixes,
       totalFirestoreLocationWrites: fixes * 2,
-      note: "Canonical: vehicle only + one CF ride mirror; duplicates/noops reduce further",
     },
     futureP2PFallback: {
       vehicleWrites: Math.ceil(fixes * 0.15),
@@ -249,3 +343,19 @@ export function estimateLocationWriteComparison(activeRideMinutes = 20, fixEvery
     },
   };
 }
+
+export {
+  MAX_ACCEPT_ACCURACY_M,
+  MAX_PLAUSIBLE_SPEED_MPS,
+  LOCATION_DIAG,
+  haversineM,
+  normalizeHeadingDeg,
+  isValidLatLng,
+  coerceCoordNumber,
+  timestampToMs,
+  normalizeLocationFix,
+  evaluateFixAgainstPrevious,
+  derivedDisplayBearingDeg,
+  toVehicleLocationField,
+  logLocationDiag,
+};

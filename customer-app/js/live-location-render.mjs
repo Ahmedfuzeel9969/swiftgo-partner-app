@@ -1,6 +1,9 @@
 /**
  * Phase 1 — freshness, timestamp-aware marker interpolation, heading choice.
  * Pure helpers; map.js owns the single RAF loop.
+ *
+ * Coordinate policy (aligned with server envelope): only finite numbers in range.
+ * Numeric strings are rejected.
  */
 
 export const FRESHNESS_FRESH_MS = 15_000;
@@ -18,6 +21,39 @@ export const FRESHNESS = Object.freeze({
   UNKNOWN: "unknown",
 });
 
+export function isValidLatLng(lat, lng) {
+  return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
+/**
+ * Firestore Timestamp → milliseconds.
+ * Supports toMillis(), {seconds,nanoseconds}, and numeric ms in unit tests.
+ * Never uses Number(FirestoreTimestamp).
+ */
+export function timestampToMs(value) {
+  if (value == null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (typeof value.toMillis === "function") {
+    const ms = value.toMillis();
+    return Number.isFinite(ms) && ms > 0 ? ms : null;
+  }
+  if (typeof value.seconds === "number" && Number.isFinite(value.seconds)) {
+    const nanos = typeof value.nanoseconds === "number" ? value.nanoseconds : 0;
+    const ms = value.seconds * 1000 + Math.floor(nanos / 1e6);
+    return ms > 0 ? ms : null;
+  }
+  return null;
+}
+
 export function resolveFreshness(ageMs) {
   if (!Number.isFinite(ageMs) || ageMs < 0) return FRESHNESS.UNKNOWN;
   if (ageMs <= FRESHNESS_FRESH_MS) return FRESHNESS.FRESH;
@@ -25,27 +61,37 @@ export function resolveFreshness(ageMs) {
   return FRESHNESS.STALE;
 }
 
+/**
+ * Age of the mirrored driver location.
+ * Priority:
+ * 1. ride.driverLocation.receivedAt (server)
+ * 2. ride.driverLocationUpdatedAt (server fallback)
+ * 3. ride.driverLocation.observedAt (device — legacy only)
+ *
+ * Future device clocks are not clamped to "fresh"; when only observedAt is
+ * available and it is ahead of now, freshness is UNKNOWN.
+ */
 export function locationAgeMs(ride, nowMs = Date.now()) {
-  const received = Number(ride?.driverLocationReceivedAt);
-  if (Number.isFinite(received) && received > 0) return Math.max(0, nowMs - received);
-
   const loc = ride?.driverLocation;
-  const observed = Number(loc?.observedAt);
-  if (Number.isFinite(observed) && observed > 0) return Math.max(0, nowMs - observed);
+  const receivedNested = timestampToMs(loc?.receivedAt);
+  if (receivedNested != null) return Math.max(0, nowMs - receivedNested);
 
-  const ts = ride?.driverLocationUpdatedAt;
-  if (!ts) return null;
-  let ms = 0;
-  if (typeof ts.toMillis === "function") ms = ts.toMillis();
-  else if (typeof ts.seconds === "number") ms = ts.seconds * 1000;
-  else if (Number.isFinite(Number(ts))) ms = Number(ts);
-  if (!ms) return null;
-  return Math.max(0, nowMs - ms);
+  const updated = timestampToMs(ride?.driverLocationUpdatedAt);
+  if (updated != null) return Math.max(0, nowMs - updated);
+
+  // Legacy client-only field (pre-Phase-1) — only if nested/server times absent.
+  const legacyTop = timestampToMs(ride?.driverLocationReceivedAt);
+  if (legacyTop != null) return Math.max(0, nowMs - legacyTop);
+
+  const observed = timestampToMs(loc?.observedAt);
+  if (observed == null) return null;
+  if (observed > nowMs + 5_000) {
+    // Device clock far ahead — do not treat as permanently fresh.
+    return null;
+  }
+  return Math.max(0, nowMs - observed);
 }
 
-/**
- * Animation duration from interval between accepted fixes.
- */
 export function computeAnimationDurationMs(prevObservedAt, nextObservedAt) {
   const prev = Number(prevObservedAt);
   const next = Number(nextObservedAt);
@@ -56,9 +102,6 @@ export function computeAnimationDurationMs(prevObservedAt, nextObservedAt) {
   return Math.min(ANIM_MAX_MS, Math.max(ANIM_MIN_MS, gap));
 }
 
-/**
- * Ease-in-out cubic for marker interpolation.
- */
 export function easeInOutCubic(t) {
   const x = Math.min(1, Math.max(0, t));
   return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
@@ -84,9 +127,6 @@ function haversineM(a, b) {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
-/**
- * Decide snap vs animate.
- */
 export function shouldSnapMarker(opts) {
   const {
     hasPrevious = false,
@@ -100,10 +140,6 @@ export function shouldSnapMarker(opts) {
   return false;
 }
 
-/**
- * Prefer actual GPS heading; else derived display bearing from consecutive fixes.
- * Never points toward pickup/dropoff.
- */
 export function resolveMarkerRotationDeg({
   headingDeg = null,
   previousFix = null,
@@ -128,21 +164,16 @@ export function distanceMetres(a, b) {
   return haversineM(a, b);
 }
 
-/** Derived display bearing from consecutive accepted fixes (not GPS heading). */
 export function derivedDisplayBearingDeg(from, to) {
   if (!from || !to) return null;
-  const lat1 = Number(from.lat);
-  const lng1 = Number(from.lng);
-  const lat2 = Number(to.lat);
-  const lng2 = Number(to.lng);
-  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) return null;
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
+  if (!isValidLatLng(from.lat, from.lng)) return null;
+  if (!isValidLatLng(to.lat, to.lng)) return null;
+  const φ1 = (from.lat * Math.PI) / 180;
+  const φ2 = (to.lat * Math.PI) / 180;
+  const Δλ = ((to.lng - from.lng) * Math.PI) / 180;
   const y = Math.sin(Δλ) * Math.cos(φ2);
   const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
   return Math.round((((Math.atan2(y, x) * 180) / Math.PI + 360) % 360) * 1000) / 1000;
 }
 
-/** Phase-1 route UI must not claim road routing. */
 export const APPROACH_LINE_KIND = "straight_line_estimate";

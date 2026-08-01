@@ -246,6 +246,10 @@ const MIN_LOCATION_MOVE_M = 10;
 /** Phase 1 tracking session — new id on each ONLINE_READY / watch start. */
 let locationTrackingSessionId = "";
 let locationTrackingSequence = 0;
+/** When true, next vehicle write stamps server-controlled trackingSessionStartedAt. */
+let locationTrackingSessionStartPending = false;
+/** Generation token — late GPS callbacks after stop are ignored. */
+let locationTrackingGeneration = 0;
 /** @type {object|null} */
 let lastAcceptedLocationEnvelope = null;
 const locationDiagCounters = createLocationDiagCounters();
@@ -254,6 +258,16 @@ function beginLocationTrackingSession() {
   locationTrackingSessionId = `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   locationTrackingSequence = 0;
   lastAcceptedLocationEnvelope = null;
+  locationTrackingSessionStartPending = true;
+  locationTrackingGeneration += 1;
+}
+
+function endLocationTrackingSession() {
+  locationTrackingSessionId = "";
+  locationTrackingSequence = 0;
+  lastAcceptedLocationEnvelope = null;
+  locationTrackingSessionStartPending = false;
+  locationTrackingGeneration += 1;
 }
 
 function nextLocationSequence() {
@@ -2188,6 +2202,7 @@ async function syncVehicleLocationToFirestore(
   }
 
   if (!locationTrackingSessionId) beginLocationTrackingSession();
+  const trackingGen = locationTrackingGeneration;
   locationDiagCounters.gpsFixesReceived += 1;
 
   const normalized = normalizeLocationFix(
@@ -2218,7 +2233,17 @@ async function syncVehicleLocationToFirestore(
     return;
   }
 
-  const gate = evaluateFixAgainstPrevious(lastAcceptedLocationEnvelope, normalized.envelope);
+  const gate = evaluateFixAgainstPrevious(lastAcceptedLocationEnvelope, normalized.envelope, {
+    vehicleSessionId: locationTrackingSessionId,
+    vehicleSessionStartedMs: locationTrackingSessionStartPending
+      ? Date.now()
+      : lastAcceptedLocationEnvelope
+        ? Number(lastAcceptedLocationEnvelope.observedAt) || Date.now()
+        : Date.now(),
+    previousSessionStartedMs: lastAcceptedLocationEnvelope
+      ? Number(lastAcceptedLocationEnvelope._sessionStartedMs) || 0
+      : 0,
+  });
   if (!gate.accept) {
     locationDiagCounters.fixesRejected += 1;
     if (gate.reason === LOCATION_DIAG.DUPLICATE) {
@@ -2268,14 +2293,27 @@ async function syncVehicleLocationToFirestore(
       location,
       locationUpdatedAt: serverTimestamp(),
       locationGridCell: cell,
+      trackingSessionId: locationTrackingSessionId,
     };
+    if (locationTrackingSessionStartPending) {
+      // Server fills this; rules require == request.time (cannot be backdated).
+      payload.trackingSessionStartedAt = serverTimestamp();
+    }
     if (geoCell) payload.geoCell = geoCell;
     payload.hotspotId = hotspotId || null;
     if (statusChanged) {
       payload.status = nextStatus;
       lastVehicleStatusWritten = nextStatus;
     }
+    if (trackingGen !== locationTrackingGeneration) {
+      // Session torn down (sign-out / stop watch) — drop this write.
+      return;
+    }
     await updateDoc(doc(db, "vehicles", linkedVehicle.id), payload);
+    if (locationTrackingSessionStartPending) {
+      locationTrackingSessionStartPending = false;
+      normalized.envelope._sessionStartedMs = Date.now();
+    }
     lastAcceptedLocationEnvelope = normalized.envelope;
     lastVehicleLocationWrite = now;
     lastVehicleLocationLatLng = { lat, lng };
@@ -2339,7 +2377,7 @@ function buildOnlineReadyVehiclePayload(lat, lng) {
   const location = envelope.ok
     ? toVehicleLocationField(envelope.envelope)
     : { lat, lng };
-  return {
+  const payload = {
     driverId: currentDriver.uid,
     status: activeExecutionRide?.id ? "in_ride" : "online",
     driverName:
@@ -2352,7 +2390,12 @@ function buildOnlineReadyVehiclePayload(lat, lng) {
     geoCell,
     hotspotId: hotspotId || null,
     activeRideId: activeExecutionRide?.id || null,
+    trackingSessionId: locationTrackingSessionId,
   };
+  if (locationTrackingSessionStartPending) {
+    payload.trackingSessionStartedAt = serverTimestamp();
+  }
+  return payload;
 }
 
 /** Single coherent Firestore write — driver is matchable only after this succeeds. */
@@ -2361,6 +2404,9 @@ async function writeOnlineReadyVehicle(lat, lng) {
   const payload = buildOnlineReadyVehiclePayload(lat, lng);
   const { db } = getFirebase();
   await updateDoc(doc(db, "vehicles", linkedVehicle.id), payload);
+  if (locationTrackingSessionStartPending) {
+    locationTrackingSessionStartPending = false;
+  }
   lastLocationGridCell = payload.locationGridCell;
   lastMatchGeoCell = payload.geoCell;
   lastVehicleLocationWrite = Date.now();
@@ -2606,7 +2652,7 @@ function startLocationWatch() {
   }
 
   hasCenteredOnDriver = false;
-  beginLocationTrackingSession();
+  if (!locationTrackingSessionId) beginLocationTrackingSession();
   setLocationMessage("آپ کا موجودہ مقام تلاش کیا جا رہا ہے...");
 
   // Immediate fix for matching — don't wait for watchPosition throttle.
@@ -2643,6 +2689,7 @@ function stopLocationWatch() {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
+  endLocationTrackingSession();
 }
 
 function stopRideListener() {

@@ -18,9 +18,11 @@ import {
   APPROACH_LINE_KIND,
   FRESHNESS,
   derivedDisplayBearingDeg,
+  isValidLatLng,
   locationAgeMs,
   resolveFreshness,
   resolveMarkerRotationDeg,
+  timestampToMs,
 } from "./live-location-render.mjs";
 
 const FALLBACK_SPEED_KMH = 24;
@@ -180,19 +182,21 @@ export function updateDriverTrack(ride) {
   const ageMs = locationAgeMs(ride);
   const freshness = resolveFreshness(ageMs);
   const allowPredict = freshness === FRESHNESS.FRESH;
+  const hasValidLoc = isValidLatLng(loc?.lat, loc?.lng);
 
-  if (loc?.lat && loc?.lng && tracking.showDriverMarker) {
+  if (hasValidLoc && tracking.showDriverMarker) {
     const rotation = resolveMarkerRotationDeg({
       headingDeg: loc.headingDeg ?? loc.heading ?? null,
       previousFix: lastAcceptedFix,
       nextFix: { lat: loc.lat, lng: loc.lng },
       derivedBearingFn: derivedDisplayBearingDeg,
     });
+    const observedFallback = timestampToMs(loc.observedAt);
     setAssignedDriverLocation(loc.lat, loc.lng, rotation.deg, {
-      observedAt: Number(loc.observedAt) || Date.now() - (ageMs || 0),
-      allowPredict,
+      observedAt: observedFallback || Date.now() - (ageMs || 0),
+      allowPredict: allowPredict && freshness !== FRESHNESS.UNKNOWN,
     });
-    lastAcceptedFix = { lat: Number(loc.lat), lng: Number(loc.lng) };
+    lastAcceptedFix = { lat: loc.lat, lng: loc.lng };
 
     if (tracking.approachLine && tracking.coordinates) {
       paintApproachLine(
@@ -212,6 +216,11 @@ export function updateDriverTrack(ride) {
   if (els.trackRow) els.trackRow.hidden = false;
 
   // Freshness / status messaging (Urdu via i18n).
+  if (freshness === FRESHNESS.UNKNOWN) {
+    if (els.distance) els.distance.textContent = t("liveTrackLocationUnknownTime");
+    if (els.eta) els.eta.hidden = true;
+    return;
+  }
   if (freshness === FRESHNESS.STALE) {
     if (els.distance) els.distance.textContent = t("liveTrackLocationStale");
     if (els.eta) els.eta.hidden = true;

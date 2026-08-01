@@ -1,7 +1,6 @@
 /**
- * Authoritative ride-location mirror: vehicles → rides.
+ * Authoritative ride-location mirror: vehicles → rides (transactional).
  * Driver clients write only vehicles.location; this CF mirrors to the assigned ride.
- * Phase 1: ordering, duplicate/noop, distance/ETA to tracking target, traveled km.
  */
 
 "use strict";
@@ -13,6 +12,7 @@ const {
   evaluateFixAgainstPrevious,
   isValidLatLng,
   logLocationDiag,
+  timestampToMs,
   toVehicleLocationField,
 } = require("./live-location-envelope");
 
@@ -32,10 +32,10 @@ function haversineKm(a, b) {
 }
 
 function envelopeFromVehicleLocation(loc) {
-  if (!loc || !isValidLatLng(Number(loc.lat), Number(loc.lng))) return null;
+  if (!loc || !isValidLatLng(loc.lat, loc.lng)) return null;
   return {
-    lat: Number(loc.lat),
-    lng: Number(loc.lng),
+    lat: loc.lat,
+    lng: loc.lng,
     observedAt: Number(loc.observedAt) || 0,
     sequence: Number(loc.sequence) || 0,
     sessionId: String(loc.sessionId || ""),
@@ -48,7 +48,7 @@ function envelopeFromVehicleLocation(loc) {
 
 function previousEnvelopeFromRide(ride) {
   const loc = ride?.driverLocation;
-  if (!loc) return null;
+  if (!loc || !isValidLatLng(loc.lat, loc.lng)) return null;
   return envelopeFromVehicleLocation({
     ...loc,
     observedAt: loc.observedAt || 0,
@@ -61,15 +61,15 @@ function trackingTargetForRide(ride) {
   const status = String(ride?.status || "");
   if (status === "in_progress") {
     const d = ride?.dropoffLocation;
-    if (d && isValidLatLng(Number(d.lat), Number(d.lng))) {
-      return { type: "dropoff", lat: Number(d.lat), lng: Number(d.lng) };
+    if (d && isValidLatLng(d.lat, d.lng)) {
+      return { type: "dropoff", lat: d.lat, lng: d.lng };
     }
     return null;
   }
   if (status === "accepted" || status === "arrived") {
     const p = ride?.pickupLocation;
-    if (p && isValidLatLng(Number(p.lat), Number(p.lng))) {
-      return { type: "pickup", lat: Number(p.lat), lng: Number(p.lng) };
+    if (p && isValidLatLng(p.lat, p.lng)) {
+      return { type: "pickup", lat: p.lat, lng: p.lng };
     }
     return null;
   }
@@ -77,39 +77,36 @@ function trackingTargetForRide(ride) {
 }
 
 /**
- * Build ride patch from vehicle location. Returns null when no write needed.
- * Ordering: same-session lower sequence / older observedAt is rejected.
- * Material-change noop: identical lat/lng/sequence/session/heading skip write.
+ * Pure decision helper used inside transactions (and unit tests).
+ * @returns {{ skip: true, reason: string } | { skip: false, reason: string, patch: object }}
  */
 function buildDriverLocationPatch(vehicle, ride) {
   const loc = vehicle?.location;
-  if (!loc || !isValidLatLng(Number(loc.lat), Number(loc.lng))) return null;
-  if (!ride || !ACTIVE_RIDE_STATUSES.includes(String(ride.status || ""))) return null;
-
-  const incoming = envelopeFromVehicleLocation(loc);
-  if (!incoming) return null;
-
-  // Legacy vehicle fixes without session/sequence: still mirror once (first-fix path).
-  const previous = previousEnvelopeFromRide(ride);
-  if (incoming.sessionId && previous) {
-    const gate = evaluateFixAgainstPrevious(previous, incoming);
-    if (!gate.accept) {
-      logLocationDiag(gate.reason);
-      return { __diag: gate.reason, __skip: true };
-    }
-  } else if (previous && incoming.observedAt && previous.observedAt) {
-    if (incoming.observedAt < previous.observedAt) {
-      logLocationDiag(LOCATION_DIAG.OUT_OF_ORDER);
-      return { __diag: LOCATION_DIAG.OUT_OF_ORDER, __skip: true };
-    }
+  if (!loc || !isValidLatLng(loc.lat, loc.lng)) {
+    return { skip: true, reason: LOCATION_DIAG.INVALID };
+  }
+  if (!ride || !ACTIVE_RIDE_STATUSES.includes(String(ride.status || ""))) {
+    return { skip: true, reason: "terminal_or_inactive" };
   }
 
-  const driverLocation = toVehicleLocationField(incoming) || {
-    lat: incoming.lat,
-    lng: incoming.lng,
-  };
-  // receivedAt is server-controlled on the ride document.
-  driverLocation.receivedAt = FieldValue.serverTimestamp();
+  const incoming = envelopeFromVehicleLocation(loc);
+  if (!incoming) return { skip: true, reason: LOCATION_DIAG.INVALID };
+
+  const previous = previousEnvelopeFromRide(ride);
+  const vehicleSessionStartedMs = timestampToMs(vehicle?.trackingSessionStartedAt);
+  const previousSessionStartedMs =
+    timestampToMs(ride?.driverTrackingSessionStartedAt) ||
+    timestampToMs(previous?.sessionStartedAt) ||
+    0;
+
+  const gate = evaluateFixAgainstPrevious(previous, incoming, {
+    vehicleSessionId: String(vehicle?.trackingSessionId || incoming.sessionId || ""),
+    vehicleSessionStartedMs,
+    previousSessionStartedMs,
+  });
+  if (!gate.accept) {
+    return { skip: true, reason: gate.reason };
+  }
 
   if (
     previous &&
@@ -119,14 +116,28 @@ function buildDriverLocationPatch(vehicle, ride) {
     String(previous.sessionId || "") === String(incoming.sessionId || "") &&
     Number(previous.headingDeg ?? -1) === Number(incoming.headingDeg ?? -1)
   ) {
-    logLocationDiag(LOCATION_DIAG.NOOP_UNCHANGED);
-    return { __diag: LOCATION_DIAG.NOOP_UNCHANGED, __skip: true };
+    return { skip: true, reason: LOCATION_DIAG.NOOP_UNCHANGED };
   }
+
+  const driverLocation = toVehicleLocationField(incoming) || {
+    lat: incoming.lat,
+    lng: incoming.lng,
+  };
+  // Server-controlled receive time (nested under driverLocation).
+  driverLocation.receivedAt = FieldValue.serverTimestamp();
 
   const patch = {
     driverLocation,
     driverLocationUpdatedAt: vehicle.locationUpdatedAt || FieldValue.serverTimestamp(),
   };
+
+  if (incoming.sessionId) {
+    patch.driverTrackingSessionId = incoming.sessionId;
+  }
+  // Persist authoritative session start onto the ride for future transitions.
+  if (vehicle?.trackingSessionStartedAt) {
+    patch.driverTrackingSessionStartedAt = vehicle.trackingSessionStartedAt;
+  }
 
   const target = trackingTargetForRide(ride);
   if (target) {
@@ -136,7 +147,6 @@ function buildDriverLocationPatch(vehicle, ride) {
     );
     const roundedKm = Math.round(km * 100) / 100;
     patch.driverDistanceKm = roundedKm;
-    // Straight-line fixed-speed estimate — not live traffic.
     patch.driverEtaMin = Math.max(1, Math.round((roundedKm / FALLBACK_SPEED_KMH) * 60));
     patch.driverDistanceKind = "straight_line_estimate";
   }
@@ -147,44 +157,56 @@ function buildDriverLocationPatch(vehicle, ride) {
     patch.lastTrackedLocation = travel.lastTrackedLocation;
   }
 
-  return patch;
+  return { skip: false, reason: LOCATION_DIAG.MIRRORED, patch };
+}
+
+/**
+ * Shared transactional mirror. All reads precede any write.
+ * @param {FirebaseFirestore.Firestore} db
+ * @param {string} vehicleId
+ * @param {object} vehicleAfter committed vehicle snapshot data (location + session fields)
+ * @param {{ rideId?: string }} [opts]
+ */
+async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts = {}) {
+  const rideId = String(opts.rideId || vehicleAfter?.activeRideId || "").trim();
+  if (!rideId) return { mirrored: false, reason: "no_active_ride" };
+  if (!vehicleId) return { mirrored: false, reason: LOCATION_DIAG.INVALID };
+
+  const rideRef = db.collection("rides").doc(rideId);
+
+  return db.runTransaction(async (tx) => {
+    // --- reads only ---
+    const rideSnap = await tx.get(rideRef);
+    if (!rideSnap.exists) {
+      return { mirrored: false, reason: "ride_missing" };
+    }
+    const ride = rideSnap.data() || {};
+    if (ride.vehicleId && ride.vehicleId !== vehicleId) {
+      return { mirrored: false, reason: "vehicle_mismatch" };
+    }
+
+    const decision = buildDriverLocationPatch(vehicleAfter || {}, ride);
+    if (decision.skip) {
+      logLocationDiag(decision.reason);
+      return { mirrored: false, reason: decision.reason };
+    }
+
+    // --- writes after all reads ---
+    tx.update(rideRef, decision.patch);
+    logLocationDiag(LOCATION_DIAG.MIRRORED);
+    return { mirrored: true, reason: LOCATION_DIAG.MIRRORED };
+  });
 }
 
 async function seedDriverLocationFromVehicle(db, rideId, vehicleId) {
-  if (!rideId || !vehicleId) return;
-  const [rideSnap, vehicleSnap] = await Promise.all([
-    db.collection("rides").doc(rideId).get(),
-    db.collection("vehicles").doc(vehicleId).get(),
-  ]);
-  if (!rideSnap.exists || !vehicleSnap.exists) return;
-  const patch = buildDriverLocationPatch(vehicleSnap.data() || {}, rideSnap.data() || {});
-  if (!patch || patch.__skip) return;
-  delete patch.__diag;
-  await rideSnap.ref.update(patch);
-  logLocationDiag(LOCATION_DIAG.MIRRORED);
+  if (!rideId || !vehicleId) return { mirrored: false, reason: "missing_ids" };
+  const vehicleSnap = await db.collection("vehicles").doc(vehicleId).get();
+  if (!vehicleSnap.exists) return { mirrored: false, reason: "vehicle_missing" };
+  return mirrorRideLocationTransactional(db, vehicleId, vehicleSnap.data() || {}, { rideId });
 }
 
 async function mirrorDriverLocationToRide(db, vehicleId, vehicle) {
-  const rideId = String(vehicle?.activeRideId || "").trim();
-  if (!rideId) return { mirrored: false, reason: "no_active_ride" };
-
-  const rideRef = db.collection("rides").doc(rideId);
-  const rideSnap = await rideRef.get();
-  if (!rideSnap.exists) return { mirrored: false, reason: "ride_missing" };
-
-  const ride = rideSnap.data() || {};
-  if (ride.vehicleId && ride.vehicleId !== vehicleId) {
-    return { mirrored: false, reason: "vehicle_mismatch" };
-  }
-
-  const patch = buildDriverLocationPatch(vehicle, ride);
-  if (!patch) return { mirrored: false, reason: LOCATION_DIAG.INVALID };
-  if (patch.__skip) return { mirrored: false, reason: patch.__diag };
-
-  delete patch.__diag;
-  await rideRef.update(patch);
-  logLocationDiag(LOCATION_DIAG.MIRRORED);
-  return { mirrored: true, reason: LOCATION_DIAG.MIRRORED };
+  return mirrorRideLocationTransactional(db, vehicleId, vehicle || {}, {});
 }
 
 module.exports = {
@@ -192,5 +214,8 @@ module.exports = {
   buildDriverLocationPatch,
   seedDriverLocationFromVehicle,
   mirrorDriverLocationToRide,
+  mirrorRideLocationTransactional,
   trackingTargetForRide,
+  previousEnvelopeFromRide,
+  envelopeFromVehicleLocation,
 };
