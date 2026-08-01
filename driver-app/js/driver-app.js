@@ -52,6 +52,12 @@ import {
   STALE_POINTER_RECOVERY_URDU,
   validateRideForDriverRestore,
 } from "./active-ride-reconcile.mjs";
+import {
+  freshLocationService,
+  LOCATION_FAILURE,
+  LOCATION_FAILURE_URDU,
+} from "./fresh-location.mjs";
+import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { cancelAssignedRideByDriverClient } from "./ride-radar-actions.js";
 import { hashVehiclePin } from "./pin-hash.js";
@@ -177,6 +183,8 @@ const els = {
   openRideRadarBtn: document.getElementById("openRideRadarBtn"),
   rideRadarRoot: document.getElementById("rideRadarRoot"),
   driverToastEl: document.getElementById("driverToast"),
+  connectingOverlay: document.getElementById("driverConnectingOverlay"),
+  connectingOverlayText: document.getElementById("driverConnectingOverlayText"),
 };
 
 let map = null;
@@ -194,6 +202,8 @@ const ONLINE_READINESS = Object.freeze({
 let onlineReadiness = ONLINE_READINESS.OFFLINE;
 /** @type {Promise<boolean> | null} */
 let onlineActivationPromise = null;
+/** @type {AbortController | null} */
+let onlineActivationAbort = null;
 /** Dedupe radar listener restarts when eligibility unchanged. */
 let lastRadarListenKey = "";
 let hasCenteredOnDriver = false;
@@ -315,6 +325,7 @@ function syncOnlineToggleUi(value, connectingPhase = "") {
   const btn = els.statusToggle;
   const connecting = Boolean(connectingPhase);
   if (btn) {
+    btn.classList.remove("is-online");
     btn.classList.toggle("is-online", value && !connecting);
     btn.classList.toggle("is-connecting", connecting);
     btn.setAttribute("aria-checked", String(value && !connecting));
@@ -332,15 +343,67 @@ function syncOnlineToggleUi(value, connectingPhase = "") {
   if (connectingPhase === ONLINE_READINESS.LOCATING) {
     label = "لوکیشن حاصل ہو رہی ہے…";
   } else if (connectingPhase === ONLINE_READINESS.WRITING_GEO) {
-    label = "سرور پر مقام لکھا جا رہا ہے…";
+    label = "مقام سرور پر محفوظ ہو رہا ہے…";
   }
   if (els.statusText) els.statusText.textContent = label;
+}
+
+function showConnectingOverlay(phase = ONLINE_READINESS.LOCATING) {
+  const root = els.connectingOverlay;
+  if (!root) return;
+  const text =
+    phase === ONLINE_READINESS.WRITING_GEO
+      ? "مقام سرور پر محفوظ ہو رہا ہے…"
+      : "لوکیشن حاصل ہو رہی ہے…";
+  if (els.connectingOverlayText) els.connectingOverlayText.textContent = text;
+  root.hidden = false;
+  els.app?.classList.add("is-connecting-online");
+}
+
+function hideConnectingOverlay() {
+  if (els.connectingOverlay) els.connectingOverlay.hidden = true;
+  els.app?.classList.remove("is-connecting-online");
+}
+
+function cancelOnlineActivation({ silent = true } = {}) {
+  onlineActivationAbort?.abort();
+  onlineActivationAbort = null;
+  freshLocationService.invalidate();
+  hideConnectingOverlay();
+  if (!silent) {
+    logOnlineReadinessEvent("locating_cancelled", { state: "offline" });
+  }
+}
+
+function failOnlineActivation(error, { silent = false } = {}) {
+  const category = String(error?.category || error?.message || "unknown");
+  onlineReadiness = ONLINE_READINESS.OFFLINE;
+  online = false;
+  hideConnectingOverlay();
+  syncOnlineToggleUi(false);
+  paintDriverAvailabilityDiag();
+  if (silent || category === LOCATION_FAILURE.CANCELLED) return;
+  const msg =
+    LOCATION_FAILURE_URDU[category] ||
+    (category.includes("sync") || category.includes("GEO")
+      ? "مقام سرور پر محفوظ نہیں ہو سکا — دوبارہ کوشش کریں"
+      : "آن لائن نہیں ہو سکے — دوبارہ کوشش کریں");
+  setLocationMessage(msg);
+  driverToast(msg);
+}
+
+function readinessOnEvent(event, meta = {}) {
+  logOnlineReadinessEvent(event, {
+    ...meta,
+    state: onlineReadiness,
+  });
 }
 
 function setConnectingUi(phase) {
   online = false;
   onlineReadiness = phase;
   syncOnlineToggleUi(false, phase);
+  showConnectingOverlay(phase);
   paintDriverAvailabilityDiag();
 }
 
@@ -1304,6 +1367,8 @@ async function verifyVehiclePin(event) {
       driverId: driver.uid,
       status: "offline",
     };
+    hidePinGate();
+    showDriverMap();
     const ready = await activateDriverOnlineMode();
     if (!ready) {
       setPinMessage(
@@ -2190,26 +2255,15 @@ function timestampToMs(ts) {
   return null;
 }
 
-/** Reuse a recent fix only when fresh, valid, and geoCell can be confirmed. */
-function resolveFreshVehicleLocation() {
+/** Reuse a recent in-session browser fix only (never vehicle doc / cache for ONLINE_READY). */
+function resolveInSessionFreshGpsFix() {
   if (
     lastDriverPosition &&
     lastGpsFixAtMs > 0 &&
-    Date.now() - lastGpsFixAtMs <= STALE_LOCATION_MS &&
+    Date.now() - lastGpsFixAtMs <= FRESH_GPS_MS &&
     isValidCoord(lastDriverPosition.lat, lastDriverPosition.lng)
   ) {
     return { lat: lastDriverPosition.lat, lng: lastDriverPosition.lng };
-  }
-  const loc = linkedVehicle?.location;
-  const lat = Number(loc?.lat);
-  const lng = Number(loc?.lng);
-  const updatedMs = timestampToMs(linkedVehicle?.locationUpdatedAt);
-  if (
-    isValidCoord(lat, lng) &&
-    updatedMs != null &&
-    Date.now() - updatedMs <= STALE_LOCATION_MS
-  ) {
-    return { lat, lng };
   }
   return null;
 }
@@ -2251,30 +2305,6 @@ async function writeOnlineReadyVehicle(lat, lng) {
   paintDriverAvailabilityDiag();
 }
 
-/** One-shot GPS read before going online so matching gets geoCell on first write. */
-async function awaitQuickGpsFix(timeoutMs = 12000) {
-  if (!navigator.geolocation) return null;
-  try {
-    const pos = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: timeoutMs,
-      });
-    });
-    const { latitude, longitude } = pos.coords;
-    if (!isValidCoord(latitude, longitude)) return null;
-    lastDriverPosition = { lat: latitude, lng: longitude };
-    lastGpsFixAtMs = Date.now();
-    lastGpsErrorCode = "";
-    locationPermissionState = "granted";
-    return lastDriverPosition;
-  } catch (err) {
-    if (err?.code === 1) lastGpsErrorCode = "permission_denied";
-    return null;
-  }
-}
-
 async function activateDriverOnlineMode() {
   if (onlineActivationPromise) return onlineActivationPromise;
   if (isOnlineReady()) return true;
@@ -2298,71 +2328,106 @@ async function activateDriverOnlineMode() {
   }
   if (activeExecutionRide?.id) return false;
 
+  onlineActivationAbort = new AbortController();
   onlineActivationPromise = (async () => {
-    setConnectingUi(ONLINE_READINESS.LOCATING);
-    setLocationMessage("آپ کا موجودہ مقام تلاش کیا جا رہا ہے...");
-    lastVehicleLocationWrite = 0;
-    lastLocationGridCell = null;
-    lastMatchGeoCell = null;
-    lastLocationSyncError = "";
-    transientGpsFailCount = 0;
-    stopRadarBackgroundFeed();
-    stopDriverOfferInbox();
+    try {
+      setConnectingUi(ONLINE_READINESS.LOCATING);
+      setLocationMessage("لوکیشن حاصل ہو رہی ہے…");
+      lastVehicleLocationWrite = 0;
+      lastLocationGridCell = null;
+      lastMatchGeoCell = null;
+      lastLocationSyncError = "";
+      transientGpsFailCount = 0;
+      stopRadarBackgroundFeed();
+      stopDriverOfferInbox();
 
-    let lat;
-    let lng;
-    const fresh = resolveFreshVehicleLocation();
-    if (fresh) {
-      lat = fresh.lat;
-      lng = fresh.lng;
-    } else {
-      const fix = await awaitQuickGpsFix();
-      if (!fix) {
-        onlineReadiness = ONLINE_READINESS.OFFLINE;
-        syncOnlineToggleUi(false);
-        const denied = lastGpsErrorCode === "permission_denied";
-        setLocationMessage(
-          denied
-            ? "لوکیشن کی اجازت نہیں ملی — آن لائن نہیں ہو سکتے"
-            : "مقام نہیں ملا — GPS چیک کریں اور دوبارہ کوشش کریں"
-        );
-        driverToast(
-          denied
-            ? "لوکیشن کی اجازت درکار ہے"
-            : "مقام نہیں ملا — دوبارہ آن لائن کوشش کریں"
-        );
-        paintDriverAvailabilityDiag();
+      let lat;
+      let lng;
+      const inSession = resolveInSessionFreshGpsFix();
+      if (inSession) {
+        lat = inSession.lat;
+        lng = inSession.lng;
+        readinessOnEvent("locating_success", {
+          durationMs: 0,
+          category: "in_session_reuse",
+        });
+      } else {
+        const fix = await freshLocationService.requestFreshLocation({
+          signal: onlineActivationAbort.signal,
+          onEvent: readinessOnEvent,
+        });
+        lat = fix.lat;
+        lng = fix.lng;
+        lastDriverPosition = { lat, lng };
+        lastGpsFixAtMs = Date.now();
+        lastGpsErrorCode = "";
+        locationPermissionState = "granted";
+      }
+
+      if (onlineActivationAbort.signal.aborted) {
+        failOnlineActivation({ category: LOCATION_FAILURE.CANCELLED }, { silent: true });
         return false;
       }
-      lat = fix.lat;
-      lng = fix.lng;
-    }
 
-    setConnectingUi(ONLINE_READINESS.WRITING_GEO);
-    setLocationMessage("مقام سرور پر محفوظ کیا جا رہا ہے...");
-    try {
-      await writeOnlineReadyVehicle(lat, lng);
+      setConnectingUi(ONLINE_READINESS.WRITING_GEO);
+      setLocationMessage("مقام سرور پر محفوظ ہو رہا ہے…");
+      readinessOnEvent("geo_write_started", { state: ONLINE_READINESS.WRITING_GEO });
+      try {
+        await writeOnlineReadyVehicle(lat, lng);
+      } catch (error) {
+        console.warn("[SwiftGo Partner] vehicle online sync", error);
+        readinessOnEvent("geo_write_failed", {
+          category: String(error?.code || error?.message || "sync_failed").slice(0, 40),
+        });
+        lastLocationSyncError = String(error?.code || error?.message || "sync_failed").slice(
+          0,
+          80
+        );
+        failOnlineActivation({ category: "geo_write_failed" });
+        setLocationMessage("مقام سرور پر محفوظ نہیں ہو سکا — دوبارہ کوشش کریں");
+        return false;
+      }
+
+      if (onlineActivationAbort.signal.aborted) {
+        failOnlineActivation({ category: LOCATION_FAILURE.CANCELLED }, { silent: true });
+        return false;
+      }
+
+      hideConnectingOverlay();
+      readinessOnEvent("geo_write_success", { state: ONLINE_READINESS.WRITING_GEO });
+      setOnlineUi(true);
+      readinessOnEvent("online_ready", { state: ONLINE_READINESS.ONLINE_READY });
+      startLocationWatch();
+      syncRideRadarFab();
+      hideIncomingRide();
+      setLocationMessage("آن لائن — قریبی درخواستیں موصول ہو سکتی ہیں");
+      driverToast("آپ آن لائن ہیں");
+      return true;
     } catch (error) {
-      console.warn("[SwiftGo Partner] vehicle online sync", error);
-      onlineReadiness = ONLINE_READINESS.OFFLINE;
-      syncOnlineToggleUi(false);
-      lastLocationSyncError = String(error?.code || error?.message || "sync_failed").slice(0, 80);
-      setLocationMessage("سرور پر آن لائن نہیں ہو سکے — نیٹ ورک چیک کریں اور دوبارہ کوشش کریں");
-      driverToast("آن لائن نہیں ہو سکے — دوبارہ کوشش کریں");
-      paintDriverAvailabilityDiag();
+      if (error?.category === LOCATION_FAILURE.PERMISSION_DENIED) {
+        lastGpsErrorCode = "permission_denied";
+        locationPermissionState = "denied";
+      } else if (error?.category === LOCATION_FAILURE.UNAVAILABLE) {
+        lastGpsErrorCode = "unavailable";
+      } else if (error?.category === LOCATION_FAILURE.TIMEOUT) {
+        lastGpsErrorCode = "timeout";
+      }
+      console.warn("[SwiftGo Partner] activate online", {
+        category: error?.category || error?.message,
+      });
+      failOnlineActivation(error, {
+        silent: error?.category === LOCATION_FAILURE.CANCELLED,
+      });
       return false;
+    } finally {
+      hideConnectingOverlay();
+      onlineActivationPromise = null;
+      onlineActivationAbort = null;
+      if (!isOnlineReady()) {
+        syncOnlineToggleUi(false);
+      }
     }
-
-    setOnlineUi(true);
-    startLocationWatch();
-    syncRideRadarFab();
-    hideIncomingRide();
-    setLocationMessage("آن لائن — قریبی درخواستیں موصول ہو سکتی ہیں");
-    driverToast("آپ آن لائن ہیں");
-    return true;
-  })().finally(() => {
-    onlineActivationPromise = null;
-  });
+  })();
 
   return onlineActivationPromise;
 }
@@ -2538,16 +2603,18 @@ function showIncomingRide(_request) {
 }
 
 function setDriverOffline(message = "آپ آف لائن ہیں") {
-  onlineActivationPromise = null;
+  cancelOnlineActivation({ silent: true });
   onlineReadiness = ONLINE_READINESS.OFFLINE;
   stopLocationWatch();
   stopRideListener();
   stopRadarBackgroundFeed();
   stopDriverOfferInbox();
   hideIncomingRide();
+  hideConnectingOverlay();
   setOnlineUi(false);
   markVehicleOfflineInFirestore();
   setLocationMessage(message);
+  paintDriverAvailabilityDiag();
 }
 
 function toggleDriverStatus() {
@@ -2561,6 +2628,17 @@ function toggleDriverStatus() {
       "کمپنی کا واجب الادا بیلنس زیادہ ہو گیا ہے۔ براہ کرم والٹ ریچارج کریں۔"
     );
     if (els.driverWalletWarning) els.driverWalletWarning.hidden = false;
+    return;
+  }
+
+  if (
+    onlineReadiness === ONLINE_READINESS.LOCATING ||
+    onlineReadiness === ONLINE_READINESS.WRITING_GEO
+  ) {
+    logOnlineReadinessEvent("offline_during_locating", {
+      state: onlineReadiness,
+    });
+    setDriverOffline();
     return;
   }
 
@@ -3439,6 +3517,12 @@ function boot() {
     onAuthStateChanged(firebase.auth, async (user) => {
       if (!user) {
         authSequence += 1;
+        cancelOnlineActivation({ silent: true });
+        onlineActivationPromise = null;
+        online = false;
+        onlineReadiness = ONLINE_READINESS.OFFLINE;
+        hideConnectingOverlay();
+        stopLocationWatch();
         currentDriver = null;
         linkedVehicle = null;
         partnerMode = null;
