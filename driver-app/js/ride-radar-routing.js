@@ -1,8 +1,11 @@
 /**
- * OSRM route fetch for Ride Radar detail map.
+ * Ride Radar detail map routing — uses shared provider-neutral OSRM preview adapter.
+ * Preview/dev only; not traffic-aware; not a production SLA.
  */
 
-const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
+import { createOsrmPreviewProvider } from "./road-route-provider.mjs";
+
+const previewProvider = createOsrmPreviewProvider();
 
 /**
  * @param {{ lat: number, lng: number }} pickup
@@ -10,24 +13,20 @@ const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
  * @returns {Promise<{ latlngs: [number, number][], distanceKm: number, durationMin: number } | null>}
  */
 export async function fetchRideRoute(pickup, dropoff) {
-  if (pickup.lat == null || dropoff.lat == null) return null;
-  const url =
-    `${OSRM_BASE}/${pickup.lng},${pickup.lat};${dropoff.lng},${dropoff.lat}` +
-    "?overview=full&geometries=geojson";
+  if (pickup?.lat == null || dropoff?.lat == null) return null;
   try {
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const route = data?.routes?.[0];
-    if (!route?.geometry?.coordinates?.length) return null;
-    const latlngs = route.geometry.coordinates.map(([lng, lat]) => /** @type {[number, number]} */ ([lat, lng]));
+    const route = await previewProvider.route({
+      origin: { lat: Number(pickup.lat), lng: Number(pickup.lng) },
+      destination: { lat: Number(dropoff.lat), lng: Number(dropoff.lng) },
+      mode: "driving",
+    });
     return {
-      latlngs,
-      distanceKm: Number((route.distance / 1000).toFixed(1)),
-      durationMin: Math.max(1, Math.round(route.duration / 60)),
+      latlngs: route.renderGeometry.map((p) => /** @type {[number, number]} */ ([p.lat, p.lng])),
+      distanceKm: Number((route.distanceMeters / 1000).toFixed(1)),
+      durationMin: Math.max(1, Math.round(route.durationSeconds / 60)),
     };
   } catch (err) {
-    console.warn("[SwiftGo Radar] route", err);
+    console.warn("[SwiftGo Radar] route", err?.code || err?.message || "unavailable");
     return null;
   }
 }

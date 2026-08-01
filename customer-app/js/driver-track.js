@@ -39,6 +39,8 @@ let lastAcceptedFix = null;
 /** @type {string} */
 let lastTrackedDriverId = "";
 let routeDisplayState = createRouteDisplayState();
+/** When true, skip Phase-1 straight approach line (road layers own the line). */
+let roadRouteLineSuppressed = false;
 
 function haversineKm(a, b) {
   const R = 6371;
@@ -130,12 +132,20 @@ export function initDriverTrack() {
   });
 }
 
+export function setRoadRouteLineSuppressed(suppressed) {
+  roadRouteLineSuppressed = Boolean(suppressed);
+  if (roadRouteLineSuppressed) {
+    paintApproachLine(null, null);
+  }
+}
+
 export function stopDriverTrack() {
   lastFitBoundsAt = 0;
   lastPanAt = 0;
   approachTarget = null;
   lastAcceptedFix = null;
   lastTrackedDriverId = "";
+  roadRouteLineSuppressed = false;
   routeDisplayState = clearRouteDisplayState(routeDisplayState);
   setSuppressSimulatedDrivers(false);
   clearAssignedDriver();
@@ -175,8 +185,10 @@ export function updateDriverTrack(ride) {
 
   approachTarget = tracking.coordinates;
   routeDisplayState.targetType = tracking.targetType;
-  routeDisplayState.unavailable = true;
-  routeDisplayState.reason = "phase1_straight_line_only";
+  routeDisplayState.unavailable = !roadRouteLineSuppressed;
+  routeDisplayState.reason = roadRouteLineSuppressed
+    ? "phase4_road_route_layers"
+    : "phase1_straight_line_only";
 
   const loc = ride.driverLocation;
   const ageMs = locationAgeMs(ride);
@@ -198,13 +210,15 @@ export function updateDriverTrack(ride) {
     });
     lastAcceptedFix = { lat: loc.lat, lng: loc.lng };
 
-    if (tracking.approachLine && tracking.coordinates) {
+    if (tracking.approachLine && tracking.coordinates && !roadRouteLineSuppressed) {
       paintApproachLine(
         { lat: loc.lat, lng: loc.lng },
         { lat: tracking.coordinates.lat, lng: tracking.coordinates.lng }
       );
       fitDriverAndTarget(loc, tracking.coordinates);
       if (String(ride.status) === "accepted") panTowardDriver(loc.lat, loc.lng);
+    } else if (roadRouteLineSuppressed) {
+      paintApproachLine(null, null);
     } else {
       paintApproachLine(null, null);
     }

@@ -38,7 +38,7 @@ import {
   isCustomerActiveRideStatus,
   isTerminalRideStatus,
 } from "./ride-status.js";
-import { updateDriverTrack, stopDriverTrack } from "./driver-track.js";
+import { updateDriverTrack, stopDriverTrack, setRoadRouteLineSuppressed } from "./driver-track.js";
 import {
   createRideViewLifecycle,
   attachBrowserLifecycleListeners,
@@ -46,6 +46,9 @@ import {
 } from "./ride-view-lifecycle.mjs";
 import { createViewerPresenceClient } from "./viewer-presence-client.mjs";
 import { createCustomerP2pController } from "./p2p-ride-controller.mjs";
+import { createTwoLegRouteController } from "./two-leg-route-controller.mjs";
+import { createTwoLegRouteLayers } from "./two-leg-route-layers.mjs";
+import { resolveRouteProvider } from "./road-route-provider.mjs";
 import { getFirebase } from "./firebase.js";
 
 const SEARCH_TIMEOUT_MS = 180_000;
@@ -96,6 +99,10 @@ let rideViewLifecycle = null;
 let presenceClient = null;
 /** @type {ReturnType<typeof createCustomerP2pController> | null} */
 let customerP2p = null;
+/** @type {ReturnType<typeof createTwoLegRouteController> | null} */
+let twoLegRoutes = null;
+/** @type {ReturnType<typeof createTwoLegRouteLayers> | null} */
+let twoLegLayers = null;
 let detachBrowserLifecycle = () => {};
 let detachingFromLifecycle = false;
 
@@ -125,6 +132,64 @@ function clearLiveSubscriptions() {
   watchedVehicleId = "";
   stopDriverTrack();
   void customerP2p?.stop({ closeRemote: false });
+  twoLegRoutes?.setVisible(false);
+}
+
+function clearTwoLegRoutes() {
+  twoLegRoutes?.clear({ emitDiag: true });
+  twoLegLayers?.clear();
+  setRoadRouteLineSuppressed(false);
+}
+
+function ensureTwoLegRoutes() {
+  if (twoLegRoutes) return twoLegRoutes;
+  twoLegLayers = createTwoLegRouteLayers({
+    onDiag: (code) => {
+      try {
+        console.info(JSON.stringify({ type: "road_route_diag", reason: String(code || "") }));
+      } catch {
+        /* ignore */
+      }
+    },
+  });
+  twoLegRoutes = createTwoLegRouteController({
+    provider: resolveRouteProvider(),
+    onDiag: (code) => {
+      try {
+        console.info(JSON.stringify({ type: "road_route_diag", reason: String(code || "") }));
+      } catch {
+        /* ignore */
+      }
+    },
+    onModel: (model) => {
+      const hasRoad =
+        model?.approach?.status === "ready" ||
+        model?.trip?.status === "ready" ||
+        model?.approach?.status === "fallback" ||
+        model?.trip?.status === "fallback";
+      setRoadRouteLineSuppressed(Boolean(hasRoad && model?.emphasis !== "none"));
+      twoLegLayers?.render(model);
+      if (hasRoad && !model.fittedOnceForRide) {
+        twoLegRoutes?.markFitted();
+      }
+    },
+  });
+  if (typeof window !== "undefined") {
+    window.__SWIFTGO_ROUTE_COUNTERS__ = () => twoLegRoutes?.getCounters?.() || null;
+  }
+  return twoLegRoutes;
+}
+
+function syncTwoLegForRide(ride, { isVisible = true } = {}) {
+  const status = String(ride?.status || "");
+  if (!ride?.id || !["accepted", "arrived", "in_progress"].includes(status)) {
+    clearTwoLegRoutes();
+    return;
+  }
+  // Hide booking pickup→dropoff polyline during assigned tracking (fare already computed).
+  clearRoutePoint("pickup");
+  clearRoutePoint("dropoff");
+  ensureTwoLegRoutes().syncRide(ride, { isVisible });
 }
 
 function renderFromArbiterFix(fix) {
@@ -145,6 +210,8 @@ function renderFromArbiterFix(fix) {
     driverLocationUpdatedAt: fix.observedAt,
   };
   updateDriverTrack(rideForTrack);
+  // Location feed for approach refresh policy — not a per-fix route request.
+  twoLegRoutes?.noteDriverLocation(fix);
 }
 
 function ensureRideViewLifecycle() {
@@ -189,6 +256,7 @@ function ensureRideViewLifecycle() {
       if (!ride) {
         stopDriverTrack();
         void customerP2p?.stop({ closeRemote: true });
+        clearTwoLegRoutes();
         activeRide = null;
         clearActiveRideId();
         document.body.classList.remove("has-active-ride");
@@ -244,11 +312,13 @@ function ensureRideViewLifecycle() {
       customerP2p?.setVisible(true);
       if (activeRide) {
         customerP2p?.syncForRide(activeRide, { isVisible: true });
+        syncTwoLegForRide(activeRide, { isVisible: true });
       }
     },
     stopPresenceHeartbeat: () => {
       presenceClient?.stop();
       customerP2p?.setVisible(false);
+      twoLegRoutes?.setVisible(false);
     },
   });
 
@@ -284,6 +354,8 @@ export function clearCustomerRideSession() {
   activeOffers = [];
   selectedOfferId = null;
   clearLiveSubscriptions();
+  clearTwoLegRoutes();
+  void customerP2p?.stop({ closeRemote: true });
   activeRide = null;
   clearActiveRideId();
   document.body.classList.remove("has-active-ride");
@@ -783,6 +855,7 @@ function showActiveRideState(status = "accepted") {
   const visible =
     typeof document === "undefined" || document.visibilityState !== "hidden";
   customerP2p?.syncForRide(activeRide, { isVisible: visible });
+  syncTwoLegForRide(activeRide, { isVisible: visible });
   if (!customerP2p && activeRide) updateDriverTrack(activeRide);
 
   if (!els.activePanel) return;
@@ -795,6 +868,7 @@ function showActiveRideState(status = "accepted") {
 function showInvoicePanel(ride) {
   stopDriverTrack();
   void customerP2p?.stop({ closeRemote: true });
+  clearTwoLegRoutes();
   els.searchingPanel?.classList.remove("is-visible");
   els.activePanel?.classList.remove("is-visible");
   if (els.searchingPanel) els.searchingPanel.hidden = true;
@@ -850,6 +924,7 @@ function resetToVehicleSelection(messageKey) {
   stopRideWatch();
   stopDriverTrack();
   void customerP2p?.stop({ closeRemote: true });
+  clearTwoLegRoutes();
   activeRide = null;
   clearActiveRideId();
   document.body.classList.remove("has-active-ride");
@@ -925,6 +1000,7 @@ function handleRideSnapshot(rawRide) {
     const visible =
       typeof document === "undefined" || document.visibilityState !== "hidden";
     customerP2p?.syncForRide(ride, { isVisible: visible });
+    syncTwoLegForRide(ride, { isVisible: visible });
     if (ride?.driverLocation) {
       customerP2p?.ingestFirebaseLocation(ride.driverLocation, ride);
     } else if (!customerP2p) {
@@ -958,10 +1034,12 @@ function handleRideSnapshot(rawRide) {
   } else if (ride.status === "declined") {
     stopDriverTrack();
     void customerP2p?.stop({ closeRemote: true });
+    clearTwoLegRoutes();
     if (previousStatus !== "declined") resetToVehicleSelection("driverDeclined");
   } else if (ride.status === "completed") {
     stopDriverTrack();
     void customerP2p?.stop({ closeRemote: true });
+    clearTwoLegRoutes();
     if (previousStatus !== "completed") {
       stopRideWatch();
       showInvoicePanel(ride);
