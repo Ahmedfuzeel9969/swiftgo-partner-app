@@ -6,7 +6,6 @@ import {
   watchRideRequest,
   submitRideRating,
   fetchRideById,
-  watchAssignedVehicle,
 } from "./data.js";
 import { createCustomerBookingClient, cancelCustomerBookingClient, cancelAllSearchingBookingsClient, expireSearchingBookingClient, previewCancellationFareClient } from "./booking-client.js";
 import { CANCELLABLE_RIDE_STATUSES } from "./ride-status.js";
@@ -391,25 +390,12 @@ function syncVehicleWatch(ride) {
     return;
   }
 
+  // Phase 1: ride.driverLocation (CF mirror) is authoritative for the customer map.
+  // Do not override tracking from a parallel vehicle listener (avoids dual write/read paths).
   if (vehicleId === watchedVehicleId) return;
   watchedVehicleId = vehicleId;
   unsubscribeVehicle();
-  unsubscribeVehicle = watchAssignedVehicle(
-    vehicleId,
-    (vehicle) => {
-      if (!activeRide || activeRide.vehicleId !== vehicleId) return;
-      if (!vehicle?.location?.lat || !vehicle?.location?.lng) return;
-      activeRide = {
-        ...activeRide,
-        driverLocation: vehicle.location,
-        driverLocationUpdatedAt: vehicle.locationUpdatedAt || activeRide.driverLocationUpdatedAt,
-        driverLocationReceivedAt: Date.now(),
-      };
-      if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
-      updateDriverTrack(activeRide);
-    },
-    (err) => console.warn("[SwiftGo] vehicle watch", err)
-  );
+  unsubscribeVehicle = () => {};
 }
 
 function attachRideWatch(rideId) {
