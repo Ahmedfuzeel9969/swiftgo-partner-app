@@ -61,6 +61,7 @@ const {
 const { reportGeoCellCoverage } = require("./geo-coverage");
 const { mirrorDriverLocationToRide } = require("./driver-location");
 const { settleRide } = require("./settlement");
+const { refreshRideViewerPresence } = require("./ride-viewer-presence");
 
 if (!getApps().length) {
   initializeApp();
@@ -910,5 +911,21 @@ exports.getGeoCellCoverageReport = onCall({ region: "us-central1" }, async (requ
   }
   return wrapCall("getGeoCellCoverageReport", request, () =>
     reportGeoCellCoverage(db, { limit: request.data?.limit })
+  );
+});
+
+/**
+ * Phase 1 P2P prep — customer viewer presence lease refresh (server timestamps only).
+ * Does not change driver write frequency.
+ */
+exports.refreshRideViewerPresence = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("refreshRideViewerPresence", request, () =>
+    refreshRideViewerPresence(db, {
+      customerUid: request.auth.uid,
+      rideId: request.data?.rideId,
+      sessionId: request.data?.sessionId,
+      leaseVersion: request.data?.leaseVersion,
+    })
   );
 });

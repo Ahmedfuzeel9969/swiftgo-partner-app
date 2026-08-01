@@ -41,7 +41,8 @@
     "test:driver-active-ride-reconcile": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/driver-active-ride-reconcile.mjs\"",
     "test:driver-active-ride-pointer-heal": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/driver-active-ride-pointer-heal.mjs\"",
     "test:driver-fresh-location-online": "node tests/driver-fresh-location-online.mjs",
-    "test:live-location-foundation": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/live-location-foundation.mjs\""
+    "test:live-location-foundation": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/live-location-foundation.mjs\"",
+    "test:viewer-presence-lifecycle": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/viewer-presence-lifecycle.mjs\""
   },
   "keywords": [],
   "author": "",

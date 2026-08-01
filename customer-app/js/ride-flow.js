@@ -34,13 +34,21 @@ import { askCancelRideReason, askNoDriverAvailable } from "./cancel-reason-dialo
 import { expandSheet } from "./sheet.js";
 import { syncActiveRideDrawer } from "./utility-drawer.js";
 import {
-  isNonTerminalRideStatus,
   normalizeCustomerRideStatus,
   isCustomerActiveRideStatus,
+  isTerminalRideStatus,
 } from "./ride-status.js";
 import { updateDriverTrack, stopDriverTrack } from "./driver-track.js";
+import {
+  createRideViewLifecycle,
+  attachBrowserLifecycleListeners,
+  VIEWER_DIAG,
+} from "./ride-view-lifecycle.mjs";
+import { createViewerPresenceClient } from "./viewer-presence-client.mjs";
+import { getFirebase } from "./firebase.js";
 
 const SEARCH_TIMEOUT_MS = 180_000;
+const TRACKABLE_VIEW_STATUSES = new Set(["accepted", "arrived", "in_progress"]);
 /** Re-run match while searching so drivers who come online mid-search get invited. */
 const SEARCH_REMATCH_MS = 30_000;
 const ACTIVE_RIDE_STORAGE_KEY = "swiftgo_customer_active_ride_id";
@@ -81,6 +89,165 @@ let searchTimeoutId = 0;
 let searchTickId = 0;
 let searchRematchId = 0;
 let searchStartedAtMs = 0;
+/** @type {ReturnType<typeof createRideViewLifecycle> | null} */
+let rideViewLifecycle = null;
+/** @type {ReturnType<typeof createViewerPresenceClient> | null} */
+let presenceClient = null;
+let detachBrowserLifecycle = () => {};
+let detachingFromLifecycle = false;
+
+function authUid() {
+  try {
+    return String(getFirebase()?.auth?.currentUser?.uid || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function viewerDiag(code) {
+  try {
+    console.info(JSON.stringify({ type: "viewer_lifecycle_diag", reason: String(code || "") }));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearLiveSubscriptions() {
+  unsubscribeRide();
+  unsubscribeRide = () => {};
+  unsubscribeOffers();
+  unsubscribeOffers = () => {};
+  unsubscribeVehicle();
+  unsubscribeVehicle = () => {};
+  watchedVehicleId = "";
+  stopDriverTrack();
+}
+
+function ensureRideViewLifecycle() {
+  if (rideViewLifecycle) return rideViewLifecycle;
+
+  presenceClient = createViewerPresenceClient({
+    isVisible: () =>
+      typeof document === "undefined" || document.visibilityState !== "hidden",
+    isCurrentGeneration: (gen) => Boolean(rideViewLifecycle?.isCurrentGeneration(gen)),
+    onDiag: (code) => viewerDiag(code),
+    onAttempt: () => rideViewLifecycle?.bumpHeartbeatAttempt(),
+    onSuccess: () => rideViewLifecycle?.bumpHeartbeatSuccess(),
+    onFailure: () => rideViewLifecycle?.bumpHeartbeatFailure(),
+  });
+
+  rideViewLifecycle = createRideViewLifecycle({
+    diag: (code) => viewerDiag(code),
+    isTerminalStatus: (s) => isTerminalRideStatus(s),
+    fetchLatestRide: async (rideId) => {
+      const ride = await fetchRideById(rideId);
+      const uid = authUid();
+      if (!ride || !uid) return null;
+      if (String(ride.userId || "") !== uid) return null;
+      return ride;
+    },
+    onLatestRide: (ride, gen) => {
+      if (!rideViewLifecycle?.isCurrentGeneration(gen)) {
+        viewerDiag(VIEWER_DIAG.STALE_GENERATION);
+        return;
+      }
+      if (!ride) {
+        stopDriverTrack();
+        activeRide = null;
+        clearActiveRideId();
+        document.body.classList.remove("has-active-ride");
+        if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
+        restoreVehicleState();
+        viewerDiag(VIEWER_DIAG.TERMINAL_CLEANUP);
+        return;
+      }
+      handleRideSnapshot(ride);
+    },
+    subscribeLive: (rideId, gen) => {
+      clearLiveSubscriptions();
+      unsubscribeRide = watchRideRequest(
+        rideId,
+        (raw) => {
+          if (!rideViewLifecycle?.isCurrentGeneration(gen)) {
+            viewerDiag(VIEWER_DIAG.STALE_GENERATION);
+            return;
+          }
+          rideViewLifecycle?.noteSnapshot();
+          handleRideSnapshot(raw);
+        },
+        (err) => console.warn("[SwiftGo] ride watch", err)
+      );
+      unsubscribeOffers = watchRideOffers(
+        rideId,
+        (offers) => {
+          if (!rideViewLifecycle?.isCurrentGeneration(gen)) return;
+          activeOffers = offers || [];
+          if (activeOffers.length) {
+            markT4CustomerOffer(rideId, { offerCount: activeOffers.length });
+          }
+          updateDriverOfferUi(activeRide);
+        },
+        (err) => console.warn("[SwiftGo] offers watch", err)
+      );
+      syncVehicleWatch(activeRide);
+    },
+    unsubscribeLive: () => {
+      detachingFromLifecycle = true;
+      try {
+        clearLiveSubscriptions();
+      } finally {
+        detachingFromLifecycle = false;
+      }
+    },
+    startPresenceHeartbeat: (rideId, gen) => {
+      if (!presenceClient) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      const status = normalizeCustomerRideStatus(activeRide?.status);
+      if (!TRACKABLE_VIEW_STATUSES.has(status)) return;
+      presenceClient.start({ rideId, generation: gen });
+    },
+    stopPresenceHeartbeat: () => {
+      presenceClient?.stop();
+    },
+  });
+
+  detachBrowserLifecycle = attachBrowserLifecycleListeners(rideViewLifecycle);
+  if (typeof window !== "undefined") {
+    window.__SWIFTGO_VIEWER_COUNTERS__ = () => rideViewLifecycle?.getCounters?.() || null;
+  }
+  return rideViewLifecycle;
+}
+
+function bindRideView(rideId, { forceRestart = false } = {}) {
+  const lc = ensureRideViewLifecycle();
+  lc.bindRide({ rideId, forceRestart });
+}
+
+function unbindRideView() {
+  if (!rideViewLifecycle) return;
+  detachingFromLifecycle = true;
+  try {
+    rideViewLifecycle.unbind();
+  } finally {
+    detachingFromLifecycle = false;
+  }
+}
+
+/** Sign-out / session teardown — zero listeners and heartbeats. */
+export function clearCustomerRideSession() {
+  unbindRideView();
+  presenceClient?.stop();
+  if (activeRide?.id) clearDispatchSession(activeRide.id);
+  clearSearchTimers();
+  activeOffers = [];
+  selectedOfferId = null;
+  clearLiveSubscriptions();
+  activeRide = null;
+  clearActiveRideId();
+  document.body.classList.remove("has-active-ride");
+  if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
+  restoreVehicleState();
+}
 
 function rideCreatedAtMs(ride) {
   const ts = ride?.createdAt;
@@ -136,7 +303,7 @@ function mountActiveRideUi(ride, rideId) {
   if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
   document.body.classList.add("has-active-ride");
   persistActiveRideId(rideId);
-  attachRideWatch(rideId);
+  bindRideView(rideId);
 
   if (status === "searching_driver") {
     showSearchingState();
@@ -191,6 +358,7 @@ export function initRideFlow(handlers = {}) {
   els.sendCounterOfferBtn?.addEventListener("click", onSendCounterOffer);
   els.invoiceDoneBtn?.addEventListener("click", dismissInvoiceAndReset);
   initRatingStars();
+  ensureRideViewLifecycle();
 }
 
 function clearSearchTimers() {
@@ -400,24 +568,20 @@ function syncVehicleWatch(ride) {
 
 function attachRideWatch(rideId) {
   if (!rideId) return;
-  stopRideWatch();
-  unsubscribeRide = watchRideRequest(
+  bindRideView(rideId, { forceRestart: true });
+}
+
+function maybeStartPresenceForActiveRide() {
+  const rideId = String(activeRide?.id || "").trim();
+  if (!rideId || !rideViewLifecycle || !presenceClient) return;
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+  if (!rideViewLifecycle.isLiveAttached()) return;
+  const status = normalizeCustomerRideStatus(activeRide?.status);
+  if (!TRACKABLE_VIEW_STATUSES.has(status)) return;
+  presenceClient.start({
     rideId,
-    handleRideSnapshot,
-    (err) => console.warn("[SwiftGo] ride watch", err)
-  );
-  unsubscribeOffers = watchRideOffers(
-    rideId,
-    (offers) => {
-      activeOffers = offers || [];
-      if (activeOffers.length) {
-        markT4CustomerOffer(rideId, { offerCount: activeOffers.length });
-      }
-      updateDriverOfferUi(activeRide);
-    },
-    (err) => console.warn("[SwiftGo] offers watch", err)
-  );
-  syncVehicleWatch(activeRide);
+    generation: rideViewLifecycle.getGeneration(),
+  });
 }
 
 function showSearchingState() {
@@ -621,15 +785,12 @@ function showInvoicePanel(ride) {
 function stopRideWatch() {
   if (activeRide?.id) clearDispatchSession(activeRide.id);
   clearSearchTimers();
-  unsubscribeRide();
-  unsubscribeRide = () => {};
-  unsubscribeOffers();
-  unsubscribeOffers = () => {};
-  unsubscribeVehicle();
-  unsubscribeVehicle = () => {};
-  watchedVehicleId = "";
   activeOffers = [];
   selectedOfferId = null;
+  if (!detachingFromLifecycle) {
+    unbindRideView();
+  }
+  clearLiveSubscriptions();
 }
 
 function clearMapRouteState() {
@@ -713,6 +874,7 @@ function handleRideSnapshot(rawRide) {
 
   if (ride.status === "accepted" || ride.status === "arrived" || ride.status === "in_progress") {
     clearSearchTimers();
+    maybeStartPresenceForActiveRide();
     const firstActive =
       previousStatus !== "accepted" &&
       previousStatus !== "arrived" &&

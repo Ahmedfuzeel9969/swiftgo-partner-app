@@ -403,6 +403,23 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Phase 1 viewer presence lease — writes via Admin/CF only; no coordinates.
+    // Doc id: {rideId}_{customerUid}
+    match /rideViewerPresence/{presenceId} {
+      allow get: if isSignedIn() && (
+        isSuperAdmin()
+        || resource.data.customerId == request.auth.uid
+        || (
+          resource.data.rideId is string
+          && exists(/databases/$(database)/documents/rides/$(resource.data.rideId))
+          && get(/databases/$(database)/documents/rides/$(resource.data.rideId)).data.driverId
+               == request.auth.uid
+        )
+      );
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
     // ── ride_requests/{id} ── Phase 2B: legacy archive — read-only; canonical bookings are rides/.
     match /ride_requests/{requestId} {
       allow get, list: if isSignedIn() && (
