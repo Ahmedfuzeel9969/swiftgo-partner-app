@@ -97,20 +97,39 @@ async function settleRide(db, params) {
     const ride = rideSnap.data() || {};
     const customerId = String(ride.userId || "");
     const driverIdEarly = String(ride.driverId || "");
+    const vehicleIdFromRide = String(ride.vehicleId || "").trim();
     const partnerRef = driverIdEarly
       ? db.collection("partners").doc(driverIdEarly)
       : null;
     const slotRef = customerId ? db.collection("booking_slots").doc(customerId) : null;
+    const vehicleRef = vehicleIdFromRide
+      ? db.collection("vehicles").doc(vehicleIdFromRide)
+      : null;
 
     // All reads before writes (Firestore transaction rule).
-    const [partnerSnap, slotSnap] = await Promise.all([
+    const [partnerSnap, slotSnap, vehicleSnap] = await Promise.all([
       partnerRef ? tx.get(partnerRef) : Promise.resolve(null),
       slotRef ? tx.get(slotRef) : Promise.resolve(null),
+      vehicleRef ? tx.get(vehicleRef) : Promise.resolve(null),
     ]);
+
+    /** Clear ride vehicle busy state — always offline (never ONLINE_READY without client geo). */
+    function clearVehicleActiveRideIfMatched() {
+      if (!vehicleRef || !vehicleSnap?.exists) return;
+      const vehicle = vehicleSnap.data() || {};
+      if (String(vehicle.driverId || "") !== driverIdEarly) return;
+      if (String(vehicle.activeRideId || "") !== rideId) return;
+      tx.update(vehicleRef, {
+        activeRideId: FieldValue.delete(),
+        status: "offline",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
 
     // Idempotent retry: return existing settlement without re-posting.
     if (ride.status === "completed" && ledgerSnap.exists) {
       const ledger = ledgerSnap.data() || {};
+      clearVehicleActiveRideIfMatched();
       return {
         alreadySettled: true,
         rideId,
@@ -183,6 +202,7 @@ async function settleRide(db, params) {
         settledAt: FieldValue.serverTimestamp(),
         commissionPercent: ledger.commissionPercent,
       });
+      clearVehicleActiveRideIfMatched();
       return {
         alreadySettled: true,
         rideId,
@@ -230,6 +250,8 @@ async function settleRide(db, params) {
       partnerUpdate.activeRideId = FieldValue.delete();
     }
     tx.set(partnerRef, partnerUpdate, { merge: true });
+
+    clearVehicleActiveRideIfMatched();
 
     if (slotRef) {
       const count = slotSnap?.exists ? Math.max(0, Number(slotSnap.data()?.count || 0)) : 0;

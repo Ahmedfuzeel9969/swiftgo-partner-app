@@ -240,7 +240,7 @@ async function rematchWhileSearching(rideId) {
   if (String(activeRide?.status || "searching_driver") !== "searching_driver") return;
   try {
     const result = await matchCandidatesForRide(rideId);
-    const count = Number(result?.candidates?.length ?? result?.candidateCount ?? 0);
+    const count = Number(result?.candidateCount ?? result?.candidates?.length ?? 0);
     if (count > 0) {
       // Soft signal only — offers UI already watches Firestore.
       console.info("[SwiftGo] rematch invited", count);
@@ -976,16 +976,11 @@ export async function startRideRequest(state) {
     showSearchingState();
     startSearchTimers(ride.id);
     attachRideWatch(ride.id);
-    // Prefer server auto-match from createCustomerBooking; still call as backup.
     if (!created.candidateCount && created.matchingStatus !== "candidates_ready") {
       await matchCandidatesForRide(ride.id);
     }
-    if (created.matchingStatus === "no_candidates" || created.candidateCount === 0) {
-      onToast?.(
-        t("bookingNoDriversNearby") ||
-          "قریبی ڈرائیور نہیں ملا — تلاش جاری ہے، ڈرائیور آن لائن اور 3 کلومیٹر کے اندر ہو"
-      );
-    } else if (created.matchingStatus === "candidates_ready" || created.candidateCount > 0) {
+    const invited = created.matchingStatus === "candidates_ready" || Number(created.candidateCount) > 0;
+    if (invited) {
       onToast?.(
         t("bookingDriversInvited") ||
           `${created.candidateCount || ""} قریبی ڈرائیور کو دعوت بھیج دی`.trim()
@@ -994,6 +989,11 @@ export async function startRideRequest(state) {
       onToast?.(
         t("bookingMatchRetrying") ||
           "ڈرائیور میچنگ میں مسئلہ — تلاش جاری، دوبارہ کوشش ہو رہی ہے"
+      );
+    } else {
+      onToast?.(
+        t("bookingSearchPending") ||
+          "بکنگ بن گئی — قریبی ڈرائیور تلاش ہو رہے ہیں"
       );
     }
     return ride;

@@ -12,6 +12,7 @@ const {
   nextFailState,
   resetPinAttempts,
 } = require("./pin-security");
+const { locationGeoFields } = require("./geo-cells");
 
 function err(code, message) {
   const e = new Error(message || code);
@@ -96,14 +97,25 @@ async function linkVehicleByPin(db, { driverUid, pin, driverName }) {
         });
       }
     }
-    tx.update(vehicleDoc.ref, {
+    const vehicleUpdate = {
       driverId: driverUid,
       driverName: driverName || "SwiftGo Driver",
       status: "online",
       // Keep pinHash for matching; preserve owner-display pin when present.
       pinHash: vehicle.pinHash || pinHash,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    };
+    const vLat = Number(vehicle?.location?.lat);
+    const vLng = Number(vehicle?.location?.lng);
+    if (Number.isFinite(vLat) && Number.isFinite(vLng)) {
+      const geo = locationGeoFields(vLat, vLng);
+      vehicleUpdate.location = { lat: vLat, lng: vLng };
+      vehicleUpdate.locationUpdatedAt = FieldValue.serverTimestamp();
+      vehicleUpdate.geoCell = geo.geoCell;
+      vehicleUpdate.hotspotId = geo.hotspotId;
+      vehicleUpdate.locationGridCell = geo.locationGridCell;
+    }
+    tx.update(vehicleDoc.ref, vehicleUpdate);
     tx.set(
       partnerRef,
       {

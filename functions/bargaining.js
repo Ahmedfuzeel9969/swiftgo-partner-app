@@ -27,6 +27,7 @@ const {
   classifyDriverMatchExclusion,
 } = require("./matching");
 const { loadAndSelectGeoCandidates } = require("./geo-match");
+const { isValidGeoCell } = require("./geo-coverage");
 const { seedDriverLocationFromVehicle } = require("./driver-location");
 const { computeCancellationFare } = require("./partial-fare");
 const { settlePartialCancellation } = require("./settlement");
@@ -856,6 +857,7 @@ async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidat
       for (const doc of probe.docs) {
         const v = doc.data() || {};
         if (!v.driverId) continue;
+        if (!isValidGeoCell(v.geoCell) && !isValidGeoCell(v.locationGridCell)) continue;
         const lat = Number(v.location?.lat);
         const lng = Number(v.location?.lng);
         const distanceKm = haversineKm(pickup, { lat, lng });
@@ -864,6 +866,19 @@ async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidat
         const ts = v.locationUpdatedAt;
         if (ts && typeof ts.toMillis === "function") locationUpdatedAtMs = ts.toMillis();
         else if (typeof ts?.seconds === "number") locationUpdatedAtMs = ts.seconds * 1000;
+        const exclusion = classifyDriverMatchExclusion(
+          {
+            driverId: v.driverId,
+            lat,
+            lng,
+            status: v.status,
+            activeRideId: v.activeRideId || null,
+            locationUpdatedAtMs,
+            accountStatus: "active",
+          },
+          { nowMs: Date.now(), staleMs: STALE_LOCATION_MS }
+        );
+        if (exclusion) continue;
         probed.push({
           vehicleId: doc.id,
           driverId: v.driverId,
@@ -1512,6 +1527,12 @@ async function rematchNearbySearchingRidesForVehicle(db, vehicle) {
     return { rematched: 0, skipped: "not_available" };
   }
 
+  const settings = await readDispatchSettings(db);
+  const rematchKm =
+    Number.isFinite(Number(settings.maxSearchRadiusKm)) && Number(settings.maxSearchRadiusKm) > 0
+      ? Number(settings.maxSearchRadiusKm)
+      : NEARBY_REMATCH_KM;
+
   const partnerSnap = await db.collection("partners").doc(driverId).get();
   const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
   if (
@@ -1538,7 +1559,7 @@ async function rematchNearbySearchingRidesForVehicle(db, vehicle) {
     };
     if (!Number.isFinite(pickup.lat) || !Number.isFinite(pickup.lng)) continue;
     const km = haversineKm(pickup, { lat, lng });
-    if (km == null || km > NEARBY_REMATCH_KM) continue;
+    if (km == null || km > rematchKm) continue;
     try {
       await matchRideCandidates(db, { rideId: doc.id, pickup });
       rematched += 1;
