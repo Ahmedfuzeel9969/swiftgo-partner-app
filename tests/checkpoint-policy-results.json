@@ -1,0 +1,380 @@
+{
+  "suite": "checkpoint-policy",
+  "pass": 51,
+  "fail": 0,
+  "total": 51,
+  "byCategory": {
+    "static": {
+      "pass": 7,
+      "fail": 0
+    },
+    "unit": {
+      "pass": 37,
+      "fail": 0
+    },
+    "rules": {
+      "pass": 7,
+      "fail": 0
+    }
+  },
+  "results": [
+    {
+      "name": "36-customer-reopen-integration-hooks",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "static"
+    },
+    {
+      "name": "37-server-mirror-transactional",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "static"
+    },
+    {
+      "name": "38-no-direct-client-ride-location-write",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "static"
+    },
+    {
+      "name": "S01-policy-module-wired",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "static"
+    },
+    {
+      "name": "S02-rules-trackable-status-gate",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "static"
+    },
+    {
+      "name": "S03-settlement-accuracy-documented",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "static"
+    },
+    {
+      "name": "S04-no-collection-query-in-consumer",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "static"
+    },
+    {
+      "name": "01-visible-responsive-4s",
+      "status": "PASS",
+      "detail": "policy=RESPONSIVE_FIREBASE ms=4000",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "02-hidden-accepted-60s",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "03-hidden-arrived-60s",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "04-hidden-in-progress-30s",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "05-unknown-accepted-60s-safe",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "06-unknown-in-progress-30s-safe",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "07-presence-failure-does-not-stop",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "08-visible-transition-immediate",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "09-repeated-visible-no-burst",
+      "status": "PASS",
+      "detail": "coalesced=2",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "10-accepted-to-in-progress-immediate",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "11-offline-online-immediate",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "12-session-change-immediate",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "13-old-generation-cannot-write",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "39-no-cadence-cut-while-visible",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "40-never-stop-during-execution",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "hard-interval-blocks-early-move",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "hard-interval-allows-heartbeat",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "movement-threshold-documented",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "30-fake-client-expiry-cannot-keep-responsive",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "malformed-timestamp-failsafe",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "28-lease-local-expiry-changes-policy",
+      "status": "PASS",
+      "detail": "lease=VISIBLE",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "28b-expiry-timer-fires",
+      "status": "PASS",
+      "detail": "lease=EXPIRED",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "29-expiry-timer-refresh-idempotent",
+      "status": "PASS",
+      "detail": "timers=1",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "14-old-ride-presence-callback-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "15-ride-a-to-b-attaches-only-b",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "16-terminal-detaches",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "17-cancelled-detaches",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "18-sign-out-detaches",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "19-unlink-detaches",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "07b-read-error-unknown-lease",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "20-no-active-ride-preserves-dispatch-cadence",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "21-presence-doc-specific-helper",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "31-serializer-single-in-flight",
+      "status": "PASS",
+      "detail": "max=1",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "32-newest-pending-coalescing",
+      "status": "PASS",
+      "detail": "writes=2",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "33-rapid-transitions-no-strand",
+      "status": "PASS",
+      "detail": "{\"inFlight\":true,\"hasPending\":false,\"sessionStartStamped\":false,\"writesStarted\":4,\"writesCompleted\":3}",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "34-out-of-order-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "35-duplicate-noop",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "23-assigned-active-driver-get-allowed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "rules"
+    },
+    {
+      "name": "22-unrelated-driver-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "rules"
+    },
+    {
+      "name": "24-assigned-driver-list-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "rules"
+    },
+    {
+      "name": "25-owner-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "rules"
+    },
+    {
+      "name": "26-anonymous-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "rules"
+    },
+    {
+      "name": "27-customer-cannot-write-presence",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "rules"
+    },
+    {
+      "name": "terminal-ride-driver-get-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "rules"
+    }
+  ],
+  "generatedAt": "2026-08-01T18:43:00.597Z"
+}

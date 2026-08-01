@@ -405,6 +405,7 @@ service cloud.firestore {
 
     // Phase 1 viewer presence lease — writes via Admin/CF only; no coordinates.
     // Doc id: {rideId}_{customerUid}
+    // Driver get allowed only while assigned on a trackable execution ride.
     match /rideViewerPresence/{presenceId} {
       allow get: if isSignedIn() && (
         isSuperAdmin()
@@ -414,6 +415,8 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/rides/$(resource.data.rideId))
           && get(/databases/$(database)/documents/rides/$(resource.data.rideId)).data.driverId
                == request.auth.uid
+          && get(/databases/$(database)/documents/rides/$(resource.data.rideId)).data.status
+               in ['accepted', 'arrived', 'in_progress']
         )
       );
       allow list: if false;

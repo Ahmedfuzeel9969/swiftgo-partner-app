@@ -58,7 +58,7 @@
       "category": "static"
     },
     {
-      "name": "S05-no-driver-throttle-yet",
+      "name": "S05-presence-not-in-location-mirror",
       "status": "PASS",
       "detail": "",
       "suite": "viewer-presence-lifecycle",
@@ -338,5 +338,5 @@
       "category": "rules"
     }
   ],
-  "generatedAt": "2026-08-01T18:07:39.368Z"
+  "generatedAt": "2026-08-01T18:39:17.832Z"
 }

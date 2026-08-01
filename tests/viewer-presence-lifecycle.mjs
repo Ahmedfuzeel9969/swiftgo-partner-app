@@ -816,9 +816,9 @@ function staticChecks() {
   );
 
   record(
-    "S05-no-driver-throttle-yet",
-    !read("driver-app/js/driver-app.js").includes("rideViewerPresence") &&
-      !read("functions/driver-location.js").includes("rideViewerPresence")
+    "S05-presence-not-in-location-mirror",
+    !read("functions/driver-location.js").includes("rideViewerPresence") &&
+      read("firestore.rules").includes("allow create, update, delete: if false")
       ? "PASS"
       : "FAIL",
     "",
