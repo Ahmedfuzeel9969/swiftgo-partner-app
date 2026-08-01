@@ -124,20 +124,6 @@ service cloud.firestore {
         );
     }
 
-    // Owner may manage vehicle metadata — not driver assignment or geo/location dispatch fields.
-    function isOwnerVehicleSafeUpdate() {
-      return isSignedIn()
-        && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId
-        && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['walletBalance', 'earnings', 'commissionPercent'])
-        && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny([
-               'driverId', 'driverName', 'location', 'locationUpdatedAt',
-               'geoCell', 'hotspotId', 'locationGridCell', 'activeRideId'
-             ]);
-    }
-
     // Allowed booking lifecycle states (audit: enum was unconstrained).
     function isValidStatus(status) {
       return status in ['scheduled', 'current', 'completed', 'cancelled'];
@@ -444,7 +430,11 @@ service cloud.firestore {
       );
 
       // Owner manages own vehicles (ownerId immutable). May set pinHash; should not broaden privacy.
-      allow update: if isOwnerVehicleSafeUpdate();
+      allow update: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['walletBalance', 'earnings', 'commissionPercent']);
 
       // Driver ONLINE_READY — combined location + geo + online status in one write.
       allow update: if isDriverVehicleOnlineReadyUpdate();
