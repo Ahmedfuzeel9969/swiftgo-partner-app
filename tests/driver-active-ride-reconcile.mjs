@@ -8,6 +8,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import {
   ACTIVE_RIDE_CACHE_KEY,
+  ORPHANED_RIDE_COMPLETE_URDU,
   ACTIVE_RIDE_RECOVERY_URDU,
   clearActiveRideCache,
   classifySettlementFailure,
@@ -78,16 +79,25 @@ function staticChecks() {
   record(
     "S03-recovery-urdu-no-vehicle",
     driverApp.includes("ACTIVE_RIDE_RECOVERY_URDU") &&
-      driverApp.includes("probeActiveRideRecovery") &&
+      driverApp.includes("probeOrphanedActiveRide") &&
       driverApp.includes("activeRideRecoveryPending")
       ? "PASS"
       : "FAIL",
     ACTIVE_RIDE_RECOVERY_URDU.slice(0, 40)
   );
   record(
+    "S03b-orphaned-complete-urdu-pin",
+    driverApp.includes("ORPHANED_RIDE_COMPLETE_URDU") &&
+      driverApp.includes("showPinGate(ORPHANED_RIDE_COMPLETE_URDU)") &&
+      !/nextStatus === "completed"[\s\S]{0,800}VEHICLE_NOT_LINKED/.test(driverApp)
+      ? "PASS"
+      : "FAIL",
+    ORPHANED_RIDE_COMPLETE_URDU.slice(0, 40)
+  );
+  record(
     "S04-completion-finalize-cleanup",
     driverApp.includes("finalizeSuccessfulRideCompletion") &&
-      driverApp.includes("markVehicleRideId(null)") &&
+      driverApp.includes("orphanedCompletion") &&
       driverApp.includes("reactivateOnlineAfterRideEnd")
       ? "PASS"
       : "FAIL"
@@ -103,6 +113,14 @@ function staticChecks() {
   record(
     "S06-prevent-duplicate-completion",
     driverApp.includes("activeRideCompletionInFlight") ? "PASS" : "FAIL"
+  );
+  record(
+    "S07-settlement-no-client-vehicle-gate",
+    read("functions/settlement.js").includes("vehicleRef") &&
+      read("functions/settlement.js").includes('status: "offline"') &&
+      !read("functions/settlement.js").includes('status: "online"')
+      ? "PASS"
+      : "FAIL"
   );
 }
 
@@ -188,8 +206,10 @@ async function emulatorChecks() {
   const { settleRide } = require(path.join(ROOT, "functions", "settlement.js"));
 
   const driverUid = "reconcile-driver";
+  const otherDriverUid = "reconcile-other-driver";
   const vehicleId = "reconcile-veh";
-  const rideOkId = "reconcile-ride-ok";
+  const rideOrphanId = "reconcile-ride-orphan";
+  const rideOkId = "reconcile-ride-linked";
   const rideBadId = "reconcile-ride-bad";
 
   await db.doc("settings/pricing").set(
@@ -200,8 +220,15 @@ async function emulatorChecks() {
   await db.doc(`partners/${driverUid}`).set({
     role: "driver",
     accountStatus: "active",
-    currentVehicleId: vehicleId,
-    activeRideId: rideOkId,
+    currentVehicleId: null,
+    activeRideId: rideOrphanId,
+    walletBalance: 0,
+    totalEarnings: 0,
+    totalRidesCompleted: 0,
+  });
+  await db.doc(`partners/${otherDriverUid}`).set({
+    role: "driver",
+    accountStatus: "active",
     walletBalance: 0,
     totalEarnings: 0,
     totalRidesCompleted: 0,
@@ -212,7 +239,7 @@ async function emulatorChecks() {
     plate: "REC-1",
     driverId: driverUid,
     status: "in_ride",
-    activeRideId: rideOkId,
+    activeRideId: rideOrphanId,
     location: { lat: 24.86, lng: 67.0 },
     geoCell: "g_6900_18611",
     locationUpdatedAt: admin.firestore.Timestamp.now(),
@@ -231,6 +258,7 @@ async function emulatorChecks() {
     ownerId: "owner-reconcile",
   };
 
+  await db.doc(`rides/${rideOrphanId}`).set({ ...rideBase, status: "in_progress" });
   await db.doc(`rides/${rideOkId}`).set({ ...rideBase, status: "in_progress" });
   await db.doc(`rides/${rideBadId}`).set({
     ...rideBase,
@@ -242,57 +270,139 @@ async function emulatorChecks() {
   record(
     "E01-active-ride-valid-for-restore",
     validateRideForDriverRestore(
-      (await db.doc(`rides/${rideOkId}`).get()).data(),
+      (await db.doc(`rides/${rideOrphanId}`).get()).data(),
       driverUid
     ).ok
       ? "PASS"
       : "FAIL"
   );
 
-  const partnerNoVehicle = (
-    await db.doc(`partners/${driverUid}`).get()
-  ).data();
+  const partnerUnlinked = (await db.doc(`partners/${driverUid}`).get()).data();
   record(
-    "E02-partner-has-activeRideId-with-vehicle",
-    partnerNoVehicle.activeRideId === rideOkId && partnerNoVehicle.currentVehicleId === vehicleId
+    "E03-active-ride-without-currentVehicleId",
+    validateRideForDriverRestore(
+      (await db.doc(`rides/${rideOrphanId}`).get()).data(),
+      driverUid
+    ).ok && !partnerUnlinked.currentVehicleId
+      ? "PASS"
+      : "FAIL",
+    "Firestore ride active; partner.currentVehicleId null"
+  );
+
+  let wrongDriverDenied = false;
+  try {
+    await settleRide(db, {
+      rideId: rideOrphanId,
+      collectionName: "rides",
+      callerUid: otherDriverUid,
+    });
+  } catch (err) {
+    wrongDriverDenied =
+      String(err.message).includes("NOT_ASSIGNED_DRIVER") || err.code === "permission-denied";
+  }
+  record(
+    "E09-wrong-driver-denied",
+    wrongDriverDenied ? "PASS" : "FAIL"
+  );
+
+  const orphanSettlement = await settleRide(db, {
+    rideId: rideOrphanId,
+    collectionName: "rides",
+    callerUid: driverUid,
+  });
+  const orphanRideAfter = (await db.doc(`rides/${rideOrphanId}`).get()).data();
+  const orphanPartnerAfter = (await db.doc(`partners/${driverUid}`).get()).data();
+  const orphanVehicleAfter = (await db.doc(`vehicles/${vehicleId}`).get()).data();
+
+  record(
+    "E10-orphan-settlement-succeeds",
+    orphanSettlement?.driverEarnings === 360 ? "PASS" : "FAIL",
+    `earnings=${orphanSettlement?.driverEarnings}`
+  );
+  record(
+    "E11-orphan-ride-completed",
+    orphanRideAfter.status === "completed" ? "PASS" : "FAIL"
+  );
+  record(
+    "E12-orphan-partner-activeRideId-cleared",
+    orphanPartnerAfter.activeRideId === undefined || orphanPartnerAfter.activeRideId === null
       ? "PASS"
       : "FAIL"
   );
-
-  await db.doc(`partners/${driverUid}`).set({ currentVehicleId: null }, { merge: true });
-  const partnerUnlinked = (await db.doc(`partners/${driverUid}`).get()).data();
-  const liveRide = (await db.doc(`rides/${rideOkId}`).get()).data();
   record(
-    "E03-active-ride-without-currentVehicleId",
-    validateRideForDriverRestore(liveRide, driverUid).ok &&
-      !partnerUnlinked.currentVehicleId
-      ? "PASS"
-      : "FAIL",
-    "Firestore ride active; partner.currentVehicleId cleared"
+    "E13-orphan-vehicle-activeRideId-cleared",
+    !orphanVehicleAfter.activeRideId ? "PASS" : "FAIL"
+  );
+  record(
+    "E14-orphan-vehicle-offline-not-online",
+    orphanVehicleAfter.status === "offline" ? "PASS" : "FAIL",
+    orphanVehicleAfter.status
   );
 
-  await db.doc(`partners/${driverUid}`).set({ currentVehicleId: vehicleId }, { merge: true });
+  const [retryA, retryB] = await Promise.all([
+    settleRide(db, { rideId: rideOrphanId, collectionName: "rides", callerUid: driverUid }),
+    settleRide(db, { rideId: rideOrphanId, collectionName: "rides", callerUid: driverUid }),
+  ]);
+  const orphanPartnerRetry = (await db.doc(`partners/${driverUid}`).get()).data();
+  const orphanLedgerQ = await db
+    .collection("ledger_transactions")
+    .where("rideId", "==", rideOrphanId)
+    .get();
+  record(
+    "E15-orphan-retry-idempotent",
+    retryA?.alreadySettled && retryB?.alreadySettled && orphanLedgerQ.size === 1 ? "PASS" : "FAIL",
+    `ledger=${orphanLedgerQ.size} rides=${orphanPartnerRetry.totalRidesCompleted}`
+  );
+  record(
+    "E16-orphan-no-double-earnings",
+    orphanPartnerRetry.totalEarnings === 360 && orphanPartnerRetry.totalRidesCompleted === 1
+      ? "PASS"
+      : "FAIL",
+    `earn=${orphanPartnerRetry.totalEarnings}`
+  );
 
-  const settlement = await settleRide(db, {
+  await db.doc(`partners/${driverUid}`).set({
+    currentVehicleId: vehicleId,
+    activeRideId: rideOkId,
+    walletBalance: orphanPartnerRetry.walletBalance ?? -40,
+    totalEarnings: orphanPartnerRetry.totalEarnings ?? 360,
+    totalRidesCompleted: orphanPartnerRetry.totalRidesCompleted ?? 1,
+  }, { merge: true });
+  await db.doc(`vehicles/${vehicleId}`).set({
+    driverId: driverUid,
+    status: "in_ride",
+    activeRideId: rideOkId,
+  }, { merge: true });
+  await db.doc(`rides/${rideOkId}`).set({ ...rideBase, status: "in_progress" });
+
+  const linkedSettlement = await settleRide(db, {
     rideId: rideOkId,
     collectionName: "rides",
     callerUid: driverUid,
   });
-  const rideAfter = (await db.doc(`rides/${rideOkId}`).get()).data();
-  const partnerAfter = (await db.doc(`partners/${driverUid}`).get()).data();
-  record(
-    "E04-successful-settlement-completes-ride",
-    settlement?.driverEarnings === 360 &&
-      rideAfter.status === "completed" &&
-      !partnerAfter.activeRideId
-      ? "PASS"
-      : "FAIL",
-    `earnings=${settlement?.driverEarnings}`
-  );
+  const linkedRideAfter = (await db.doc(`rides/${rideOkId}`).get()).data();
+  const linkedPartnerAfter = (await db.doc(`partners/${driverUid}`).get()).data();
+  const linkedVehicleAfter = (await db.doc(`vehicles/${vehicleId}`).get()).data();
 
   record(
-    "E05-settlement-clears-partner-activeRideId",
-    partnerAfter.activeRideId === undefined || partnerAfter.activeRideId === null ? "PASS" : "FAIL"
+    "E04-linked-settlement-completes-ride",
+    linkedSettlement?.driverEarnings === 360 &&
+      linkedRideAfter.status === "completed" &&
+      !linkedPartnerAfter.activeRideId
+      ? "PASS"
+      : "FAIL",
+    `earnings=${linkedSettlement?.driverEarnings}`
+  );
+  record(
+    "E05-linked-partner-activeRideId-cleared",
+    linkedPartnerAfter.activeRideId === undefined || linkedPartnerAfter.activeRideId === null
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "E08-linked-vehicle-cleared-offline",
+    !linkedVehicleAfter.activeRideId && linkedVehicleAfter.status === "offline" ? "PASS" : "FAIL",
+    linkedVehicleAfter.status
   );
 
   let settlementFailed = false;
@@ -306,7 +416,7 @@ async function emulatorChecks() {
     settlementFailed = true;
     const classified = classifySettlementFailure(err);
     record(
-      "E06-settlement-failure-invalid-fare-or-status",
+      "E06-settlement-failure-invalid-fare",
       settlementFailed &&
         (String(err.message).includes("INVALID") || err.code === "failed-precondition")
         ? "PASS"
@@ -315,7 +425,7 @@ async function emulatorChecks() {
     );
   }
   if (!settlementFailed) {
-    record("E06-settlement-failure-invalid-fare-or-status", "FAIL", "expected throw");
+    record("E06-settlement-failure-invalid-fare", "FAIL", "expected throw");
   }
 
   const rideBadAfter = (await db.doc(`rides/${rideBadId}`).get()).data();
@@ -323,16 +433,6 @@ async function emulatorChecks() {
     "E07-settlement-failure-leaves-ride-visible",
     rideBadAfter.status === "in_progress" ? "PASS" : "FAIL",
     rideBadAfter.status
-  );
-
-  await db.doc(`vehicles/${vehicleId}`).set(
-    { activeRideId: FieldValue.delete(), status: "online" },
-    { merge: true }
-  );
-  const vehicleAfter = (await db.doc(`vehicles/${vehicleId}`).get()).data();
-  record(
-    "E08-vehicle-activeRideId-clearable",
-    !vehicleAfter.activeRideId && vehicleAfter.status === "online" ? "PASS" : "FAIL"
   );
 }
 

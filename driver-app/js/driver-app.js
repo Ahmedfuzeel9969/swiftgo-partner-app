@@ -43,6 +43,7 @@ import { requestRideSettlement } from "./settlement-client.js";
 import {
   ACTIVE_EXECUTION_STATUSES,
   ACTIVE_RIDE_RECOVERY_URDU,
+  ORPHANED_RIDE_COMPLETE_URDU,
   clearActiveRideCache,
   classifySettlementFailure,
   collectActiveRideCandidateIds,
@@ -1132,8 +1133,15 @@ async function routeDriver(vehicleId, sequence = authSequence, partner = null) {
     }
 
     if (!vehicleId) {
-      await probeActiveRideRecovery(partner);
-      showPinGate(activeRideRecoveryPending ? ACTIVE_RIDE_RECOVERY_URDU : "");
+      const hasOrphanedActiveRide = await probeOrphanedActiveRide(partner);
+      if (hasOrphanedActiveRide) {
+        showDriverMap();
+        await restoreActiveExecutionRide(partner);
+        paintDriverAvailabilityDiag();
+        setLocationMessage(ACTIVE_RIDE_RECOVERY_URDU);
+        return;
+      }
+      showPinGate("");
       return;
     }
 
@@ -2611,9 +2619,9 @@ async function dismissStaleActiveRide() {
   paintDriverAvailabilityDiag();
 }
 
-async function probeActiveRideRecovery(partner = null) {
+async function probeOrphanedActiveRide(partner = null) {
   activeRideRecoveryPending = false;
-  if (!currentDriver?.uid) return;
+  if (!currentDriver?.uid) return false;
 
   const cached = readActiveRideCache();
   const candidateIds = collectActiveRideCandidateIds(partner, linkedVehicle, cached);
@@ -2631,7 +2639,7 @@ async function probeActiveRideRecovery(partner = null) {
       );
       if (!snap.empty) candidateIds.push(snap.docs[0].id);
     } catch (error) {
-      console.warn("[SwiftGo Driver] probe active ride recovery query", error);
+      console.warn("[SwiftGo Driver] probe orphaned active ride query", error);
     }
   }
 
@@ -2649,13 +2657,13 @@ async function probeActiveRideRecovery(partner = null) {
       }
       if (!partner?.currentVehicleId && !linkedVehicle?.id) {
         activeRideRecoveryPending = true;
-        paintDriverAvailabilityDiag();
-        return;
+        return true;
       }
     } catch (error) {
-      console.warn("[SwiftGo Driver] probe active ride recovery doc", error);
+      console.warn("[SwiftGo Driver] probe orphaned active ride doc", error);
     }
   }
+  return false;
 }
 
 async function finalizeSuccessfulRideCompletion(ride, settlementResult) {
@@ -2675,10 +2683,25 @@ async function finalizeSuccessfulRideCompletion(ride, settlementResult) {
       rideFareAmount(ride),
   };
 
+  activeExecutionRide = null;
+  activeRideRecoveryPending = false;
+
+  const orphanedCompletion = !linkedVehicle?.id;
+
+  if (orphanedCompletion) {
+    hideRideCompleteSheet();
+    setDriverOffline("");
+    driverToast(ORPHANED_RIDE_COMPLETE_URDU);
+    setLocationMessage(ORPHANED_RIDE_COMPLETE_URDU);
+    announce("سواری مکمل ہو گئی / Ride completed");
+    showPinGate(ORPHANED_RIDE_COMPLETE_URDU);
+    paintDriverAvailabilityDiag();
+    return;
+  }
+
   activeExecutionRide = completedRide;
   showRideCompleteSheet(completedRide);
   activeExecutionRide = null;
-  activeRideRecoveryPending = false;
 
   try {
     await markVehicleRideId(null);
@@ -2735,20 +2758,22 @@ async function resumeActiveRideFromDoc(rideId, data, collectionName = "rides") {
     clearActiveRideCache();
     return false;
   }
-  if (!linkedVehicle?.id) {
-    activeRideRecoveryPending = true;
-    paintDriverAvailabilityDiag();
-    setLocationMessage(ACTIVE_RIDE_RECOVERY_URDU);
-    return false;
-  }
 
   activeExecutionRide = { id: rideId, ...data, sourceCollection: collectionName };
-  activeRideRecoveryPending = false;
+  if (!linkedVehicle?.id) {
+    activeRideRecoveryPending = true;
+  } else {
+    activeRideRecoveryPending = false;
+  }
   persistActiveRideCache(rideId, collectionName);
   await markVehicleRideId(rideId);
   startActiveRideWatch(rideId, collectionName);
   renderActiveRideControls(activeExecutionRide);
-  setLocationMessage("فعال سواری بحال ہو گئی — جاری رکھیں");
+  setLocationMessage(
+    linkedVehicle?.id
+      ? "فعال سواری بحال ہو گئی — جاری رکھیں"
+      : ACTIVE_RIDE_RECOVERY_URDU
+  );
   syncRideRadarFab();
   return true;
 }
@@ -3075,12 +3100,6 @@ async function advanceActiveRideStatus() {
         if (els.activeRideActionBtn) els.activeRideActionBtn.disabled = false;
         return;
       }
-      if (!linkedVehicle?.id) {
-        activeRideRecoveryPending = true;
-        paintDriverAvailabilityDiag();
-        throw new Error("VEHICLE_NOT_LINKED");
-      }
-
       const settlementResult = await completeRideWithEarnings({ ...ride, ...live });
       await finalizeSuccessfulRideCompletion(
         { ...ride, ...live, id: ride.id, sourceCollection: rideCollection },

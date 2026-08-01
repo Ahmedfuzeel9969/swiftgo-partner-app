@@ -14,6 +14,9 @@ export const TERMINAL_RIDE_STATUSES = new Set([
   "searching_driver",
 ]);
 
+export const ORPHANED_RIDE_COMPLETE_URDU =
+  "سواری مکمل ہو گئی — دوبارہ آن لائن ہونے کے لیے گاڑی PIN سے منسلک کریں";
+
 export const ACTIVE_RIDE_RECOVERY_URDU =
   "سرور پر آپ کی ایک فعال سواری موجود ہے، مگر گاڑی منسلک نہیں۔ پہلے PIN درج کریں؛ اگر مسئلہ برقرار رہے تو سپورٹ سے رابطہ کریں۔";
 
