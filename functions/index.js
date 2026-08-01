@@ -844,7 +844,9 @@ exports.mirrorDriverLocationOnVehicleUpdate = onDocumentWritten(
     if (after.activeRideId) {
       const locSame =
         before?.location?.lat === after?.location?.lat &&
-        before?.location?.lng === after?.location?.lng;
+        before?.location?.lng === after?.location?.lng &&
+        before?.location?.sequence === after?.location?.sequence &&
+        before?.location?.observedAt === after?.location?.observedAt;
       const rideSame = before?.activeRideId === after.activeRideId;
       if (!locSame || !rideSame) {
         try {

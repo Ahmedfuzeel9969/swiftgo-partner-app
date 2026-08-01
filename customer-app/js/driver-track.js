@@ -1,5 +1,6 @@
 /**
  * Live assigned-driver marker, approach line, distance and ETA on the customer map.
+ * Phase 1: ride.driverLocation (CF-mirrored) is authoritative; heading never points at target.
  */
 
 import {
@@ -12,9 +13,19 @@ import {
   onAssignedDriverMove,
 } from "./map.js";
 import { t } from "./i18n.js";
+import { resolveTrackingTarget, clearRouteDisplayState, createRouteDisplayState } from "./tracking-target.mjs";
+import {
+  APPROACH_LINE_KIND,
+  FRESHNESS,
+  derivedDisplayBearingDeg,
+  isValidLatLng,
+  locationAgeMs,
+  resolveFreshness,
+  resolveMarkerRotationDeg,
+  timestampToMs,
+} from "./live-location-render.mjs";
 
 const FALLBACK_SPEED_KMH = 24;
-const STALE_MS = 10 * 60 * 1000;
 const FIT_BOUNDS_MS = 12_000;
 const PAN_DRIVER_MS = 14_000;
 
@@ -23,6 +34,11 @@ let lastFitBoundsAt = 0;
 let lastPanAt = 0;
 /** @type {{ lat: number, lng: number } | null} */
 let approachTarget = null;
+/** @type {{ lat: number, lng: number } | null} */
+let lastAcceptedFix = null;
+/** @type {string} */
+let lastTrackedDriverId = "";
+let routeDisplayState = createRouteDisplayState();
 
 function haversineKm(a, b) {
   const R = 6371;
@@ -36,39 +52,6 @@ function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-function bearingDeg(lat1, lng1, lat2, lng2) {
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
-  const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
-
-function pickupTarget(ride) {
-  const pickup = ride?.pickupLocation;
-  if (pickup && Number.isFinite(pickup.lat) && Number.isFinite(pickup.lng)) {
-    return { lat: pickup.lat, lng: pickup.lng };
-  }
-  return null;
-}
-
-function locationUpdatedMs(ride) {
-  if (Number.isFinite(ride?.driverLocationReceivedAt)) {
-    return Number(ride.driverLocationReceivedAt);
-  }
-  const ts = ride?.driverLocationUpdatedAt;
-  if (!ts) return 0;
-  if (typeof ts.toMillis === "function") return ts.toMillis();
-  if (typeof ts.seconds === "number") return ts.seconds * 1000;
-  return 0;
-}
-
-function isLocationStale(ride) {
-  const ms = locationUpdatedMs(ride);
-  return !ms || Date.now() - ms > STALE_MS;
-}
-
 function formatDistanceKm(km) {
   const value = Number(km);
   if (!Number.isFinite(value) || value < 0) return "—";
@@ -76,22 +59,21 @@ function formatDistanceKm(km) {
   return (t("routeDistanceKm") || "{n} km").replace("{n}", shown);
 }
 
-function computeDistanceEta(ride) {
+function computeDistanceEta(ride, target) {
   if (Number.isFinite(ride?.driverDistanceKm)) {
     const km = Number(ride.driverDistanceKm);
     const eta = Number.isFinite(ride?.driverEtaMin)
       ? Number(ride.driverEtaMin)
       : Math.max(1, Math.round((km / FALLBACK_SPEED_KMH) * 60));
-    return { km, eta };
+    return { km, eta, kind: "straight_line_estimate" };
   }
 
   const driver = ride?.driverLocation;
-  const target = pickupTarget(ride);
   if (!driver?.lat || !driver?.lng || !target) return null;
 
   const km = haversineKm(driver, target);
   const eta = Math.max(1, Math.round((km / FALLBACK_SPEED_KMH) * 60));
-  return { km, eta };
+  return { km, eta, kind: "straight_line_estimate" };
 }
 
 function panTowardDriver(lat, lng) {
@@ -115,7 +97,7 @@ function paintApproachLine(from, to) {
   setDriverApproachLine(from, to);
 }
 
-function fitDriverAndPickup(driver, target) {
+function fitDriverAndTarget(driver, target) {
   const map = getMap();
   if (!map || typeof L === "undefined" || !target) return;
   const now = Date.now();
@@ -152,6 +134,9 @@ export function stopDriverTrack() {
   lastFitBoundsAt = 0;
   lastPanAt = 0;
   approachTarget = null;
+  lastAcceptedFix = null;
+  lastTrackedDriverId = "";
+  routeDisplayState = clearRouteDisplayState(routeDisplayState);
   setSuppressSimulatedDrivers(false);
   clearAssignedDriver();
   if (els.trackRow) els.trackRow.hidden = true;
@@ -171,67 +156,124 @@ export function updateDriverTrack(ride) {
     return;
   }
 
-  const status = String(ride.status || "");
-  if (!["accepted", "arrived", "in_progress"].includes(status)) {
+  const tracking = resolveTrackingTarget(ride);
+  if (!tracking.trackingActive) {
     stopDriverTrack();
     return;
   }
 
+  // Driver reassignment — tear down previous animation/listeners state.
+  const driverId = String(ride.driverId || "");
+  if (lastTrackedDriverId && driverId && lastTrackedDriverId !== driverId) {
+    clearAssignedDriver();
+    lastAcceptedFix = null;
+  }
+  if (driverId) lastTrackedDriverId = driverId;
+
   setSuppressSimulatedDrivers(true);
   clearLiveDrivers();
 
-  const target = pickupTarget(ride);
-  approachTarget = target;
-  const loc = ride.driverLocation;
+  approachTarget = tracking.coordinates;
+  routeDisplayState.targetType = tracking.targetType;
+  routeDisplayState.unavailable = true;
+  routeDisplayState.reason = "phase1_straight_line_only";
 
-  if (loc?.lat && loc?.lng) {
-    let heading = 0;
-    if (target) heading = bearingDeg(loc.lat, loc.lng, target.lat, target.lng);
-    setAssignedDriverLocation(loc.lat, loc.lng, heading);
-    if (target) {
-      paintApproachLine({ lat: loc.lat, lng: loc.lng }, { lat: target.lat, lng: target.lng });
-      fitDriverAndPickup(loc, target);
-      if (status === "accepted") panTowardDriver(loc.lat, loc.lng);
+  const loc = ride.driverLocation;
+  const ageMs = locationAgeMs(ride);
+  const freshness = resolveFreshness(ageMs);
+  const allowPredict = freshness === FRESHNESS.FRESH;
+  const hasValidLoc = isValidLatLng(loc?.lat, loc?.lng);
+
+  if (hasValidLoc && tracking.showDriverMarker) {
+    const rotation = resolveMarkerRotationDeg({
+      headingDeg: loc.headingDeg ?? loc.heading ?? null,
+      previousFix: lastAcceptedFix,
+      nextFix: { lat: loc.lat, lng: loc.lng },
+      derivedBearingFn: derivedDisplayBearingDeg,
+    });
+    const observedFallback = timestampToMs(loc.observedAt);
+    setAssignedDriverLocation(loc.lat, loc.lng, rotation.deg, {
+      observedAt: observedFallback || Date.now() - (ageMs || 0),
+      allowPredict: allowPredict && freshness !== FRESHNESS.UNKNOWN,
+    });
+    lastAcceptedFix = { lat: loc.lat, lng: loc.lng };
+
+    if (tracking.approachLine && tracking.coordinates) {
+      paintApproachLine(
+        { lat: loc.lat, lng: loc.lng },
+        { lat: tracking.coordinates.lat, lng: tracking.coordinates.lng }
+      );
+      fitDriverAndTarget(loc, tracking.coordinates);
+      if (String(ride.status) === "accepted") panTowardDriver(loc.lat, loc.lng);
+    } else {
+      paintApproachLine(null, null);
     }
-  } else {
+  } else if (!tracking.showDriverMarker) {
     clearAssignedDriver();
     paintApproachLine(null, null);
   }
 
   if (els.trackRow) els.trackRow.hidden = false;
 
-  if (status === "arrived") {
-    if (els.distance) els.distance.textContent = t("rideDriverArrived");
+  // Freshness / status messaging (Urdu via i18n).
+  if (freshness === FRESHNESS.UNKNOWN) {
+    if (els.distance) els.distance.textContent = t("liveTrackLocationUnknownTime");
+    if (els.eta) els.eta.hidden = true;
+    return;
+  }
+  if (freshness === FRESHNESS.STALE) {
+    if (els.distance) els.distance.textContent = t("liveTrackLocationStale");
+    if (els.eta) els.eta.hidden = true;
+    return;
+  }
+  if (freshness === FRESHNESS.DELAYED) {
+    if (els.distance) els.distance.textContent = t("liveTrackLocationDelayed");
     if (els.eta) els.eta.hidden = true;
     return;
   }
 
-  if (status === "in_progress") {
-    if (els.distance) els.distance.textContent = t("rideInProgress");
+  if (tracking.uiMode === "driver_arrived") {
+    if (els.distance) els.distance.textContent = t("liveTrackDriverArrived");
     if (els.eta) els.eta.hidden = true;
     return;
   }
 
-  const stale = isLocationStale(ride);
-  const dist = computeDistanceEta(ride);
+  if (tracking.uiMode === "trip_in_progress") {
+    if (els.distance) els.distance.textContent = t("liveTrackTripInProgress");
+    if (els.eta) {
+      els.eta.hidden = false;
+      els.eta.textContent = t("liveTrackEstimateNotTraffic");
+    }
+    return;
+  }
 
-  if (stale || !dist) {
-    if (els.distance) els.distance.textContent = t("activeRideDriverLocationPending");
+  const dist = computeDistanceEta(ride, tracking.coordinates);
+  if (!dist) {
+    if (els.distance) {
+      els.distance.textContent = t(tracking.statusTextKey) || t("activeRideDriverLocationPending");
+    }
     if (els.eta) els.eta.hidden = true;
     return;
   }
 
   if (els.distance) {
-    els.distance.textContent = (t("activeRideDriverDistance") || "Driver is {distance} away").replace(
+    const statusLine = t(tracking.statusTextKey) || "";
+    const distLine = (t("activeRideDriverDistance") || "Driver is {distance} away").replace(
       "{distance}",
       formatDistanceKm(dist.km)
     );
+    els.distance.textContent = statusLine ? `${statusLine} · ${distLine}` : distLine;
   }
   if (els.eta) {
     els.eta.hidden = false;
-    els.eta.textContent = (t("activeRideDriverEta") || "Arriving in ~{eta} min").replace(
+    // Honest label: straight-line estimate, not live traffic.
+    els.eta.textContent = (t("liveTrackEtaEstimate") || "تخمینہ ~{eta} (سیدھی لکیر)").replace(
       "{eta}",
       (t("etaMin") || "{n} min").replace("{n}", String(dist.eta))
     );
   }
+
+  void APPROACH_LINE_KIND;
 }
+
+export { resolveTrackingTarget };

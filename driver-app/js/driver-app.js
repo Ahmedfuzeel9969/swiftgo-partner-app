@@ -57,6 +57,14 @@ import {
   LOCATION_FAILURE,
   LOCATION_FAILURE_URDU,
 } from "./fresh-location.mjs";
+import {
+  createLocationDiagCounters,
+  evaluateFixAgainstPrevious,
+  LOCATION_DIAG,
+  normalizeLocationFix,
+  toVehicleLocationField,
+} from "./location-envelope.mjs";
+import { createLocationWriteSerializer } from "./location-write-queue.mjs";
 import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { cancelAssignedRideByDriverClient } from "./ride-radar-actions.js";
@@ -236,6 +244,49 @@ const VEHICLE_LOCATION_WRITE_MS = 4_000;
 const ACTIVE_RIDE_LOCATION_WRITE_MS = 4_000;
 /** Skip Firestore write until driver moves at least this far (meters). */
 const MIN_LOCATION_MOVE_M = 10;
+/** Phase 1 tracking session — new id on each ONLINE_READY / watch start. */
+let locationTrackingSessionId = "";
+let locationTrackingSequence = 0;
+/** When true, next vehicle write stamps server-controlled trackingSessionStartedAt. */
+let locationTrackingSessionStartPending = false;
+/** Generation token — late GPS callbacks after stop are ignored. */
+let locationTrackingGeneration = 0;
+/** @type {object|null} */
+let lastAcceptedLocationEnvelope = null;
+const locationDiagCounters = createLocationDiagCounters();
+
+/** Single in-flight vehicle location write; newest pending fix coalesced. */
+const locationWriteSerializer = createLocationWriteSerializer({
+  isCancelled: (generation) =>
+    generation !== locationTrackingGeneration || !locationTrackingSessionId,
+  writeFn: async (job) => {
+    await commitVehicleLocationJob(job);
+  },
+});
+
+function beginLocationTrackingSession() {
+  locationTrackingSessionId = `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  locationTrackingSequence = 0;
+  lastAcceptedLocationEnvelope = null;
+  locationTrackingSessionStartPending = true;
+  locationTrackingGeneration += 1;
+  locationWriteSerializer.cancelAll();
+  locationWriteSerializer.resetSessionStartGate();
+}
+
+function endLocationTrackingSession() {
+  locationTrackingSessionId = "";
+  locationTrackingSequence = 0;
+  lastAcceptedLocationEnvelope = null;
+  locationTrackingSessionStartPending = false;
+  locationTrackingGeneration += 1;
+  locationWriteSerializer.cancelAll();
+}
+
+function nextLocationSequence() {
+  locationTrackingSequence += 1;
+  return locationTrackingSequence;
+}
 /** Last successful browser GPS fix (ms) — diagnostic only, never shown as exact coords. */
 let lastGpsFixAtMs = 0;
 let lastGpsErrorCode = "";
@@ -2067,9 +2118,10 @@ function invalidateHomeMapIfActive() {
 }
 
 function updateDriverLocation(position) {
-  const { latitude, longitude, accuracy } = position.coords;
+  const { latitude, longitude, accuracy, speed, heading } = position.coords;
   if (!isValidCoord(latitude, longitude)) {
-    console.warn("[SwiftGo Partner] GPS fix ignored — invalid coordinates", latitude, longitude);
+    console.warn("[SwiftGo Partner] GPS fix ignored — invalid coordinates");
+    locationDiagCounters.fixesRejected += 1;
     return;
   }
   lastDriverPosition = { lat: latitude, lng: longitude };
@@ -2080,8 +2132,16 @@ function updateDriverLocation(position) {
 
   // Matching must receive server location only after ONLINE_READY.
   if (isOnlineReady() && linkedVehicle?.id) {
-    const heading = Number.isFinite(position.coords.heading) ? position.coords.heading : null;
-    syncVehicleLocationToFirestore(latitude, longitude, { force: !lastVehicleLocationWrite, heading });
+    const headingDeg = Number.isFinite(heading) ? heading : null;
+    const speedMps = Number.isFinite(speed) && speed >= 0 ? speed : null;
+    const observedAt = Number(position.timestamp) || Date.now();
+    syncVehicleLocationToFirestore(latitude, longitude, {
+      force: !lastVehicleLocationWrite,
+      heading: headingDeg,
+      accuracy,
+      speed: speedMps,
+      observedAt,
+    });
   }
   paintDriverAvailabilityDiag();
 
@@ -2138,42 +2198,116 @@ function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-/** Mirror live GPS onto the assigned ride doc for customer map tracking. */
-async function syncActiveRideDriverLocation(db, lat, lng) {
-  const ride = activeExecutionRide;
-  if (!ride?.id || !ACTIVE_EXECUTION_STATUSES.has(String(ride.status || ""))) return;
+/**
+ * Commit one serialized vehicle location job (called only by locationWriteSerializer).
+ * trackingSessionStartedAt is stamped at most once per session (job.stampSessionStart).
+ */
+async function commitVehicleLocationJob(job) {
+  if (!linkedVehicle?.id || !currentDriver?.uid) return;
+  if (job.generation !== locationTrackingGeneration || !locationTrackingSessionId) return;
+  if (job.sessionId !== locationTrackingSessionId) return;
 
-  const pickup = ride.pickupLocation;
-  let driverDistanceKm = null;
-  let driverEtaMin = null;
-  if (pickup && Number.isFinite(pickup.lat) && Number.isFinite(pickup.lng)) {
-    const km = haversineKm({ lat, lng }, { lat: pickup.lat, lng: pickup.lng });
-    const roundedKm = Math.round(km * 100) / 100;
-    driverDistanceKm = roundedKm;
-    driverEtaMin = Math.max(1, Math.round((roundedKm / 24) * 60));
+  const { db } = getFirebase();
+  const payload = { ...job.payload };
+  // Exactly one session-start stamp per session — serializer clears stampSessionStart after.
+  if (job.stampSessionStart) {
+    payload.trackingSessionStartedAt = serverTimestamp();
+  } else {
+    delete payload.trackingSessionStartedAt;
   }
 
-  const collectionName = ride.sourceCollection || "rides";
-  const payload = {
-    driverLocation: { lat, lng },
-    driverLocationUpdatedAt: serverTimestamp(),
-  };
-  if (driverDistanceKm != null) {
-    payload.driverDistanceKm = driverDistanceKm;
-    payload.driverEtaMin = driverEtaMin;
-  }
+  locationDiagCounters.vehicleWritesAttempted += 1;
+  await updateDoc(doc(db, "vehicles", linkedVehicle.id), payload);
 
-  try {
-    await updateDoc(doc(db, collectionName, ride.id), payload);
-  } catch (error) {
-    console.warn("[SwiftGo Partner] ride driverLocation sync", error);
+  if (job.stampSessionStart || locationTrackingSessionStartPending) {
+    locationTrackingSessionStartPending = false;
+    if (job.envelope) job.envelope._sessionStartedMs = Date.now();
   }
+  lastAcceptedLocationEnvelope = job.envelope;
+  lastVehicleLocationWrite = Date.now();
+  lastVehicleLocationLatLng = { lat: job.envelope.lat, lng: job.envelope.lng };
+  if (payload.locationGridCell) lastLocationGridCell = payload.locationGridCell;
+  if (payload.geoCell) lastMatchGeoCell = payload.geoCell;
+  if (payload.status) lastVehicleStatusWritten = payload.status;
+  lastLocationSyncError = "";
+  locationDiagCounters.vehicleWritesCompleted += 1;
+  // Intentionally no client ride.driverLocation write — CF mirror is authoritative.
+  locationDiagCounters.duplicateRideWritesPrevented += 1;
+  paintDriverAvailabilityDiag();
 }
 
-async function syncVehicleLocationToFirestore(lat, lng, { force = false, heading = null } = {}) {
+/**
+ * Phase 1: driver writes only vehicles.location (envelope).
+ * Cloud Function mirrorDriverLocationToRide is the sole ride.driverLocation writer.
+ * Writes are single-flight: only one in-flight update; later GPS callbacks coalesce to newest.
+ */
+async function syncVehicleLocationToFirestore(
+  lat,
+  lng,
+  { force = false, heading = null, accuracy = null, speed = null, observedAt = null } = {}
+) {
   if (!linkedVehicle?.id || !isOnlineReady() || !currentDriver?.uid) return;
   if (!isValidCoord(lat, lng)) {
-    console.warn("[SwiftGo Partner] skip vehicle location sync — invalid lat/lng", lat, lng);
+    console.warn("[SwiftGo Partner] skip vehicle location sync — invalid lat/lng");
+    locationDiagCounters.fixesRejected += 1;
+    return;
+  }
+
+  if (!locationTrackingSessionId) beginLocationTrackingSession();
+  const trackingGen = locationTrackingGeneration;
+  const sessionIdAtEnqueue = locationTrackingSessionId;
+  locationDiagCounters.gpsFixesReceived += 1;
+
+  const normalized = normalizeLocationFix(
+    {
+      lat,
+      lng,
+      headingDeg: heading,
+      accuracyM: accuracy,
+      speedMps: speed,
+      observedAt: observedAt || Date.now(),
+      source: "gps",
+    },
+    {
+      sessionId: sessionIdAtEnqueue,
+      sequence: nextLocationSequence(),
+      nowMs: Date.now(),
+    }
+  );
+  if (!normalized.ok || !normalized.envelope) {
+    locationDiagCounters.fixesRejected += 1;
+    try {
+      console.info(
+        JSON.stringify({ type: "live_location_diag", reason: normalized.reason || LOCATION_DIAG.INVALID })
+      );
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+
+  const gate = evaluateFixAgainstPrevious(lastAcceptedLocationEnvelope, normalized.envelope, {
+    enforceSessionConsistency: true,
+    vehicleSessionId: sessionIdAtEnqueue,
+    vehicleSessionStartedMs: locationTrackingSessionStartPending
+      ? Date.now()
+      : lastAcceptedLocationEnvelope
+        ? Number(lastAcceptedLocationEnvelope.observedAt) || Date.now()
+        : Date.now(),
+    previousSessionStartedMs: lastAcceptedLocationEnvelope
+      ? Number(lastAcceptedLocationEnvelope._sessionStartedMs) || 0
+      : 0,
+  });
+  if (!gate.accept) {
+    locationDiagCounters.fixesRejected += 1;
+    if (gate.reason === LOCATION_DIAG.DUPLICATE) {
+      locationDiagCounters.duplicateRideWritesPrevented += 1;
+    }
+    try {
+      console.info(JSON.stringify({ type: "live_location_diag", reason: gate.reason }));
+    } catch {
+      /* ignore */
+    }
     return;
   }
 
@@ -2202,31 +2336,29 @@ async function syncVehicleLocationToFirestore(lat, lng, { force = false, heading
   ) {
     return;
   }
-  lastLocationGridCell = cell;
+
+  const hotspotId = matchHotspotId(lat, lng);
+  const location = toVehicleLocationField(normalized.envelope);
+  const payload = {
+    location,
+    locationUpdatedAt: serverTimestamp(),
+    locationGridCell: cell,
+    trackingSessionId: sessionIdAtEnqueue,
+  };
+  if (geoCell) payload.geoCell = geoCell;
+  payload.hotspotId = hotspotId || null;
+  if (statusChanged) {
+    payload.status = nextStatus;
+  }
 
   try {
-    const { db } = getFirebase();
-    const hotspotId = matchHotspotId(lat, lng);
-    const location = { lat, lng };
-    if (heading != null && Number.isFinite(heading)) location.heading = heading;
-    const payload = {
-      location,
-      locationUpdatedAt: serverTimestamp(),
-      locationGridCell: cell,
-    };
-    if (geoCell) payload.geoCell = geoCell;
-    payload.hotspotId = hotspotId || null;
-    if (statusChanged) {
-      payload.status = nextStatus;
-      lastVehicleStatusWritten = nextStatus;
-    }
-    await updateDoc(doc(db, "vehicles", linkedVehicle.id), payload);
-    lastVehicleLocationWrite = now;
-    lastVehicleLocationLatLng = { lat, lng };
-    lastMatchGeoCell = geoCell;
-    lastLocationSyncError = "";
-    paintDriverAvailabilityDiag();
-    await syncActiveRideDriverLocation(db, lat, lng);
+    await locationWriteSerializer.enqueue({
+      generation: trackingGen,
+      sessionId: sessionIdAtEnqueue,
+      stampSessionStart: locationTrackingSessionStartPending,
+      envelope: normalized.envelope,
+      payload,
+    });
   } catch (error) {
     console.warn("[SwiftGo Partner] vehicle location sync", error);
     lastLocationSyncError = String(error?.code || error?.message || "sync_failed").slice(0, 80);
@@ -2236,6 +2368,7 @@ async function syncVehicleLocationToFirestore(lat, lng, { force = false, heading
 
 async function markVehicleOfflineInFirestore() {
   if (!linkedVehicle?.id) return;
+  locationWriteSerializer.cancelAll();
   try {
     const { db } = getFirebase();
     await updateDoc(doc(db, "vehicles", linkedVehicle.id), {
@@ -2273,28 +2406,47 @@ function buildOnlineReadyVehiclePayload(lat, lng) {
   const geoCell = matchGeoCellId(lat, lng);
   const hotspotId = matchHotspotId(lat, lng);
   if (!geoCell) throw new Error("INVALID_GEO_CELL");
-  return {
+  if (!locationTrackingSessionId) beginLocationTrackingSession();
+  const envelope = normalizeLocationFix(
+    { lat, lng, observedAt: Date.now(), source: "gps" },
+    { sessionId: locationTrackingSessionId, sequence: nextLocationSequence(), nowMs: Date.now() }
+  );
+  const location = envelope.ok
+    ? toVehicleLocationField(envelope.envelope)
+    : { lat, lng };
+  const payload = {
     driverId: currentDriver.uid,
     status: activeExecutionRide?.id ? "in_ride" : "online",
     driverName:
       currentDriver.displayName ||
       currentDriver.email?.split("@")[0] ||
       "SwiftGo Driver",
-    location: { lat, lng },
+    location,
     locationUpdatedAt: serverTimestamp(),
     locationGridCell: cell,
     geoCell,
     hotspotId: hotspotId || null,
     activeRideId: activeExecutionRide?.id || null,
+    trackingSessionId: locationTrackingSessionId,
   };
+  if (locationTrackingSessionStartPending) {
+    payload.trackingSessionStartedAt = serverTimestamp();
+  }
+  return payload;
 }
 
 /** Single coherent Firestore write — driver is matchable only after this succeeds. */
 async function writeOnlineReadyVehicle(lat, lng) {
   if (!linkedVehicle?.id || !currentDriver?.uid) throw new Error("NOT_LINKED");
+  // Serialize against GPS location writes so session-start is stamped once.
+  locationWriteSerializer.cancelAll();
   const payload = buildOnlineReadyVehiclePayload(lat, lng);
   const { db } = getFirebase();
   await updateDoc(doc(db, "vehicles", linkedVehicle.id), payload);
+  if (locationTrackingSessionStartPending) {
+    locationTrackingSessionStartPending = false;
+  }
+  locationWriteSerializer.markSessionStartComplete();
   lastLocationGridCell = payload.locationGridCell;
   lastMatchGeoCell = payload.geoCell;
   lastVehicleLocationWrite = Date.now();
@@ -2540,6 +2692,7 @@ function startLocationWatch() {
   }
 
   hasCenteredOnDriver = false;
+  if (!locationTrackingSessionId) beginLocationTrackingSession();
   setLocationMessage("آپ کا موجودہ مقام تلاش کیا جا رہا ہے...");
 
   // Immediate fix for matching — don't wait for watchPosition throttle.
@@ -2548,6 +2701,10 @@ function startLocationWatch() {
       updateDriverLocation(pos);
       syncVehicleLocationToFirestore(pos.coords.latitude, pos.coords.longitude, {
         force: true,
+        heading: Number.isFinite(pos.coords.heading) ? pos.coords.heading : null,
+        accuracy: pos.coords.accuracy,
+        speed: Number.isFinite(pos.coords.speed) && pos.coords.speed >= 0 ? pos.coords.speed : null,
+        observedAt: Number(pos.timestamp) || Date.now(),
       });
     },
     () => {
@@ -2572,6 +2729,7 @@ function stopLocationWatch() {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
+  endLocationTrackingSession();
 }
 
 function stopRideListener() {

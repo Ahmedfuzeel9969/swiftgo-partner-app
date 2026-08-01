@@ -92,6 +92,39 @@ service cloud.firestore {
       return cell is string && cell.size() >= 3;
     }
 
+    // Phase 1 live-location: bounded session id (non-empty, max 64, safe charset).
+    function isValidTrackingSessionId(id) {
+      return id is string
+        && id.size() >= 3
+        && id.size() <= 64
+        && id.matches('^[A-Za-z0-9_-]+$');
+    }
+
+    /**
+     * Session-start immutability + location.sessionId consistency.
+     * A) trackingSessionId create/change ⇒ trackingSessionStartedAt must also change
+     *    and equal request.time.
+     * B) trackingSessionId unchanged ⇒ trackingSessionStartedAt unchanged.
+     * C) trackingSessionStartedAt may not change independently.
+     * E) location.sessionId must equal trackingSessionId.
+     */
+    function vehicleTrackingSessionFieldsOk() {
+      let keys = request.resource.data.diff(resource.data).affectedKeys();
+      let sessionChanged = keys.hasAny(['trackingSessionId']);
+      let startChanged = keys.hasAny(['trackingSessionStartedAt']);
+      let sessionMutationOk =
+        (sessionChanged
+          && startChanged
+          && request.resource.data.trackingSessionStartedAt == request.time)
+        || (!sessionChanged && !startChanged);
+      return sessionMutationOk
+        && isValidTrackingSessionId(request.resource.data.trackingSessionId)
+        && request.resource.data.location.keys().hasAll(['lat', 'lng', 'sessionId'])
+        && request.resource.data.location.sessionId is string
+        && request.resource.data.location.sessionId == request.resource.data.trackingSessionId
+        && isValidTrackingSessionId(request.resource.data.location.sessionId);
+    }
+
     // Driver ONLINE_READY — single combined geo + online write (writeOnlineReadyVehicle).
     function isDriverVehicleOnlineReadyUpdate() {
       return isSignedIn()
@@ -101,7 +134,8 @@ service cloud.firestore {
         && request.resource.data.ownerId == resource.data.ownerId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'driverId', 'status', 'driverName', 'location', 'locationUpdatedAt',
-          'locationGridCell', 'geoCell', 'hotspotId', 'activeRideId'
+          'locationGridCell', 'geoCell', 'hotspotId', 'activeRideId',
+          'trackingSessionId', 'trackingSessionStartedAt'
         ])
         && request.resource.data.status == 'online'
         && request.resource.data.driverName is string
@@ -121,7 +155,8 @@ service cloud.firestore {
         && (
           !('activeRideId' in request.resource.data)
           || request.resource.data.activeRideId == null
-        );
+        )
+        && vehicleTrackingSessionFieldsOk();
     }
 
     // Allowed booking lifecycle states (audit: enum was unconstrained).
@@ -463,14 +498,16 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly([
                'location', 'locationUpdatedAt', 'driverName', 'status',
-               'geoCell', 'hotspotId', 'locationGridCell'
+               'geoCell', 'hotspotId', 'locationGridCell',
+               'trackingSessionId', 'trackingSessionStartedAt'
              ])
         && request.resource.data.location.keys().hasAll(['lat', 'lng'])
         && request.resource.data.location.lat >= -90
         && request.resource.data.location.lat <= 90
         && request.resource.data.location.lng >= -180
         && request.resource.data.location.lng <= 180
-        && request.resource.data.status in ['online', 'in_ride'];
+        && request.resource.data.status in ['online', 'in_ride']
+        && vehicleTrackingSessionFieldsOk();
 
       allow update: if isSignedIn()
         && resource.data.driverId == request.auth.uid

@@ -1,5 +1,13 @@
 /** Leaflet map: location cues, radius zones, live drivers (Phase 7 + 12.4) */
 
+import {
+  ANIM_MIN_MS,
+  computeAnimationDurationMs,
+  distanceMetres,
+  interpolateLatLng,
+  shouldSnapMarker,
+} from "./live-location-render.mjs";
+
 const DEFAULT_CENTER = [24.8607, 67.0011]; // Karachi fallback
 const DEFAULT_ZOOM = 15;
 /** Activity-zone radius around pickup / drop-off (within the 2–4 km brief). */
@@ -31,7 +39,10 @@ let suppressSimulatedDrivers = false;
 let assignedDriverPos = null;
 let assignedDriverAnimFrame = 0;
 let assignedDriverMoveListener = null;
-const ASSIGNED_DRIVER_ANIM_MS = 10_000;
+/** @type {{ lat: number, lng: number, observedAt?: number } | null} */
+let assignedDriverTargetMeta = null;
+/** Last accepted fix used for animation interval (not pickup/dropoff). */
+let assignedDriverPrevAccepted = null;
 
 /** @type {import('leaflet').Marker | null} */
 let pickupMarker = null;
@@ -199,12 +210,17 @@ export function setSuppressSimulatedDrivers(suppressed) {
   if (suppressSimulatedDrivers) clearLiveDrivers();
 }
 
-export function setAssignedDriverLocation(lat, lng, rotationDeg = 0) {
+export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) {
   if (!map || typeof L === "undefined") return;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
+  const observedAt = Number(opts.observedAt) || Date.now();
+  const allowPredict = opts.allowPredict !== false;
+
   if (!assignedDriverMarker) {
     assignedDriverPos = { lat, lng };
+    assignedDriverPrevAccepted = { lat, lng, observedAt };
+    assignedDriverTargetMeta = { lat, lng, observedAt };
     assignedDriverMarker = L.marker([lat, lng], {
       icon: createAssignedDriverIcon(rotationDeg),
       interactive: false,
@@ -215,34 +231,60 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0) {
     return;
   }
 
-  const from = assignedDriverPos || {
+  const rendered = assignedDriverPos || {
     lat: assignedDriverMarker.getLatLng().lat,
     lng: assignedDriverMarker.getLatLng().lng,
   };
   const to = { lat, lng };
   const samePlace =
-    Math.abs(from.lat - to.lat) < 1e-7 && Math.abs(from.lng - to.lng) < 1e-7;
+    Math.abs(rendered.lat - to.lat) < 1e-7 && Math.abs(rendered.lng - to.lng) < 1e-7;
   if (samePlace) {
     assignedDriverMarker.setIcon(createAssignedDriverIcon(rotationDeg));
+    assignedDriverPrevAccepted = { lat, lng, observedAt };
     return;
   }
 
+  const prevObs = Number(assignedDriverPrevAccepted?.observedAt) || 0;
+  const gapMs = Math.max(0, observedAt - prevObs);
+  const distM = distanceMetres(rendered, to);
+  const snap =
+    !allowPredict ||
+    shouldSnapMarker({
+      hasPrevious: Boolean(assignedDriverPrevAccepted),
+      gapMs,
+      distanceM: distM,
+      previousInvalid: !assignedDriverPrevAccepted,
+    });
+
   cancelAssignedDriverAnimation();
   assignedDriverMarker.setIcon(createAssignedDriverIcon(rotationDeg));
+
+  if (snap) {
+    assignedDriverPos = to;
+    assignedDriverPrevAccepted = { lat, lng, observedAt };
+    assignedDriverTargetMeta = { lat, lng, observedAt };
+    assignedDriverMarker.setLatLng([lat, lng]);
+    emitAssignedDriverPos(lat, lng);
+    return;
+  }
+
+  // Start from currently rendered position; duration from accepted-fix interval.
+  const from = { ...rendered };
+  const durationMs = computeAnimationDurationMs(prevObs || observedAt - ANIM_MIN_MS, observedAt);
+  assignedDriverTargetMeta = { lat, lng, observedAt };
   const start = performance.now();
 
   const tick = (now) => {
-    const t = Math.min(1, (now - start) / ASSIGNED_DRIVER_ANIM_MS);
-    const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
-    const curLat = from.lat + (to.lat - from.lat) * eased;
-    const curLng = from.lng + (to.lng - from.lng) * eased;
-    assignedDriverPos = { lat: curLat, lng: curLng };
-    assignedDriverMarker.setLatLng([curLat, curLng]);
-    emitAssignedDriverPos(curLat, curLng);
+    const t = Math.min(1, (now - start) / durationMs);
+    const cur = interpolateLatLng(from, to, t);
+    assignedDriverPos = cur;
+    assignedDriverMarker.setLatLng([cur.lat, cur.lng]);
+    emitAssignedDriverPos(cur.lat, cur.lng);
     if (t < 1) {
       assignedDriverAnimFrame = requestAnimationFrame(tick);
     } else {
       assignedDriverPos = to;
+      assignedDriverPrevAccepted = { lat, lng, observedAt };
       assignedDriverAnimFrame = 0;
     }
   };
@@ -252,6 +294,8 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0) {
 export function clearAssignedDriver() {
   cancelAssignedDriverAnimation();
   assignedDriverPos = null;
+  assignedDriverPrevAccepted = null;
+  assignedDriverTargetMeta = null;
   if (assignedDriverMarker && map) {
     try {
       map.removeLayer(assignedDriverMarker);
@@ -271,9 +315,8 @@ export function clearAssignedDriver() {
 }
 
 /**
- * Dashed line from assigned driver to pickup while en route.
- * @param {{ lat: number, lng: number } | null} from
- * @param {{ lat: number, lng: number } | null} to
+ * Dashed straight-line estimate from assigned driver to tracking target.
+ * Phase 1: not a road route.
  */
 export function setDriverApproachLine(from, to) {
   if (!map || typeof L === "undefined") return;
@@ -508,7 +551,7 @@ function persistTraffic(on) {
   }
 }
 
-/** Major Karachi corridors — simulated congestion colors (Google-like). */
+/** Major Karachi corridors — simulated congestion colours (NOT live traffic). */
 function buildTrafficSegments(centerLat = DEFAULT_CENTER[0], centerLng = DEFAULT_CENTER[1]) {
   const c = { lat: centerLat, lng: centerLng };
   return [
@@ -599,6 +642,9 @@ function syncLayersUi() {
   if (trafficBtn) {
     trafficBtn.classList.toggle("is-active", trafficEnabled);
     trafficBtn.setAttribute("aria-pressed", trafficEnabled ? "true" : "false");
+    // Never present sample overlay as live traffic.
+    trafficBtn.title = "نمونہ ٹریفک — حقیقی ٹریفک نہیں";
+    trafficBtn.setAttribute("data-traffic-kind", "sample_not_live");
   }
 }
 
