@@ -1,0 +1,350 @@
+{
+  "suite": "driver-fresh-location-online",
+  "pass": 33,
+  "fail": 0,
+  "total": 57,
+  "results": [
+    {
+      "name": "01-fresh-valid-location-succeeds",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "01-fresh-valid-location-succeeds",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "02-permission-denied",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "02-permission-denied",
+      "status": "PASS",
+      "detail": "permission_denied",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "03-position-unavailable",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "03-position-unavailable",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "04-browser-callback-never-fires",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "04-browser-callback-never-fires",
+      "status": "PASS",
+      "detail": "timeout 61ms",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "05-app-timeout-returns-offline",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "05-app-timeout-returns-offline",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "06-unsupported-browser",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "06-unsupported-browser",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "07-invalid-coordinates-rejected",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "07-invalid-coordinates-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "08-duplicate-clicks-one-request",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "08-duplicate-clicks-one-request",
+      "status": "PASS",
+      "detail": "pending=1",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "17-late-success-after-cancel-ignored",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "17-late-success-after-cancel-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "18-late-error-after-cancel-ignored",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "18-late-error-after-cancel-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "21-retry-after-timeout",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "21-retry-after-timeout",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "09-pin-link-then-online-activation",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "09-pin-link-then-online-activation",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "10-no-green-during-locating",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "10-no-green-during-locating",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "11-no-green-during-writing-geo",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "11-no-green-during-writing-geo",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "12-overlay-removed-after-success",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "12-overlay-removed-after-success",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "13-overlay-removed-after-failures",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "13-overlay-removed-after-failures",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "14-toggle-restored-after-failure",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "14-toggle-restored-after-failure",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "15-offline-during-locating-cancels",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "15-offline-during-locating-cancels",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "16-offline-during-writing-geo-cancels",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "16-offline-during-writing-geo-cancels",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "19-geo-write-failure-keeps-offline",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "19-geo-write-failure-keeps-offline",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "20-radar-inbox-not-before-online-ready",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "20-radar-inbox-not-before-online-ready",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "22-post-ride-reactivation-same-helper",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "22-post-ride-reactivation-same-helper",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "23-pin-linked-offline-when-location-fails",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "23-pin-linked-offline-when-location-fails",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "24-no-fake-coords-online-ready",
+      "status": "PENDING",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "24-no-fake-coords-online-ready",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "S01-canonical-fresh-location-import",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "S02-finite-timeouts-configured",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "S03-connecting-overlay-dom",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "S04-ui-state-urdu-messages",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "S05-setOnlineUi-only-after-geo-write",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "S06-radar-gated-on-isOnlineReady",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "S07-diagnostics-module",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "S08-connecting-overlay-css",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "S09-no-stale-location-reference",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-fresh-location-online"
+    }
+  ]
+}
