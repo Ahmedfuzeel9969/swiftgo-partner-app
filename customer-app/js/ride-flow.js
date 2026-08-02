@@ -148,7 +148,8 @@ function clearTwoLegRoutes() {
 
 function paintDisplayFrame(pos) {
   if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lng)) return;
-  setAssignedDriverLocation(pos.lat, pos.lng, Number.isFinite(pos.headingDeg) ? pos.headingDeg : 0, {
+  const rot = Number.isFinite(pos.headingDeg) ? pos.headingDeg : 0;
+  setAssignedDriverLocation(pos.lat, pos.lng, rot, {
     observedAt: Date.now(),
     skipAnimation: true,
     allowPredict: false,
@@ -173,12 +174,17 @@ function syncDisplayPipelineFromModel(model) {
     displayPipeline.clearRoute();
     return;
   }
+  // Pass immutable quality metadata — fallback lines render via layers but never snap.
   displayPipeline.setActiveRoute({
     geometry,
     generation: model.rideGeneration,
     activeLeg: emphasis === "trip" ? "trip" : "approach",
     pickupLoc: activeRide?.pickupLocation || null,
     dropoffLoc: activeRide?.dropoffLocation || null,
+    geometryKind: leg.geometryKind,
+    snapEligible: leg.snapEligible === true && leg.fallback !== true,
+    providerKind: leg.providerKind || leg.provider,
+    generatedAt: leg.generatedAt,
   });
 }
 
@@ -227,8 +233,23 @@ function ensureTwoLegRoutes() {
             return;
           }
           const model = ctrl.getModel();
-          syncDisplayPipelineFromModel(model);
-          displayPipeline?.noteRerouteResult(true);
+          const activeLeg = model.emphasis === "trip" ? model.trip : model.approach;
+          if (activeLeg?.snapEligible === true && activeLeg.fallback !== true) {
+            syncDisplayPipelineFromModel(model);
+            displayPipeline?.noteRerouteResult(
+              true,
+              {
+                geometry: activeLeg.renderGeometry || activeLeg.geometry,
+                geometryKind: activeLeg.geometryKind,
+                snapEligible: true,
+                providerKind: activeLeg.providerKind || activeLeg.provider,
+                generatedAt: activeLeg.generatedAt,
+              },
+              result.generation
+            );
+          } else {
+            displayPipeline?.noteRerouteResult(false);
+          }
         } catch {
           displayPipeline?.noteRerouteResult(false);
         }

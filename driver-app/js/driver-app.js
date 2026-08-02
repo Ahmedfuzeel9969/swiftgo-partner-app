@@ -519,14 +519,16 @@ function ensureDriverActiveRoute() {
       if (!map || !pos || typeof L === "undefined") return;
       if (!isValidCoord(pos.lat, pos.lng)) return;
       const latlng = [pos.lat, pos.lng];
+      const heading = Number.isFinite(pos.headingDeg) ? pos.headingDeg : null;
       if (!locationMarker) {
         locationMarker = L.marker(latlng, {
-          icon: driverIcon(),
+          icon: driverIcon(heading),
           keyboard: false,
           zIndexOffset: 1000,
         }).addTo(map);
       } else {
         locationMarker.setLatLng(latlng);
+        locationMarker.setIcon(driverIcon(heading));
       }
     },
   });
@@ -2226,10 +2228,11 @@ function syncRideRadarFab() {
   updateRideRadarButtonLabel();
 }
 
-function driverIcon() {
+function driverIcon(rotationDeg = null) {
+  const rot = Number.isFinite(rotationDeg) ? rotationDeg : 0;
   return L.divIcon({
     className: "",
-    html: '<div class="driver-location-marker"></div>',
+    html: `<div class="driver-location-marker" style="--rot:${rot}deg" aria-hidden="true"><span class="driver-location-marker__nose"></span></div>`,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
   });

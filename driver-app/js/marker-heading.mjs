@@ -1,2 +1,2 @@
 /** Auto-wrapper: canonical implementation in shared/js. Do not edit algorithms here. */
-export * from "../../shared/js/road-route-provider.mjs";
+export * from "../../shared/js/marker-heading.mjs";

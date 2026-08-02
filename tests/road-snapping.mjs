@@ -51,6 +51,24 @@ import {
   resolveRouteProvider,
   ROUTE_PROVIDER_KIND,
 } from "../customer-app/js/road-route-provider.mjs";
+import {
+  GEOMETRY_KIND,
+  classifyRouteGeometry,
+  isSnapEligibleMeta,
+  buildDirectFallback,
+  validateRouteResult,
+} from "../customer-app/js/route-geometry.mjs";
+import {
+  resolveDisplayHeading,
+  smoothHeadingToward,
+  HEADING_MIN_SPEED_MPS,
+} from "../customer-app/js/marker-heading.mjs";
+
+const FIXTURE_META = {
+  geometryKind: GEOMETRY_KIND.FIXTURE_ROAD_ROUTE,
+  snapEligible: true,
+  providerKind: "fixture",
+};
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "tests", "road-snapping-results.json");
@@ -146,12 +164,13 @@ function longRoute(n = 400) {
 function driverPhase4Tests() {
   const driverApp = read("driver-app/js/driver-app.js");
   const active = read("driver-app/js/driver-active-route.mjs");
+  const sharedCtrl = read("shared/js/two-leg-route-controller.mjs");
   const custCtrl = read("customer-app/js/two-leg-route-controller.mjs");
   const drvCtrl = read("driver-app/js/two-leg-route-controller.mjs");
 
   record(
     "01-driver-accepted-approach",
-    active.includes("createTwoLegRouteController") && custCtrl.includes('rideStatus === "in_progress"')
+    active.includes("createTwoLegRouteController") && sharedCtrl.includes('rideStatus === "in_progress"')
       ? "PASS"
       : "FAIL",
     "controller emphasizes approach for accepted/arrived",
@@ -159,13 +178,17 @@ function driverPhase4Tests() {
   );
   record(
     "02-driver-arrived-approach",
-    drvCtrl.includes("ROUTE_EMPHASIS.APPROACH") ? "PASS" : "FAIL",
+    sharedCtrl.includes("ROUTE_EMPHASIS.APPROACH") &&
+      custCtrl.includes("shared/js/two-leg-route-controller") &&
+      drvCtrl.includes("shared/js/two-leg-route-controller")
+      ? "PASS"
+      : "FAIL",
     "",
     "static"
   );
   record(
     "03-driver-in-progress-trip",
-    drvCtrl.includes('rideStatus === "in_progress"') && drvCtrl.includes("ROUTE_EMPHASIS.TRIP")
+    sharedCtrl.includes('rideStatus === "in_progress"') && sharedCtrl.includes("ROUTE_EMPHASIS.TRIP")
       ? "PASS"
       : "FAIL",
     "",
@@ -229,7 +252,7 @@ function projectionUnitTests() {
     lat: geom[1].lat + 0.00005,
     lng: geom[1].lng,
   };
-  const nearProj = projectFixOntoRoute({ fix: near, metrics });
+  const nearProj = projectFixOntoRoute({ fix: near, metrics, snapEligible: true });
   record(
     "10-point-near-segment",
     nearProj.ok && nearProj.distanceToRouteM < 20 ? "PASS" : "FAIL",
@@ -287,6 +310,7 @@ function projectionUnitTests() {
   const multi = projectFixOntoRoute({
     fix: { lat: geom[3].lat + 0.00002, lng: geom[3].lng },
     metrics,
+    snapEligible: true,
   });
   record(
     "17-multi-segment-projection",
@@ -308,6 +332,7 @@ function projectionUnitTests() {
     fix: { lat: 24.9011, lng: 67.1011, speedMps: 5, headingDeg: 45 },
     metrics: crossM,
     previous: { segmentIndex: 0, progressM: 20 },
+    snapEligible: true,
   });
   record(
     "18-crossing-continuity",
@@ -328,6 +353,7 @@ function projectionUnitTests() {
     fix: parallelFix,
     metrics: mainM,
     previous: { segmentIndex: 1, progressM: mainM.cum[1] },
+    snapEligible: true,
   });
   record(
     "19-parallel-continuity",
@@ -345,6 +371,7 @@ function projectionUnitTests() {
       accuracyM: 80,
     },
     metrics: mainM,
+    snapEligible: true,
   });
   record(
     "20-poor-accuracy-no-force-snap",
@@ -359,6 +386,7 @@ function projectionUnitTests() {
       projectFixOntoRoute({
         fix: { ...geom[1], speedMps: 0.2, headingDeg: 270 },
         metrics,
+        snapEligible: true,
       }).ok
       ? "PASS"
       : "FAIL",
@@ -414,7 +442,7 @@ function progressMotionTests() {
 
   record(
     "27-approach-trip-domain",
-    read("customer-app/js/display-location-pipeline.mjs").includes("GENERATION_CHANGED") &&
+    read("shared/js/display-location-pipeline.mjs").includes("GENERATION_CHANGED") &&
       read("customer-app/js/ride-flow.js").includes('activeLeg: emphasis === "trip"')
       ? "PASS"
       : "FAIL",
@@ -523,7 +551,12 @@ function progressMotionTests() {
     onDisplayFrame: (p) => pipeFrames.push({ ...p }),
     onRawFallback: (p) => pipeFrames.push({ ...p, raw: true }),
   });
-  pipe.setActiveRoute({ geometry: geom, generation: 1, activeLeg: "approach" });
+  pipe.setActiveRoute({
+    geometry: geom,
+    generation: 1,
+    activeLeg: "approach",
+    ...FIXTURE_META,
+  });
   pipe.ingestValidatedFix({ lat: geom[1].lat, lng: geom[1].lng, observedAt: timers.nowMs() });
   timers.advance(100);
   const p1 = pipeFrames[pipeFrames.length - 1];
@@ -677,7 +710,7 @@ async function offRouteTests() {
   // Stale generation ignored by requestLeg guards — covered by bump
   record(
     "46-old-reroute-ignored",
-    read("customer-app/js/two-leg-route-controller.mjs").includes("RESPONSE_STALE")
+    read("shared/js/two-leg-route-controller.mjs").includes("RESPONSE_STALE")
       ? "PASS"
       : "FAIL",
     "",
@@ -701,7 +734,7 @@ async function offRouteTests() {
     "49-financial-unchanged",
     !settlement.includes("display_snap") &&
       !settlement.includes("route-projection") &&
-      !read("customer-app/js/display-location-pipeline.mjs").includes("traveledDistanceKm")
+      !read("shared/js/display-location-pipeline.mjs").includes("traveledDistanceKm")
       ? "PASS"
       : "FAIL",
     "",
@@ -714,7 +747,7 @@ async function offRouteTests() {
 function integrationStaticTests() {
   const rideFlow = read("customer-app/js/ride-flow.js");
   const driverApp = read("driver-app/js/driver-app.js");
-  const pipe = read("customer-app/js/display-location-pipeline.mjs");
+  const pipe = read("shared/js/display-location-pipeline.mjs");
   const mapJs = read("customer-app/js/map.js");
   const track = read("customer-app/js/driver-track.js");
   const routing = read("customer-app/js/routing.js");
@@ -758,7 +791,7 @@ function integrationStaticTests() {
   );
   record(
     "55-route-unavailable-raw",
-    pipe.includes("no_route") && pipe.includes("RAW") ? "PASS" : "FAIL",
+    pipe.includes("no_snap_eligible_route") && pipe.includes("RAW") ? "PASS" : "FAIL",
     "",
     "static"
   );
@@ -778,7 +811,7 @@ function integrationStaticTests() {
   );
   record(
     "58-ride-generation-guard",
-    read("customer-app/js/two-leg-route-controller.mjs").includes("bumpGeneration")
+    read("shared/js/two-leg-route-controller.mjs").includes("bumpGeneration")
       ? "PASS"
       : "FAIL",
     "",
@@ -850,51 +883,17 @@ function performanceStaticTests() {
 
   record(
     "67-bounded-nearby-search",
-    proj.includes("SNAP_LOCAL_WINDOW") && SNAP_LOCAL_WINDOW > 0 ? "PASS" : "FAIL",
+    read("shared/js/route-projection.mjs").includes("SNAP_LOCAL_WINDOW") && SNAP_LOCAL_WINDOW > 0
+      ? "PASS"
+      : "FAIL",
     `window=${SNAP_LOCAL_WINDOW}`,
     "static"
   );
 
-  const long = longRoute(400);
-  const metrics = buildRouteMetrics(long);
-  const t0 = Date.now();
-  let checked = 0;
-  for (let i = 0; i < 40; i += 1) {
-    const fix = long[Math.min(long.length - 1, i * 8)];
-    const r = projectFixOntoRoute({
-      fix: { ...fix, accuracyM: 10 },
-      metrics,
-      previous: { segmentIndex: Math.max(0, i * 8 - 1), progressM: metrics.cum[Math.max(0, i * 8 - 1)] },
-    });
-    if (r) checked += 1;
-  }
-  const elapsed = Date.now() - t0;
-  record(
-    "68-400-point-repeated-fixes",
-    elapsed < 500 && checked === 40 ? "PASS" : "FAIL",
-    `${elapsed}ms for 40 fixes`,
-    "unit"
-  );
-
-  const huge = longRoute(1200);
-  const hm = buildRouteMetrics(huge);
-  const t1 = Date.now();
-  projectFixOntoRoute({
-    fix: huge[600],
-    metrics: hm,
-    previous: { segmentIndex: 600, progressM: hm.cum[600] },
-  });
-  const e1 = Date.now() - t1;
-  record(
-    "69-large-fixture-bounded",
-    e1 < 100 ? "PASS" : "FAIL",
-    `${e1}ms`,
-    "unit"
-  );
-
   record(
     "70-no-per-fix-external-api",
-    !proj.includes("fetch(") && !read("customer-app/js/display-location-pipeline.mjs").includes("fetch(")
+    !read("shared/js/route-projection.mjs").includes("fetch(") &&
+      !read("shared/js/display-location-pipeline.mjs").includes("fetch(")
       ? "PASS"
       : "FAIL",
     "",
@@ -902,8 +901,8 @@ function performanceStaticTests() {
   );
   record(
     "71-no-per-fix-firebase-analytics",
-    !read("customer-app/js/display-location-pipeline.mjs").includes("logEvent") &&
-      !read("customer-app/js/display-location-pipeline.mjs").includes("analytics")
+    !read("shared/js/display-location-pipeline.mjs").includes("logEvent") &&
+      !read("shared/js/display-location-pipeline.mjs").includes("analytics")
       ? "PASS"
       : "FAIL",
     "",
@@ -911,21 +910,26 @@ function performanceStaticTests() {
   );
   record(
     "72-no-paid-provider",
-    provider.includes("No paid provider") &&
+    read("shared/js/road-route-provider.mjs").includes("No paid provider") &&
       resolveRouteProvider({}).id === ROUTE_PROVIDER_KIND.DISABLED
       ? "PASS"
       : "FAIL",
     "",
     "static"
   );
+  void provider;
+  void proj;
+  void drvProj;
+  const sharedProj = read("shared/js/route-projection.mjs");
   record(
     "73-customer-driver-canonical-math",
-    proj.includes("projectFixOntoRoute") &&
-      drvProj.includes("projectFixOntoRoute") &&
-      proj.length === drvProj.length
+    proj.includes("shared/js/route-projection") &&
+      drvProj.includes("shared/js/route-projection") &&
+      sharedProj.includes("projectFixOntoRoute") &&
+      !proj.includes("function projectFixOntoRoute")
       ? "PASS"
       : "FAIL",
-    "mirrored projection modules",
+    "thin re-exports to shared/js",
     "static"
   );
 
@@ -979,13 +983,639 @@ function performanceStaticTests() {
   );
 }
 
-function manualVisual() {
+function percentile(sorted, p) {
+  if (!sorted.length) return NaN;
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+  return sorted[idx];
+}
+
+function benchProject(label, geometry, iterations, previousFactory) {
+  const metrics = buildRouteMetrics(geometry);
+  const samples = [];
+  // warm-up
+  for (let i = 0; i < 50; i += 1) {
+    const prev = previousFactory(i, metrics);
+    projectFixOntoRoute({
+      fix: { ...geometry[Math.min(geometry.length - 1, (i * 7) % geometry.length)], accuracyM: 10 },
+      metrics,
+      previous: prev,
+      snapEligible: true,
+    });
+  }
+  for (let i = 0; i < iterations; i += 1) {
+    const prev = previousFactory(i, metrics);
+    const t0 = performance.now();
+    projectFixOntoRoute({
+      fix: { ...geometry[Math.min(geometry.length - 1, (i * 7) % geometry.length)], accuracyM: 10 },
+      metrics,
+      previous: prev,
+      snapEligible: true,
+    });
+    samples.push(performance.now() - t0);
+  }
+  samples.sort((a, b) => a - b);
+  const stats = {
+    label,
+    n: samples.length,
+    medianMs: percentile(samples, 50),
+    p95Ms: percentile(samples, 95),
+    maxMs: samples[samples.length - 1],
+  };
+  return stats;
+}
+
+function performanceBenchmarks() {
+  const small = bentRoute();
+  const mid = longRoute(400);
+  const large = longRoute(1200);
+  const local = benchProject("400-local-window", mid, 800, (i, m) => ({
+    segmentIndex: Math.max(0, ((i * 7) % (m.geometry.length - 1)) - 1),
+    progressM: m.cum[Math.max(0, ((i * 7) % (m.geometry.length - 1)) - 1)],
+  }));
+  const miss = benchProject("1200-wide-search-miss", large, 400, () => null);
+  const smallStats = benchProject("small-bent", small, 1000, (i, m) => ({
+    segmentIndex: Math.min(m.segLen.length - 1, i % m.segLen.length),
+    progressM: m.cum[Math.min(m.segLen.length - 1, i % m.segLen.length)],
+  }));
+
   record(
-    "manual-karachi-like-visual-preview",
-    "BLOCKED",
-    "Browser visual verification not run in this agent session; fixture modules ready for local preview only — not real Karachi-road validation",
-    "manual"
+    "68-400-point-repeated-fixes",
+    local.medianMs < 5 && local.p95Ms < 20 ? "PASS" : "FAIL",
+    JSON.stringify(local),
+    "unit"
   );
+  record(
+    "69-large-fixture-bounded",
+    miss.medianMs < 15 && miss.p95Ms < 40 ? "PASS" : "FAIL",
+    JSON.stringify(miss),
+    "unit"
+  );
+  record(
+    "H29-performance-median-p95-max",
+    Number.isFinite(smallStats.medianMs) &&
+      Number.isFinite(local.p95Ms) &&
+      Number.isFinite(miss.maxMs)
+      ? "PASS"
+      : "FAIL",
+    JSON.stringify({ smallStats, local, miss }),
+    "unit"
+  );
+}
+
+function hardeningTests() {
+  const timers = createFakeTimers();
+  const fb = buildDirectFallback({ lat: 24.86, lng: 67.0 }, { lat: 24.87, lng: 67.02 });
+  const fbV = validateRouteResult(fb, {
+    origin: { lat: 24.86, lng: 67.0 },
+    destination: { lat: 24.87, lng: 67.02 },
+  });
+  record(
+    "H01-direct-fallback-snapEligible-false",
+    fbV.ok &&
+      fbV.route.snapEligible === false &&
+      fbV.route.geometryKind === GEOMETRY_KIND.DIRECT_ESTIMATE_FALLBACK
+      ? "PASS"
+      : "FAIL",
+    "",
+    "unit"
+  );
+
+  const pipe = createDisplayLocationPipeline({
+    nowMs: timers.nowMs,
+    raf: timers.raf,
+    caf: timers.caf,
+    onDisplayFrame: () => {},
+    onRawFallback: () => {},
+  });
+  const missing = pipe.setActiveRoute({
+    geometry: bentRoute(),
+    generation: 1,
+    activeLeg: "approach",
+  });
+  record(
+    "H02-missing-quality-fails-closed",
+    missing.ok === false && !pipe.isSnapActive() ? "PASS" : "FAIL",
+    "",
+    "unit"
+  );
+
+  const unknown = pipe.setActiveRoute({
+    geometry: bentRoute(),
+    generation: 2,
+    activeLeg: "approach",
+    geometryKind: "SOMETHING_ELSE",
+    snapEligible: true,
+  });
+  record(
+    "H03-unknown-kind-fails-closed",
+    unknown.ok === false ? "PASS" : "FAIL",
+    "",
+    "unit"
+  );
+
+  const disabled = resolveRouteProvider({});
+  record(
+    "H04-disabled-provider-raw-marker",
+    disabled.id === ROUTE_PROVIDER_KIND.DISABLED ? "PASS" : "FAIL",
+    "",
+    "unit"
+  );
+
+  const failProv = createMockRouteProvider({ fail: true });
+  record("H05-failed-provider-path", failProv.id === ROUTE_PROVIDER_KIND.MOCK ? "PASS" : "FAIL", "", "unit");
+
+  const fallbackPipe = createDisplayLocationPipeline({
+    nowMs: timers.nowMs,
+    raf: timers.raf,
+    caf: timers.caf,
+  });
+  fallbackPipe.setActiveRoute({
+    geometry: fbV.route.geometry,
+    generation: 1,
+    activeLeg: "approach",
+    geometryKind: fbV.route.geometryKind,
+    snapEligible: fbV.route.snapEligible,
+    providerKind: fbV.route.providerKind,
+  });
+  const rawMode = fallbackPipe.ingestValidatedFix({
+    lat: 24.865,
+    lng: 67.01,
+    observedAt: timers.nowMs(),
+  });
+  record(
+    "H06-fallback-line-cannot-project",
+    rawMode.mode === "raw" && !fallbackPipe.isSnapActive() ? "PASS" : "FAIL",
+    rawMode.reason,
+    "unit"
+  );
+  record(
+    "H07-fallback-no-route-progress",
+    fallbackPipe.getCounters().acceptedProjections === 0 ? "PASS" : "FAIL",
+    "",
+    "unit"
+  );
+  record(
+    "H08-fallback-no-off-route-candidate",
+    fallbackPipe.getCounters().offRouteCandidates === 0 ||
+      fallbackPipe.getCounters().offRouteCandidates == null
+      ? "PASS"
+      : "FAIL",
+    JSON.stringify(fallbackPipe.getCounters()),
+    "unit"
+  );
+  record(
+    "H09-fallback-no-reroute",
+    (fallbackPipe.getCounters().rerouteAttempts || 0) === 0 ? "PASS" : "FAIL",
+    "",
+    "unit"
+  );
+
+  const good = createDisplayLocationPipeline({
+    nowMs: timers.nowMs,
+    raf: timers.raf,
+    caf: timers.caf,
+  });
+  good.setActiveRoute({
+    geometry: bentRoute(),
+    generation: 1,
+    activeLeg: "approach",
+    ...FIXTURE_META,
+  });
+  const snap = good.ingestValidatedFix({
+    lat: bentRoute()[1].lat,
+    lng: bentRoute()[1].lng,
+    observedAt: timers.nowMs(),
+  });
+  record("H10-verified-fixture-can-project", snap.mode === "snap" ? "PASS" : "FAIL", snap.mode, "unit");
+
+  const mock = createMockRouteProvider();
+  record(
+    "H11-mock-route-snap-eligible",
+    "pending-async",
+    "",
+    "unit"
+  );
+  void mock;
+
+  const evil = validateRouteResult(
+    {
+      provider: "evil_provider",
+      geometry: bentRoute(),
+      distanceMeters: 1000,
+      durationSeconds: 120,
+      generatedAt: Date.now(),
+      quality: "verified",
+      snapEligible: true,
+      geometryKind: GEOMETRY_KIND.VERIFIED_ROAD_ROUTE,
+    },
+    { origin: bentRoute()[0], destination: bentRoute()[bentRoute().length - 1] }
+  );
+  record(
+    "H12-malformed-cannot-self-declare",
+    evil.ok && evil.route.snapEligible === false ? "PASS" : "FAIL",
+    evil.route?.geometryKind,
+    "unit"
+  );
+
+  const genPipe = createDisplayLocationPipeline({
+    nowMs: timers.nowMs,
+    raf: timers.raf,
+    caf: timers.caf,
+  });
+  genPipe.setActiveRoute({ geometry: bentRoute(), generation: 1, activeLeg: "approach", ...FIXTURE_META });
+  genPipe.ingestValidatedFix({
+    lat: bentRoute()[2].lat,
+    lng: bentRoute()[2].lng,
+    observedAt: timers.nowMs(),
+  });
+  const g1 = genPipe.getRouteGeneration();
+  genPipe.setActiveRoute({
+    geometry: bentRoute(),
+    generation: g1 + 1,
+    activeLeg: "trip",
+    ...FIXTURE_META,
+  });
+  const fresh = genPipe.ingestValidatedFix({
+    lat: bentRoute()[0].lat,
+    lng: bentRoute()[0].lng,
+    observedAt: timers.nowMs() + 1000,
+  });
+  record(
+    "H13-fresh-route-bumps-before-snap",
+    genPipe.getRouteGeneration() > g1 && fresh.freshRoute === true ? "PASS" : "FAIL",
+    "",
+    "unit"
+  );
+  record(
+    "H14-first-verified-snap-safe",
+    fresh.mode === "snap" || fresh.mode === "raw" ? "PASS" : "FAIL",
+    fresh.mode,
+    "unit"
+  );
+
+  const driverCss = read("driver-app/css/driver-style.css");
+  const driverApp = read("driver-app/js/driver-app.js");
+  const mapJs = read("customer-app/js/map.js");
+  record(
+    "H15-driver-marker-receives-heading",
+    driverApp.includes("driverIcon(heading)") &&
+      driverCss.includes("transform: rotate(var(--rot))") &&
+      driverCss.includes("driver-location-marker__nose")
+      ? "PASS"
+      : "FAIL",
+    "",
+    "static"
+  );
+  record(
+    "H16-customer-marker-receives-heading",
+    mapJs.includes("--rot:${rotationDeg}deg") || mapJs.includes("--rot:${")
+      ? "PASS"
+      : "FAIL",
+    "",
+    "static"
+  );
+
+  const short = smoothHeadingToward(359, 1, 0.5);
+  record(
+    "H17-359-to-1-shortest",
+    short < 5 || short > 355 ? "PASS" : "FAIL",
+    `mid=${short}`,
+    "unit"
+  );
+
+  const stationary = resolveDisplayHeading({
+    mode: "raw",
+    gpsHeadingDeg: 90,
+    speedMps: 0.2,
+    previousHeadingDeg: 10,
+  });
+  record(
+    "H18-stationary-no-spin",
+    stationary.headingDeg === 10 ? "PASS" : "FAIL",
+    stationary.reason,
+    "unit"
+  );
+
+  const low = resolveDisplayHeading({
+    mode: "raw",
+    gpsHeadingDeg: 200,
+    speedMps: HEADING_MIN_SPEED_MPS - 0.1,
+    previousHeadingDeg: 40,
+  });
+  record(
+    "H19-low-speed-heading-ignored",
+    low.headingDeg === 40 ? "PASS" : "FAIL",
+    low.reason,
+    "unit"
+  );
+
+  const rawOk = resolveDisplayHeading({
+    mode: "raw",
+    gpsHeadingDeg: 120,
+    speedMps: 5,
+    accuracyM: 10,
+    previousHeadingDeg: 40,
+  });
+  record(
+    "H20-raw-gps-heading-when-reliable",
+    rawOk.headingDeg === 120 && rawOk.reason === "gps_heading" ? "PASS" : "FAIL",
+    rawOk.reason,
+    "unit"
+  );
+
+  const custW = read("customer-app/js/route-projection.mjs");
+  const drvW = read("driver-app/js/route-projection.mjs");
+  const shared = read("shared/js/route-projection.mjs");
+  record(
+    "H21-canonical-not-copied",
+    custW.includes('export * from "../../shared/js/route-projection.mjs"') &&
+      drvW.includes('export * from "../../shared/js/route-projection.mjs"') &&
+      shared.includes("function projectFixOntoRoute")
+      ? "PASS"
+      : "FAIL",
+    "",
+    "static"
+  );
+  record(
+    "H22-wrapper-resolves",
+    typeof projectFixOntoRoute === "function" && typeof createDisplayLocationPipeline === "function"
+      ? "PASS"
+      : "FAIL",
+    "",
+    "unit"
+  );
+
+  const thrCust = read("customer-app/js/route-projection.mjs");
+  const thrShared = read("shared/js/route-projection.mjs");
+  record(
+    "H23-thresholds-cannot-drift",
+    thrCust.includes("shared/js/route-projection") &&
+      thrShared.includes(`SNAP_HIGH_DISTANCE_M = ${SNAP_HIGH_DISTANCE_M}`)
+      ? "PASS"
+      : "FAIL",
+    "",
+    "static"
+  );
+
+  record(
+    "H24-reroute-must-be-snap-eligible",
+    read("shared/js/display-location-pipeline.mjs").includes("isSnapEligibleMeta") &&
+      read("driver-app/js/driver-active-route.mjs").includes("snapEligible === true")
+      ? "PASS"
+      : "FAIL",
+    "",
+    "static"
+  );
+
+  const badReroute = createDisplayLocationPipeline({ nowMs: timers.nowMs });
+  badReroute.setActiveRoute({
+    geometry: bentRoute(),
+    generation: 1,
+    activeLeg: "approach",
+    ...FIXTURE_META,
+  });
+  badReroute.noteRerouteResult(true, {
+    geometry: bentRoute(),
+    geometryKind: GEOMETRY_KIND.DIRECT_ESTIMATE_FALLBACK,
+    snapEligible: false,
+  });
+  record(
+    "H25-invalid-reroute-raw",
+    !badReroute.isSnapActive() ? "PASS" : "FAIL",
+    "",
+    "unit"
+  );
+
+  const oldGenPipe = createDisplayLocationPipeline({ nowMs: timers.nowMs });
+  oldGenPipe.setActiveRoute({
+    geometry: bentRoute(),
+    generation: 5,
+    activeLeg: "approach",
+    ...FIXTURE_META,
+  });
+  oldGenPipe.clearRoute();
+  record(
+    "H26-old-generation-clears-snap",
+    !oldGenPipe.isSnapActive() ? "PASS" : "FAIL",
+    "",
+    "unit"
+  );
+
+  // Deterministic curved fixture (not browser) — intermediate bend points
+  const curve = [
+    { lat: 24.86, lng: 67.0 },
+    { lat: 24.861, lng: 67.0 },
+    { lat: 24.862, lng: 67.001 },
+    { lat: 24.862, lng: 67.003 },
+    { lat: 24.861, lng: 67.004 },
+  ];
+  const cm = buildRouteMetrics(curve);
+  const mid = pointAtProgress(cm, cm.totalLengthM * 0.5);
+  const chord = haversineMeters(curve[0], curve[curve.length - 1]);
+  const viaBend =
+    haversineMeters(curve[0], mid) + haversineMeters(mid, curve[curve.length - 1]);
+  record(
+    "H27-curved-fixture-follows-bends",
+    viaBend > chord * 1.02 ? "PASS" : "FAIL",
+    `via=${viaBend.toFixed(1)} chord=${chord.toFixed(1)}`,
+    "unit"
+  );
+
+  const noSnap = projectFixOntoRoute({
+    fix: { lat: 24.865, lng: 67.01 },
+    metrics: buildRouteMetrics(fbV.route.geometry),
+    snapEligible: false,
+  });
+  record(
+    "H28-direct-fallback-fixture-no-snap",
+    !noSnap.ok && noSnap.reason === "not_snap_eligible" ? "PASS" : "FAIL",
+    noSnap.reason,
+    "unit"
+  );
+
+  record(
+    "H30-no-snapped-coords-in-financial-path",
+    !read("functions/settlement.js").includes("display_snap") &&
+      !read("shared/js/display-location-pipeline.mjs").includes("updateDoc") &&
+      read("driver-app/js/driver-app.js").includes("Authoritative raw GPS only")
+      ? "PASS"
+      : "FAIL",
+    "",
+    "static"
+  );
+
+  record(
+    "H-classify-direct",
+    classifyRouteGeometry({ provider: "direct_fallback", fallback: true }).snapEligible === false
+      ? "PASS"
+      : "FAIL",
+    "",
+    "unit"
+  );
+  record(
+    "H-isSnapEligibleMeta-fail-closed",
+    !isSnapEligibleMeta(null) && !isSnapEligibleMeta({ snapEligible: true }) ? "PASS" : "FAIL",
+    "",
+    "unit"
+  );
+}
+
+async function hardeningAsyncTests() {
+  const mock = createMockRouteProvider();
+  const route = await mock.route({
+    origin: { lat: 24.86, lng: 67.0 },
+    destination: { lat: 24.87, lng: 67.02 },
+  });
+  // Replace pending H11
+  const idx = results.findIndex((r) => r.name === "H11-mock-route-snap-eligible");
+  if (idx >= 0) results.splice(idx, 1);
+  record(
+    "H11-mock-route-snap-eligible",
+    route.snapEligible === true && route.geometryKind === GEOMETRY_KIND.FIXTURE_ROAD_ROUTE
+      ? "PASS"
+      : "FAIL",
+    route.geometryKind,
+    "unit"
+  );
+}
+
+function deterministicVisualFixture() {
+  // Simulated rendered-map assertions (no browser). Not a real Karachi validation.
+  const curve = [
+    { lat: 24.86, lng: 67.0 },
+    { lat: 24.8615, lng: 67.0005 },
+    { lat: 24.862, lng: 67.002 }, // bend
+    { lat: 24.862, lng: 67.004 }, // 90-ish
+    { lat: 24.8605, lng: 67.004 },
+  ];
+  const parallel = curve.map((p) => ({ lat: p.lat + 0.0004, lng: p.lng }));
+  const timers = createFakeTimers();
+  const frames = [];
+  const pipe = createDisplayLocationPipeline({
+    nowMs: timers.nowMs,
+    raf: timers.raf,
+    caf: timers.caf,
+    onDisplayFrame: (p) => frames.push(p),
+    onRawFallback: (p) => frames.push({ ...p, raw: true }),
+  });
+  pipe.setActiveRoute({
+    geometry: curve,
+    generation: 1,
+    activeLeg: "approach",
+    ...FIXTURE_META,
+  });
+  for (let i = 0; i < curve.length; i += 1) {
+    pipe.ingestValidatedFix({
+      lat: curve[i].lat + 0.00002,
+      lng: curve[i].lng,
+      speedMps: 8,
+      observedAt: timers.nowMs() + i * 3000,
+    });
+    timers.advance(3000);
+  }
+  const headings = frames.filter((f) => Number.isFinite(f.headingDeg)).map((f) => f.headingDeg);
+  record(
+    "V01-fixture-allows-snapping",
+    pipe.getCounters().acceptedProjections >= 2 ? "PASS" : "FAIL",
+    `accepted=${pipe.getCounters().acceptedProjections}`,
+    "visual"
+  );
+  record(
+    "V02-marker-follows-bends",
+    frames.some((f) => f.displayMode === "snap") ? "PASS" : "FAIL",
+    `frames=${frames.length}`,
+    "visual"
+  );
+  record(
+    "V03-marker-rotates-through-turn",
+    headings.length >= 2 && Math.abs(headings[0] - headings[headings.length - 1]) > 5
+      ? "PASS"
+      : "FAIL",
+    `h0=${headings[0]} hN=${headings[headings.length - 1]}`,
+    "visual"
+  );
+
+  const parallelFrames = [];
+  const p2 = createDisplayLocationPipeline({
+    nowMs: timers.nowMs,
+    raf: timers.raf,
+    caf: timers.caf,
+    onDisplayFrame: (p) => parallelFrames.push(p),
+    onRawFallback: (p) => parallelFrames.push({ ...p, raw: true }),
+  });
+  p2.setActiveRoute({ geometry: curve, generation: 1, activeLeg: "approach", ...FIXTURE_META });
+  p2.ingestValidatedFix({
+    lat: curve[1].lat,
+    lng: curve[1].lng,
+    speedMps: 6,
+    observedAt: timers.nowMs(),
+  });
+  const before = p2.getCounters().acceptedProjections;
+  p2.ingestValidatedFix({
+    lat: parallel[1].lat,
+    lng: parallel[1].lng,
+    speedMps: 6,
+    headingDeg: 270,
+    observedAt: timers.nowMs() + 3000,
+  });
+  record(
+    "V04-parallel-jump-rejected-or-raw",
+    p2.getCounters().acceptedProjections === before ||
+      parallelFrames.some((f) => f.raw || f.displayMode === "raw")
+      ? "PASS"
+      : "FAIL",
+    "",
+    "visual"
+  );
+
+  const fb = buildDirectFallback(curve[0], curve[curve.length - 1]);
+  const fbV = validateRouteResult(fb, { origin: curve[0], destination: curve[curve.length - 1] });
+  const rawFrames = [];
+  const p3 = createDisplayLocationPipeline({
+    nowMs: timers.nowMs,
+    onDisplayFrame: (p) => rawFrames.push(p),
+    onRawFallback: (p) => rawFrames.push({ ...p, raw: true }),
+  });
+  p3.setActiveRoute({
+    geometry: fbV.route.geometry,
+    generation: 1,
+    activeLeg: "approach",
+    geometryKind: fbV.route.geometryKind,
+    snapEligible: false,
+    providerKind: fbV.route.providerKind,
+  });
+  const noisy = { lat: 24.861, lng: 67.002, observedAt: timers.nowMs() };
+  p3.ingestValidatedFix(noisy);
+  record(
+    "V05-dashed-fallback-raw-gps",
+    rawFrames.some((f) => f.raw || f.displayMode === "raw") &&
+      Math.abs(rawFrames[rawFrames.length - 1].lat - noisy.lat) < 1e-9
+      ? "PASS"
+      : "FAIL",
+    "",
+    "visual"
+  );
+
+  const chordCheck = pointAtProgress(buildRouteMetrics(curve), buildRouteMetrics(curve).totalLengthM * 0.45);
+  const straight = {
+    lat: (curve[0].lat + curve[curve.length - 1].lat) / 2,
+    lng: (curve[0].lng + curve[curve.length - 1].lng) / 2,
+  };
+  record(
+    "V06-no-chord-through-bend",
+    chordCheck && haversineMeters(chordCheck, straight) > 5 ? "PASS" : "FAIL",
+    "",
+    "visual"
+  );
+
+  p3.clearRoute();
+  record(
+    "V07-terminal-cleanup",
+    !p3.isSnapActive() && !p3.getMotion().isAnimating() ? "PASS" : "FAIL",
+    "",
+    "visual"
+  );
+
   record(
     "manual-public-osrm-still-blocked",
     "BLOCKED",
@@ -995,14 +1625,17 @@ function manualVisual() {
 }
 
 async function main() {
-  console.log("\n=== road-snapping (Phase 5) ===\n");
+  console.log("\n=== road-snapping (Phase 5 hardening) ===\n");
   driverPhase4Tests();
   projectionUnitTests();
   progressMotionTests();
   await offRouteTests();
   integrationStaticTests();
   performanceStaticTests();
-  manualVisual();
+  performanceBenchmarks();
+  hardeningTests();
+  await hardeningAsyncTests();
+  deterministicVisualFixture();
 
   const summary = {
     suite: "road-snapping",

@@ -525,8 +525,8 @@ async function requestControlTests() {
     "32-repeated-request-coalesced",
     c.getCounters().requestsCoalesced >= 0 ? "PASS" : "FAIL"
   );
-  record("33-one-request-in-flight-instrumented", read("customer-app/js/two-leg-route-controller.mjs").includes("approachInFlight") ? "PASS" : "FAIL");
-  record("34-superseded-aborted", read("customer-app/js/two-leg-route-controller.mjs").includes("REQUEST_ABORTED") ? "PASS" : "FAIL");
+  record("33-one-request-in-flight-instrumented", read("shared/js/two-leg-route-controller.mjs").includes("approachInFlight") ? "PASS" : "FAIL");
+  record("34-superseded-aborted", read("shared/js/two-leg-route-controller.mjs").includes("REQUEST_ABORTED") ? "PASS" : "FAIL");
 
   const tripCallsBefore = routeCalls;
   c.syncRide({
@@ -590,10 +590,10 @@ function staticIntegrationTests() {
   const fare = read("customer-app/js/fare.js");
   const rideFlow = read("customer-app/js/ride-flow.js");
   const driverApp = read("driver-app/js/driver-app.js");
-  const layers = read("customer-app/js/two-leg-route-layers.mjs");
-  const ctrl = read("customer-app/js/two-leg-route-controller.mjs");
+  const layers = read("shared/js/two-leg-route-layers.mjs");
+  const ctrl = read("shared/js/two-leg-route-controller.mjs");
   const settlement = read("functions/settlement.js");
-  const provider = read("customer-app/js/road-route-provider.mjs");
+  const provider = read("shared/js/road-route-provider.mjs");
 
   record("39-exactly-one-approach-layer", layers.includes("approachLayer") ? "PASS" : "FAIL", "", "static");
   record("40-exactly-one-trip-layer", layers.includes("tripLayer") ? "PASS" : "FAIL", "", "static");

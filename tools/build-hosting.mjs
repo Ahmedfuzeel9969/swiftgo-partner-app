@@ -37,6 +37,33 @@ function copyApp(srcRel, destRel) {
   copyDir(src, dest);
 }
 
+/** Canonical Phase 4/5 modules — fan out into each app package (no dual editable copies). */
+const SHARED_JS_MODULES = [
+  "geometry-quality.mjs",
+  "marker-heading.mjs",
+  "route-geometry.mjs",
+  "road-route-provider.mjs",
+  "two-leg-route-controller.mjs",
+  "two-leg-route-layers.mjs",
+  "route-projection.mjs",
+  "route-progress.mjs",
+  "route-motion-controller.mjs",
+  "off-route-detector.mjs",
+  "display-location-pipeline.mjs",
+];
+
+function syncSharedJsInto(destJsDir) {
+  const sharedDir = path.join(ROOT, "shared", "js");
+  ensureDir(destJsDir);
+  for (const name of SHARED_JS_MODULES) {
+    const from = path.join(sharedDir, name);
+    if (!fs.existsSync(from)) {
+      throw new Error(`Missing canonical shared module: shared/js/${name}`);
+    }
+    fs.copyFileSync(from, path.join(destJsDir, name));
+  }
+}
+
 rmrf(DIST);
 ensureDir(DIST);
 
@@ -46,6 +73,13 @@ copyApp("customer-app", "customer");
 
 // Driver app stays at /partner/ (God Mode + legacy bookmarks)
 copyApp("driver-app", "partner");
+
+// Replace thin re-export wrappers with self-contained canonical copies for Hosting.
+syncSharedJsInto(path.join(DIST, "js"));
+syncSharedJsInto(path.join(DIST, "customer", "js"));
+syncSharedJsInto(path.join(DIST, "partner", "js"));
+// Optional inspection path
+syncSharedJsInto(path.join(DIST, "shared", "js"));
 
 // Fleet owner app at /owner/
 copyApp("owner-app", "owner");
@@ -70,3 +104,4 @@ console.info("  /owner/        <- owner-app");
 console.info("  /admin/        <- super-admin-panel");
 console.info("  /legal/        <- privacy, terms, data-use drafts");
 console.info("  /.well-known/  <- assetlinks draft (if present)");
+console.info("  shared/js      <- canonical road modules (also inlined into app js/)");

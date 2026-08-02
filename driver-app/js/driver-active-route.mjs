@@ -24,6 +24,8 @@ export function createDriverActiveRouteController(opts) {
   let layers = null;
   let display = null;
   let lastRideId = "";
+  let pickupLoc = null;
+  let dropoffLoc = null;
 
   function snapDiag(code) {
     try {
@@ -56,8 +58,12 @@ export function createDriverActiveRouteController(opts) {
       geometry,
       generation: model.rideGeneration,
       activeLeg: emphasis === "trip" ? "trip" : "approach",
-      pickupLoc: null,
-      dropoffLoc: null,
+      pickupLoc,
+      dropoffLoc,
+      geometryKind: leg.geometryKind,
+      snapEligible: leg.snapEligible === true && leg.fallback !== true,
+      providerKind: leg.providerKind || leg.provider,
+      generatedAt: leg.generatedAt,
     });
   }
 
@@ -88,8 +94,20 @@ export function createDriverActiveRouteController(opts) {
               display?.noteRerouteResult(false);
               return;
             }
-            syncDisplayFromModel(twoLeg.getModel());
-            display?.noteRerouteResult(true);
+            const model = twoLeg.getModel();
+            const leg = model.emphasis === "trip" ? model.trip : model.approach;
+            if (leg?.snapEligible === true && leg.fallback !== true) {
+              syncDisplayFromModel(model);
+              display?.noteRerouteResult(true, {
+                geometry: leg.renderGeometry || leg.geometry,
+                geometryKind: leg.geometryKind,
+                snapEligible: true,
+                providerKind: leg.providerKind || leg.provider,
+                generatedAt: leg.generatedAt,
+              }, result.generation);
+            } else {
+              display?.noteRerouteResult(false);
+            }
           } catch {
             display?.noteRerouteResult(false);
           }
@@ -136,6 +154,8 @@ export function createDriverActiveRouteController(opts) {
       pickupLocation: ride.pickupLocation || ride.pickup || null,
       dropoffLocation: ride.dropoffLocation || ride.dropoff || ride.destination || null,
     };
+    pickupLoc = withPickupDrop.pickupLocation;
+    dropoffLoc = withPickupDrop.dropoffLocation;
     ctrl.syncRide(withPickupDrop, { isVisible });
   }
 
@@ -155,6 +175,8 @@ export function createDriverActiveRouteController(opts) {
     layers?.clear();
     display?.clearRoute();
     lastRideId = "";
+    pickupLoc = null;
+    dropoffLoc = null;
   }
 
   function destroy() {

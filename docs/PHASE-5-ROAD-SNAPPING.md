@@ -6,6 +6,17 @@ Visual/navigation aid only. Does **not** alter Firestore vehicle locations, ride
 
 Canonical order: Raw GPS → Phase 3 validation/arbitration → Phase 5 projection/confidence → route-progress smoothing → one marker renderer.
 
+## Geometry classification (hardening)
+
+| Kind | Snap |
+|------|------|
+| `VERIFIED_ROAD_ROUTE` | yes (approved adapters only, e.g. `osrm_preview`) |
+| `FIXTURE_ROAD_ROUTE` | yes (tests/preview: `mock` / `fixture`) |
+| `DIRECT_ESTIMATE_FALLBACK` | **never** (dashed estimate only) |
+| `INVALID_GEOMETRY` | **never** |
+
+`snapEligible` is derived only in `shared/js/geometry-quality.mjs`. UI/provider self-declaration is ignored. Canonical algorithms live in `shared/js/`; apps use thin re-exports; `build-hosting` inlines copies into each package.
+
 ## Thresholds (test starting values)
 
 | Constant | Value | Role |

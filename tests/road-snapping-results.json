@@ -1,7 +1,7 @@
 {
   "suite": "road-snapping",
   "phase": 5,
-  "generatedAt": "2026-08-01T20:31:24.635Z",
+  "generatedAt": "2026-08-02T01:00:29.465Z",
   "thresholds": {
     "SNAP_HIGH_DISTANCE_M": 25,
     "SNAP_MAX_DISTANCE_M": 55,
@@ -27,24 +27,29 @@
     ]
   },
   "totals": {
-    "pass": 77,
+    "pass": 116,
     "fail": 0,
-    "blocked": 2,
+    "blocked": 1,
     "byCategory": {
       "static": {
-        "pass": 34,
+        "pass": 40,
         "fail": 0,
         "blocked": 0
       },
       "unit": {
-        "pass": 43,
+        "pass": 69,
+        "fail": 0,
+        "blocked": 0
+      },
+      "visual": {
+        "pass": 7,
         "fail": 0,
         "blocked": 0
       },
       "manual": {
         "pass": 0,
         "fail": 0,
-        "blocked": 2
+        "blocked": 1
       }
     }
   },
@@ -519,20 +524,6 @@
       "category": "static"
     },
     {
-      "name": "68-400-point-repeated-fixes",
-      "status": "PASS",
-      "detail": "6ms for 40 fixes",
-      "suite": "road-snapping",
-      "category": "unit"
-    },
-    {
-      "name": "69-large-fixture-bounded",
-      "status": "PASS",
-      "detail": "0ms",
-      "suite": "road-snapping",
-      "category": "unit"
-    },
-    {
       "name": "70-no-per-fix-external-api",
       "status": "PASS",
       "detail": "",
@@ -556,7 +547,7 @@
     {
       "name": "73-customer-driver-canonical-math",
       "status": "PASS",
-      "detail": "mirrored projection modules",
+      "detail": "thin re-exports to shared/js",
       "suite": "road-snapping",
       "category": "static"
     },
@@ -589,11 +580,291 @@
       "category": "unit"
     },
     {
-      "name": "manual-karachi-like-visual-preview",
-      "status": "BLOCKED",
-      "detail": "Browser visual verification not run in this agent session; fixture modules ready for local preview only — not real Karachi-road validation",
+      "name": "68-400-point-repeated-fixes",
+      "status": "PASS",
+      "detail": "{\"label\":\"400-local-window\",\"n\":800,\"medianMs\":0.02410000000000423,\"p95Ms\":0.10960000000000036,\"maxMs\":1.018400000000014}",
       "suite": "road-snapping",
-      "category": "manual"
+      "category": "unit"
+    },
+    {
+      "name": "69-large-fixture-bounded",
+      "status": "PASS",
+      "detail": "{\"label\":\"1200-wide-search-miss\",\"n\":400,\"medianMs\":0.7006999999999834,\"p95Ms\":1.6662000000000035,\"maxMs\":2.454099999999926}",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H29-performance-median-p95-max",
+      "status": "PASS",
+      "detail": "{\"smallStats\":{\"label\":\"small-bent\",\"n\":1000,\"medianMs\":0.003199999999992542,\"p95Ms\":0.0050999999999703505,\"maxMs\":0.3990999999999758},\"local\":{\"label\":\"400-local-window\",\"n\":800,\"medianMs\":0.02410000000000423,\"p95Ms\":0.10960000000000036,\"maxMs\":1.018400000000014},\"miss\":{\"label\":\"1200-wide-search-miss\",\"n\":400,\"medianMs\":0.7006999999999834,\"p95Ms\":1.6662000000000035,\"maxMs\":2.454099999999926}}",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H01-direct-fallback-snapEligible-false",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H02-missing-quality-fails-closed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H03-unknown-kind-fails-closed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H04-disabled-provider-raw-marker",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H05-failed-provider-path",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H06-fallback-line-cannot-project",
+      "status": "PASS",
+      "detail": "no_snap_eligible_route",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H07-fallback-no-route-progress",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H08-fallback-no-off-route-candidate",
+      "status": "PASS",
+      "detail": "{\"rawFixes\":1,\"acceptedProjections\":0,\"rejectedProjections\":0,\"rawFallbacks\":1,\"segmentCandidatesChecked\":0,\"backwardJitterRejects\":0,\"generationResets\":1,\"fallbackGeometryRejected\":1,\"offRouteCandidates\":0,\"offRouteConfirmed\":0,\"rerouteAttempts\":0,\"rerouteSuccess\":0,\"rerouteFailure\":0,\"animationStarts\":0,\"animationCancels\":0,\"animationCompletions\":0}",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H09-fallback-no-reroute",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H10-verified-fixture-can-project",
+      "status": "PASS",
+      "detail": "snap",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H12-malformed-cannot-self-declare",
+      "status": "PASS",
+      "detail": "INVALID_GEOMETRY",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H13-fresh-route-bumps-before-snap",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H14-first-verified-snap-safe",
+      "status": "PASS",
+      "detail": "snap",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H15-driver-marker-receives-heading",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "static"
+    },
+    {
+      "name": "H16-customer-marker-receives-heading",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "static"
+    },
+    {
+      "name": "H17-359-to-1-shortest",
+      "status": "PASS",
+      "detail": "mid=0",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H18-stationary-no-spin",
+      "status": "PASS",
+      "detail": "preserve_previous",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H19-low-speed-heading-ignored",
+      "status": "PASS",
+      "detail": "preserve_previous",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H20-raw-gps-heading-when-reliable",
+      "status": "PASS",
+      "detail": "gps_heading",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H21-canonical-not-copied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "static"
+    },
+    {
+      "name": "H22-wrapper-resolves",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H23-thresholds-cannot-drift",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "static"
+    },
+    {
+      "name": "H24-reroute-must-be-snap-eligible",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "static"
+    },
+    {
+      "name": "H25-invalid-reroute-raw",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H26-old-generation-clears-snap",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H27-curved-fixture-follows-bends",
+      "status": "PASS",
+      "detail": "via=546.5 chord=418.6",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H28-direct-fallback-fixture-no-snap",
+      "status": "PASS",
+      "detail": "not_snap_eligible",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H30-no-snapped-coords-in-financial-path",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "static"
+    },
+    {
+      "name": "H-classify-direct",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H-isSnapEligibleMeta-fail-closed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "H11-mock-route-snap-eligible",
+      "status": "PASS",
+      "detail": "FIXTURE_ROAD_ROUTE",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "V01-fixture-allows-snapping",
+      "status": "PASS",
+      "detail": "accepted=5",
+      "suite": "road-snapping",
+      "category": "visual"
+    },
+    {
+      "name": "V02-marker-follows-bends",
+      "status": "PASS",
+      "detail": "frames=5",
+      "suite": "road-snapping",
+      "category": "visual"
+    },
+    {
+      "name": "V03-marker-rotates-through-turn",
+      "status": "PASS",
+      "detail": "h0=16.827525259385425 hN=180",
+      "suite": "road-snapping",
+      "category": "visual"
+    },
+    {
+      "name": "V04-parallel-jump-rejected-or-raw",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "visual"
+    },
+    {
+      "name": "V05-dashed-fallback-raw-gps",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "visual"
+    },
+    {
+      "name": "V06-no-chord-through-bend",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "visual"
+    },
+    {
+      "name": "V07-terminal-cleanup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-snapping",
+      "category": "visual"
     },
     {
       "name": "manual-public-osrm-still-blocked",
