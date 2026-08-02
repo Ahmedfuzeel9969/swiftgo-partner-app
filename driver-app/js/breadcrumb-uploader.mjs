@@ -1,11 +1,11 @@
 /**
- * Phase 6 — breadcrumb uploader (one in flight, bounded backoff).
- * Firebase CDN imports stay inside defaultCall so Node unit tests can inject callSubmit.
+ * Phase 6 hardening — breadcrumb uploader (one in flight, bounded wake drain).
  */
 
 import {
   BREADCRUMB_DIAG,
   BREADCRUMB_FINAL_FLUSH_TIMEOUT_MS,
+  BREADCRUMB_MAX_UPLOADS_PER_WAKE,
   BREADCRUMB_RETRY_BASE_MS,
   BREADCRUMB_RETRY_MAX_MS,
   BREADCRUMB_TARGET_BATCH_POINTS,
@@ -36,6 +36,7 @@ export function createBreadcrumbUploader(opts) {
   let failStreak = 0;
   let lastUploadAt = 0;
   let closed = false;
+  let started = false;
 
   const counters = {
     uploadsStarted: 0,
@@ -78,7 +79,6 @@ export function createBreadcrumbUploader(opts) {
 
   async function uploadOldest(binding, { force = false } = {}) {
     if (closed || inFlight || !binding) return { ok: false, reason: "busy_or_closed" };
-    // Claim the flight slot before any await to prevent concurrent uploads.
     inFlight = true;
     try {
       let batch = await queue.peekOldestBatch(binding);
@@ -116,7 +116,7 @@ export function createBreadcrumbUploader(opts) {
     }
   }
 
-  async function tick({ reason = "", force = false } = {}) {
+  async function tick({ reason = "", force = false, wake = false } = {}) {
     void reason;
     if (closed) return;
     const binding = getBinding();
@@ -131,9 +131,11 @@ export function createBreadcrumbUploader(opts) {
     const due = force || sizeDue || intervalDue || Boolean(pending);
     if (due) {
       await uploadOldest(binding, { force: force || sizeDue || intervalDue });
-      // Drain pending sequentially if more ready (one in flight per call).
-      while (!closed && (await queue.peekOldestBatch(binding))) {
+      let drained = 0;
+      const maxDrain = wake ? BREADCRUMB_MAX_UPLOADS_PER_WAKE : BREADCRUMB_MAX_UPLOADS_PER_WAKE;
+      while (!closed && drained < maxDrain && (await queue.peekOldestBatch(binding))) {
         const r = await uploadOldest(binding, { force: true });
+        drained += 1;
         if (!r.ok) break;
       }
     }
@@ -141,31 +143,44 @@ export function createBreadcrumbUploader(opts) {
   }
 
   function start() {
+    // Idempotent: do not reset lastUploadAt or reschedule if already running.
+    if (started && !closed) return { ok: true, reason: "already_running" };
     closed = false;
-    lastUploadAt = nowMs();
-    schedule(BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS);
+    started = true;
+    if (!lastUploadAt) lastUploadAt = nowMs();
+    if (!timer) schedule(BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS);
+    return { ok: true };
   }
 
   function stop() {
     closed = true;
+    started = false;
     if (timer) clearT(timer);
     timer = 0;
   }
 
   async function flushBounded(timeoutMs = BREADCRUMB_FINAL_FLUSH_TIMEOUT_MS) {
+    const wasClosed = closed;
+    closed = false;
     const binding = getBinding();
-    if (!binding) return { ok: false, reason: "no_binding" };
-    const started = nowMs();
-    // Force form a batch from remaining points
+    if (!binding) {
+      closed = wasClosed;
+      return { ok: false, reason: "no_binding" };
+    }
+    const startedAt = nowMs();
     await queue.takeBatch(binding, { force: true, maxPoints: BREADCRUMB_TARGET_BATCH_POINTS });
-    while (nowMs() - started < timeoutMs) {
+    while (nowMs() - startedAt < timeoutMs) {
       const pending = await queue.peekOldestBatch(binding);
       const count = await queue.pointCount(binding);
-      if (!pending && count === 0) return { ok: true };
+      if (!pending && count === 0) {
+        closed = wasClosed;
+        return { ok: true };
+      }
       if (pending) {
         const r = await uploadOldest(binding, { force: true });
         if (!r.ok) {
           diag(BREADCRUMB_DIAG.FINAL_FLUSH_TIMEOUT);
+          closed = wasClosed;
           return { ok: false, reason: "upload_failed" };
         }
       } else if (count > 0) {
@@ -174,8 +189,10 @@ export function createBreadcrumbUploader(opts) {
         break;
       }
     }
-    const left = (await queue.pointCount(binding)) + ((await queue.peekOldestBatch(binding)) ? 1 : 0);
+    const left =
+      (await queue.pointCount(binding)) + ((await queue.peekOldestBatch(binding)) ? 1 : 0);
     if (left > 0) diag(BREADCRUMB_DIAG.FINAL_FLUSH_TIMEOUT);
+    closed = wasClosed;
     return { ok: left === 0, remaining: left };
   }
 
@@ -185,6 +202,7 @@ export function createBreadcrumbUploader(opts) {
     tick,
     flushBounded,
     isInFlight: () => inFlight,
-    getCounters: () => ({ ...counters }),
+    getCounters: () => ({ ...counters, lastUploadAt }),
+    _getLastUploadAt: () => lastUploadAt,
   };
 }

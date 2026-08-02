@@ -8,20 +8,20 @@
 const {
   BREADCRUMB_PROTOCOL_VERSION,
   BREADCRUMB_DIAG,
-  assignmentVersionFromRide,
   validateBreadcrumbBatch,
   accumulateDenseChordMeters,
 } = require("./breadcrumb-schema");
 
 const TELEMETRY_COLLECTION = "rideBreadcrumbTelemetry";
 
-function emptyTelemetry(rideId, driverId, vehicleId, assignmentVersion, trackingSessionId) {
+function emptyTelemetry(rideId, driverId, vehicleId, assignmentVersion, trackingSessionId, assignmentSessionToken) {
   return {
     protocolVersion: BREADCRUMB_PROTOCOL_VERSION,
     rideId,
     driverId,
     vehicleId,
     assignmentVersion,
+    assignmentSessionToken: assignmentSessionToken || "",
     trackingSessionId,
     lastBatchSequence: 0,
     lastFixSequence: 0,
@@ -124,6 +124,11 @@ async function submitRideBreadcrumbBatch(db, input) {
       err.code = "permission-denied";
       throw err;
     }
+    if (String(vehicle.activeRideId || "") !== rideId) {
+      const err = new Error("VEHICLE_ACTIVE_RIDE_MISMATCH");
+      err.code = "failed-precondition";
+      throw err;
+    }
     const vehicleSession = String(vehicle.trackingSessionId || "").trim();
     if (!vehicleSession || vehicleSession !== batch.trackingSessionId) {
       const err = new Error("STALE_TRACKING_SESSION");
@@ -131,27 +136,65 @@ async function submitRideBreadcrumbBatch(db, input) {
       throw err;
     }
 
-    const expectedAv = assignmentVersionFromRide(ride);
-    if (batch.assignmentVersion !== expectedAv) {
+    const serverToken = String(ride.assignmentSessionToken || "").trim();
+    if (!serverToken) {
+      // Orphan/legacy: refuse rather than inventing a client-chosen assignment token.
+      const err = new Error("ASSIGNMENT_TOKEN_MISSING");
+      err.code = "failed-precondition";
+      throw err;
+    }
+    if (serverToken !== String(batch.assignmentSessionToken || "").trim()) {
+      const err = new Error("STALE_ASSIGNMENT");
+      err.code = "failed-precondition";
+      throw err;
+    }
+
+    // Keep numeric partition helper aligned with token (not driver|vehicle hash alone).
+    const expectedAv = Math.floor(Number(batch.assignmentVersion) || 0);
+    if (expectedAv < 1) {
       const err = new Error("STALE_ASSIGNMENT");
       err.code = "failed-precondition";
       throw err;
     }
 
     let tel = telemetrySnap.exists
-      ? { ...emptyTelemetry(rideId, driverUid, vehicleId, expectedAv, batch.trackingSessionId), ...telemetrySnap.data() }
-      : emptyTelemetry(rideId, driverUid, vehicleId, expectedAv, batch.trackingSessionId);
+      ? {
+          ...emptyTelemetry(
+            rideId,
+            driverUid,
+            vehicleId,
+            expectedAv,
+            batch.trackingSessionId,
+            serverToken
+          ),
+          ...telemetrySnap.data(),
+        }
+      : emptyTelemetry(
+          rideId,
+          driverUid,
+          vehicleId,
+          expectedAv,
+          batch.trackingSessionId,
+          serverToken
+        );
 
-    // Session / assignment change resets continuity (no invented bridge).
+    // Session / assignment-token change resets continuity (no invented bridge).
     const sessionChanged =
       String(tel.trackingSessionId || "") &&
       String(tel.trackingSessionId) !== batch.trackingSessionId;
     const assignmentChanged =
-      Number(tel.assignmentVersion || 0) &&
-      Number(tel.assignmentVersion) !== expectedAv;
+      String(tel.assignmentSessionToken || "") &&
+      String(tel.assignmentSessionToken) !== serverToken;
 
     if (sessionChanged || assignmentChanged) {
-      tel = emptyTelemetry(rideId, driverUid, vehicleId, expectedAv, batch.trackingSessionId);
+      tel = emptyTelemetry(
+        rideId,
+        driverUid,
+        vehicleId,
+        expectedAv,
+        batch.trackingSessionId,
+        serverToken
+      );
       tel.incompleteCoverage = true;
       tel.gapCount = Number(tel.gapCount || 0) + 1;
     }
@@ -252,6 +295,7 @@ async function submitRideBreadcrumbBatch(db, input) {
     tel.lastBatchKey = key;
     tel.trackingSessionId = batch.trackingSessionId;
     tel.assignmentVersion = expectedAv;
+    tel.assignmentSessionToken = serverToken;
     tel.driverId = driverUid;
     tel.vehicleId = vehicleId;
     tel.rideId = rideId;

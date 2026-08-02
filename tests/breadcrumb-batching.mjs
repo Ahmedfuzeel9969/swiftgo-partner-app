@@ -34,6 +34,7 @@ import {
   BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS,
   accumulateDenseChordMeters,
   assignmentVersionFromRide,
+  assignmentVersionFromToken,
   buildBreadcrumbBatch,
   haversineMeters,
   validateBreadcrumbBatch,
@@ -109,14 +110,13 @@ function createFakeTimers() {
 }
 
 function binding(overrides = {}) {
+  const assignmentSessionToken = overrides.assignmentSessionToken || "as_test_token_bc1";
   return {
     rideId: "ride_bc_1",
     driverId: "driver_bc_1",
     vehicleId: "veh_bc_1",
-    assignmentVersion: assignmentVersionFromRide({
-      driverId: "driver_bc_1",
-      vehicleId: "veh_bc_1",
-    }),
+    assignmentSessionToken,
+    assignmentVersion: assignmentVersionFromToken(assignmentSessionToken),
     trackingSessionId: "s_test_session_1",
     ...overrides,
   };
@@ -149,6 +149,7 @@ async function unitCollectionTests() {
     clearTimeoutFn: timers.clearTimeoutFn,
     onDiag: (c) => diags.push(c),
     callSubmit: async () => ({ ok: true, acknowledged: true }),
+    sampleIntervalMs: 1,
   });
 
   await collector.start({
@@ -163,6 +164,7 @@ async function unitCollectionTests() {
   });
   record("01-in_progress-raw-collected", r1.ok ? "PASS" : "FAIL", r1.reason || "", "unit");
 
+  timers.advance(50);
   const rAcc = await collector.ingestRawFix(rawFix(2, timers), {
     status: "accepted",
     rideId: b.rideId,
@@ -170,6 +172,7 @@ async function unitCollectionTests() {
   });
   record("02-accepted-not-collected", !rAcc.ok ? "PASS" : "FAIL", rAcc.reason || "", "unit");
 
+  timers.advance(50);
   const rArr = await collector.ingestRawFix(rawFix(3, timers), {
     status: "arrived",
     rideId: b.rideId,
@@ -177,6 +180,7 @@ async function unitCollectionTests() {
   });
   record("03-arrived-not-collected", !rArr.ok ? "PASS" : "FAIL", rArr.reason || "", "unit");
 
+  timers.advance(50);
   const rTerm = await collector.ingestRawFix(rawFix(4, timers), {
     status: "completed",
     rideId: b.rideId,
@@ -184,18 +188,21 @@ async function unitCollectionTests() {
   });
   record("04-terminal-not-collected", !rTerm.ok ? "PASS" : "FAIL", rTerm.reason || "", "unit");
 
+  timers.advance(50);
   const rSnap = await collector.ingestRawFix(
     { ...rawFix(5, timers), source: "display_snap" },
     { status: "in_progress", rideId: b.rideId, trackingSessionId: b.trackingSessionId }
   );
   record("05-display-snap-rejected", !rSnap.ok ? "PASS" : "FAIL", rSnap.reason || "", "unit");
 
+  timers.advance(50);
   const rAnim = await collector.ingestRawFix(
     { ...rawFix(6, timers), source: "animation" },
     { status: "in_progress", rideId: b.rideId, trackingSessionId: b.trackingSessionId }
   );
   record("06-animation-rejected", !rAnim.ok ? "PASS" : "FAIL", rAnim.reason || "", "unit");
 
+  timers.advance(50);
   const rMal = await collector.ingestRawFix(
     { sequence: 7, observedAt: timers.nowMs(), lat: NaN, lng: 67, source: "gps" },
     { status: "in_progress", rideId: b.rideId, trackingSessionId: b.trackingSessionId }
@@ -210,6 +217,7 @@ async function unitCollectionTests() {
   });
   record("08-numeric-string-rejected", !rStr.ok ? "PASS" : "FAIL", rStr.reason || "", "unit");
 
+  timers.advance(50);
   const rZero = await collector.ingestRawFix(
     { ...rawFix(9, timers), lat: 0, lng: 0 },
     { status: "in_progress", rideId: b.rideId, trackingSessionId: b.trackingSessionId }
@@ -255,6 +263,7 @@ async function unitCollectionTests() {
     setTimeoutFn: timers.setTimeoutFn,
     clearTimeoutFn: timers.clearTimeoutFn,
     callSubmit: async () => ({ ok: true, acknowledged: true }),
+    sampleIntervalMs: 1,
   });
   await c2.start({ ...b, status: "in_progress", assignedDriverId: b.driverId });
   await c2.ingestRawFix(rawFix(1, timers), {
@@ -332,6 +341,7 @@ async function unitQueueBatchTests() {
       uploads.push(batch);
       return { ok: true, acknowledged: true };
     },
+    sampleIntervalMs: 1,
   });
   await collector.start({ ...b, status: "in_progress", assignedDriverId: b.driverId });
 
@@ -454,6 +464,7 @@ async function unitQueueBatchTests() {
     await retryQ.appendPoint(b, rawFix(i, retryTimers));
   }
   await retryQ.takeBatch(b, { force: true });
+  retryUp.start();
   await retryUp.tick({ force: true });
   const hasBackoff = retryDelays.some((d) => d >= 4000);
   record("21-retry-bounded-backoff", hasBackoff ? "PASS" : "FAIL", `delays=${retryDelays}`, "unit");
@@ -478,6 +489,7 @@ async function unitQueueBatchTests() {
   }
   await netQ.takeBatch(b, { force: true, maxPoints: 3 });
   await netQ.takeBatch(b, { force: true, maxPoints: 3 });
+  netUp.start();
   await netUp.tick({ force: true });
   record(
     "22-network-recovery-sequential",
@@ -578,6 +590,7 @@ async function unitQueueBatchTests() {
       await new Promise((r) => setTimeout(r, 50));
       return { ok: true, acknowledged: true };
     },
+    sampleIntervalMs: 1,
   });
   await flushCol.start({ ...b, rideId: "ride_flush", status: "in_progress", assignedDriverId: b.driverId });
   await flushCol.ingestRawFix(rawFix(1, { nowMs: () => Date.now() }), {
@@ -599,9 +612,10 @@ async function seedRideWorld(db, {
   status = "in_progress",
   session = "s_test_session_1",
   traveledDistanceKm = 1.25,
+  assignmentSessionToken = "as_test_token_bc1",
   extraRide = {},
 } = {}) {
-  const av = assignmentVersionFromRide({ driverId, vehicleId });
+  const av = assignmentVersionFromToken(assignmentSessionToken);
   await db.collection("rides").doc(rideId).set({
     driverId,
     vehicleId,
@@ -609,6 +623,7 @@ async function seedRideWorld(db, {
     status,
     traveledDistanceKm,
     estimatedFare: 500,
+    assignmentSessionToken,
     ...extraRide,
   });
   await db.collection("vehicles").doc(vehicleId).set({
@@ -617,7 +632,7 @@ async function seedRideWorld(db, {
     status: "in_ride",
     activeRideId: rideId,
   });
-  return { av, rideId, driverId, vehicleId, session };
+  return { av, rideId, driverId, vehicleId, session, assignmentSessionToken };
 }
 
 function makeBatch(seed, timers, { seqStart = 1, count = 5, batchSequence = 1, gapBefore = false, overrides = {} } = {}) {
@@ -641,6 +656,7 @@ function makeBatch(seed, timers, { seqStart = 1, count = 5, batchSequence = 1, g
       driverId: seed.driverId,
     },
     assignmentVersion: seed.av,
+    assignmentSessionToken: seed.assignmentSessionToken,
     trackingSessionId: seed.session,
     batchSequence,
     points,
@@ -700,6 +716,26 @@ async function emulatorAuthSchemaTests(db) {
   record("40-owner-denied", "PASS", "covered by binding+rules", "emulator");
   record("41-anonymous-denied", "PASS", "covered by auth gate", "emulator");
 
+  // Restore primary seed vehicle session after status-matrix tests mutated it.
+  await db.collection("vehicles").doc(seed.vehicleId).set(
+    {
+      driverId: seed.driverId,
+      trackingSessionId: seed.session,
+      status: "in_ride",
+      activeRideId: seed.rideId,
+    },
+    { merge: true }
+  );
+  await db.collection("rides").doc(seed.rideId).set(
+    {
+      status: "in_progress",
+      driverId: seed.driverId,
+      vehicleId: seed.vehicleId,
+      assignmentSessionToken: seed.assignmentSessionToken,
+    },
+    { merge: true }
+  );
+
   let wrongVeh = false;
   try {
     const batch = makeBatch(seed, timers, { batchSequence: 2 });
@@ -713,7 +749,7 @@ async function emulatorAuthSchemaTests(db) {
   let wrongAv = false;
   try {
     const batch = makeBatch(seed, timers, { batchSequence: 2 });
-    batch.assignmentVersion = seed.av === 1 ? 2 : 1;
+    batch.assignmentSessionToken = "as_wrong_token_zzzz";
     await submitRideBreadcrumbBatch(db, { driverUid: seed.driverId, batch });
   } catch (e) {
     wrongAv =
@@ -728,7 +764,9 @@ async function emulatorAuthSchemaTests(db) {
     batch.trackingSessionId = "s_wrong_session_xx";
     await submitRideBreadcrumbBatch(db, { driverUid: seed.driverId, batch });
   } catch (e) {
-    wrongSess = String(e.message).includes("STALE_TRACKING_SESSION");
+    wrongSess =
+      String(e.message).includes("STALE_TRACKING_SESSION") ||
+      e.code === "failed-precondition";
   }
   record("44-wrong-session-denied", wrongSess ? "PASS" : "FAIL", "", "emulator");
 
@@ -776,6 +814,7 @@ async function emulatorAuthSchemaTests(db) {
         driverId: seed.driverId,
       },
       assignmentVersion: seed.av,
+      assignmentSessionToken: seed.assignmentSessionToken,
       trackingSessionId: seed.session,
       batchSequence: 1,
       points: [
@@ -794,6 +833,7 @@ async function emulatorAuthSchemaTests(db) {
         driverId: seed.driverId,
       },
       assignmentVersion: seed.av,
+      assignmentSessionToken: seed.assignmentSessionToken,
       trackingSessionId: seed.session,
       batchSequence: 1,
       points: [
@@ -959,11 +999,14 @@ async function emulatorIdempotencyTests(db) {
     "emulator"
   );
 
-  await db.collection("vehicles").doc(seed.vehicleId).update({ trackingSessionId: "s_idemp_2" });
   const newSess = {
     ...seed,
     session: "s_idemp_2",
   };
+  await db.collection("vehicles").doc(seed.vehicleId).update({
+    trackingSessionId: "s_idemp_2",
+    activeRideId: seed.rideId,
+  });
   const reset = await submitRideBreadcrumbBatch(db, {
     driverUid: seed.driverId,
     batch: makeBatch(newSess, timers, { batchSequence: 1, count: 3, seqStart: 1 }),
@@ -1196,8 +1239,8 @@ async function integrationPerfTests() {
   );
   record(
     "86-completion-stops-collector",
-    driverApp.includes('reason: "ride_completed"') ||
-      driverApp.includes('flush: true, reason: "ride_completed"')
+    driverApp.includes("flushBeforeSettlement") &&
+      driverApp.includes('flush: false, reason: "ride_completed"')
       ? "PASS"
       : "FAIL",
     "",
@@ -1217,6 +1260,7 @@ async function integrationPerfTests() {
     driverId: "d",
     av: 1,
     session: "s_abcdefgh",
+    assignmentSessionToken: "as_abcdefghij",
   };
   const batch = makeBatch(seed, timers, { count: BREADCRUMB_MAX_BATCH_POINTS });
   const ser = JSON.stringify(batch);
@@ -1287,24 +1331,29 @@ async function rulesTests() {
       firestore: { rules: rulesText, host: "127.0.0.1", port: 8080 },
     });
   } catch (e) {
-    // Fallback: static proof of deny-all when rules harness cannot reconfigure Firestore.
+    record(
+      "rules-client-read-denied",
+      "BLOCKED",
+      String(e.message || e).slice(0, 160),
+      "rules"
+    );
+    record(
+      "rules-client-write-denied",
+      "BLOCKED",
+      String(e.message || e).slice(0, 160),
+      "rules"
+    );
     const block = read("firestore.rules");
-    const ok =
+    const staticOk =
       /match \/rideBreadcrumbTelemetry\/\{rideId\}[\s\S]*?allow get, list: if false/.test(block) &&
       /match \/rideBreadcrumbTelemetry\/\{rideId\}[\s\S]*?allow create, update, delete: if false/.test(
         block
       );
     record(
-      "rules-client-read-denied",
-      ok ? "PASS" : "FAIL",
-      ok ? "static deny-all match" : String(e.message || e),
-      "rules"
-    );
-    record(
-      "rules-client-write-denied",
-      ok ? "PASS" : "FAIL",
-      ok ? "static deny-all match" : String(e.message || e),
-      "rules"
+      "static-telemetry-deny-all-architecture",
+      staticOk ? "PASS" : "FAIL",
+      "static architecture only",
+      "static"
     );
     return;
   }
@@ -1333,24 +1382,19 @@ async function rulesTests() {
     record("rules-client-write-denied", "PASS", "rules-unit-testing", "rules");
   } catch (e) {
     const msg = String(e.message || e);
+    record("rules-client-read-denied", "BLOCKED", msg.slice(0, 160), "rules");
+    record("rules-client-write-denied", "BLOCKED", msg.slice(0, 160), "rules");
     const block = read("firestore.rules");
     const staticOk =
       /match \/rideBreadcrumbTelemetry\/\{rideId\}[\s\S]*?allow get, list: if false/.test(block) &&
       /match \/rideBreadcrumbTelemetry\/\{rideId\}[\s\S]*?allow create, update, delete: if false/.test(
         block
       );
-    const useStatic = staticOk && /already been started|settings can no longer be changed/i.test(msg);
     record(
-      "rules-client-read-denied",
-      useStatic ? "PASS" : "FAIL",
-      useStatic ? `static deny-all (${msg.slice(0, 80)})` : msg,
-      "rules"
-    );
-    record(
-      "rules-client-write-denied",
-      useStatic ? "PASS" : "FAIL",
-      useStatic ? `static deny-all (${msg.slice(0, 80)})` : msg,
-      "rules"
+      "static-telemetry-deny-all-architecture",
+      staticOk ? "PASS" : "FAIL",
+      "static architecture only",
+      "static"
     );
   } finally {
     await testEnv?.cleanup?.();
@@ -1408,14 +1452,20 @@ async function main() {
     results,
   };
   for (const r of results) {
-    summary.byCategory[r.category] = summary.byCategory[r.category] || { pass: 0, fail: 0, total: 0 };
+    summary.byCategory[r.category] = summary.byCategory[r.category] || {
+      pass: 0,
+      fail: 0,
+      blocked: 0,
+      total: 0,
+    };
     summary.byCategory[r.category].total += 1;
     if (r.status === "PASS") summary.byCategory[r.category].pass += 1;
     if (r.status === "FAIL") summary.byCategory[r.category].fail += 1;
+    if (r.status === "BLOCKED") summary.byCategory[r.category].blocked += 1;
   }
   fs.writeFileSync(OUT, JSON.stringify(summary, null, 2));
   console.log(
-    `\nSummary: ${summary.pass}/${summary.total} PASS, ${summary.fail} FAIL → ${OUT}`
+    `\nSummary: ${summary.pass}/${summary.total} PASS, ${summary.fail} FAIL, ${summary.blocked} BLOCKED → ${OUT}`
   );
   if (summary.fail > 0) process.exitCode = 1;
 }

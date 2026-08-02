@@ -16,6 +16,7 @@ const out =
   body +
   `\nmodule.exports = {\n` +
   `  BREADCRUMB_PROTOCOL_VERSION,\n` +
+  `  BREADCRUMB_SAMPLE_INTERVAL_MS,\n` +
   `  BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS,\n` +
   `  BREADCRUMB_TARGET_BATCH_POINTS,\n` +
   `  BREADCRUMB_MAX_BATCH_POINTS,\n` +
@@ -32,12 +33,15 @@ const out =
   `  BREADCRUMB_RETRY_BASE_MS,\n` +
   `  BREADCRUMB_RETRY_MAX_MS,\n` +
   `  BREADCRUMB_FINAL_FLUSH_TIMEOUT_MS,\n` +
+  `  BREADCRUMB_MAX_UPLOADS_PER_WAKE,\n` +
   `  BREADCRUMB_COORD_DECIMALS,\n` +
   `  BREADCRUMB_DIAG,\n` +
+  `  isValidAssignmentSessionToken,\n` +
   `  isValidLatLng,\n` +
   `  roundCoord,\n` +
   `  haversineMeters,\n` +
   `  assignmentVersionFromRide,\n` +
+  `  assignmentVersionFromToken,\n` +
   `  validateBreadcrumbPoint,\n` +
   `  validateBreadcrumbBatch,\n` +
   `  accumulateDenseChordMeters,\n` +

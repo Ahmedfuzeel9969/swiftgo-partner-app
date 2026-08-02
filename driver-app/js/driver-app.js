@@ -76,7 +76,7 @@ import { createViewerPresenceConsumer } from "./viewer-presence-consumer.mjs";
 import { createDriverP2pController } from "./p2p-ride-controller.mjs";
 import { createDriverActiveRouteController } from "./driver-active-route.mjs";
 import { createBreadcrumbCollector } from "./breadcrumb-collector.mjs";
-import { assignmentVersionFromRide } from "./breadcrumb-schema.mjs";
+import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
 import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { cancelAssignedRideByDriverClient } from "./ride-radar-actions.js";
@@ -355,12 +355,14 @@ function syncBreadcrumbCollectionForActiveRide() {
   const status = String(ride?.status || "");
   const driverId = currentDriver?.uid || "";
   const vehicleId = linkedVehicle?.id || ride?.vehicleId || "";
+  const assignmentSessionToken = String(ride?.assignmentSessionToken || "").trim();
   if (
     !ride?.id ||
     status !== "in_progress" ||
     !driverId ||
     !vehicleId ||
     !locationTrackingSessionId ||
+    !assignmentSessionToken ||
     String(ride.driverId || "") !== driverId
   ) {
     void breadcrumbCollector.stop({ purge: true, flush: false, reason: "not_in_progress" });
@@ -372,7 +374,8 @@ function syncBreadcrumbCollectionForActiveRide() {
     vehicleId,
     ride,
     trackingSessionId: locationTrackingSessionId,
-    assignmentVersion: assignmentVersionFromRide(ride),
+    assignmentSessionToken,
+    assignmentVersion: assignmentVersionFromToken(assignmentSessionToken),
     status,
     assignedDriverId: ride.driverId,
   });
@@ -3212,10 +3215,11 @@ async function finalizeSuccessfulRideCompletion(ride, settlementResult) {
       rideFareAmount(ride),
   };
 
+  // Purge only — final flush must have run while still in_progress (before settlement).
   try {
-    await breadcrumbCollector.stop({ purge: true, flush: true, reason: "ride_completed" });
+    await breadcrumbCollector.stop({ purge: true, flush: false, reason: "ride_completed" });
   } catch {
-    /* bounded flush must not block settlement UI */
+    /* purge must not block settlement UI */
   }
 
   activeExecutionRide = null;
@@ -3509,9 +3513,9 @@ function startActiveRideWatch(rideId, collectionName = "rides") {
         syncBreadcrumbCollectionForActiveRide();
       } else {
         clearActiveRideCache();
-        // Bounded final flush while still authenticated; never blocks completion path indefinitely.
+        // Terminal: never attempt a server upload that is guaranteed to fail.
         void breadcrumbCollector
-          .stop({ purge: true, flush: true, reason: "terminal_status" })
+          .stop({ purge: true, flush: false, reason: "terminal_status" })
           .catch(() => {});
         detachCheckpointPresence("terminal_status");
       }
@@ -3664,6 +3668,12 @@ async function advanceActiveRideStatus() {
         setLocationMessage("فعال سواری اب درست نہیں — ریفریش کریں");
         if (els.activeRideActionBtn) els.activeRideActionBtn.disabled = false;
         return;
+      }
+      // Flush breadcrumbs while still in_progress; never block settlement.
+      try {
+        await breadcrumbCollector.flushBeforeSettlement();
+      } catch {
+        /* flush timeout/failure must not prevent settlement */
       }
       const settlementResult = await completeRideWithEarnings({ ...ride, ...live });
       await finalizeSuccessfulRideCompletion(

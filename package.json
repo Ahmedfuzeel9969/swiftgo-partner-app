@@ -47,7 +47,8 @@
     "test:p2p-webrtc": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/p2p-webrtc.mjs\"",
     "test:road-routing": "node tests/road-routing.mjs",
     "test:road-snapping": "node tests/road-snapping.mjs",
-    "test:breadcrumb-batching": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/breadcrumb-batching.mjs\""
+    "test:breadcrumb-batching": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/breadcrumb-batching.mjs\"",
+    "test:breadcrumb-hardening": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/breadcrumb-hardening.mjs\""
   },
   "keywords": [],
   "author": "",

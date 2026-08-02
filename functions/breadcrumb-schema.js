@@ -8,6 +8,8 @@
 
 const BREADCRUMB_PROTOCOL_VERSION = 1;
 
+/** Cost-aware default: sample ~1 telemetry point / 4s (not 1 Hz server upload). */
+const BREADCRUMB_SAMPLE_INTERVAL_MS = 4_000;
 const BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS = 60_000;
 const BREADCRUMB_TARGET_BATCH_POINTS = 15;
 const BREADCRUMB_MAX_BATCH_POINTS = 30;
@@ -24,6 +26,8 @@ const BREADCRUMB_MAX_SPEED_MPS = 55;
 const BREADCRUMB_RETRY_BASE_MS = 5_000;
 const BREADCRUMB_RETRY_MAX_MS = 120_000;
 const BREADCRUMB_FINAL_FLUSH_TIMEOUT_MS = 4_000;
+/** Bound catch-up uploads per network/app wake to avoid request storms. */
+const BREADCRUMB_MAX_UPLOADS_PER_WAKE = 3;
 const BREADCRUMB_COORD_DECIMALS = 7;
 
 const BREADCRUMB_DIAG = Object.freeze({
@@ -31,6 +35,7 @@ const BREADCRUMB_DIAG = Object.freeze({
   COLLECTION_STOPPED: "breadcrumb_collection_stopped",
   POINT_ACCEPTED: "breadcrumb_point_accepted",
   POINT_REJECTED: "breadcrumb_point_rejected",
+  POINT_SAMPLED_OUT: "breadcrumb_point_sampled_out",
   BATCH_QUEUED: "breadcrumb_batch_queued",
   BATCH_UPLOAD_STARTED: "breadcrumb_batch_upload_started",
   BATCH_ACKNOWLEDGED: "breadcrumb_batch_acknowledged",
@@ -42,7 +47,15 @@ const BREADCRUMB_DIAG = Object.freeze({
   STALE_QUEUE_PURGED: "breadcrumb_stale_queue_purged",
   SHADOW_UPDATED: "breadcrumb_shadow_updated",
   FINAL_FLUSH_TIMEOUT: "breadcrumb_final_flush_timeout",
+  IDB_UNAVAILABLE: "breadcrumb_idb_unavailable",
+  ALREADY_ACTIVE: "breadcrumb_already_active",
 });
+
+/** Server-minted assignment session token shape (Admin/CF only). */
+function isValidAssignmentSessionToken(token) {
+  const t = String(token || "");
+  return t.length >= 8 && t.length <= 80 && /^[A-Za-z0-9_-]+$/.test(t);
+}
 
 function isValidLatLng(lat, lng) {
   if (typeof lat === "string" || typeof lng === "string") return false;
@@ -71,6 +84,14 @@ function haversineMeters(a, b) {
 
 function assignmentVersionFromRide(ride) {
   const raw = `${ride?.driverId || ""}|${ride?.vehicleId || ""}`;
+  let h = 0;
+  for (let i = 0; i < raw.length; i += 1) h = (h * 31 + raw.charCodeAt(i)) >>> 0;
+  return Math.max(1, h % 1_000_000_000);
+}
+
+/** Stable numeric partition helper derived from server assignmentSessionToken. */
+function assignmentVersionFromToken(token) {
+  const raw = String(token || "");
   let h = 0;
   for (let i = 0; i < raw.length; i += 1) h = (h * 31 + raw.charCodeAt(i)) >>> 0;
   return Math.max(1, h % 1_000_000_000);
@@ -145,6 +166,7 @@ function validateBreadcrumbBatch(batch, { nowMs = Date.now() } = {}) {
   const vehicleId = String(batch.rideBinding?.vehicleId || batch.vehicleId || "").trim();
   const driverId = String(batch.rideBinding?.driverId || batch.driverId || "").trim();
   const trackingSessionId = String(batch.trackingSessionId || "").trim();
+  const assignmentSessionToken = String(batch.assignmentSessionToken || "").trim();
   const assignmentVersion = Math.floor(Number(batch.assignmentVersion) || 0);
   const batchSequence = Math.floor(Number(batch.batchSequence) || 0);
   if (!rideId || rideId.length > 128) return { ok: false, reason: "invalid_ride" };
@@ -155,6 +177,9 @@ function validateBreadcrumbBatch(batch, { nowMs = Date.now() } = {}) {
   }
   if (!/^[A-Za-z0-9_-]+$/.test(trackingSessionId)) {
     return { ok: false, reason: "invalid_tracking_session" };
+  }
+  if (!isValidAssignmentSessionToken(assignmentSessionToken)) {
+    return { ok: false, reason: "invalid_assignment_session_token" };
   }
   if (assignmentVersion < 1) return { ok: false, reason: "invalid_assignment_version" };
   if (batchSequence < 1) return { ok: false, reason: "invalid_batch_sequence" };
@@ -196,6 +221,7 @@ function validateBreadcrumbBatch(batch, { nowMs = Date.now() } = {}) {
   const normalized = {
     protocolVersion,
     rideBinding: { rideId, vehicleId, driverId },
+    assignmentSessionToken,
     assignmentVersion,
     trackingSessionId,
     batchSequence,
@@ -277,6 +303,7 @@ function accumulateDenseChordMeters(points, {
 function buildBreadcrumbBatch({
   rideBinding,
   assignmentVersion,
+  assignmentSessionToken,
   trackingSessionId,
   batchSequence,
   points,
@@ -288,6 +315,7 @@ function buildBreadcrumbBatch({
     protocolVersion: BREADCRUMB_PROTOCOL_VERSION,
     rideBinding,
     assignmentVersion,
+    assignmentSessionToken,
     trackingSessionId,
     batchSequence,
     firstFixSequence: list[0]?.sequence ?? 0,
@@ -304,6 +332,7 @@ function estimatePointBytes(point) {
 
 module.exports = {
   BREADCRUMB_PROTOCOL_VERSION,
+  BREADCRUMB_SAMPLE_INTERVAL_MS,
   BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS,
   BREADCRUMB_TARGET_BATCH_POINTS,
   BREADCRUMB_MAX_BATCH_POINTS,
@@ -320,12 +349,15 @@ module.exports = {
   BREADCRUMB_RETRY_BASE_MS,
   BREADCRUMB_RETRY_MAX_MS,
   BREADCRUMB_FINAL_FLUSH_TIMEOUT_MS,
+  BREADCRUMB_MAX_UPLOADS_PER_WAKE,
   BREADCRUMB_COORD_DECIMALS,
   BREADCRUMB_DIAG,
+  isValidAssignmentSessionToken,
   isValidLatLng,
   roundCoord,
   haversineMeters,
   assignmentVersionFromRide,
+  assignmentVersionFromToken,
   validateBreadcrumbPoint,
   validateBreadcrumbBatch,
   accumulateDenseChordMeters,
