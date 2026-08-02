@@ -9,7 +9,14 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-function run(script) {
+function removePreviousResult(resultFile) {
+  const full = path.join(ROOT, "tests", resultFile);
+  if (fs.existsSync(full)) fs.unlinkSync(full);
+}
+
+function run(script, resultFile) {
+  removePreviousResult(resultFile);
+  const startedAtMs = Date.now();
   const r = spawnSync(process.execPath, [path.join(ROOT, "tests", script)], {
     env: process.env,
     encoding: "utf8",
@@ -17,12 +24,31 @@ function run(script) {
   });
   process.stdout.write(r.stdout || "");
   process.stderr.write(r.stderr || "");
-  return r.status ?? 1;
+  const finishedAtMs = Date.now();
+  const resultPath = path.join(ROOT, "tests", resultFile);
+  let freshResult = false;
+  if (fs.existsSync(resultPath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(resultPath, "utf8"));
+      const generatedAtMs = Date.parse(String(parsed.generatedAt || ""));
+      const mtimeMs = fs.statSync(resultPath).mtimeMs;
+      freshResult =
+        Number.isFinite(generatedAtMs) &&
+        generatedAtMs >= startedAtMs - 5_000 &&
+        generatedAtMs <= finishedAtMs + 5_000 &&
+        mtimeMs >= startedAtMs - 1_000;
+    } catch {
+      freshResult = false;
+    }
+  }
+  if (r.error) return 1;
+  if (r.status !== 0) return r.status ?? 1;
+  return freshResult ? 0 : 1;
 }
 
-const code1 = run("phase2a-emulator-suite.mjs");
-const code2 = run("phase2a-settlement-only.mjs");
-const code3 = run("phase2a-bargaining-suite.mjs");
+const code1 = run("phase2a-emulator-suite.mjs", "phase2a-emulator-results.json");
+const code2 = run("phase2a-settlement-only.mjs", "phase2a-settlement-results.json");
+const code3 = run("phase2a-bargaining-suite.mjs", "phase2a-bargaining-results.json");
 
 function readJson(rel, fallback) {
   const full = path.join(ROOT, "tests", rel);

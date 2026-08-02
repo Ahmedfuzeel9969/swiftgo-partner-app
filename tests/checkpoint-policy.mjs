@@ -484,13 +484,17 @@ async function unitSerializerTests() {
 
   // Rapid transitions shouldn't strand
   let stranded = false;
+  let injectedAfterDrain = false;
   const ser2 = createLocationWriteSerializer({
     isCancelled: () => false,
     writeFn: async () => {
       await new Promise((r) => setTimeout(r, 5));
     },
     onAfterDrainBeforeClear: () => {
-      ser2.enqueue({ generation: 1, sessionId: "s", envelope: {}, payload: { n: 9 } });
+      if (!injectedAfterDrain) {
+        injectedAfterDrain = true;
+        ser2.enqueue({ generation: 1, sessionId: "s", envelope: {}, payload: { n: 9 } });
+      }
     },
   });
   await ser2.enqueue({ generation: 1, sessionId: "s", envelope: {}, payload: { n: 1 } });

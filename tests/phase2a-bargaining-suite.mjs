@@ -61,24 +61,39 @@ async function seedPartner(id, extra = {}) {
   });
 }
 
+async function seedLinkedVehicle(driverId, vehicleId) {
+  await db.doc(`vehicles/${vehicleId}`).set({
+    driverId,
+    ownerId: "test-owner",
+    status: "offline",
+    activeRideId: null,
+  });
+}
+
 async function main() {
   // Candidate limit validation
   try {
+    validateCandidateDriverLimit(1);
+    validateCandidateDriverLimit(7);
     validateCandidateDriverLimit(10);
+    validateCandidateDriverLimit(15);
     validateCandidateDriverLimit(20);
-    let rejected = false;
-    try {
-      validateCandidateDriverLimit(15);
-    } catch {
-      rejected = true;
+    validateCandidateDriverLimit(100);
+    let rejectedBounds = 0;
+    for (const invalid of [0, 101]) {
+      try {
+        validateCandidateDriverLimit(invalid);
+      } catch {
+        rejectedBounds += 1;
+      }
     }
     record(
-      "B01-candidate-limit-10-20-only",
-      rejected ? "PASS" : "FAIL",
-      "10/20 ok; 15 rejected"
+      "B01-candidate-limit-range-1-100",
+      rejectedBounds === 2 ? "PASS" : "FAIL",
+      `valid range accepted; rejectedBounds=${rejectedBounds}`
     );
   } catch (e) {
-    record("B01-candidate-limit-10-20-only", "FAIL", String(e.message));
+    record("B01-candidate-limit-range-1-100", "FAIL", String(e.message));
   }
 
   // Progressive rings + limit 10
@@ -151,9 +166,9 @@ async function main() {
       rideId: "match-ride",
       pickup,
       onlineDrivers: [],
-      candidateDriverLimit: 7,
+      candidateDriverLimit: 101,
     });
-    record("B06-invalid-candidate-limit-rejected", "FAIL", "accepted 7");
+    record("B06-invalid-candidate-limit-rejected", "FAIL", "accepted 101");
   } catch (e) {
     record(
       "B06-invalid-candidate-limit-rejected",
@@ -320,6 +335,8 @@ async function main() {
   // Bargaining: multi-offer, privacy, limits, atomic assign
   await seedPartner("barg-d1");
   await seedPartner("barg-d2");
+  await seedLinkedVehicle("barg-d1", "v1");
+  await seedLinkedVehicle("barg-d2", "v2");
   await db.doc("rides/barg-ride").set({
     userId: "cust-barg",
     status: "searching_driver",
@@ -401,6 +418,8 @@ async function main() {
   });
   await seedPartner("race-d1");
   await seedPartner("race-d2");
+  await seedLinkedVehicle("race-d1", "rv1");
+  await seedLinkedVehicle("race-d2", "rv2");
   await matchRideCandidates(db, {
     rideId: "race-ride",
     pickup,
@@ -472,6 +491,7 @@ async function main() {
       { driverId: raceRide.driverId, lat: pickup.lat + 0.001, lng: pickup.lng, status: "online" },
     ],
   });
+  await seedLinkedVehicle(raceRide.driverId, "x");
   try {
     await submitRideOffer(db, {
       rideId: "second-ride",
@@ -504,6 +524,7 @@ async function main() {
 
   // Max 10 open bargains
   await seedPartner("limit-d");
+  await seedLinkedVehicle("limit-d", "lv");
   const limitOffers = [];
   for (let i = 0; i < 10; i++) {
     const rid = `lim-ride-${i}`;
