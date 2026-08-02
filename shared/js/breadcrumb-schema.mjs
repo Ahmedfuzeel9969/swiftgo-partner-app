@@ -23,8 +23,16 @@ export const BREADCRUMB_MAX_SPEED_MPS = 55;
 export const BREADCRUMB_RETRY_BASE_MS = 5_000;
 export const BREADCRUMB_RETRY_MAX_MS = 120_000;
 export const BREADCRUMB_FINAL_FLUSH_TIMEOUT_MS = 4_000;
-/** Bound catch-up uploads per network/app wake to avoid request storms. */
+/**
+ * Strict total upload attempts per network/app wake tick (includes the first).
+ * Offline backlog may need multiple wakes; never storm beyond this per wake.
+ */
 export const BREADCRUMB_MAX_UPLOADS_PER_WAKE = 3;
+/**
+ * Normal scheduled timer tick: at most one upload attempt (healthy ~1 callable/min).
+ * Distinct from wake catch-up.
+ */
+export const BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK = 1;
 export const BREADCRUMB_COORD_DECIMALS = 7;
 
 export const BREADCRUMB_DIAG = Object.freeze({

@@ -5,6 +5,7 @@
 import {
   BREADCRUMB_DIAG,
   BREADCRUMB_FINAL_FLUSH_TIMEOUT_MS,
+  BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK,
   BREADCRUMB_MAX_UPLOADS_PER_WAKE,
   BREADCRUMB_RETRY_BASE_MS,
   BREADCRUMB_RETRY_MAX_MS,
@@ -129,15 +130,29 @@ export function createBreadcrumbUploader(opts) {
     const sizeDue = count >= BREADCRUMB_TARGET_BATCH_POINTS;
     const pending = await queue.peekOldestBatch(binding);
     const due = force || sizeDue || intervalDue || Boolean(pending);
-    if (due) {
-      await uploadOldest(binding, { force: force || sizeDue || intervalDue });
-      let drained = 0;
-      const maxDrain = wake ? BREADCRUMB_MAX_UPLOADS_PER_WAKE : BREADCRUMB_MAX_UPLOADS_PER_WAKE;
-      while (!closed && drained < maxDrain && (await queue.peekOldestBatch(binding))) {
-        const r = await uploadOldest(binding, { force: true });
-        drained += 1;
-        if (!r.ok) break;
+    // Wake: BREADCRUMB_MAX_UPLOADS_PER_WAKE is the strict TOTAL including the first attempt.
+    // Scheduled: BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK (normally 1).
+    const maxAttempts = wake
+      ? BREADCRUMB_MAX_UPLOADS_PER_WAKE
+      : BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK;
+    let attempts = 0;
+    if (due && attempts < maxAttempts) {
+      const r = await uploadOldest(binding, { force: force || sizeDue || intervalDue });
+      attempts += 1;
+      if (!r.ok) {
+        schedule(BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS);
+        return;
       }
+    }
+    while (
+      wake &&
+      !closed &&
+      attempts < maxAttempts &&
+      (await queue.peekOldestBatch(binding))
+    ) {
+      const r = await uploadOldest(binding, { force: true });
+      attempts += 1;
+      if (!r.ok) break;
     }
     schedule(BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS);
   }

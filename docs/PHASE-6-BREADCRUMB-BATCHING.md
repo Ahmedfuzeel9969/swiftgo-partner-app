@@ -19,7 +19,8 @@ Fare, wallet, earnings, commission, settlement, partial-cancellation fare, and r
 - Partition key: `rideId|driverId|vehicleId|assignmentSessionToken|trackingSessionId`.
 - Bounds: `BREADCRUMB_MAX_QUEUE_POINTS` (180), `BREADCRUMB_MAX_QUEUE_BYTES` (80_000).
 - Retention: `BREADCRUMB_QUEUE_RETENTION_MS` (2 hours) then purge.
-- Offline catch-up: at most `BREADCRUMB_MAX_UPLOADS_PER_WAKE` (3) uploads per wake.
+- Offline catch-up: at most `BREADCRUMB_MAX_UPLOADS_PER_WAKE` (3) upload attempts **per wake tick total** (including the first).
+- Normal scheduled timer ticks use `BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK` (1) — healthy online operation remains about one callable per minute.
 
 ## Privacy
 - Raw coordinates in the queue **are sensitive location / personal data**.

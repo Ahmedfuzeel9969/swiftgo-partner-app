@@ -34,6 +34,7 @@ const out =
   `  BREADCRUMB_RETRY_MAX_MS,\n` +
   `  BREADCRUMB_FINAL_FLUSH_TIMEOUT_MS,\n` +
   `  BREADCRUMB_MAX_UPLOADS_PER_WAKE,\n` +
+  `  BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK,\n` +
   `  BREADCRUMB_COORD_DECIMALS,\n` +
   `  BREADCRUMB_DIAG,\n` +
   `  isValidAssignmentSessionToken,\n` +

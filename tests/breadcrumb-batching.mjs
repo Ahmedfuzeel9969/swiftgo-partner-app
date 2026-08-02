@@ -9,20 +9,6 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import {
-  assertFails,
-  assertSucceeds,
-  initializeTestEnvironment,
-} from "@firebase/rules-unit-testing";
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  collection,
-  getDocs,
-} from "firebase/firestore";
-import {
   BREADCRUMB_DIAG,
   BREADCRUMB_MAX_BATCH_BYTES,
   BREADCRUMB_MAX_BATCH_POINTS,
@@ -48,7 +34,6 @@ const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "tests", "breadcrumb-batching-results.json");
 const PROJECT = "demo-swiftgo-phase1";
-const rulesText = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
 
 process.env.FIRESTORE_EMULATOR_HOST ||= "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST ||= "127.0.0.1:9099";
@@ -490,7 +475,8 @@ async function unitQueueBatchTests() {
   await netQ.takeBatch(b, { force: true, maxPoints: 3 });
   await netQ.takeBatch(b, { force: true, maxPoints: 3 });
   netUp.start();
-  await netUp.tick({ force: true });
+  // Multi-batch catch-up uses wake drain (strict ≤ MAX_UPLOADS_PER_WAKE).
+  await netUp.tick({ force: true, wake: true });
   record(
     "22-network-recovery-sequential",
     seqUploads.length >= 2 && seqUploads[0] < seqUploads[1] ? "PASS" : "FAIL",
@@ -1324,25 +1310,31 @@ async function integrationPerfTests() {
 }
 
 async function rulesTests() {
-  let testEnv;
+  const { spawnSync } = await import("node:child_process");
+  const child = spawnSync(
+    process.execPath,
+    [path.join(ROOT, "tests", "breadcrumb-telemetry-rules.mjs")],
+    {
+      cwd: ROOT,
+      env: { ...process.env },
+      encoding: "utf8",
+    }
+  );
+  if (child.stdout) process.stdout.write(child.stdout);
+  if (child.stderr) process.stderr.write(child.stderr);
+
+  const rulesOut = path.join(ROOT, "tests", "breadcrumb-telemetry-rules-results.json");
+  let parsed = null;
   try {
-    testEnv = await initializeTestEnvironment({
-      projectId: `${PROJECT}-breadcrumb-rules`,
-      firestore: { rules: rulesText, host: "127.0.0.1", port: 8080 },
-    });
+    parsed = JSON.parse(fs.readFileSync(rulesOut, "utf8"));
   } catch (e) {
     record(
       "rules-client-read-denied",
       "BLOCKED",
-      String(e.message || e).slice(0, 160),
+      `isolated rules harness did not write results: ${String(e.message || e).slice(0, 80)}`,
       "rules"
     );
-    record(
-      "rules-client-write-denied",
-      "BLOCKED",
-      String(e.message || e).slice(0, 160),
-      "rules"
-    );
+    record("rules-client-write-denied", "BLOCKED", "no results file", "rules");
     const block = read("firestore.rules");
     const staticOk =
       /match \/rideBreadcrumbTelemetry\/\{rideId\}[\s\S]*?allow get, list: if false/.test(block) &&
@@ -1357,47 +1349,9 @@ async function rulesTests() {
     );
     return;
   }
-  try {
-    await testEnv.clearFirestore();
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), TELEMETRY_COLLECTION, "ride_rules"), {
-        denseChordDistanceMeters: 1,
-        rideId: "ride_rules",
-      });
-    });
 
-    const driver = testEnv.authenticatedContext("driver_bc_1");
-    const customer = testEnv.authenticatedContext("customer_bc_1");
-    const owner = testEnv.authenticatedContext("owner_bc_1");
-    const anon = testEnv.unauthenticatedContext();
-
-    await assertFails(getDoc(doc(driver.firestore(), TELEMETRY_COLLECTION, "ride_rules")));
-    await assertFails(getDoc(doc(customer.firestore(), TELEMETRY_COLLECTION, "ride_rules")));
-    await assertFails(updateDoc(doc(driver.firestore(), TELEMETRY_COLLECTION, "ride_rules"), { x: 1 }));
-    await assertFails(setDoc(doc(owner.firestore(), TELEMETRY_COLLECTION, "ride_hack"), { y: 1 }));
-    await assertFails(getDoc(doc(anon.firestore(), TELEMETRY_COLLECTION, "ride_rules")));
-    await assertFails(deleteDoc(doc(driver.firestore(), TELEMETRY_COLLECTION, "ride_rules")));
-
-    record("rules-client-read-denied", "PASS", "rules-unit-testing", "rules");
-    record("rules-client-write-denied", "PASS", "rules-unit-testing", "rules");
-  } catch (e) {
-    const msg = String(e.message || e);
-    record("rules-client-read-denied", "BLOCKED", msg.slice(0, 160), "rules");
-    record("rules-client-write-denied", "BLOCKED", msg.slice(0, 160), "rules");
-    const block = read("firestore.rules");
-    const staticOk =
-      /match \/rideBreadcrumbTelemetry\/\{rideId\}[\s\S]*?allow get, list: if false/.test(block) &&
-      /match \/rideBreadcrumbTelemetry\/\{rideId\}[\s\S]*?allow create, update, delete: if false/.test(
-        block
-      );
-    record(
-      "static-telemetry-deny-all-architecture",
-      staticOk ? "PASS" : "FAIL",
-      "static architecture only",
-      "static"
-    );
-  } finally {
-    await testEnv?.cleanup?.();
+  for (const r of parsed.results || []) {
+    record(r.name, r.status, r.detail || "", r.category || "rules");
   }
 }
 

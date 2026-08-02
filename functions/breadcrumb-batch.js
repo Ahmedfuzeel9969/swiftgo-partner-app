@@ -10,6 +10,7 @@ const {
   BREADCRUMB_DIAG,
   validateBreadcrumbBatch,
   accumulateDenseChordMeters,
+  assignmentVersionFromToken,
 } = require("./breadcrumb-schema");
 
 const TELEMETRY_COLLECTION = "rideBreadcrumbTelemetry";
@@ -149,10 +150,15 @@ async function submitRideBreadcrumbBatch(db, input) {
       throw err;
     }
 
-    // Keep numeric partition helper aligned with token (not driver|vehicle hash alone).
-    const expectedAv = Math.floor(Number(batch.assignmentVersion) || 0);
+    // assignmentVersion must be derived from the server token — never trust an arbitrary client value.
+    const expectedAv = assignmentVersionFromToken(serverToken);
     if (expectedAv < 1) {
-      const err = new Error("STALE_ASSIGNMENT");
+      const err = new Error("ASSIGNMENT_TOKEN_MISSING");
+      err.code = "failed-precondition";
+      throw err;
+    }
+    if (Math.floor(Number(batch.assignmentVersion) || 0) !== expectedAv) {
+      const err = new Error("ASSIGNMENT_VERSION_MISMATCH");
       err.code = "failed-precondition";
       throw err;
     }

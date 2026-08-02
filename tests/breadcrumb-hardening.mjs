@@ -5,30 +5,25 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import {
-  assertFails,
-  initializeTestEnvironment,
-} from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
-import {
-  BREADCRUMB_DIAG,
   BREADCRUMB_MAX_UPLOADS_PER_WAKE,
+  BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK,
   BREADCRUMB_SAMPLE_INTERVAL_MS,
   BREADCRUMB_TARGET_BATCH_POINTS,
-  BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS,
   assignmentVersionFromToken,
   buildBreadcrumbBatch,
 } from "../shared/js/breadcrumb-schema.mjs";
 import { createBreadcrumbQueue } from "../driver-app/js/breadcrumb-queue.mjs";
 import { createBreadcrumbCollector } from "../driver-app/js/breadcrumb-collector.mjs";
+import { createBreadcrumbUploader } from "../driver-app/js/breadcrumb-uploader.mjs";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "tests", "breadcrumb-hardening-results.json");
 const PROJECT = "demo-swiftgo-phase1";
-const rulesText = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
 
 process.env.FIRESTORE_EMULATOR_HOST ||= "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST ||= "127.0.0.1:9099";
@@ -221,10 +216,24 @@ async function queueConcurrencyTests() {
   timers.advance(1000);
   const left = await q.pointCount(b2);
   const pending = await q.peekOldestBatch(b2);
+  const takePts = take.batch?.points?.length || 0;
+  const snap2 = await q._load(b2);
+  const seqs = [
+    ...(snap2?.points || []).map((p) => p.sequence),
+    ...(pending?.points || []).map((p) => p.sequence),
+  ].sort((x, y) => x - y);
+  const exactTotal = left + takePts === 11;
+  const exactTake = take.ok && takePts === 5;
+  const exactSeqs =
+    a.ok &&
+    seqs.length === 11 &&
+    seqs.every((s, i) => s === i + 1) &&
+    pending &&
+    pending.batchSequence === take.batch.batchSequence;
   record(
     "h-append-take-no-loss",
-    take.ok && left + (take.batch?.points?.length || 0) + (a.ok ? 0 : 0) >= 10 ? "PASS" : "FAIL",
-    `left=${left} takePts=${take.batch?.points?.length} a=${a.ok} pending=${Boolean(pending)}`,
+    exactTotal && exactTake && exactSeqs ? "PASS" : "FAIL",
+    `left=${left} takePts=${takePts} total=${left + takePts} seqs=[${seqs.join(",")}] a=${a.ok}`,
     "unit"
   );
 
@@ -234,15 +243,26 @@ async function queueConcurrencyTests() {
     await q.appendPoint(b3, rawFix(i, timers));
   }
   const tb = await q.takeBatch(b3, { force: true });
+  timers.advance(1000);
   await Promise.all([
     q.appendPoint(b3, rawFix(6, timers)),
     q.acknowledgeBatch(b3, tb.batch.batchSequence),
   ]);
   const still = await q.peekOldestBatch(b3);
+  const snap3 = await q._load(b3);
+  const cnt3 = await q.pointCount(b3);
+  const ackGone = !still || still.batchSequence !== tb.batch.batchSequence;
+  const point6Once =
+    cnt3 === 1 &&
+    (snap3?.points || []).length === 1 &&
+    snap3.points[0].sequence === 6 &&
+    !(snap3?.pendingBatches || []).some((b) =>
+      (b.points || []).some((p) => p.sequence === 6)
+    );
   record(
     "h-append-ack-no-resurrect",
-    !still || still.batchSequence !== tb.batch.batchSequence ? "PASS" : "FAIL",
-    "",
+    ackGone && point6Once ? "PASS" : "FAIL",
+    `ackGone=${ackGone} cnt=${cnt3} seq6once=${point6Once}`,
     "unit"
   );
 
@@ -353,48 +373,74 @@ async function samplingBillingSims() {
     "performance"
   );
 
-  // Offline 30 min then wake drain bounded
+  // Offline backlog → wake drain: shared queue, DI submitter, strict ≤3 attempts/wake.
   const bOff = binding({ rideId: "ride_offline" });
-  const offline = createBreadcrumbCollector({
+  let online = false;
+  let wake1Attempts = 0;
+  let wake2Attempts = 0;
+  let wakePhase = 0;
+  const ackedSeqs = [];
+  const qOff = createBreadcrumbQueue({ nowMs: timers.nowMs, allowMemoryFallback: true });
+  const upOff = createBreadcrumbUploader({
+    queue: qOff,
+    getBinding: () => bOff,
     nowMs: timers.nowMs,
     setTimeoutFn: timers.setTimeoutFn,
     clearTimeoutFn: timers.clearTimeoutFn,
-    callSubmit: async () => {
-      throw new Error("offline");
-    },
-  });
-  await offline.start({ ...bOff, status: "in_progress", assignedDriverId: bOff.driverId });
-  seq = 1;
-  for (let s = 0; s < 30 * 60; s += 4) {
-    timers.advance(4000);
-    await offline.ingestRawFix(rawFix(seq++, timers), {
-      status: "in_progress",
-      rideId: bOff.rideId,
-      trackingSessionId: bOff.trackingSessionId,
-    });
-  }
-  let wakeUploads = 0;
-  offline._uploader.stop();
-  // replace callSubmit via new uploader path: use tick after injecting
-  const drainCollector = createBreadcrumbCollector({
-    nowMs: timers.nowMs,
-    setTimeoutFn: timers.setTimeoutFn,
-    clearTimeoutFn: timers.clearTimeoutFn,
-    callSubmit: async () => {
-      wakeUploads += 1;
+    callSubmit: async (batch) => {
+      if (!online) throw new Error("offline");
+      if (wakePhase === 1) wake1Attempts += 1;
+      if (wakePhase === 2) wake2Attempts += 1;
+      ackedSeqs.push(batch.batchSequence);
       return { ok: true, acknowledged: true };
     },
   });
-  // Transfer via continuing on same queue is hard; assert bound constant exists and offline hit bound
-  const offCnt = await offline._queue.pointCount(bOff);
+  upOff.start();
+  seq = 1;
+  for (let i = 0; i < 75; i += 1) {
+    timers.advance(4000);
+    await qOff.appendPoint(bOff, rawFix(seq++, timers));
+  }
+  const batchSeqs = [];
+  for (let i = 0; i < 5; i += 1) {
+    const tb = await qOff.takeBatch(bOff, { force: true, maxPoints: 15 });
+    if (tb.ok) batchSeqs.push(tb.batch.batchSequence);
+  }
+  const beforeWake = await qOff._load(bOff);
+  const pendingBefore = beforeWake?.pendingBatches?.length || 0;
+  online = true;
+  wakePhase = 1;
+  await upOff.tick({ force: true, wake: true });
+  const afterWake1 = await qOff._load(bOff);
+  const pendingAfter1 = afterWake1?.pendingBatches?.length || 0;
+  const oldestAfter1 = afterWake1?.pendingBatches?.[0]?.batchSequence;
+  wakePhase = 2;
+  await upOff.tick({ force: true, wake: true });
+  const afterWake2 = await qOff._load(bOff);
+  const pendingAfter2 = afterWake2?.pendingBatches?.length || 0;
+  const allAckedUnique = new Set(ackedSeqs).size === ackedSeqs.length;
+  const wakeOk =
+    BREADCRUMB_MAX_UPLOADS_PER_WAKE === 3 &&
+    BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK === 1 &&
+    pendingBefore === 5 &&
+    wake1Attempts === 3 &&
+    wake1Attempts <= BREADCRUMB_MAX_UPLOADS_PER_WAKE &&
+    pendingAfter1 === 2 &&
+    oldestAfter1 === batchSeqs[3] &&
+    wake2Attempts === 2 &&
+    pendingAfter2 === 0 &&
+    allAckedUnique &&
+    ackedSeqs.length === 5 &&
+    ackedSeqs[0] === batchSeqs[0] &&
+    (await qOff.pointCount(bOff)) === 0;
   record(
     "h-offline-bound-then-wake-limit",
-    offCnt <= 180 && BREADCRUMB_MAX_UPLOADS_PER_WAKE === 3 ? "PASS" : "FAIL",
-    `offCnt=${offCnt} wakeMax=${BREADCRUMB_MAX_UPLOADS_PER_WAKE}`,
+    wakeOk ? "PASS" : "FAIL",
+    `w1=${wake1Attempts} w2=${wake2Attempts} pend=${pendingBefore}->${pendingAfter1}->${pendingAfter2} acked=[${ackedSeqs.join(",")}]`,
     "performance"
   );
-  void drainCollector;
-  await offline.stop({ purge: true });
+  upOff.stop();
+  await qOff.purgePartition(bOff);
   await collector.stop({ purge: true });
   await c8.stop({ purge: true });
 }
@@ -616,6 +662,162 @@ async function flushOrderAndSettlement(db) {
   }
   record("h-activeRideId-enforced", deniedActive ? "PASS" : "FAIL", "", "emulator");
 
+  // Restore vehicle pointer for assignmentVersion binding tests
+  await db.collection("vehicles").doc(seed.vehicleId).set(
+    {
+      driverId,
+      trackingSessionId: seed.session,
+      activeRideId: seed.rideId,
+      status: "in_ride",
+    },
+    { merge: true }
+  );
+
+  function makeBindBatch({ assignmentSessionToken, assignmentVersion, batchSequence = 1 }) {
+    return buildBreadcrumbBatch({
+      rideBinding: {
+        rideId: seed.rideId,
+        vehicleId: seed.vehicleId,
+        driverId,
+      },
+      assignmentVersion,
+      assignmentSessionToken,
+      trackingSessionId: seed.session,
+      batchSequence,
+      points: [
+        {
+          sequence: batchSequence * 2 - 1,
+          observedAt: timers.nowMs() - 2000,
+          lat: 24.86,
+          lng: 67.01,
+          accuracyM: 5,
+        },
+        {
+          sequence: batchSequence * 2,
+          observedAt: timers.nowMs(),
+          lat: 24.8602,
+          lng: 67.0102,
+          accuracyM: 5,
+        },
+      ],
+    });
+  }
+
+  let wrongAv = false;
+  try {
+    await submitRideBreadcrumbBatch(db, {
+      driverUid: driverId,
+      batch: makeBindBatch({
+        assignmentSessionToken: token,
+        assignmentVersion: seed.av + 99,
+        batchSequence: 1,
+      }),
+    });
+  } catch (e) {
+    wrongAv =
+      String(e.message).includes("ASSIGNMENT_VERSION_MISMATCH") ||
+      String(e.message).includes("STALE_ASSIGNMENT");
+  }
+  record(
+    "h-valid-token-wrong-assignmentVersion",
+    wrongAv ? "PASS" : "FAIL",
+    "",
+    "emulator"
+  );
+
+  let wrongTok = false;
+  try {
+    await submitRideBreadcrumbBatch(db, {
+      driverUid: driverId,
+      batch: makeBindBatch({
+        assignmentSessionToken: "as_wrong_token_xxxxxxxx",
+        assignmentVersion: seed.av,
+        batchSequence: 2,
+      }),
+    });
+  } catch (e) {
+    wrongTok = String(e.message).includes("STALE_ASSIGNMENT");
+  }
+  record(
+    "h-wrong-token-correct-looking-version",
+    wrongTok ? "PASS" : "FAIL",
+    "",
+    "emulator"
+  );
+
+  await db.collection("rides").doc("ride_legacy_no_token").set({
+    driverId,
+    vehicleId: seed.vehicleId,
+    status: "in_progress",
+    traveledDistanceKm: 0,
+    estimatedFare: 100,
+  });
+  await db.collection("vehicles").doc(seed.vehicleId).set(
+    { activeRideId: "ride_legacy_no_token", trackingSessionId: seed.session, driverId },
+    { merge: true }
+  );
+  let missingTok = false;
+  try {
+    await submitRideBreadcrumbBatch(db, {
+      driverUid: driverId,
+      batch: buildBreadcrumbBatch({
+        rideBinding: {
+          rideId: "ride_legacy_no_token",
+          vehicleId: seed.vehicleId,
+          driverId,
+        },
+        assignmentVersion: seed.av,
+        assignmentSessionToken: token,
+        trackingSessionId: seed.session,
+        batchSequence: 1,
+        points: [
+          {
+            sequence: 1,
+            observedAt: timers.nowMs() - 2000,
+            lat: 24.86,
+            lng: 67.01,
+            accuracyM: 5,
+          },
+          {
+            sequence: 2,
+            observedAt: timers.nowMs(),
+            lat: 24.8602,
+            lng: 67.0102,
+            accuracyM: 5,
+          },
+        ],
+      }),
+    });
+  } catch (e) {
+    missingTok = String(e.message).includes("ASSIGNMENT_TOKEN_MISSING");
+  }
+  record("h-missing-legacy-token-denied", missingTok ? "PASS" : "FAIL", "", "emulator");
+
+  await db.collection("vehicles").doc(seed.vehicleId).set(
+    { activeRideId: seed.rideId, trackingSessionId: seed.session, driverId },
+    { merge: true }
+  );
+  let okBind = false;
+  try {
+    const res = await submitRideBreadcrumbBatch(db, {
+      driverUid: driverId,
+      batch: makeBindBatch({
+        assignmentSessionToken: token,
+        assignmentVersion: assignmentVersionFromToken(token),
+        batchSequence: 1,
+      }),
+    });
+    okBind = Boolean(res?.ok || res?.acknowledged);
+  } catch (e) {
+    okBind = false;
+  }
+  record(
+    "h-correct-token-derived-version-accepted",
+    okBind ? "PASS" : "FAIL",
+    "",
+    "emulator"
+  );
+
   // Terminal snapshot must not flush
   record(
     "h-terminal-no-flush",
@@ -629,52 +831,58 @@ async function flushOrderAndSettlement(db) {
 }
 
 async function rulesHonest() {
-  let testEnv;
+  // Isolated child process — rules-unit-testing must not share Firestore init with Admin SDK.
+  const child = spawnSync(
+    process.execPath,
+    [path.join(ROOT, "tests", "breadcrumb-telemetry-rules.mjs")],
+    {
+      cwd: ROOT,
+      env: { ...process.env },
+      encoding: "utf8",
+    }
+  );
+  if (child.stdout) process.stdout.write(child.stdout);
+  if (child.stderr) process.stderr.write(child.stderr);
+
+  const rulesOut = path.join(ROOT, "tests", "breadcrumb-telemetry-rules-results.json");
+  let parsed = null;
   try {
-    testEnv = await initializeTestEnvironment({
-      projectId: `${PROJECT}-bc-hard-rules`,
-      firestore: { rules: rulesText, host: "127.0.0.1", port: 8080 },
-    });
+    parsed = JSON.parse(fs.readFileSync(rulesOut, "utf8"));
   } catch (e) {
-    record("h-rules-read-denied", "BLOCKED", String(e.message || e).slice(0, 160), "rules");
-    record("h-rules-write-denied", "BLOCKED", String(e.message || e).slice(0, 160), "rules");
-    const block = read("firestore.rules");
-    const staticOk =
-      /match \/rideBreadcrumbTelemetry\/\{rideId\}[\s\S]*?allow get, list: if false/.test(block) &&
-      /match \/rideBreadcrumbTelemetry\/\{rideId\}[\s\S]*?allow create, update, delete: if false/.test(
-        block
-      );
     record(
-      "h-static-deny-all-architecture",
-      staticOk ? "PASS" : "FAIL",
-      "static only",
-      "static"
+      "h-rules-read-denied",
+      "BLOCKED",
+      `isolated rules harness did not write results: ${String(e.message || e).slice(0, 80)}`,
+      "rules"
     );
-    return;
-  }
-  try {
-    await testEnv.clearFirestore();
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), TELEMETRY_COLLECTION, "r1"), { x: 1 });
-    });
-    const driver = testEnv.authenticatedContext("driver_h1");
-    await assertFails(getDoc(doc(driver.firestore(), TELEMETRY_COLLECTION, "r1")));
-    await assertFails(setDoc(doc(driver.firestore(), TELEMETRY_COLLECTION, "r2"), { y: 1 }));
-    await assertFails(updateDoc(doc(driver.firestore(), TELEMETRY_COLLECTION, "r1"), { z: 1 }));
-    await assertFails(deleteDoc(doc(driver.firestore(), TELEMETRY_COLLECTION, "r1")));
-    record("h-rules-read-denied", "PASS", "emulator rules", "rules");
-    record("h-rules-write-denied", "PASS", "emulator rules", "rules");
-  } catch (e) {
-    record("h-rules-read-denied", "BLOCKED", String(e.message || e).slice(0, 160), "rules");
-    record("h-rules-write-denied", "BLOCKED", String(e.message || e).slice(0, 160), "rules");
+    record("h-rules-write-denied", "BLOCKED", "no results file", "rules");
     record(
       "h-static-deny-all-architecture",
       /rideBreadcrumbTelemetry/.test(read("firestore.rules")) ? "PASS" : "FAIL",
       "static only",
       "static"
     );
-  } finally {
-    await testEnv?.cleanup?.();
+    return;
+  }
+
+  const byName = Object.fromEntries((parsed.results || []).map((r) => [r.name, r]));
+  const map = [
+    ["rules-client-read-denied", "h-rules-read-denied"],
+    ["rules-client-write-denied", "h-rules-write-denied"],
+    ["static-telemetry-deny-all-architecture", "h-static-deny-all-architecture"],
+  ];
+  for (const [src, dest] of map) {
+    const r = byName[src];
+    if (!r) {
+      record(dest, "BLOCKED", `missing ${src} in isolated suite`, src.includes("static") ? "static" : "rules");
+      continue;
+    }
+    record(
+      dest,
+      r.status,
+      r.detail || "",
+      src.includes("static") ? "static" : "rules"
+    );
   }
 }
 
@@ -695,6 +903,12 @@ async function privacyDocs() {
 
 async function main() {
   console.log("\n=== Phase 6 breadcrumb hardening ===\n");
+  // Rules first in an isolated child, before Admin SDK initializes Firestore.
+  try {
+    await rulesHonest();
+  } catch (e) {
+    record("h-rules-uncaught", "FAIL", String(e.message || e).slice(0, 160), "rules");
+  }
   try {
     await idempotentStartTests();
   } catch (e) {
@@ -709,11 +923,6 @@ async function main() {
     await samplingBillingSims();
   } catch (e) {
     record("h-sim-uncaught", "FAIL", String(e.message || e).slice(0, 160), "performance");
-  }
-  try {
-    await rulesHonest();
-  } catch (e) {
-    record("h-rules-uncaught", "FAIL", String(e.message || e).slice(0, 160), "rules");
   }
   try {
     await privacyDocs();
