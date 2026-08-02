@@ -65,6 +65,18 @@ import {
   toVehicleLocationField,
 } from "./location-envelope.mjs";
 import { createLocationWriteSerializer } from "./location-write-queue.mjs";
+import {
+  MIN_LOCATION_MOVE_M,
+  RESPONSIVE_INTERVAL_MS,
+  VIEWER_LEASE,
+  createCheckpointPolicyController,
+  presenceDocId,
+} from "./location-checkpoint-policy.mjs";
+import { createViewerPresenceConsumer } from "./viewer-presence-consumer.mjs";
+import { createDriverP2pController } from "./p2p-ride-controller.mjs";
+import { createDriverActiveRouteController } from "./driver-active-route.mjs";
+import { createBreadcrumbCollector } from "./breadcrumb-collector.mjs";
+import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
 import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { cancelAssignedRideByDriverClient } from "./ride-radar-actions.js";
@@ -239,11 +251,13 @@ let partnerView = "home";
 let lastVehicleLocationWrite = 0;
 let lastVehicleLocationLatLng = null;
 let lastVehicleStatusWritten = "";
-const VEHICLE_LOCATION_WRITE_MS = 4_000;
-/** Faster GPS mirror while executing an assigned ride (customer live map). */
-const ACTIVE_RIDE_LOCATION_WRITE_MS = 4_000;
-/** Skip Firestore write until driver moves at least this far (meters). */
-const MIN_LOCATION_MOVE_M = 10;
+/** Idle / dispatch ONLINE_READY location interval (unchanged by presence). */
+const VEHICLE_LOCATION_WRITE_MS = RESPONSIVE_INTERVAL_MS;
+/** @deprecated use checkpoint policy — kept as alias for diagnostics/tests */
+const ACTIVE_RIDE_LOCATION_WRITE_MS = RESPONSIVE_INTERVAL_MS;
+void ACTIVE_RIDE_LOCATION_WRITE_MS;
+/** Skip Firestore write until driver moves at least this far (meters) — owned by policy module. */
+void MIN_LOCATION_MOVE_M;
 /** Phase 1 tracking session — new id on each ONLINE_READY / watch start. */
 let locationTrackingSessionId = "";
 let locationTrackingSequence = 0;
@@ -254,6 +268,183 @@ let locationTrackingGeneration = 0;
 /** @type {object|null} */
 let lastAcceptedLocationEnvelope = null;
 const locationDiagCounters = createLocationDiagCounters();
+
+function checkpointDiag(code) {
+  try {
+    console.info(JSON.stringify({ type: "checkpoint_policy_diag", reason: String(code || "") }));
+  } catch {
+    /* ignore */
+  }
+}
+
+const checkpointPolicy = createCheckpointPolicyController({
+  diag: checkpointDiag,
+});
+
+const driverP2p = createDriverP2pController({
+  onDiag: (code) => {
+    try {
+      console.info(JSON.stringify({ type: "p2p_diag", reason: String(code || "") }));
+    } catch {
+      /* ignore */
+    }
+  },
+  onHealthyChange: (healthy) => {
+    checkpointPolicy.setP2pHealthy(Boolean(healthy));
+  },
+});
+
+const viewerPresenceConsumer = createViewerPresenceConsumer({
+  subscribeDoc: ({ collection: col, id }, onNext, onError) => {
+    try {
+      const { db } = getFirebase();
+      return onSnapshot(
+        doc(db, col, id),
+        (snap) => {
+          onNext({
+            exists: snap.exists(),
+            data: snap.exists() ? snap.data() : null,
+          });
+        },
+        (err) => onError(err)
+      );
+    } catch (err) {
+      onError(err);
+      return () => {};
+    }
+  },
+  onLeaseChange: (lease) => {
+    checkpointPolicy.setViewerLease(lease, { fromPresenceEvent: true });
+    syncDriverP2pForActiveRide();
+    maybeFlushImmediateCheckpoint();
+  },
+  onDiag: checkpointDiag,
+  isCurrentGeneration: (gen) => checkpointPolicy.isCurrentGeneration(gen),
+});
+
+const breadcrumbCollector = createBreadcrumbCollector({
+  onDiag: (code) => {
+    try {
+      console.info(JSON.stringify({ type: "breadcrumb_diag", code: String(code || "") }));
+    } catch {
+      /* ignore */
+    }
+  },
+});
+
+if (typeof window !== "undefined") {
+  window.__SWIFTGO_CHECKPOINT_COUNTERS__ = () => checkpointPolicy.getCounters();
+  window.__SWIFTGO_P2P_COUNTERS__ = () => driverP2p.getCounters();
+  window.__SWIFTGO_BREADCRUMB_COUNTERS__ = () => breadcrumbCollector.getCounters();
+  window.addEventListener("online", () => {
+    if (activeExecutionRide?.id && isOnlineReady()) {
+      checkpointPolicy.requestImmediate("network_online");
+      maybeFlushImmediateCheckpoint();
+    }
+    void breadcrumbCollector.onNetworkResume();
+  });
+  window.addEventListener("visibilitychange", () => {
+    if (typeof document !== "undefined" && document.visibilityState === "visible") {
+      void breadcrumbCollector.onAppResume();
+    }
+  });
+}
+
+function syncBreadcrumbCollectionForActiveRide() {
+  const ride = activeExecutionRide;
+  const status = String(ride?.status || "");
+  const driverId = currentDriver?.uid || "";
+  const vehicleId = linkedVehicle?.id || ride?.vehicleId || "";
+  const assignmentSessionToken = String(ride?.assignmentSessionToken || "").trim();
+  if (
+    !ride?.id ||
+    status !== "in_progress" ||
+    !driverId ||
+    !vehicleId ||
+    !locationTrackingSessionId ||
+    !assignmentSessionToken ||
+    String(ride.driverId || "") !== driverId
+  ) {
+    void breadcrumbCollector.stop({ purge: true, flush: false, reason: "not_in_progress" });
+    return;
+  }
+  void breadcrumbCollector.start({
+    rideId: ride.id,
+    driverId,
+    vehicleId,
+    ride,
+    trackingSessionId: locationTrackingSessionId,
+    assignmentSessionToken,
+    assignmentVersion: assignmentVersionFromToken(assignmentSessionToken),
+    status,
+    assignedDriverId: ride.driverId,
+  });
+}
+
+function syncDriverP2pForActiveRide() {
+  const ride = activeExecutionRide;
+  const status = String(ride?.status || "");
+  if (!ride?.id || !ACTIVE_EXECUTION_STATUSES.has(status) || !locationTrackingSessionId) {
+    void driverP2p.stop({ closeRemote: true });
+    checkpointPolicy.setP2pHealthy(false);
+    return;
+  }
+  const lease = checkpointPolicy.getState?.()?.viewerLease;
+  const viewerVisible = lease === VIEWER_LEASE.VISIBLE;
+  driverP2p.syncForRide({
+    ride,
+    trackingSessionId: locationTrackingSessionId,
+    viewerVisible,
+  });
+}
+
+function syncCheckpointPresenceForActiveRide() {
+  const ride = activeExecutionRide;
+  const status = String(ride?.status || "");
+  if (!ride?.id || !ACTIVE_EXECUTION_STATUSES.has(status)) {
+    viewerPresenceConsumer.unbind();
+    checkpointPolicy.setActiveRide({ active: false });
+    syncDriverP2pForActiveRide();
+    return;
+  }
+  const result = checkpointPolicy.setActiveRide({
+    rideId: ride.id,
+    status,
+    active: true,
+  });
+  const customerUid = String(ride.userId || "").trim();
+  if (!customerUid) {
+    viewerPresenceConsumer.unbind();
+    checkpointPolicy.setViewerLease(VIEWER_LEASE.UNKNOWN);
+    syncDriverP2pForActiveRide();
+    return;
+  }
+  viewerPresenceConsumer.bind({
+    rideId: ride.id,
+    customerUid,
+    generation: result.generation,
+  });
+  void presenceDocId; // available for tests / diagnostics without logging IDs
+  syncDriverP2pForActiveRide();
+  maybeFlushImmediateCheckpoint();
+}
+
+function detachCheckpointPresence(reason = "") {
+  void reason;
+  viewerPresenceConsumer.unbind();
+  checkpointPolicy.setActiveRide({ active: false });
+  void driverP2p.stop({ closeRemote: true });
+  checkpointPolicy.setP2pHealthy(false);
+  void breadcrumbCollector.stop({ purge: true, flush: false, reason: reason || "detach" });
+}
+
+function maybeFlushImmediateCheckpoint() {
+  if (!checkpointPolicy.hasImmediatePending()) return;
+  if (!isOnlineReady() || !linkedVehicle?.id || !lastDriverPosition) return;
+  void syncVehicleLocationToFirestore(lastDriverPosition.lat, lastDriverPosition.lng, {
+    force: true,
+  });
+}
 
 /** Single in-flight vehicle location write; newest pending fix coalesced. */
 const locationWriteSerializer = createLocationWriteSerializer({
@@ -272,6 +463,11 @@ function beginLocationTrackingSession() {
   locationTrackingGeneration += 1;
   locationWriteSerializer.cancelAll();
   locationWriteSerializer.resetSessionStartGate();
+  if (activeExecutionRide?.id) {
+    checkpointPolicy.requestImmediate("session_change");
+  }
+  syncDriverP2pForActiveRide();
+  syncBreadcrumbCollectionForActiveRide();
 }
 
 function endLocationTrackingSession() {
@@ -281,6 +477,7 @@ function endLocationTrackingSession() {
   locationTrackingSessionStartPending = false;
   locationTrackingGeneration += 1;
   locationWriteSerializer.cancelAll();
+  void breadcrumbCollector.stop({ purge: true, flush: false, reason: "session_end" });
 }
 
 function nextLocationSequence() {
@@ -364,6 +561,54 @@ let radarFeedPrimed = false;
 let lastRadarFeedCount = 0;
 /** @type {{ lat: number, lng: number } | null} */
 let lastDriverPosition = null;
+/** Phase 5 — display-only active-ride route + snap (no second GPS watch). */
+let driverActiveRoute = null;
+
+function ensureDriverActiveRoute() {
+  if (driverActiveRoute) return driverActiveRoute;
+  driverActiveRoute = createDriverActiveRouteController({
+    getMap: () => map,
+    paintDisplayMarker: (pos) => {
+      if (!map || !pos || typeof L === "undefined") return;
+      if (!isValidCoord(pos.lat, pos.lng)) return;
+      const latlng = [pos.lat, pos.lng];
+      const heading = Number.isFinite(pos.headingDeg) ? pos.headingDeg : null;
+      if (!locationMarker) {
+        locationMarker = L.marker(latlng, {
+          icon: driverIcon(heading),
+          keyboard: false,
+          zIndexOffset: 1000,
+        }).addTo(map);
+      } else {
+        locationMarker.setLatLng(latlng);
+        locationMarker.setIcon(driverIcon(heading));
+      }
+    },
+  });
+  return driverActiveRoute;
+}
+
+function syncDriverActiveRouteFromRide(ride) {
+  if (!ride || !ACTIVE_EXECUTION_STATUSES.has(String(ride.status || ""))) {
+    driverActiveRoute?.clear();
+    return;
+  }
+  const visible =
+    typeof document === "undefined" || document.visibilityState !== "hidden";
+  ensureDriverActiveRoute().syncRide(
+    {
+      ...ride,
+      driverLocation: lastDriverPosition
+        ? { lat: lastDriverPosition.lat, lng: lastDriverPosition.lng }
+        : ride.driverLocation,
+    },
+    { isVisible: visible }
+  );
+}
+
+function clearDriverActiveRoute() {
+  driverActiveRoute?.clear();
+}
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
@@ -1373,6 +1618,7 @@ function showPinGate(message = "") {
   // Hide shell/history without the full logout teardown racing the PIN panel.
   setDriverOffline("");
   stopActiveRideWatch();
+  detachCheckpointPresence("pin_gate");
   activeExecutionRide = null;
   hideActiveRideSheet();
   hideRideCompleteSheet();
@@ -2035,10 +2281,11 @@ function syncRideRadarFab() {
   updateRideRadarButtonLabel();
 }
 
-function driverIcon() {
+function driverIcon(rotationDeg = null) {
+  const rot = Number.isFinite(rotationDeg) ? rotationDeg : 0;
   return L.divIcon({
     className: "",
-    html: '<div class="driver-location-marker"></div>',
+    html: `<div class="driver-location-marker" style="--rot:${rot}deg" aria-hidden="true"><span class="driver-location-marker__nose"></span></div>`,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
   });
@@ -2131,6 +2378,7 @@ function updateDriverLocation(position) {
   transientGpsFailCount = 0;
 
   // Matching must receive server location only after ONLINE_READY.
+  // Authoritative raw GPS only — never write display-snapped coordinates.
   if (isOnlineReady() && linkedVehicle?.id) {
     const headingDeg = Number.isFinite(heading) ? heading : null;
     const speedMps = Number.isFinite(speed) && speed >= 0 ? speed : null;
@@ -2155,8 +2403,20 @@ function updateDriverLocation(position) {
   }
 
   const latlng = [latitude, longitude];
+  const trackable =
+    activeExecutionRide &&
+    ACTIVE_EXECUTION_STATUSES.has(String(activeExecutionRide.status || ""));
 
-  if (!locationMarker) {
+  if (trackable) {
+    ensureDriverActiveRoute().noteRawFix({
+      lat: latitude,
+      lng: longitude,
+      accuracyM: Number.isFinite(accuracy) ? accuracy : null,
+      headingDeg: Number.isFinite(heading) ? heading : null,
+      speedMps: Number.isFinite(speed) && speed >= 0 ? speed : null,
+      observedAt: Number(position.timestamp) || Date.now(),
+    });
+  } else if (!locationMarker) {
     locationMarker = L.marker(latlng, {
       icon: driverIcon(),
       keyboard: false,
@@ -2177,6 +2437,7 @@ function updateDriverLocation(position) {
       interactive: false,
     }).addTo(map);
   } else {
+    // Accuracy circle tracks authoritative raw GPS, not display snap.
     accuracyCircle.setLatLng(latlng).setRadius(accuracy || 20);
   }
 
@@ -2230,6 +2491,7 @@ async function commitVehicleLocationJob(job) {
   if (payload.geoCell) lastMatchGeoCell = payload.geoCell;
   if (payload.status) lastVehicleStatusWritten = payload.status;
   lastLocationSyncError = "";
+  checkpointPolicy.noteWriteCommitted();
   locationDiagCounters.vehicleWritesCompleted += 1;
   // Intentionally no client ride.driverLocation write — CF mirror is authoritative.
   locationDiagCounters.duplicateRideWritesPrevented += 1;
@@ -2311,14 +2573,33 @@ async function syncVehicleLocationToFirestore(
     return;
   }
 
+  // Phase 3: feed validated GPS to P2P data channel (independent of Firebase write gate).
+  if (activeExecutionRide?.id) {
+    driverP2p.onLocationFix({
+      lat: normalized.envelope.lat,
+      lng: normalized.envelope.lng,
+      observedAt: normalized.envelope.observedAt,
+      accuracyM: normalized.envelope.accuracyM,
+      headingDeg: normalized.envelope.headingDeg,
+      speedMps: normalized.envelope.speedMps,
+    });
+  }
+
+  // Phase 6: dense breadcrumb collection (in_progress only; independent of checkpoint gate).
+  if (String(activeExecutionRide?.status || "") === "in_progress") {
+    void breadcrumbCollector.ingestRawFix(normalized.envelope, {
+      status: activeExecutionRide.status,
+      rideId: activeExecutionRide.id,
+      trackingSessionId: sessionIdAtEnqueue,
+    });
+  }
+
   const now = Date.now();
   const cell = `${Math.floor(Number(lat) / LOCATION_GRID_DEG)}_${Math.floor(Number(lng) / LOCATION_GRID_DEG)}`;
   const geoCell = matchGeoCellId(lat, lng);
   const zoneChanged = cell !== lastLocationGridCell;
   const matchCellChanged = geoCell !== lastMatchGeoCell;
-  const writeInterval = activeExecutionRide?.id
-    ? ACTIVE_RIDE_LOCATION_WRITE_MS
-    : VEHICLE_LOCATION_WRITE_MS;
+  checkpointPolicy.noteRawGps();
   let movedEnough = true;
   if (lastVehicleLocationLatLng && Number.isFinite(lat) && Number.isFinite(lng)) {
     const movedKm = haversineKm(lastVehicleLocationLatLng, { lat, lng });
@@ -2326,16 +2607,28 @@ async function syncVehicleLocationToFirestore(
   }
   const nextStatus = activeExecutionRide?.id ? "in_ride" : "online";
   const statusChanged = nextStatus !== lastVehicleStatusWritten;
-  if (
-    !force &&
-    !zoneChanged &&
-    !matchCellChanged &&
-    !statusChanged &&
-    !movedEnough &&
-    now - lastVehicleLocationWrite < writeInterval
-  ) {
+
+  // Presence throttling applies only while executing an assigned ride.
+  if (!activeExecutionRide?.id) {
+    checkpointPolicy.setActiveRide({ active: false });
+  }
+
+  const writeGate = checkpointPolicy.evaluateWriteGate({
+    force,
+    nowMs: now,
+    lastWriteMs: lastVehicleLocationWrite,
+    movedEnough,
+    zoneChanged,
+    matchCellChanged,
+    statusChanged,
+  });
+  if (!writeGate.allow) {
     return;
   }
+  if (writeGate.forceUsed) {
+    checkpointPolicy.consumeImmediate();
+  }
+  checkpointPolicy.noteWriteAttempted();
 
   const hotspotId = matchHotspotId(lat, lng);
   const location = toVehicleLocationField(normalized.envelope);
@@ -2848,6 +3141,8 @@ async function refreshLinkedVehicleAndPartner() {
 
 async function dismissStaleActiveRide() {
   stopActiveRideWatch();
+  detachCheckpointPresence("stale_or_terminal");
+  clearDriverActiveRoute();
   activeExecutionRide = null;
   clearActiveRideCache();
   hideActiveRideSheet();
@@ -2920,8 +3215,17 @@ async function finalizeSuccessfulRideCompletion(ride, settlementResult) {
       rideFareAmount(ride),
   };
 
+  // Purge only — final flush must have run while still in_progress (before settlement).
+  try {
+    await breadcrumbCollector.stop({ purge: true, flush: false, reason: "ride_completed" });
+  } catch {
+    /* purge must not block settlement UI */
+  }
+
   activeExecutionRide = null;
   activeRideRecoveryPending = false;
+  detachCheckpointPresence("ride_completed");
+  clearDriverActiveRoute();
 
   const orphanedCompletion = !linkedVehicle?.id;
 
@@ -3005,6 +3309,7 @@ async function resumeActiveRideFromDoc(rideId, data, collectionName = "rides") {
   persistActiveRideCache(rideId, collectionName);
   await markVehicleRideId(rideId);
   startActiveRideWatch(rideId, collectionName);
+  syncCheckpointPresenceForActiveRide();
   renderActiveRideControls(activeExecutionRide);
   setLocationMessage(
     linkedVehicle?.id
@@ -3138,6 +3443,7 @@ function showRideCompleteSheet(ride) {
 
 function renderActiveRideControls(ride) {
   if (!ride || ride.status === "completed") {
+    clearDriverActiveRoute();
     if (ride?.status === "completed") showRideCompleteSheet(ride);
     else hideActiveRideSheet();
     return;
@@ -3145,6 +3451,7 @@ function renderActiveRideControls(ride) {
 
   const action = ACTIVE_RIDE_ACTIONS[ride.status];
   if (!action) {
+    clearDriverActiveRoute();
     hideActiveRideSheet();
     return;
   }
@@ -3182,6 +3489,7 @@ function renderActiveRideControls(ride) {
     announce("سواری تفویض / Ride assigned");
   }
   syncRideRadarFab();
+  syncDriverActiveRouteFromRide(ride);
 }
 
 function startActiveRideWatch(rideId, collectionName = "rides") {
@@ -3201,8 +3509,15 @@ function startActiveRideWatch(rideId, collectionName = "rides") {
       activeExecutionRide = { id: snapshot.id, ...snapshot.data(), sourceCollection: collectionName };
       if (ACTIVE_EXECUTION_STATUSES.has(String(activeExecutionRide.status || ""))) {
         persistActiveRideCache(snapshot.id, collectionName);
+        syncCheckpointPresenceForActiveRide();
+        syncBreadcrumbCollectionForActiveRide();
       } else {
         clearActiveRideCache();
+        // Terminal: never attempt a server upload that is guaranteed to fail.
+        void breadcrumbCollector
+          .stop({ purge: true, flush: false, reason: "terminal_status" })
+          .catch(() => {});
+        detachCheckpointPresence("terminal_status");
       }
       renderActiveRideControls(activeExecutionRide);
     },
@@ -3293,6 +3608,8 @@ async function cancelAssignedActiveRideByDriver() {
       cancelReason: "driver_cancelled_before_start",
     });
     stopActiveRideWatch();
+    detachCheckpointPresence("driver_cancelled");
+    clearDriverActiveRoute();
     activeExecutionRide = null;
     clearActiveRideCache();
     hideActiveRideSheet();
@@ -3351,6 +3668,12 @@ async function advanceActiveRideStatus() {
         setLocationMessage("فعال سواری اب درست نہیں — ریفریش کریں");
         if (els.activeRideActionBtn) els.activeRideActionBtn.disabled = false;
         return;
+      }
+      // Flush breadcrumbs while still in_progress; never block settlement.
+      try {
+        await breadcrumbCollector.flushBeforeSettlement();
+      } catch {
+        /* flush timeout/failure must not prevent settlement */
       }
       const settlementResult = await completeRideWithEarnings({ ...ride, ...live });
       await finalizeSuccessfulRideCompletion(
@@ -3483,6 +3806,7 @@ async function resolveActiveRequest(nextStatus) {
       activeExecutionRide = { id: request.id, ...request, status: "accepted", sourceCollection: "rides" };
       await markVehicleRideId(request.id);
       startActiveRideWatch(request.id);
+      syncCheckpointPresenceForActiveRide();
       renderActiveRideControls(activeExecutionRide);
       setLocationMessage("سواری قبول کر لی گئی ہے — پک اپ کی طرف جائیں");
     } else {
@@ -3528,6 +3852,7 @@ async function handleRadarRideAccepted(result) {
     };
     await markVehicleRideId(rideId);
     startActiveRideWatch(rideId, collectionName);
+    syncCheckpointPresenceForActiveRide();
     renderActiveRideControls(activeExecutionRide);
     setLocationMessage("سواری قبول — پک اپ کی طرف جائیں");
   } catch (error) {
@@ -3687,6 +4012,8 @@ function boot() {
         partnerAccountBlocked = false;
         activeExecutionRide = null;
         clearActiveRideCache();
+        void breadcrumbCollector.stop({ purge: true, flush: false, reason: "sign_out" });
+        detachCheckpointPresence("sign_out");
         earningsUi?.deactivate();
         dashboardUi?.deactivate();
         homeUi?.deactivate();

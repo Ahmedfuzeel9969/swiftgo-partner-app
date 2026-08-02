@@ -95,13 +95,13 @@ export function resolveTrackingTarget(ride) {
   };
 }
 
-/** Provider-neutral route display state placeholder (Phase 2 will fill). */
+/** Provider-neutral route display state (Phase 4 fills via two-leg controller). */
 export function createRouteDisplayState() {
   return {
     provider: null,
     geometry: null,
     unavailable: true,
-    reason: "phase1_no_road_routing",
+    reason: "phase4_awaiting_road_route",
     targetType: null,
   };
 }

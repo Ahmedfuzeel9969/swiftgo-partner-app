@@ -1,0 +1,487 @@
+{
+  "suite": "road-routing",
+  "generatedAt": "2026-08-02T01:00:31.366Z",
+  "totals": {
+    "pass": 64,
+    "fail": 0,
+    "blocked": 1,
+    "byCategory": {
+      "unit": {
+        "pass": 41,
+        "fail": 0,
+        "blocked": 0
+      },
+      "static": {
+        "pass": 23,
+        "fail": 0,
+        "blocked": 0
+      },
+      "manual": {
+        "pass": 0,
+        "fail": 0,
+        "blocked": 1
+      }
+    }
+  },
+  "constants": {
+    "APPROACH_MIN_REFRESH_MS": 60000,
+    "APPROACH_MIN_DISPLACEMENT_M": 400
+  },
+  "results": [
+    {
+      "name": "01-mock-provider-interface",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "06-zero-coordinates-accepted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "03-missing-geometry-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "04-malformed-coords-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "05-numeric-strings-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "07-excessive-points-rejected-or-simplified",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "08-invalid-distance-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "09-invalid-duration-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "10-endpoint-mismatch-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "11-oversized-payload-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "47-attribution-sanitized",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "48-no-provider-html-injection",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "02-provider-response-normalized",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "13-abort-works",
+      "status": "PASS",
+      "detail": "aborted",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "12-provider-timeout-or-fail-fallback",
+      "status": "PASS",
+      "detail": "approach=fallback trip=fallback",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "14-stale-response-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "15-assignment-creates-approach-and-trip",
+      "status": "PASS",
+      "detail": "a=ready t=ready",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "16-approach-origin-driver",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "17-approach-destination-pickup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "18-trip-origin-pickup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "19-trip-destination-dropoff",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "20-accepted-emphasizes-approach",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "21-arrived-emphasizes-approach",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "22-in-progress-emphasizes-trip",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "23-in-progress-never-retargets-pickup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "24-completed-clears-routes",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "25-cancelled-clears-routes",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "26-reassignment-invalidates-generation",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "27-ride-a-cannot-render-on-b",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "28-terminal-late-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "29-gps-fix-does-not-request-every-time",
+      "status": "PASS",
+      "detail": "calls=2 afterAssign=2",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "30-approach-refresh-respects-min-time",
+      "status": "PASS",
+      "detail": "calls=2 before=2",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "31-approach-refresh-respects-min-displacement",
+      "status": "PASS",
+      "detail": "calls=2",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "approach-refresh-on-large-move",
+      "status": "PASS",
+      "detail": "calls=3",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "32-repeated-request-coalesced",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "33-one-request-in-flight-instrumented",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "34-superseded-aborted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "35-trip-route-cached-per-ride",
+      "status": "PASS",
+      "detail": "calls=3",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "37-hidden-stops-refresh-scheduling",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "36-visibility-resume-safe",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "38-offline-fallback-no-retry-storm",
+      "status": "PASS",
+      "detail": "fb=2",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "39-exactly-one-approach-layer",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "40-exactly-one-trip-layer",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "41-fallback-separate-dashed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "42-initial-fit-once",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "43-gps-no-repeated-force-fit",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "44-manual-map-not-overridden",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "45-old-layers-removed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "46-traffic-sample-separate",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "49-p2p-does-not-own-route-request",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "50-firebase-fix-via-arbiter-not-route",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "51-source-switch-no-duplicate-routes",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "52-reopen-syncs-routes",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "53-route-failure-does-not-stop-marker",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "54-route-failure-does-not-alter-status",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "55-booking-fare-unchanged",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "56-settlement-unchanged",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "57-no-route-geometry-firestore-write",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "58-no-new-client-ride-location-writer",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "59-no-second-geolocation-watch",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "60-no-paid-provider-enabled",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "audit-routing-js-preserved",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "driver-active-ride-two-leg-wired",
+      "status": "PASS",
+      "detail": "Phase 4 carry-forward: driver active-ride two-leg map wiring",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "constants-documented",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "manual-osrm-network-preview",
+      "status": "BLOCKED",
+      "detail": "Public OSRM not executed in this agent run; enable via __SWIFTGO_ROUTE_PROVIDER__={kind:'osrm_preview',enabled:true}",
+      "suite": "road-routing",
+      "category": "manual"
+    }
+  ]
+}

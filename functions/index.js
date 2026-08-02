@@ -61,6 +61,13 @@ const {
 const { reportGeoCellCoverage } = require("./geo-coverage");
 const { mirrorDriverLocationToRide } = require("./driver-location");
 const { settleRide } = require("./settlement");
+const { refreshRideViewerPresence } = require("./ride-viewer-presence");
+const {
+  createRidePeerOffer,
+  publishRidePeerAnswer,
+  closeRidePeerSession,
+} = require("./ride-peer-session");
+const { submitRideBreadcrumbBatch } = require("./breadcrumb-batch");
 
 if (!getApps().length) {
   initializeApp();
@@ -910,5 +917,75 @@ exports.getGeoCellCoverageReport = onCall({ region: "us-central1" }, async (requ
   }
   return wrapCall("getGeoCellCoverageReport", request, () =>
     reportGeoCellCoverage(db, { limit: request.data?.limit })
+  );
+});
+
+/**
+ * Phase 1 P2P prep — customer viewer presence lease refresh (server timestamps only).
+ * Does not change driver write frequency.
+ */
+exports.refreshRideViewerPresence = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("refreshRideViewerPresence", request, () =>
+    refreshRideViewerPresence(db, {
+      customerUid: request.auth.uid,
+      rideId: request.data?.rideId,
+      sessionId: request.data?.sessionId,
+      leaseVersion: request.data?.leaseVersion,
+    })
+  );
+});
+
+/** Phase 3 — driver publishes bundled WebRTC offer (non-trickle). */
+exports.createRidePeerOffer = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("createRidePeerOffer", request, () =>
+    createRidePeerOffer(db, {
+      driverUid: request.auth.uid,
+      rideId: request.data?.rideId,
+      offerSdp: request.data?.offerSdp,
+      peerSessionId: request.data?.peerSessionId,
+      trackingSessionId: request.data?.trackingSessionId,
+      assignmentVersion: request.data?.assignmentVersion,
+      vehicleId: request.data?.vehicleId,
+    })
+  );
+});
+
+/** Phase 3 — customer publishes bundled WebRTC answer. */
+exports.publishRidePeerAnswer = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("publishRidePeerAnswer", request, () =>
+    publishRidePeerAnswer(db, {
+      customerUid: request.auth.uid,
+      rideId: request.data?.rideId,
+      answerSdp: request.data?.answerSdp,
+      peerSessionId: request.data?.peerSessionId,
+    })
+  );
+});
+
+/** Phase 3 — either participant closes signaling session. */
+exports.closeRidePeerSession = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("closeRidePeerSession", request, () =>
+    closeRidePeerSession(db, {
+      uid: request.auth.uid,
+      rideId: request.data?.rideId,
+    })
+  );
+});
+
+/**
+ * Phase 6 — shadow breadcrumb batch (dense chord telemetry only).
+ * Does not mutate traveledDistanceKm, fare, wallet, or settlement.
+ */
+exports.submitRideBreadcrumbBatch = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("submitRideBreadcrumbBatch", request, () =>
+    submitRideBreadcrumbBatch(db, {
+      driverUid: request.auth.uid,
+      batch: request.data?.batch,
+    })
   );
 });

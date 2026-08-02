@@ -34,13 +34,27 @@ import { askCancelRideReason, askNoDriverAvailable } from "./cancel-reason-dialo
 import { expandSheet } from "./sheet.js";
 import { syncActiveRideDrawer } from "./utility-drawer.js";
 import {
-  isNonTerminalRideStatus,
   normalizeCustomerRideStatus,
   isCustomerActiveRideStatus,
+  isTerminalRideStatus,
 } from "./ride-status.js";
-import { updateDriverTrack, stopDriverTrack } from "./driver-track.js";
+import { updateDriverTrack, stopDriverTrack, setRoadRouteLineSuppressed } from "./driver-track.js";
+import {
+  createRideViewLifecycle,
+  attachBrowserLifecycleListeners,
+  VIEWER_DIAG,
+} from "./ride-view-lifecycle.mjs";
+import { createViewerPresenceClient } from "./viewer-presence-client.mjs";
+import { createCustomerP2pController } from "./p2p-ride-controller.mjs";
+import { createTwoLegRouteController } from "./two-leg-route-controller.mjs";
+import { createTwoLegRouteLayers } from "./two-leg-route-layers.mjs";
+import { resolveRouteProvider } from "./road-route-provider.mjs";
+import { createDisplayLocationPipeline } from "./display-location-pipeline.mjs";
+import { getMap, setAssignedDriverLocation } from "./map.js";
+import { getFirebase } from "./firebase.js";
 
 const SEARCH_TIMEOUT_MS = 180_000;
+const TRACKABLE_VIEW_STATUSES = new Set(["accepted", "arrived", "in_progress"]);
 /** Re-run match while searching so drivers who come online mid-search get invited. */
 const SEARCH_REMATCH_MS = 30_000;
 const ACTIVE_RIDE_STORAGE_KEY = "swiftgo_customer_active_ride_id";
@@ -81,6 +95,384 @@ let searchTimeoutId = 0;
 let searchTickId = 0;
 let searchRematchId = 0;
 let searchStartedAtMs = 0;
+/** @type {ReturnType<typeof createRideViewLifecycle> | null} */
+let rideViewLifecycle = null;
+/** @type {ReturnType<typeof createViewerPresenceClient> | null} */
+let presenceClient = null;
+/** @type {ReturnType<typeof createCustomerP2pController> | null} */
+let customerP2p = null;
+/** @type {ReturnType<typeof createTwoLegRouteController> | null} */
+let twoLegRoutes = null;
+/** @type {ReturnType<typeof createTwoLegRouteLayers> | null} */
+let twoLegLayers = null;
+/** @type {ReturnType<typeof createDisplayLocationPipeline> | null} */
+let displayPipeline = null;
+let detachBrowserLifecycle = () => {};
+let detachingFromLifecycle = false;
+
+function authUid() {
+  try {
+    return String(getFirebase()?.auth?.currentUser?.uid || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function viewerDiag(code) {
+  try {
+    console.info(JSON.stringify({ type: "viewer_lifecycle_diag", reason: String(code || "") }));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearLiveSubscriptions() {
+  unsubscribeRide();
+  unsubscribeRide = () => {};
+  unsubscribeOffers();
+  unsubscribeOffers = () => {};
+  unsubscribeVehicle();
+  unsubscribeVehicle = () => {};
+  watchedVehicleId = "";
+  stopDriverTrack();
+  void customerP2p?.stop({ closeRemote: false });
+  twoLegRoutes?.setVisible(false);
+}
+
+function clearTwoLegRoutes() {
+  twoLegRoutes?.clear({ emitDiag: true });
+  twoLegLayers?.clear();
+  displayPipeline?.clearRoute();
+  setRoadRouteLineSuppressed(false);
+}
+
+function paintDisplayFrame(pos) {
+  if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lng)) return;
+  const rot = Number.isFinite(pos.headingDeg) ? pos.headingDeg : 0;
+  setAssignedDriverLocation(pos.lat, pos.lng, rot, {
+    observedAt: Date.now(),
+    skipAnimation: true,
+    allowPredict: false,
+  });
+}
+
+function syncDisplayPipelineFromModel(model) {
+  if (!displayPipeline || !model) return;
+  const emphasis = model.emphasis;
+  if (emphasis === "none") {
+    displayPipeline.clearRoute();
+    return;
+  }
+  const leg = emphasis === "trip" ? model.trip : model.approach;
+  const geometry = leg?.renderGeometry || leg?.geometry;
+  const ready =
+    leg &&
+    (leg.status === "ready" || leg.status === "fallback") &&
+    Array.isArray(geometry) &&
+    geometry.length >= 2;
+  if (!ready) {
+    displayPipeline.clearRoute();
+    return;
+  }
+  // Pass immutable quality metadata — fallback lines render via layers but never snap.
+  displayPipeline.setActiveRoute({
+    geometry,
+    generation: model.rideGeneration,
+    activeLeg: emphasis === "trip" ? "trip" : "approach",
+    pickupLoc: activeRide?.pickupLocation || null,
+    dropoffLoc: activeRide?.dropoffLocation || null,
+    geometryKind: leg.geometryKind,
+    snapEligible: leg.snapEligible === true && leg.fallback !== true,
+    providerKind: leg.providerKind || leg.provider,
+    generatedAt: leg.generatedAt,
+  });
+}
+
+function ensureTwoLegRoutes() {
+  if (twoLegRoutes) return twoLegRoutes;
+  twoLegLayers = createTwoLegRouteLayers({
+    getMap,
+    onDiag: (code) => {
+      try {
+        console.info(JSON.stringify({ type: "road_route_diag", reason: String(code || "") }));
+      } catch {
+        /* ignore */
+      }
+    },
+  });
+  displayPipeline = createDisplayLocationPipeline({
+    onDisplayFrame: paintDisplayFrame,
+    onRawFallback: paintDisplayFrame,
+    onDiag: (code) => {
+      try {
+        console.info(JSON.stringify({ type: "snap_diag", reason: String(code || "") }));
+      } catch {
+        /* ignore */
+      }
+    },
+    onRerouteNeeded: ({ origin, generation }) => {
+      const ctrl = twoLegRoutes;
+      if (!ctrl) {
+        displayPipeline?.noteRerouteResult(false);
+        return;
+      }
+      const provider = resolveRouteProvider();
+      if (!provider?.route || provider.id === "disabled") {
+        displayPipeline?.noteRerouteResult(false);
+        return;
+      }
+      void (async () => {
+        try {
+          const result = await ctrl.rerouteFromOrigin(origin);
+          if (!result?.ok) {
+            displayPipeline?.noteRerouteResult(false);
+            return;
+          }
+          if (generation != null && Number(generation) > Number(result.generation || 0)) {
+            displayPipeline?.noteRerouteResult(false);
+            return;
+          }
+          const model = ctrl.getModel();
+          const activeLeg = model.emphasis === "trip" ? model.trip : model.approach;
+          if (activeLeg?.snapEligible === true && activeLeg.fallback !== true) {
+            syncDisplayPipelineFromModel(model);
+            displayPipeline?.noteRerouteResult(
+              true,
+              {
+                geometry: activeLeg.renderGeometry || activeLeg.geometry,
+                geometryKind: activeLeg.geometryKind,
+                snapEligible: true,
+                providerKind: activeLeg.providerKind || activeLeg.provider,
+                generatedAt: activeLeg.generatedAt,
+              },
+              result.generation
+            );
+          } else {
+            displayPipeline?.noteRerouteResult(false);
+          }
+        } catch {
+          displayPipeline?.noteRerouteResult(false);
+        }
+      })();
+    },
+  });
+  twoLegRoutes = createTwoLegRouteController({
+    provider: resolveRouteProvider(),
+    onDiag: (code) => {
+      try {
+        console.info(JSON.stringify({ type: "road_route_diag", reason: String(code || "") }));
+      } catch {
+        /* ignore */
+      }
+    },
+    onModel: (model) => {
+      const hasRoad =
+        model?.approach?.status === "ready" ||
+        model?.trip?.status === "ready" ||
+        model?.approach?.status === "fallback" ||
+        model?.trip?.status === "fallback";
+      setRoadRouteLineSuppressed(Boolean(hasRoad && model?.emphasis !== "none"));
+      twoLegLayers?.render(model);
+      syncDisplayPipelineFromModel(model);
+      if (hasRoad && !model.fittedOnceForRide) {
+        twoLegRoutes?.markFitted();
+      }
+    },
+  });
+  if (typeof window !== "undefined") {
+    window.__SWIFTGO_ROUTE_COUNTERS__ = () => twoLegRoutes?.getCounters?.() || null;
+    window.__SWIFTGO_SNAP_COUNTERS__ = () => displayPipeline?.getCounters?.() || null;
+  }
+  return twoLegRoutes;
+}
+
+function syncTwoLegForRide(ride, { isVisible = true } = {}) {
+  const status = String(ride?.status || "");
+  if (!ride?.id || !["accepted", "arrived", "in_progress"].includes(status)) {
+    clearTwoLegRoutes();
+    return;
+  }
+  // Hide booking pickup→dropoff polyline during assigned tracking (fare already computed).
+  clearRoutePoint("pickup");
+  clearRoutePoint("dropoff");
+  ensureTwoLegRoutes().syncRide(ride, { isVisible });
+  if (!isVisible) {
+    displayPipeline?.getMotion?.()?.cancel("hidden");
+  }
+}
+
+function renderFromArbiterFix(fix) {
+  if (!activeRide || !fix) return;
+  const rideForTrack = {
+    ...activeRide,
+    driverLocation: {
+      ...(activeRide.driverLocation || {}),
+      lat: fix.lat,
+      lng: fix.lng,
+      observedAt: fix.observedAt,
+      accuracyM: fix.accuracyM ?? null,
+      headingDeg: fix.headingDeg ?? null,
+      speedMps: fix.speedMps ?? null,
+      trackingSessionId: fix.trackingSessionId,
+      sequence: fix.sequence,
+    },
+    driverLocationUpdatedAt: fix.observedAt,
+  };
+  // Authoritative raw stays on rideForTrack for distance/ETA; marker owned by display pipeline.
+  ensureTwoLegRoutes();
+  twoLegRoutes?.noteDriverLocation(fix);
+  updateDriverTrack(rideForTrack, { skipMarker: true });
+  displayPipeline?.ingestValidatedFix(fix);
+}
+
+function ensureRideViewLifecycle() {
+  if (rideViewLifecycle) return rideViewLifecycle;
+
+  presenceClient = createViewerPresenceClient({
+    isVisible: () =>
+      typeof document === "undefined" || document.visibilityState !== "hidden",
+    isCurrentGeneration: (gen) => Boolean(rideViewLifecycle?.isCurrentGeneration(gen)),
+    onDiag: (code) => viewerDiag(code),
+    onAttempt: () => rideViewLifecycle?.bumpHeartbeatAttempt(),
+    onSuccess: () => rideViewLifecycle?.bumpHeartbeatSuccess(),
+    onFailure: () => rideViewLifecycle?.bumpHeartbeatFailure(),
+  });
+
+  customerP2p = createCustomerP2pController({
+    onDiag: (code) => {
+      try {
+        console.info(JSON.stringify({ type: "p2p_diag", reason: String(code || "") }));
+      } catch {
+        /* ignore */
+      }
+    },
+    onRenderFix: (fix) => renderFromArbiterFix(fix),
+  });
+
+  rideViewLifecycle = createRideViewLifecycle({
+    diag: (code) => viewerDiag(code),
+    isTerminalStatus: (s) => isTerminalRideStatus(s),
+    fetchLatestRide: async (rideId) => {
+      const ride = await fetchRideById(rideId);
+      const uid = authUid();
+      if (!ride || !uid) return null;
+      if (String(ride.userId || "") !== uid) return null;
+      return ride;
+    },
+    onLatestRide: (ride, gen) => {
+      if (!rideViewLifecycle?.isCurrentGeneration(gen)) {
+        viewerDiag(VIEWER_DIAG.STALE_GENERATION);
+        return;
+      }
+      if (!ride) {
+        stopDriverTrack();
+        void customerP2p?.stop({ closeRemote: true });
+        clearTwoLegRoutes();
+        activeRide = null;
+        clearActiveRideId();
+        document.body.classList.remove("has-active-ride");
+        if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
+        restoreVehicleState();
+        viewerDiag(VIEWER_DIAG.TERMINAL_CLEANUP);
+        return;
+      }
+      handleRideSnapshot(ride);
+    },
+    subscribeLive: (rideId, gen) => {
+      clearLiveSubscriptions();
+      unsubscribeRide = watchRideRequest(
+        rideId,
+        (raw) => {
+          if (!rideViewLifecycle?.isCurrentGeneration(gen)) {
+            viewerDiag(VIEWER_DIAG.STALE_GENERATION);
+            return;
+          }
+          rideViewLifecycle?.noteSnapshot();
+          handleRideSnapshot(raw);
+        },
+        (err) => console.warn("[SwiftGo] ride watch", err)
+      );
+      unsubscribeOffers = watchRideOffers(
+        rideId,
+        (offers) => {
+          if (!rideViewLifecycle?.isCurrentGeneration(gen)) return;
+          activeOffers = offers || [];
+          if (activeOffers.length) {
+            markT4CustomerOffer(rideId, { offerCount: activeOffers.length });
+          }
+          updateDriverOfferUi(activeRide);
+        },
+        (err) => console.warn("[SwiftGo] offers watch", err)
+      );
+      syncVehicleWatch(activeRide);
+    },
+    unsubscribeLive: () => {
+      detachingFromLifecycle = true;
+      try {
+        clearLiveSubscriptions();
+      } finally {
+        detachingFromLifecycle = false;
+      }
+    },
+    startPresenceHeartbeat: (rideId, gen) => {
+      if (!presenceClient) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      const status = normalizeCustomerRideStatus(activeRide?.status);
+      if (!TRACKABLE_VIEW_STATUSES.has(status)) return;
+      presenceClient.start({ rideId, generation: gen });
+      customerP2p?.setVisible(true);
+      if (activeRide) {
+        customerP2p?.syncForRide(activeRide, { isVisible: true });
+        syncTwoLegForRide(activeRide, { isVisible: true });
+      }
+    },
+    stopPresenceHeartbeat: () => {
+      presenceClient?.stop();
+      customerP2p?.setVisible(false);
+      twoLegRoutes?.setVisible(false);
+    },
+  });
+
+  detachBrowserLifecycle = attachBrowserLifecycleListeners(rideViewLifecycle);
+  if (typeof window !== "undefined") {
+    window.__SWIFTGO_VIEWER_COUNTERS__ = () => rideViewLifecycle?.getCounters?.() || null;
+    window.__SWIFTGO_P2P_COUNTERS__ = () => customerP2p?.getCounters?.() || null;
+  }
+  return rideViewLifecycle;
+}
+
+function bindRideView(rideId, { forceRestart = false } = {}) {
+  const lc = ensureRideViewLifecycle();
+  lc.bindRide({ rideId, forceRestart });
+}
+
+function unbindRideView() {
+  if (!rideViewLifecycle) return;
+  detachingFromLifecycle = true;
+  try {
+    rideViewLifecycle.unbind();
+  } finally {
+    detachingFromLifecycle = false;
+  }
+}
+
+/** Sign-out / session teardown — zero listeners and heartbeats. */
+export function clearCustomerRideSession() {
+  unbindRideView();
+  presenceClient?.stop();
+  if (activeRide?.id) clearDispatchSession(activeRide.id);
+  clearSearchTimers();
+  activeOffers = [];
+  selectedOfferId = null;
+  clearLiveSubscriptions();
+  clearTwoLegRoutes();
+  void customerP2p?.stop({ closeRemote: true });
+  activeRide = null;
+  clearActiveRideId();
+  document.body.classList.remove("has-active-ride");
+  if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = null;
+  restoreVehicleState();
+}
 
 function rideCreatedAtMs(ride) {
   const ts = ride?.createdAt;
@@ -136,7 +528,7 @@ function mountActiveRideUi(ride, rideId) {
   if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
   document.body.classList.add("has-active-ride");
   persistActiveRideId(rideId);
-  attachRideWatch(rideId);
+  bindRideView(rideId);
 
   if (status === "searching_driver") {
     showSearchingState();
@@ -191,6 +583,7 @@ export function initRideFlow(handlers = {}) {
   els.sendCounterOfferBtn?.addEventListener("click", onSendCounterOffer);
   els.invoiceDoneBtn?.addEventListener("click", dismissInvoiceAndReset);
   initRatingStars();
+  ensureRideViewLifecycle();
 }
 
 function clearSearchTimers() {
@@ -400,24 +793,20 @@ function syncVehicleWatch(ride) {
 
 function attachRideWatch(rideId) {
   if (!rideId) return;
-  stopRideWatch();
-  unsubscribeRide = watchRideRequest(
+  bindRideView(rideId, { forceRestart: true });
+}
+
+function maybeStartPresenceForActiveRide() {
+  const rideId = String(activeRide?.id || "").trim();
+  if (!rideId || !rideViewLifecycle || !presenceClient) return;
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+  if (!rideViewLifecycle.isLiveAttached()) return;
+  const status = normalizeCustomerRideStatus(activeRide?.status);
+  if (!TRACKABLE_VIEW_STATUSES.has(status)) return;
+  presenceClient.start({
     rideId,
-    handleRideSnapshot,
-    (err) => console.warn("[SwiftGo] ride watch", err)
-  );
-  unsubscribeOffers = watchRideOffers(
-    rideId,
-    (offers) => {
-      activeOffers = offers || [];
-      if (activeOffers.length) {
-        markT4CustomerOffer(rideId, { offerCount: activeOffers.length });
-      }
-      updateDriverOfferUi(activeRide);
-    },
-    (err) => console.warn("[SwiftGo] offers watch", err)
-  );
-  syncVehicleWatch(activeRide);
+    generation: rideViewLifecycle.getGeneration(),
+  });
 }
 
 function showSearchingState() {
@@ -574,7 +963,11 @@ function showActiveRideState(status = "accepted") {
 
   paintActiveRideDetails(activeRide);
   updateActiveRideStatusUi(status);
-  updateDriverTrack(activeRide);
+  const visible =
+    typeof document === "undefined" || document.visibilityState !== "hidden";
+  customerP2p?.syncForRide(activeRide, { isVisible: visible });
+  syncTwoLegForRide(activeRide, { isVisible: visible });
+  if (!customerP2p && activeRide) updateDriverTrack(activeRide);
 
   if (!els.activePanel) return;
   els.activePanel.hidden = false;
@@ -585,6 +978,8 @@ function showActiveRideState(status = "accepted") {
 
 function showInvoicePanel(ride) {
   stopDriverTrack();
+  void customerP2p?.stop({ closeRemote: true });
+  clearTwoLegRoutes();
   els.searchingPanel?.classList.remove("is-visible");
   els.activePanel?.classList.remove("is-visible");
   if (els.searchingPanel) els.searchingPanel.hidden = true;
@@ -621,15 +1016,12 @@ function showInvoicePanel(ride) {
 function stopRideWatch() {
   if (activeRide?.id) clearDispatchSession(activeRide.id);
   clearSearchTimers();
-  unsubscribeRide();
-  unsubscribeRide = () => {};
-  unsubscribeOffers();
-  unsubscribeOffers = () => {};
-  unsubscribeVehicle();
-  unsubscribeVehicle = () => {};
-  watchedVehicleId = "";
   activeOffers = [];
   selectedOfferId = null;
+  if (!detachingFromLifecycle) {
+    unbindRideView();
+  }
+  clearLiveSubscriptions();
 }
 
 function clearMapRouteState() {
@@ -642,6 +1034,8 @@ function clearMapRouteState() {
 function resetToVehicleSelection(messageKey) {
   stopRideWatch();
   stopDriverTrack();
+  void customerP2p?.stop({ closeRemote: true });
+  clearTwoLegRoutes();
   activeRide = null;
   clearActiveRideId();
   document.body.classList.remove("has-active-ride");
@@ -713,6 +1107,16 @@ function handleRideSnapshot(rawRide) {
 
   if (ride.status === "accepted" || ride.status === "arrived" || ride.status === "in_progress") {
     clearSearchTimers();
+    maybeStartPresenceForActiveRide();
+    const visible =
+      typeof document === "undefined" || document.visibilityState !== "hidden";
+    customerP2p?.syncForRide(ride, { isVisible: visible });
+    syncTwoLegForRide(ride, { isVisible: visible });
+    if (ride?.driverLocation) {
+      customerP2p?.ingestFirebaseLocation(ride.driverLocation, ride);
+    } else if (!customerP2p) {
+      updateDriverTrack(ride);
+    }
     const firstActive =
       previousStatus !== "accepted" &&
       previousStatus !== "arrived" &&
@@ -726,7 +1130,6 @@ function handleRideSnapshot(rawRide) {
     } else if (previousStatus !== ride.status) {
       paintActiveRideDetails(ride);
       updateActiveRideStatusUi(ride.status);
-      updateDriverTrack(ride);
       if (ride.status === "arrived") {
         onToast?.(t("rideDriverArrived"));
         announce(t("rideDriverArrived") || "Driver arrived");
@@ -738,13 +1141,16 @@ function handleRideSnapshot(rawRide) {
     } else {
       paintActiveRideDetails(ride);
       updateActiveRideStatusUi(ride.status);
-      updateDriverTrack(ride);
     }
   } else if (ride.status === "declined") {
     stopDriverTrack();
+    void customerP2p?.stop({ closeRemote: true });
+    clearTwoLegRoutes();
     if (previousStatus !== "declined") resetToVehicleSelection("driverDeclined");
   } else if (ride.status === "completed") {
     stopDriverTrack();
+    void customerP2p?.stop({ closeRemote: true });
+    clearTwoLegRoutes();
     if (previousStatus !== "completed") {
       stopRideWatch();
       showInvoicePanel(ride);

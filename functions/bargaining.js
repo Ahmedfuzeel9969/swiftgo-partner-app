@@ -4,6 +4,7 @@
 
 "use strict";
 
+const crypto = require("crypto");
 const { FieldValue, Timestamp } = require("firebase-admin/firestore");
 const {
   validateCandidateDriverLimit,
@@ -43,6 +44,11 @@ const CANCEL_REASON_KEYS = Object.freeze([
   "found_alternative",
   "other",
 ]);
+
+/** Server-minted immutable assignment session token (Admin/CF only; clients cannot choose). */
+function mintAssignmentSessionToken() {
+  return `as_${Date.now().toString(36)}_${crypto.randomBytes(8).toString("hex")}`;
+}
 
 function err(code, message) {
   const e = new Error(message || code);
@@ -1258,6 +1264,9 @@ async function finalizeAssignmentFromOffer(db, params) {
       estimatedFare: finalFare,
       driverBidFare: finalFare,
       assignedAt: FieldValue.serverTimestamp(),
+      // Immutable for this assignment; never overwrite if somehow already present.
+      assignmentSessionToken:
+        String(ride.assignmentSessionToken || "").trim() || mintAssignmentSessionToken(),
     });
 
     tx.update(offerRef, {
@@ -1406,6 +1415,8 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
       estimatedFare: finalFare,
       driverBidFare: finalFare,
       assignedAt: FieldValue.serverTimestamp(),
+      assignmentSessionToken:
+        String(ride.assignmentSessionToken || "").trim() || mintAssignmentSessionToken(),
     });
 
     const offerPayload = {
@@ -1616,6 +1627,7 @@ module.exports = {
   acceptCustomerInitialFareAsDriver,
   closeSiblingOffers,
   rematchNearbySearchingRidesForVehicle,
+  mintAssignmentSessionToken,
   SEARCH_EXPIRE_MS,
   SEARCH_EXPIRED_STATUS,
 };

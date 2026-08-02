@@ -44,7 +44,7 @@ import {
 import { initRateDetailsModal, openRateDetails } from "./rate-details-modal.js";
 import { getRouteInfo, initRoutingUi } from "./routing.js";
 import { initFareCalculation } from "./fare.js";
-import { initRideFlow, startRideRequest, resumeActiveRideWatch } from "./ride-flow.js";
+import { initRideFlow, startRideRequest, resumeActiveRideWatch, clearCustomerRideSession } from "./ride-flow.js";
 import { initDriverTrack } from "./driver-track.js";
 import { applyReducedMotionClass, initKeyboardInset, setOverlayInert } from "./a11y.js";
 import {
@@ -258,6 +258,7 @@ function bindUserData() {
     if (!user) {
       updateProfileUi(null, null);
       stopCustomerRideHistory();
+      clearCustomerRideSession();
       return;
     }
 

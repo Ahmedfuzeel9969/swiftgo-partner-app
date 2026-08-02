@@ -1,0 +1,342 @@
+{
+  "suite": "viewer-presence-lifecycle",
+  "pass": 45,
+  "fail": 0,
+  "total": 45,
+  "byCategory": {
+    "static": {
+      "pass": 7,
+      "fail": 0
+    },
+    "unit": {
+      "pass": 22,
+      "fail": 0
+    },
+    "emulator": {
+      "pass": 8,
+      "fail": 0
+    },
+    "rules": {
+      "pass": 8,
+      "fail": 0
+    }
+  },
+  "results": [
+    {
+      "name": "29-booking-assignment-flow-unchanged-hooks",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "static"
+    },
+    {
+      "name": "S01-lifecycle-modules-wired",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "static"
+    },
+    {
+      "name": "S02-presence-callable-exported",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "static"
+    },
+    {
+      "name": "S03-no-beforeunload-correctness",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "static"
+    },
+    {
+      "name": "S04-privacy-safe-diags-only",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "static"
+    },
+    {
+      "name": "S05-presence-not-in-location-mirror",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "static"
+    },
+    {
+      "name": "30-live-location-envelope-modules-intact",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "static"
+    },
+    {
+      "name": "01-visible-attaches-one-listener",
+      "status": "PASS",
+      "detail": "live=1 state=VISIBLE",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "02-hidden-detaches-listener",
+      "status": "PASS",
+      "detail": "live=0",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "28-listener-accounting-zero-while-hidden",
+      "status": "PASS",
+      "detail": "live=0",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "03-hidden-to-visible-latest-then-one-listener",
+      "status": "PASS",
+      "detail": "reads=1 live=1",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "04-repeated-visible-no-duplicate",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "05-repeated-hidden-harmless",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "06-rapid-hide-show-stale-generation-ignored",
+      "status": "PASS",
+      "detail": "live=0 state=BACKGROUND",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "07-ride-a-to-b-prevents-a-updates",
+      "status": "PASS",
+      "detail": "bound=rideB live=1",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "26-late-snapshot-after-detach-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "08-sign-out-cleanup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "09-terminal-ride-cleanup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "10-cancelled-ride-cleanup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "11-missing-ride-cleanup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "27-animation-timer-cleanup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "23-pagehide-cleanup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "24-pageshow-bfcache-recovery",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "25-offline-online-recovery-while-visible",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "19-heartbeat-jitter-safe-range",
+      "status": "PASS",
+      "detail": "lo=40000 hi=50000 sample=40000",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "20-one-heartbeat-loop-only",
+      "status": "PASS",
+      "detail": "calls=1",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "21-heartbeat-bounded-retry-backoff",
+      "status": "PASS",
+      "detail": "attempts=7",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "22-hidden-page-schedules-no-heartbeat",
+      "status": "PASS",
+      "detail": "calls=1 before=1",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "session-id-validation",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "unit"
+    },
+    {
+      "name": "12-valid-assigned-customer-presence-refresh",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "emulator"
+    },
+    {
+      "name": "13-unrelated-customer-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "emulator"
+    },
+    {
+      "name": "14-driver-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "emulator"
+    },
+    {
+      "name": "15-owner-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "emulator"
+    },
+    {
+      "name": "16-anonymous-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "emulator"
+    },
+    {
+      "name": "17-terminal-ride-presence-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "emulator"
+    },
+    {
+      "name": "18-client-cannot-forge-timestamps",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "emulator"
+    },
+    {
+      "name": "wrong-customer-ride-rejected-fetch-path",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "emulator"
+    },
+    {
+      "name": "rules-customer-can-read-own-presence",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "rules"
+    },
+    {
+      "name": "rules-driver-can-read-assigned-presence",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "rules"
+    },
+    {
+      "name": "rules-other-customer-read-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "rules"
+    },
+    {
+      "name": "rules-owner-read-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "rules"
+    },
+    {
+      "name": "rules-anon-read-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "rules"
+    },
+    {
+      "name": "rules-client-create-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "rules"
+    },
+    {
+      "name": "rules-client-update-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "rules"
+    },
+    {
+      "name": "rules-client-delete-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "viewer-presence-lifecycle",
+      "category": "rules"
+    }
+  ],
+  "generatedAt": "2026-08-01T18:39:17.832Z"
+}

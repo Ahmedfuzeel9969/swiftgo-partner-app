@@ -916,6 +916,23 @@ body.map-pick-active .sheet {
   pointer-events: none;
 }
 
+.road-route-fallback-line {
+  pointer-events: none;
+}
+
+.road-route-fallback-banner {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #334155;
+}
+
+.road-route-attribution {
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  color: #64748b;
+}
+
 @keyframes live-drift {
   0%,
   100% {
