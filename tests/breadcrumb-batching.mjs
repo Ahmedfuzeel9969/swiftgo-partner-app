@@ -29,6 +29,7 @@ import {
 import { createBreadcrumbQueue } from "../driver-app/js/breadcrumb-queue.mjs";
 import { createBreadcrumbCollector } from "../driver-app/js/breadcrumb-collector.mjs";
 import { createBreadcrumbUploader } from "../driver-app/js/breadcrumb-uploader.mjs";
+import { runIsolatedBreadcrumbTelemetryRules } from "./breadcrumb-isolated-rules-runner.mjs";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -1310,31 +1311,11 @@ async function integrationPerfTests() {
 }
 
 async function rulesTests() {
-  const { spawnSync } = await import("node:child_process");
-  const child = spawnSync(
-    process.execPath,
-    [path.join(ROOT, "tests", "breadcrumb-telemetry-rules.mjs")],
-    {
-      cwd: ROOT,
-      env: { ...process.env },
-      encoding: "utf8",
-    }
-  );
-  if (child.stdout) process.stdout.write(child.stdout);
-  if (child.stderr) process.stderr.write(child.stderr);
-
-  const rulesOut = path.join(ROOT, "tests", "breadcrumb-telemetry-rules-results.json");
-  let parsed = null;
-  try {
-    parsed = JSON.parse(fs.readFileSync(rulesOut, "utf8"));
-  } catch (e) {
-    record(
-      "rules-client-read-denied",
-      "BLOCKED",
-      `isolated rules harness did not write results: ${String(e.message || e).slice(0, 80)}`,
-      "rules"
-    );
-    record("rules-client-write-denied", "BLOCKED", "no results file", "rules");
+  const outcome = runIsolatedBreadcrumbTelemetryRules({ root: ROOT });
+  if (!outcome.ok) {
+    const status = outcome.status === "BLOCKED" ? "BLOCKED" : "FAIL";
+    record("rules-client-read-denied", status, outcome.reason || "isolated_rules_failed", "rules");
+    record("rules-client-write-denied", status, outcome.reason || "isolated_rules_failed", "rules");
     const block = read("firestore.rules");
     const staticOk =
       /match \/rideBreadcrumbTelemetry\/\{rideId\}[\s\S]*?allow get, list: if false/.test(block) &&
@@ -1344,15 +1325,20 @@ async function rulesTests() {
     record(
       "static-telemetry-deny-all-architecture",
       staticOk ? "PASS" : "FAIL",
-      "static architecture only",
+      `static architecture only; isolated=${outcome.reason}`,
       "static"
     );
     return;
   }
-
-  for (const r of parsed.results || []) {
+  for (const r of outcome.parsed.results || []) {
     record(r.name, r.status, r.detail || "", r.category || "rules");
   }
+  record(
+    "isolated-rules-child-status-ok",
+    outcome.child?.status === 0 && !outcome.child?.error ? "PASS" : "FAIL",
+    `status=${outcome.child?.status}`,
+    "rules"
+  );
 }
 
 async function encryptionNoteTest() {

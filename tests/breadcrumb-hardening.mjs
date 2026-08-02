@@ -5,7 +5,6 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import {
@@ -19,6 +18,11 @@ import {
 import { createBreadcrumbQueue } from "../driver-app/js/breadcrumb-queue.mjs";
 import { createBreadcrumbCollector } from "../driver-app/js/breadcrumb-collector.mjs";
 import { createBreadcrumbUploader } from "../driver-app/js/breadcrumb-uploader.mjs";
+import {
+  runIsolatedBreadcrumbTelemetryRules,
+  validateIsolatedRulesResults,
+  BREADCRUMB_TELEMETRY_RULES_RESULTS,
+} from "./breadcrumb-isolated-rules-runner.mjs";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -441,6 +445,73 @@ async function samplingBillingSims() {
   );
   upOff.stop();
   await qOff.purgePartition(bOff);
+
+  // Production-shaped wake: one failed pending batch + raw queued points not yet batched.
+  // Policy: wake drains existing pending only (≤3); does NOT form new batches from raw points.
+  const bProd = binding({ rideId: "ride_wake_prod" });
+  let prodOnline = false;
+  let prodAttempts = 0;
+  const prodAcked = [];
+  const qProd = createBreadcrumbQueue({ nowMs: timers.nowMs, allowMemoryFallback: true });
+  const upProd = createBreadcrumbUploader({
+    queue: qProd,
+    getBinding: () => bProd,
+    nowMs: timers.nowMs,
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+    callSubmit: async (batch) => {
+      if (!prodOnline) throw new Error("offline");
+      prodAttempts += 1;
+      prodAcked.push(batch.batchSequence);
+      return { ok: true, acknowledged: true };
+    },
+  });
+  upProd.start();
+  seq = 1;
+  for (let i = 0; i < 40; i += 1) {
+    timers.advance(4000);
+    await qProd.appendPoint(bProd, rawFix(seq++, timers));
+  }
+  const pendingProd = await qProd.takeBatch(bProd, { force: true, maxPoints: 15 });
+  const rawBefore = await qProd.pointCount(bProd);
+  // Failed upload leaves the pending batch in place (uploadOldest peeks pending first).
+  prodOnline = false;
+  await upProd.tick({ force: true, wake: true });
+  const mid = await qProd._load(bProd);
+  const pendingMid = mid?.pendingBatches?.length || 0;
+  prodOnline = true;
+  prodAttempts = 0;
+  prodAcked.length = 0;
+  await upProd.tick({ force: true, wake: true, reason: "network_resume" });
+  const after = await qProd._load(bProd);
+  const rawAfter = after?.points?.length || 0;
+  const pendingAfter = after?.pendingBatches?.length || 0;
+  const allSeqs = [
+    ...(after?.points || []).map((p) => p.sequence),
+    ...((after?.pendingBatches || []).flatMap((b) => (b.points || []).map((p) => p.sequence))),
+  ];
+  // Pending batch (seqs 1-15) acked once; raw 16-40 remain exactly once; no new pending formed.
+  const prodOk =
+    pendingProd.ok &&
+    rawBefore === 25 &&
+    pendingMid === 1 &&
+    prodAttempts === 1 &&
+    prodAttempts <= BREADCRUMB_MAX_UPLOADS_PER_WAKE &&
+    pendingAfter === 0 &&
+    rawAfter === 25 &&
+    prodAcked.length === 1 &&
+    allSeqs.length === 25 &&
+    allSeqs.every((s, i) => s === i + 16) &&
+    new Set(allSeqs).size === 25;
+  record(
+    "h-wake-pending-plus-raw-points",
+    prodOk ? "PASS" : "FAIL",
+    `policy=wake_drains_pending_only attempts=${prodAttempts} raw=${rawBefore}->${rawAfter} pendMid=${pendingMid} pendAfter=${pendingAfter}`,
+    "performance"
+  );
+  upProd.stop();
+  await qProd.purgePartition(bProd);
+
   await collector.stop({ purge: true });
   await c8.stop({ purge: true });
 }
@@ -831,58 +902,122 @@ async function flushOrderAndSettlement(db) {
 }
 
 async function rulesHonest() {
-  // Isolated child process — rules-unit-testing must not share Firestore init with Admin SDK.
-  const child = spawnSync(
-    process.execPath,
-    [path.join(ROOT, "tests", "breadcrumb-telemetry-rules.mjs")],
-    {
-      cwd: ROOT,
-      env: { ...process.env },
-      encoding: "utf8",
-    }
-  );
-  if (child.stdout) process.stdout.write(child.stdout);
-  if (child.stderr) process.stderr.write(child.stderr);
-
-  const rulesOut = path.join(ROOT, "tests", "breadcrumb-telemetry-rules-results.json");
-  let parsed = null;
-  try {
-    parsed = JSON.parse(fs.readFileSync(rulesOut, "utf8"));
-  } catch (e) {
-    record(
-      "h-rules-read-denied",
-      "BLOCKED",
-      `isolated rules harness did not write results: ${String(e.message || e).slice(0, 80)}`,
-      "rules"
-    );
-    record("h-rules-write-denied", "BLOCKED", "no results file", "rules");
+  const outcome = runIsolatedBreadcrumbTelemetryRules({ root: ROOT });
+  if (!outcome.ok) {
+    const status = outcome.status === "BLOCKED" ? "BLOCKED" : "FAIL";
+    record("h-rules-read-denied", status, outcome.reason || "isolated_rules_failed", "rules");
+    record("h-rules-write-denied", status, outcome.reason || "isolated_rules_failed", "rules");
     record(
       "h-static-deny-all-architecture",
       /rideBreadcrumbTelemetry/.test(read("firestore.rules")) ? "PASS" : "FAIL",
-      "static only",
+      `static only; isolated=${outcome.reason}`,
       "static"
     );
     return;
   }
+  const byName = outcome.byName || {};
+  record(
+    "h-rules-read-denied",
+    byName["rules-client-read-denied"]?.status || "FAIL",
+    byName["rules-client-read-denied"]?.detail || "",
+    "rules"
+  );
+  record(
+    "h-rules-write-denied",
+    byName["rules-client-write-denied"]?.status || "FAIL",
+    byName["rules-client-write-denied"]?.detail || "",
+    "rules"
+  );
+  record(
+    "h-static-deny-all-architecture",
+    byName["static-telemetry-deny-all-architecture"]?.status || "FAIL",
+    byName["static-telemetry-deny-all-architecture"]?.detail || "",
+    "static"
+  );
+  record(
+    "h-isolated-rules-child-status-ok",
+    outcome.child?.status === 0 && !outcome.child?.error ? "PASS" : "FAIL",
+    `status=${outcome.child?.status}`,
+    "rules"
+  );
+}
 
-  const byName = Object.fromEntries((parsed.results || []).map((r) => [r.name, r]));
-  const map = [
-    ["rules-client-read-denied", "h-rules-read-denied"],
-    ["rules-client-write-denied", "h-rules-write-denied"],
-    ["static-telemetry-deny-all-architecture", "h-static-deny-all-architecture"],
-  ];
-  for (const [src, dest] of map) {
-    const r = byName[src];
-    if (!r) {
-      record(dest, "BLOCKED", `missing ${src} in isolated suite`, src.includes("static") ? "static" : "rules");
-      continue;
+function staleIsolatedRulesRejectionTest() {
+  const resultsPath = path.join(ROOT, "tests", BREADCRUMB_TELEMETRY_RULES_RESULTS);
+  const staleGeneratedAt = new Date(Date.now() - 60 * 60_000).toISOString();
+  const stalePass = {
+    suite: "breadcrumb-telemetry-rules",
+    generatedAt: staleGeneratedAt,
+    total: 3,
+    pass: 3,
+    fail: 0,
+    blocked: 0,
+    results: [
+      {
+        name: "static-telemetry-deny-all-architecture",
+        status: "PASS",
+        detail: "stale",
+        category: "static",
+      },
+      {
+        name: "rules-client-read-denied",
+        status: "PASS",
+        detail: "stale",
+        category: "rules",
+      },
+      {
+        name: "rules-client-write-denied",
+        status: "PASS",
+        detail: "stale",
+        category: "rules",
+      },
+    ],
+  };
+  fs.writeFileSync(resultsPath, JSON.stringify(stalePass, null, 2));
+
+  // Child exits non-zero and writes nothing — old PASS file must not be accepted.
+  const outcome = runIsolatedBreadcrumbTelemetryRules({
+    root: ROOT,
+    childArgs: ["-e", "process.exit(2)"],
+    echoOutput: false,
+  });
+  const rejected =
+    !outcome.ok &&
+    (outcome.status === "FAIL" || outcome.status === "BLOCKED") &&
+    String(outcome.reason || "").includes("child_status_2");
+  // After delete+failed child, either no file or not a fresh PASS acceptance.
+  let staleStillAccepted = false;
+  if (fs.existsSync(resultsPath)) {
+    try {
+      const leftover = JSON.parse(fs.readFileSync(resultsPath, "utf8"));
+      staleStillAccepted =
+        leftover.generatedAt === staleGeneratedAt && leftover.pass === 3 && outcome.ok;
+    } catch {
+      staleStillAccepted = false;
     }
-    record(
-      dest,
-      r.status,
-      r.detail || "",
-      src.includes("static") ? "static" : "rules"
-    );
+  }
+  record(
+    "h-stale-isolated-rules-rejected",
+    rejected && !staleStillAccepted && !outcome.ok ? "PASS" : "FAIL",
+    `reason=${outcome.reason} acceptedStale=${staleStillAccepted}`,
+    "unit"
+  );
+
+  const startedAtMs = Date.now();
+  const validateStale = validateIsolatedRulesResults(stalePass, { startedAtMs });
+  record(
+    "h-stale-generatedAt-rejected",
+    !validateStale.ok && String(validateStale.reason || "").startsWith("stale_generatedAt")
+      ? "PASS"
+      : "FAIL",
+    validateStale.reason || "",
+    "unit"
+  );
+
+  try {
+    if (fs.existsSync(resultsPath)) fs.unlinkSync(resultsPath);
+  } catch {
+    /* ignore */
   }
 }
 
@@ -893,7 +1028,8 @@ async function privacyDocs() {
     docText.includes("sensitive location") &&
       docText.includes("no application-level encryption") &&
       docText.includes("must not become financial truth") &&
-      docText.includes("one accepted point every 4 seconds")
+      docText.includes("one accepted point every 4 seconds") &&
+      docText.includes("Wake drain policy")
       ? "PASS"
       : "FAIL",
     "",
@@ -903,6 +1039,11 @@ async function privacyDocs() {
 
 async function main() {
   console.log("\n=== Phase 6 breadcrumb hardening ===\n");
+  try {
+    staleIsolatedRulesRejectionTest();
+  } catch (e) {
+    record("h-stale-rules-uncaught", "FAIL", String(e.message || e).slice(0, 160), "unit");
+  }
   // Rules first in an isolated child, before Admin SDK initializes Firestore.
   try {
     await rulesHonest();

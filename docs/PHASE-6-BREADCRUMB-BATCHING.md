@@ -21,6 +21,7 @@ Fare, wallet, earnings, commission, settlement, partial-cancellation fare, and r
 - Retention: `BREADCRUMB_QUEUE_RETENTION_MS` (2 hours) then purge.
 - Offline catch-up: at most `BREADCRUMB_MAX_UPLOADS_PER_WAKE` (3) upload attempts **per wake tick total** (including the first).
 - Normal scheduled timer ticks use `BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK` (1) — healthy online operation remains about one callable per minute.
+- **Wake drain policy:** a wake tick uploads already-pending batches only (bounded by the wake max). It does **not** convert raw queued points into new pending batches during the wake drain loop. Raw points remain queued until a later scheduled/forced tick forms batches via `takeBatch`.
 
 ## Privacy
 - Raw coordinates in the queue **are sensitive location / personal data**.
