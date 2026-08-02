@@ -444,6 +444,13 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Phase 6 — shadow breadcrumb telemetry. Admin/CF only; no client reads/writes.
+    // Dense chord distance is diagnostic only (never fare/settlement input).
+    match /rideBreadcrumbTelemetry/{rideId} {
+      allow get, list: if false;
+      allow create, update, delete: if false;
+    }
+
     // ── ride_requests/{id} ── Phase 2B: legacy archive — read-only; canonical bookings are rides/.
     match /ride_requests/{requestId} {
       allow get, list: if isSignedIn() && (

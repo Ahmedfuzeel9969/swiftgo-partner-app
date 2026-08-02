@@ -67,6 +67,7 @@ const {
   publishRidePeerAnswer,
   closeRidePeerSession,
 } = require("./ride-peer-session");
+const { submitRideBreadcrumbBatch } = require("./breadcrumb-batch");
 
 if (!getApps().length) {
   initializeApp();
@@ -971,6 +972,20 @@ exports.closeRidePeerSession = onCall({ region: "us-central1" }, async (request)
     closeRidePeerSession(db, {
       uid: request.auth.uid,
       rideId: request.data?.rideId,
+    })
+  );
+});
+
+/**
+ * Phase 6 — shadow breadcrumb batch (dense chord telemetry only).
+ * Does not mutate traveledDistanceKm, fare, wallet, or settlement.
+ */
+exports.submitRideBreadcrumbBatch = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("submitRideBreadcrumbBatch", request, () =>
+    submitRideBreadcrumbBatch(db, {
+      driverUid: request.auth.uid,
+      batch: request.data?.batch,
     })
   );
 });

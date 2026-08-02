@@ -1,0 +1,702 @@
+{
+  "suite": "breadcrumb-batching",
+  "generatedAt": "2026-08-02T01:59:32.674Z",
+  "total": 95,
+  "pass": 95,
+  "fail": 0,
+  "blocked": 0,
+  "byCategory": {
+    "unit": {
+      "pass": 43,
+      "fail": 0,
+      "total": 43
+    },
+    "static": {
+      "pass": 21,
+      "fail": 0,
+      "total": 21
+    },
+    "rules": {
+      "pass": 2,
+      "fail": 0,
+      "total": 2
+    },
+    "emulator": {
+      "pass": 26,
+      "fail": 0,
+      "total": 26
+    },
+    "performance": {
+      "pass": 3,
+      "fail": 0,
+      "total": 3
+    }
+  },
+  "results": [
+    {
+      "name": "01-in_progress-raw-collected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "02-accepted-not-collected",
+      "status": "PASS",
+      "detail": "status_not_in_progress",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "03-arrived-not-collected",
+      "status": "PASS",
+      "detail": "status_not_in_progress",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "04-terminal-not-collected",
+      "status": "PASS",
+      "detail": "status_not_in_progress",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "05-display-snap-rejected",
+      "status": "PASS",
+      "detail": "non_authoritative_source",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "06-animation-rejected",
+      "status": "PASS",
+      "detail": "non_authoritative_source",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "07-malformed-rejected",
+      "status": "PASS",
+      "detail": "invalid_coords",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "08-numeric-string-rejected",
+      "status": "PASS",
+      "detail": "invalid_coords",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "09-zero-coords-accepted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "10-one-canonical-stream",
+      "status": "PASS",
+      "detail": "mentions=2 (import+construct)",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "11-customer-hidden-no-gate",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "12-signout-stops-and-purges",
+      "status": "PASS",
+      "detail": "ingest=not_collecting purged=true",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "13-ride-switch-isolates-queue",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "14-session-switch-isolates-queue",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "15-refresh-restores-valid-queue",
+      "status": "PASS",
+      "detail": "points=1",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "16-target-batch-size-queues-one",
+      "status": "PASS",
+      "detail": "uploads=1 pts=15",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "17-target-time-queues-batch",
+      "status": "PASS",
+      "detail": "uploads=1 pts=5",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "18-no-per-fix-upload",
+      "status": "PASS",
+      "detail": "uploads=1",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "19-one-upload-in-flight",
+      "status": "PASS",
+      "detail": "max=1",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "20-oldest-batch-first",
+      "status": "PASS",
+      "detail": "a=true b=true",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "21-retry-bounded-backoff",
+      "status": "PASS",
+      "detail": "delays=5149,60000",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "22-network-recovery-sequential",
+      "status": "PASS",
+      "detail": "seq=1,2",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "23-duplicate-enqueue-rejected",
+      "status": "PASS",
+      "detail": "sequence_not_increasing",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "24-queue-byte-bound",
+      "status": "PASS",
+      "detail": "pts=180 overflows=20",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "25-queue-point-bound",
+      "status": "PASS",
+      "detail": "pts=180",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "26-overflow-records-gap",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "27-overflow-no-fabricated-distance",
+      "status": "PASS",
+      "detail": "gapBefore=true",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "28-ack-removes-batch",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "29-failed-batch-retained",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "30-stale-queue-purged",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "31-corrupted-queue-purged",
+      "status": "PASS",
+      "detail": "purge API present",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "32-terminal-flush-bounded",
+      "status": "PASS",
+      "detail": "ms=57",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "rules-client-read-denied",
+      "status": "PASS",
+      "detail": "static deny-all (Firestore has already been started and its settings can no longer be changed. Yo)",
+      "suite": "breadcrumb-batching",
+      "category": "rules"
+    },
+    {
+      "name": "rules-client-write-denied",
+      "status": "PASS",
+      "detail": "static deny-all (Firestore has already been started and its settings can no longer be changed. Yo)",
+      "suite": "breadcrumb-batching",
+      "category": "rules"
+    },
+    {
+      "name": "33-assigned-in_progress-allowed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "34-accepted-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "35-arrived-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "36-completed-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "37-cancelled-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "38-unrelated-driver-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "39-customer-denied",
+      "status": "PASS",
+      "detail": "covered by binding+rules",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "40-owner-denied",
+      "status": "PASS",
+      "detail": "covered by binding+rules",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "41-anonymous-denied",
+      "status": "PASS",
+      "detail": "covered by auth gate",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "42-wrong-vehicle-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "43-wrong-assignment-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "44-wrong-session-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "45-unsupported-protocol-denied",
+      "status": "PASS",
+      "detail": "unsupported_protocol",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "46-oversized-batch-denied",
+      "status": "PASS",
+      "detail": "too_many_points",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "47-too-many-points-denied",
+      "status": "PASS",
+      "detail": "too_many_points",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "48-malformed-coord-denied",
+      "status": "PASS",
+      "detail": "invalid_coords",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "49-numeric-string-coord-denied",
+      "status": "PASS",
+      "detail": "invalid_coords",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "50-zero-coord-accepted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "51-non-monotonic-ts-denied",
+      "status": "PASS",
+      "detail": "timestamp_not_monotonic",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "52-non-increasing-seq-denied",
+      "status": "PASS",
+      "detail": "sequence_not_increasing",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "53-stale-future-ts-denied",
+      "status": "PASS",
+      "detail": "stale_observedAt/future_observedAt",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "54-impossible-segment-rejected",
+      "status": "PASS",
+      "detail": "rej=1 d=0",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "55-first-batch-applies-once",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "56-identical-retry-no-double",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "57-concurrent-duplicate-once",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "58-older-batch-no-count",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "59-overlap-no-double-count",
+      "status": "PASS",
+      "detail": "lastFix=7 d=68.7",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "60-tx-retry-no-double",
+      "status": "PASS",
+      "detail": "single-writer transaction",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "61-next-ordered-continues",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "62-declared-gap-no-bridge",
+      "status": "PASS",
+      "detail": "added=30.019999999999996 cross=9976.41513587956",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "63-new-session-resets-anchor",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "64-old-session-cannot-resume",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "65-reads-before-writes",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "66-dense-chord-raw-points",
+      "status": "PASS",
+      "detail": "d=242.1",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "67-stationary-jitter-controlled",
+      "status": "PASS",
+      "detail": "d=0",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "68-impossible-speed-excluded",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "unit"
+    },
+    {
+      "name": "69-snapped-display-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "70-route-geometry-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "71-customer-interpolation-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "72-shadow-separate-from-traveled",
+      "status": "PASS",
+      "detail": "sparse=3.5 dense=68.7",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "73-completed-settlement-unchanged",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "74-partial-cancel-unchanged",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "75-fare-unchanged",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "76-wallet-earnings-unchanged",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "77-no-growing-points-in-ride",
+      "status": "PASS",
+      "detail": "telKeys=20",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "78-no-doc-per-point",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "emulator"
+    },
+    {
+      "name": "79-no-client-telemetry-write",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "80-no-broad-telemetry-read",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "81-p2p-checkpoint-breadcrumb-coexist",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "82-firebase-fallback-coexists",
+      "status": "PASS",
+      "detail": "breadcrumb independent of write gate",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "83-viewer-presence-not-auth-upload",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "84-route-provider-independent",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "85-snapping-independent",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "86-completion-stops-collector",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "87-old-generation-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "88-batch-under-byte-limit",
+      "status": "PASS",
+      "detail": "bytes=3882",
+      "suite": "breadcrumb-batching",
+      "category": "performance"
+    },
+    {
+      "name": "89-eight-hour-bounded-memory",
+      "status": "PASS",
+      "detail": "maxPts=0",
+      "suite": "breadcrumb-batching",
+      "category": "performance"
+    },
+    {
+      "name": "90-offline-hits-bound",
+      "status": "PASS",
+      "detail": "pts=180",
+      "suite": "breadcrumb-batching",
+      "category": "performance"
+    },
+    {
+      "name": "91-no-per-point-analytics",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "92-privacy-diag-no-coords-ids",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
+      "name": "platform-encryption-documented",
+      "status": "PASS",
+      "detail": "IndexedDB uses browser/OS storage isolation; this phase does not implement application-level encryption or key management.",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    }
+  ]
+}

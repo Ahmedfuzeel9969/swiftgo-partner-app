@@ -50,6 +50,7 @@ const SHARED_JS_MODULES = [
   "route-motion-controller.mjs",
   "off-route-detector.mjs",
   "display-location-pipeline.mjs",
+  "breadcrumb-schema.mjs",
 ];
 
 function syncSharedJsInto(destJsDir) {

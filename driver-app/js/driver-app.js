@@ -75,6 +75,8 @@ import {
 import { createViewerPresenceConsumer } from "./viewer-presence-consumer.mjs";
 import { createDriverP2pController } from "./p2p-ride-controller.mjs";
 import { createDriverActiveRouteController } from "./driver-active-route.mjs";
+import { createBreadcrumbCollector } from "./breadcrumb-collector.mjs";
+import { assignmentVersionFromRide } from "./breadcrumb-schema.mjs";
 import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { cancelAssignedRideByDriverClient } from "./ride-radar-actions.js";
@@ -320,14 +322,59 @@ const viewerPresenceConsumer = createViewerPresenceConsumer({
   isCurrentGeneration: (gen) => checkpointPolicy.isCurrentGeneration(gen),
 });
 
+const breadcrumbCollector = createBreadcrumbCollector({
+  onDiag: (code) => {
+    try {
+      console.info(JSON.stringify({ type: "breadcrumb_diag", code: String(code || "") }));
+    } catch {
+      /* ignore */
+    }
+  },
+});
+
 if (typeof window !== "undefined") {
   window.__SWIFTGO_CHECKPOINT_COUNTERS__ = () => checkpointPolicy.getCounters();
   window.__SWIFTGO_P2P_COUNTERS__ = () => driverP2p.getCounters();
+  window.__SWIFTGO_BREADCRUMB_COUNTERS__ = () => breadcrumbCollector.getCounters();
   window.addEventListener("online", () => {
     if (activeExecutionRide?.id && isOnlineReady()) {
       checkpointPolicy.requestImmediate("network_online");
       maybeFlushImmediateCheckpoint();
     }
+    void breadcrumbCollector.onNetworkResume();
+  });
+  window.addEventListener("visibilitychange", () => {
+    if (typeof document !== "undefined" && document.visibilityState === "visible") {
+      void breadcrumbCollector.onAppResume();
+    }
+  });
+}
+
+function syncBreadcrumbCollectionForActiveRide() {
+  const ride = activeExecutionRide;
+  const status = String(ride?.status || "");
+  const driverId = currentDriver?.uid || "";
+  const vehicleId = linkedVehicle?.id || ride?.vehicleId || "";
+  if (
+    !ride?.id ||
+    status !== "in_progress" ||
+    !driverId ||
+    !vehicleId ||
+    !locationTrackingSessionId ||
+    String(ride.driverId || "") !== driverId
+  ) {
+    void breadcrumbCollector.stop({ purge: true, flush: false, reason: "not_in_progress" });
+    return;
+  }
+  void breadcrumbCollector.start({
+    rideId: ride.id,
+    driverId,
+    vehicleId,
+    ride,
+    trackingSessionId: locationTrackingSessionId,
+    assignmentVersion: assignmentVersionFromRide(ride),
+    status,
+    assignedDriverId: ride.driverId,
   });
 }
 
@@ -385,6 +432,7 @@ function detachCheckpointPresence(reason = "") {
   checkpointPolicy.setActiveRide({ active: false });
   void driverP2p.stop({ closeRemote: true });
   checkpointPolicy.setP2pHealthy(false);
+  void breadcrumbCollector.stop({ purge: true, flush: false, reason: reason || "detach" });
 }
 
 function maybeFlushImmediateCheckpoint() {
@@ -416,6 +464,7 @@ function beginLocationTrackingSession() {
     checkpointPolicy.requestImmediate("session_change");
   }
   syncDriverP2pForActiveRide();
+  syncBreadcrumbCollectionForActiveRide();
 }
 
 function endLocationTrackingSession() {
@@ -425,6 +474,7 @@ function endLocationTrackingSession() {
   locationTrackingSessionStartPending = false;
   locationTrackingGeneration += 1;
   locationWriteSerializer.cancelAll();
+  void breadcrumbCollector.stop({ purge: true, flush: false, reason: "session_end" });
 }
 
 function nextLocationSequence() {
@@ -2532,6 +2582,15 @@ async function syncVehicleLocationToFirestore(
     });
   }
 
+  // Phase 6: dense breadcrumb collection (in_progress only; independent of checkpoint gate).
+  if (String(activeExecutionRide?.status || "") === "in_progress") {
+    void breadcrumbCollector.ingestRawFix(normalized.envelope, {
+      status: activeExecutionRide.status,
+      rideId: activeExecutionRide.id,
+      trackingSessionId: sessionIdAtEnqueue,
+    });
+  }
+
   const now = Date.now();
   const cell = `${Math.floor(Number(lat) / LOCATION_GRID_DEG)}_${Math.floor(Number(lng) / LOCATION_GRID_DEG)}`;
   const geoCell = matchGeoCellId(lat, lng);
@@ -3153,6 +3212,12 @@ async function finalizeSuccessfulRideCompletion(ride, settlementResult) {
       rideFareAmount(ride),
   };
 
+  try {
+    await breadcrumbCollector.stop({ purge: true, flush: true, reason: "ride_completed" });
+  } catch {
+    /* bounded flush must not block settlement UI */
+  }
+
   activeExecutionRide = null;
   activeRideRecoveryPending = false;
   detachCheckpointPresence("ride_completed");
@@ -3441,8 +3506,13 @@ function startActiveRideWatch(rideId, collectionName = "rides") {
       if (ACTIVE_EXECUTION_STATUSES.has(String(activeExecutionRide.status || ""))) {
         persistActiveRideCache(snapshot.id, collectionName);
         syncCheckpointPresenceForActiveRide();
+        syncBreadcrumbCollectionForActiveRide();
       } else {
         clearActiveRideCache();
+        // Bounded final flush while still authenticated; never blocks completion path indefinitely.
+        void breadcrumbCollector
+          .stop({ purge: true, flush: true, reason: "terminal_status" })
+          .catch(() => {});
         detachCheckpointPresence("terminal_status");
       }
       renderActiveRideControls(activeExecutionRide);
@@ -3932,6 +4002,7 @@ function boot() {
         partnerAccountBlocked = false;
         activeExecutionRide = null;
         clearActiveRideCache();
+        void breadcrumbCollector.stop({ purge: true, flush: false, reason: "sign_out" });
         detachCheckpointPresence("sign_out");
         earningsUi?.deactivate();
         dashboardUi?.deactivate();
