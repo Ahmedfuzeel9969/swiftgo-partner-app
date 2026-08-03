@@ -149,9 +149,24 @@ function clearTwoLegRoutes() {
 function paintDisplayFrame(pos) {
   if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lng)) return;
   const rot = Number.isFinite(pos.headingDeg) ? pos.headingDeg : 0;
+  const isSnap = pos.displayMode === "snap";
+  const observedAt = Number(pos.observedAt) || Date.now();
+  if (typeof window !== "undefined") {
+    const ring = (window.__SWIFTGO_MOTION_TRACE__ = window.__SWIFTGO_MOTION_TRACE__ || []);
+    ring.push({
+      t: Date.now(),
+      lat: pos.lat,
+      lng: pos.lng,
+      mode: pos.displayMode || (isSnap ? "snap" : "raw"),
+      observedAt,
+      reason: pos.reason || "",
+    });
+    if (ring.length > 400) ring.splice(0, ring.length - 400);
+  }
   setAssignedDriverLocation(pos.lat, pos.lng, rot, {
-    observedAt: Date.now(),
-    skipAnimation: true,
+    observedAt,
+    // Snap frames are already along-route RAF; raw/sparse Firebase needs chord motion.
+    skipAnimation: isSnap,
     allowPredict: false,
   });
 }
@@ -434,10 +449,7 @@ function ensureRideViewLifecycle() {
   });
 
   detachBrowserLifecycle = attachBrowserLifecycleListeners(rideViewLifecycle);
-  if (typeof window !== "undefined") {
-    window.__SWIFTGO_VIEWER_COUNTERS__ = () => rideViewLifecycle?.getCounters?.() || null;
-    window.__SWIFTGO_P2P_COUNTERS__ = () => customerP2p?.getCounters?.() || null;
-  }
+  installCustomerDebugDumps();
   return rideViewLifecycle;
 }
 
@@ -1488,4 +1500,38 @@ export async function resumeActiveRideWatch(customerUid) {
   }
 
   mountActiveRideUi(ride, rideId);
+}
+
+/** Always-on console probes (available as soon as ride-flow.js loads). */
+function installCustomerDebugDumps() {
+  if (typeof window === "undefined") return;
+  window.__SWIFTGO_VIEWER_COUNTERS__ = () => rideViewLifecycle?.getCounters?.() || null;
+  window.__SWIFTGO_P2P_COUNTERS__ = () => customerP2p?.getCounters?.() || null;
+  window.__SWIFTGO_SNAP_COUNTERS__ = () => displayPipeline?.getCounters?.() || null;
+  window.__SWIFTGO_DUMP_MOTION_TRACE__ = () => {
+    const ring = window.__SWIFTGO_MOTION_TRACE__ || [];
+    const payload = {
+      role: "customer",
+      dumpedAt: new Date().toISOString(),
+      paints: ring.length,
+      last20: ring.slice(-20),
+      p2p: customerP2p?.getCounters?.() || null,
+      snap: displayPipeline?.getCounters?.() || null,
+      arbiter: customerP2p?.getArbiter?.()?.getState?.() || null,
+      note:
+        ring.length === 0
+          ? "No paints yet — open an accepted/arrived/in_progress ride, then dump again."
+          : undefined,
+    };
+    try {
+      console.info(JSON.stringify({ type: "swiftgo_motion_dump", ...payload }));
+    } catch {
+      /* ignore */
+    }
+    return payload;
+  };
+}
+
+if (typeof window !== "undefined") {
+  installCustomerDebugDumps();
 }

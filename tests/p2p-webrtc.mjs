@@ -366,6 +366,63 @@ function arbiterUnitTests() {
     arb6.getState().lastRendered?.source === "firebase" ? "PASS" : "FAIL"
   );
 
+  // Silent P2P past fallback window → Firebase accepted without explicit session error.
+  let now7 = 20_000;
+  const renders7 = [];
+  const arb7 = createLiveLocationSourceArbiter({
+    nowMs: () => now7,
+    fallbackAfterMs: 12_000,
+    onRender: (fix) => renders7.push({ ...fix }),
+  });
+  const g7 = arb7.getGeneration();
+  arb7.ingestP2p({ lat: 1, lng: 1, observedAt: 20_000, sequence: 1 }, g7);
+  now7 = 20_000 + 13_000;
+  const acceptedFb = arb7.ingestFirebase(
+    { lat: 2, lng: 2, observedAt: 32_500, sequence: 2 },
+    g7
+  );
+  const s7 = arb7.getState();
+  record(
+    "37b-silent-p2p-auto-degrades-to-firebase",
+    acceptedFb &&
+      s7.preferred === "firebase" &&
+      s7.p2pHealthy === false &&
+      s7.lastRendered?.lat === 2
+      ? "PASS"
+      : "FAIL",
+    `preferred=${s7.preferred} lat=${s7.lastRendered?.lat}`
+  );
+
+  // After degrade, equal-observedAt Firebase from cache can still refresh via noteP2pUnhealthy.
+  let now8 = 40_000;
+  const arb8 = createLiveLocationSourceArbiter({
+    nowMs: () => now8,
+    fallbackAfterMs: 12_000,
+    onRender: () => {},
+  });
+  const g8 = arb8.getGeneration();
+  arb8.ingestP2p({ lat: 10, lng: 10, observedAt: 40_000, sequence: 1 }, g8);
+  arb8.ingestFirebase({ lat: 11, lng: 11, observedAt: 40_100, sequence: 2 }, g8);
+  now8 = 40_000 + 15_000;
+  arb8.ensureP2pHealth();
+  const s8 = arb8.getState();
+  record(
+    "37c-ensureP2pHealth-marks-unhealthy",
+    s8.p2pHealthy === false && s8.preferred === "firebase" ? "PASS" : "FAIL",
+    `healthy=${s8.p2pHealthy}`
+  );
+
+  record(
+    "37d-flush-pending-on-channel-open",
+    read("driver-app/js/p2p-peer-session.mjs").includes("flushPendingLoc()") &&
+      /ch\.onopen\s*=\s*\(\)\s*=>\s*\{[\s\S]*?flushPendingLoc\(\)/.test(
+        read("driver-app/js/p2p-peer-session.mjs")
+      )
+      ? "PASS"
+      : "FAIL",
+    "driver datachannel onopen flushes pending location"
+  );
+
   void arb;
   void renders;
 }

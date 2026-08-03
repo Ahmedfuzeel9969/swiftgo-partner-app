@@ -87,6 +87,16 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     return true;
   }
 
+  function ensureP2pHealth() {
+    if (!p2pHealthy) return;
+    if (!lastP2pAt || nowMs() - lastP2pAt > fallbackAfterMs) {
+      // Dead/silent P2P: prefer Firebase without waiting for an explicit session error.
+      p2pHealthy = false;
+      preferred = "firebase";
+      diag(P2P_DIAG.FIREBASE_FALLBACK);
+    }
+  }
+
   function ingestP2p(fix, gen) {
     if (!isCurrent(gen) || closed || !fix) {
       diag(P2P_DIAG.STALE_GENERATION);
@@ -104,18 +114,23 @@ export function createLiveLocationSourceArbiter(opts = {}) {
       diag(P2P_DIAG.STALE_GENERATION);
       return false;
     }
+    ensureP2pHealth();
     lastFirebase = { ...fix, source: "firebase" };
     counters.firebaseAccepted += 1;
 
     const ageP2p = lastP2pAt ? nowMs() - lastP2pAt : Infinity;
     if (p2pHealthy && preferred === "p2p" && ageP2p <= fallbackAfterMs) {
-      // Keep P2P preferred; accept Firebase only if strictly newer.
-      if (lastRendered && fix.observedAt <= lastRendered.observedAt) {
+      // Keep P2P preferred; accept Firebase only if strictly newer (not equal).
+      if (lastRendered && fix.observedAt < lastRendered.observedAt) {
         counters.staleRejected += 1;
         return false;
       }
-    }
-    if (!p2pHealthy || ageP2p > fallbackAfterMs) {
+      if (lastRendered && fix.observedAt === lastRendered.observedAt) {
+        // Equal timestamp while P2P is live: ignore duplicate Firebase echo.
+        counters.staleRejected += 1;
+        return false;
+      }
+    } else {
       preferred = "firebase";
       p2pHealthy = false;
     }
@@ -167,6 +182,7 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     ingestP2p,
     ingestFirebase,
     noteP2pUnhealthy,
+    ensureP2pHealth,
     getState,
     reset,
     destroy,

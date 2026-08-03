@@ -450,6 +450,62 @@ function progressMotionTests() {
     "static"
   );
 
+  // Progress reject must paint raw GPS — never silent-freeze the marker.
+  const holdFrames = [];
+  const holdPipe = createDisplayLocationPipeline({
+    nowMs: timers.nowMs,
+    raf: timers.raf,
+    caf: timers.caf,
+    onDisplayFrame: (p) => holdFrames.push({ ...p }),
+    onRawFallback: (p) => holdFrames.push({ ...p, raw: true }),
+  });
+  const holdGeom = [
+    { lat: 24.86, lng: 67.0 },
+    { lat: 24.865, lng: 67.0 },
+    { lat: 24.87, lng: 67.0 },
+  ];
+  holdPipe.setActiveRoute({
+    geometry: holdGeom,
+    generation: 1,
+    activeLeg: "approach",
+    ...FIXTURE_META,
+  });
+  const rHold1 = holdPipe.ingestValidatedFix({
+    lat: holdGeom[1].lat,
+    lng: holdGeom[1].lng,
+    speedMps: 8,
+    observedAt: timers.nowMs(),
+  });
+  timers.advance(2000);
+  const framesAfterFirst = holdFrames.length;
+  const rHold2 = holdPipe.ingestValidatedFix({
+    lat: holdGeom[0].lat,
+    lng: holdGeom[0].lng,
+    speedMps: 8,
+    observedAt: timers.nowMs() + 2000,
+  });
+  record(
+    "27b-progress-reject-emits-raw-not-silent-hold",
+    rHold1.mode === "snap" &&
+      rHold2.mode === "raw" &&
+      rHold2.held === true &&
+      holdFrames.length > framesAfterFirst &&
+      holdFrames.some((f) => f.raw === true || f.displayMode === "raw")
+      ? "PASS"
+      : "FAIL",
+    `r1=${rHold1.mode} r2=${rHold2.mode} held=${rHold2.held} frames=${holdFrames.length}`,
+    "unit"
+  );
+  record(
+    "27c-customer-raw-paint-animates",
+    read("customer-app/js/ride-flow.js").includes('pos.displayMode === "snap"') &&
+      read("customer-app/js/ride-flow.js").includes("skipAnimation: isSnap")
+      ? "PASS"
+      : "FAIL",
+    "raw frames animate; snap keeps skipAnimation",
+    "static"
+  );
+
   const oldGen = tracker.apply(80, 99);
   // tracker generation is 1; applying gen 99 should reset via resolve
   record(

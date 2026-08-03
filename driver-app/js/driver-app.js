@@ -336,6 +336,22 @@ if (typeof window !== "undefined") {
   window.__SWIFTGO_CHECKPOINT_COUNTERS__ = () => checkpointPolicy.getCounters();
   window.__SWIFTGO_P2P_COUNTERS__ = () => driverP2p.getCounters();
   window.__SWIFTGO_BREADCRUMB_COUNTERS__ = () => breadcrumbCollector.getCounters();
+  window.__SWIFTGO_DUMP_DRIVER_TRACE__ = () => {
+    const payload = {
+      role: "driver",
+      dumpedAt: new Date().toISOString(),
+      checkpoint: checkpointPolicy.getCounters?.() || null,
+      p2p: driverP2p.getCounters?.() || null,
+      p2pState: driverP2p.getState?.() || null,
+      breadcrumb: breadcrumbCollector.getCounters?.() || null,
+    };
+    try {
+      console.info(JSON.stringify({ type: "swiftgo_driver_dump", ...payload }));
+    } catch {
+      /* ignore */
+    }
+    return payload;
+  };
   window.addEventListener("online", () => {
     if (activeExecutionRide?.id && isOnlineReady()) {
       checkpointPolicy.requestImmediate("network_online");
@@ -1492,7 +1508,7 @@ async function routeDriver(vehicleId, sequence = authSequence, partner = null) {
       return;
     }
 
-    if (!vehicleId) {
+  if (!vehicleId) {
       const hasOrphanedActiveRide = await probeOrphanedActiveRide(partner);
       if (hasOrphanedActiveRide) {
         showDriverMap();
@@ -1502,17 +1518,17 @@ async function routeDriver(vehicleId, sequence = authSequence, partner = null) {
         return;
       }
       showPinGate("");
-      return;
-    }
+    return;
+  }
 
-    const { db } = getFirebase();
-    const vehicleSnapshot = await getDoc(doc(db, "vehicles", vehicleId));
+  const { db } = getFirebase();
+  const vehicleSnapshot = await getDoc(doc(db, "vehicles", vehicleId));
     if (isStaleAuthSequence(sequence)) {
       // Newer auth/route owns the UI — do not leave a blank screen from this call.
       return;
     }
 
-    if (!vehicleSnapshot.exists()) {
+  if (!vehicleSnapshot.exists()) {
       try {
         if (currentDriver?.uid) {
           await setDoc(
@@ -1524,11 +1540,11 @@ async function routeDriver(vehicleId, sequence = authSequence, partner = null) {
       } catch {
         /* ignore */
       }
-      showPinGate("منسلک گاڑی دستیاب نہیں، نیا PIN درج کریں۔");
-      return;
-    }
+    showPinGate("منسلک گاڑی دستیاب نہیں، نیا PIN درج کریں۔");
+    return;
+  }
 
-    linkedVehicle = { id: vehicleSnapshot.id, ...vehicleSnapshot.data() };
+  linkedVehicle = { id: vehicleSnapshot.id, ...vehicleSnapshot.data() };
     syncSidebarProfile();
 
     if (
@@ -1551,12 +1567,12 @@ async function routeDriver(vehicleId, sequence = authSequence, partner = null) {
           ? "یہ گاڑی کسی اور ڈرائیور سے منسلک ہے۔"
           : "مالک نے گاڑی کا لنک ختم کر دیا۔ نیا PIN درج کریں۔"
       );
-      linkedVehicle = null;
-      return;
-    }
+    linkedVehicle = null;
+    return;
+  }
 
-    showDriverMap();
-    syncRideRadarFab();
+  showDriverMap();
+  syncRideRadarFab();
     await restoreActiveExecutionRide(partner);
   } catch (error) {
     console.warn("[SwiftGo Driver] routeDriver", error);
@@ -2634,7 +2650,7 @@ async function syncVehicleLocationToFirestore(
   const location = toVehicleLocationField(normalized.envelope);
   const payload = {
     location,
-    locationUpdatedAt: serverTimestamp(),
+      locationUpdatedAt: serverTimestamp(),
     locationGridCell: cell,
     trackingSessionId: sessionIdAtEnqueue,
   };
@@ -3050,7 +3066,7 @@ function hideIncomingRide() {
 
 /** @deprecated Phase 4C — isolated; never show legacy incoming sheet. */
 function showIncomingRide(_request) {
-  hideIncomingRide();
+        hideIncomingRide();
 }
 
 function setDriverOffline(message = "آپ آف لائن ہیں") {
@@ -3725,7 +3741,7 @@ async function findNewRideAfterCompletion() {
           : "سواری مکمل — آن لائن کے لیے مقام/اجازت چیک کریں"
       );
     } else {
-      setLocationMessage("نئی سواری تلاش کے لیے تیار — آپ آن لائن ہیں");
+    setLocationMessage("نئی سواری تلاش کے لیے تیار — آپ آن لائن ہیں");
     }
     paintDriverAvailabilityDiag();
   } finally {
@@ -3898,7 +3914,7 @@ function boot() {
     });
     const devNote = document.getElementById("partnerDevModeNote");
     if (devNote) devNote.hidden = !shouldUseEmulators();
-    hideProtectedUi();
+  hideProtectedUi();
     showAuthOverlay();
   els.statusToggle?.addEventListener("click", toggleDriverStatusFromUi);
   els.googleLoginBtn?.addEventListener("click", signInDriverWithGoogle);

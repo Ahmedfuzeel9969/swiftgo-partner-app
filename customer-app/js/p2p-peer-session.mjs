@@ -235,6 +235,9 @@ export function createP2pPeerSession(deps) {
       // Channel open alone is NOT healthy — wait for fix/ack.
       scheduleHealthPoll(gen);
       evaluateHealth();
+      // Deliver any queued location immediately so customer marker does not wait
+      // for the next GPS callback after ICE/datachannel setup.
+      flushPendingLoc();
     };
     ch.onclose = () => {
       counters.channelsClosed += 1;

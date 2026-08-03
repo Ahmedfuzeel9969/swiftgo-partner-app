@@ -248,7 +248,9 @@ export function createDisplayLocationPipeline(opts = {}) {
     if (!prog.accept) {
       counters.backwardJitterRejects += 1;
       if (prog.diag) diag(prog.diag);
-      return { mode: "hold", reason: prog.reason };
+      // Never silent-freeze the marker: paint raw GPS when snap progress rejects.
+      emitRaw(fix, prog.reason || "progress_hold");
+      return { mode: "raw", reason: prog.reason || "progress_hold", held: true };
     }
 
     previousProj = {
