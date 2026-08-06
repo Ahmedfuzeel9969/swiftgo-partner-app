@@ -237,15 +237,6 @@ export async function createRideRequest(_payload) {
   throw new Error("USE_CREATE_CUSTOMER_BOOKING_CF");
 }
 
-/** Phase 16.2 — user aborts the search: rides/{id}.status → 'cancelled_by_user'. */
-export async function cancelRideRequest(rideId) {
-  const { ready, db, auth } = getFirebase();
-  if (!ready || !auth?.currentUser || !rideId) {
-    throw new Error("NOT_SIGNED_IN");
-  }
-  await updateDoc(doc(db, "rides", rideId), { status: "cancelled_by_user" });
-}
-
 const DRIVER_OFFER_CLEAR = {
   driverOfferDriverId: deleteField(),
   driverOfferFare: deleteField(),
