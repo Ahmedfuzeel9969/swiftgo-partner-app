@@ -70,10 +70,13 @@ import {
   RESPONSIVE_INTERVAL_MS,
   VIEWER_LEASE,
   createCheckpointPolicyController,
+  normalizeIdlePublishConfig,
   presenceDocId,
 } from "./location-checkpoint-policy.mjs";
 import { createViewerPresenceConsumer } from "./viewer-presence-consumer.mjs";
 import { createDriverP2pController } from "./p2p-ride-controller.mjs";
+import { createRideCommChat } from "./p2p-comm-panel.mjs";
+import { P2P_STATE } from "./p2p-protocol.mjs";
 import { createDriverActiveRouteController } from "./driver-active-route.mjs";
 import { createBreadcrumbCollector } from "./breadcrumb-collector.mjs";
 import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
@@ -91,9 +94,24 @@ import { announce, applyReducedMotionClass, initKeyboardInset, trapFocus } from 
 import { initI18n, t, subscribe as subscribeLang } from "./i18n.js";
 import { wireLegalLinks, requestAccountDeletionClient } from "./trust.js";
 import { isNativeShell, getNativePlatform, getNetworkStatus } from "./native-shell.js";
+import { installDefaultOsrmPreviewRouteProvider } from "./route-provider-bootstrap.mjs";
+import { initDiagnosticsScreen } from "./diagnostics-screen.js";
+import { installFieldDiagnostics, getFieldDiagnostics } from "./field-diagnostics.mjs";
+import {
+  classifyFirebaseWriteReason,
+  explainFirebaseWriteSkipped,
+  CFG_MIN_LOCATION_MOVE_M,
+  recordPhase1RideComplete,
+} from "./phase1-billing-diagnostics.mjs";
+import { explainWriteIntervalTiming } from "./phase2-runtime-verification.mjs";
 
 window.__swiftgoNative = { isNativeShell, getNativePlatform, getNetworkStatus };
 window.__SWIFTGO_ANDROID_PACKAGE__ = "com.swiftgo.partner";
+// Active-ride two-leg routes: same public OSRM preview booking already uses.
+installDefaultOsrmPreviewRouteProvider(window);
+installFieldDiagnostics({ role: "driver" });
+
+let diagnosticsUi = null;
 
 const KARACHI = [24.8607, 67.0011];
 
@@ -104,9 +122,18 @@ const PARTNER_VIEW_TITLES = {
   rides: "میری سواریاں",
   earnings: "کمائی",
   wallet: "والٹ",
+  diagnostics: "ڈائگنوسٹکس",
 };
 
-const PARTNER_VIEWS = new Set(["home", "dashboard", "fleet", "rides", "earnings", "wallet"]);
+const PARTNER_VIEWS = new Set([
+  "home",
+  "dashboard",
+  "fleet",
+  "rides",
+  "earnings",
+  "wallet",
+  "diagnostics",
+]);
 
 const els = {
   app: document.getElementById("partnerShell"),
@@ -154,6 +181,8 @@ const els = {
   acceptBtn: document.getElementById("acceptRideBtn"),
   declineBtn: document.getElementById("declineRideBtn"),
   activeRideSheet: document.getElementById("activeRideSheet"),
+  activeRideSheetHandle: document.getElementById("activeRideSheetHandle"),
+  activeRideSheetHandleArrow: document.getElementById("activeRideSheetHandleArrow"),
   activeRideStatusTitle: document.getElementById("activeRideStatusTitle"),
   activeRidePickup: document.getElementById("activeRidePickup"),
   activeRideDropoff: document.getElementById("activeRideDropoff"),
@@ -210,7 +239,21 @@ const els = {
 let map = null;
 let locationMarker = null;
 let accuracyCircle = null;
+let streetsLayer = null;
+let satelliteLayer = null;
+let satelliteLabelsLayer = null;
+let trafficLayerGroup = null;
+/** @type {"streets" | "satellite"} */
+let driverMapStyle = "streets";
+let driverTrafficEnabled = false;
+
+const DRIVER_MAP_STYLE_KEY = "swiftgo_partner_map_style";
+const DRIVER_TRAFFIC_KEY = "swiftgo_partner_show_traffic";
 let watchId = null;
+/** @type {() => void} */
+let unsubscribeLocationRefreshRequest = () => {};
+let unsubscribeDispatchIdleSettings = () => {};
+let lastHandledLocationRefreshReqMs = 0;
 let online = false;
 /** OFFLINE → LOCATING → WRITING_GEO → ONLINE_READY (matchable only at ONLINE_READY). */
 const ONLINE_READINESS = Object.freeze({
@@ -285,14 +328,77 @@ const driverP2p = createDriverP2pController({
   onDiag: (code) => {
     try {
       console.info(JSON.stringify({ type: "p2p_diag", reason: String(code || "") }));
+      getFieldDiagnostics()?.record("p2p_diag", { reason: String(code || "") });
+      getFieldDiagnostics()?.setMeta({
+        p2p: { lastDiag: String(code || ""), state: String(code || "") },
+      });
     } catch {
       /* ignore */
     }
   },
+  onChannelOpen: () => {
+    syncDriverRideCommChat();
+  },
   onHealthyChange: (healthy) => {
     checkpointPolicy.setP2pHealthy(Boolean(healthy));
+    try {
+      getFieldDiagnostics()?.setMeta({ p2p: { healthy: Boolean(healthy) } });
+      getFieldDiagnostics()?.record("p2p_status", { healthy: Boolean(healthy) });
+      if (!healthy) {
+        // Driver-side note only: customer arbiter owns the 12s silence measurement.
+        getFieldDiagnostics()?.record("p2p_diag", {
+          reason: "driver_p2p_unhealthy",
+          plainText:
+            "Driver P2P marked unhealthy. Customer-side silence fallback (30s) is verified on the customer phone.",
+        });
+      } else {
+        syncDriverRideCommChat();
+      }
+    } catch {
+      /* ignore */
+    }
   },
 });
+
+/** @type {ReturnType<typeof createRideCommChat> | null} */
+let driverRideCommChat = null;
+/** @type {string} */
+let driverRideCommRideId = "";
+
+function destroyDriverRideCommChat() {
+  driverRideCommChat?.destroy?.();
+  driverRideCommChat = null;
+  driverRideCommRideId = "";
+}
+
+function syncDriverRideCommChat() {
+  const ride = activeExecutionRide;
+  const rid = String(ride?.id || "").trim();
+  const status = String(ride?.status || "");
+  if (!rid || !ACTIVE_EXECUTION_STATUSES.has(status)) {
+    destroyDriverRideCommChat();
+    return;
+  }
+  const host =
+    typeof document !== "undefined" ? document.getElementById("activeRideContactHost") : null;
+  if (driverRideCommChat && driverRideCommRideId === rid) {
+    driverRideCommChat.refresh?.();
+    driverRideCommChat.panel?.setContactVisible?.(true);
+    if (host) driverRideCommChat.panel?.mountContactInto?.(host);
+    return;
+  }
+  destroyDriverRideCommChat();
+  driverRideCommChat = createRideCommChat({
+    role: "driver",
+    rideId: rid,
+    getTransport: () => driverP2p.createCommTransport?.() || null,
+    getMediaBridge: () => driverP2p.createMediaBridge?.() || null,
+    getPeerSessionId: () => String(driverP2p.getState?.()?.peerSessionId || ""),
+    contactHost: host,
+  });
+  driverRideCommRideId = rid;
+  driverRideCommChat.panel?.setContactVisible?.(true);
+}
 
 const viewerPresenceConsumer = createViewerPresenceConsumer({
   subscribeDoc: ({ collection: col, id }, onNext, onError) => {
@@ -356,12 +462,30 @@ if (typeof window !== "undefined") {
     if (activeExecutionRide?.id && isOnlineReady()) {
       checkpointPolicy.requestImmediate("network_online");
       maybeFlushImmediateCheckpoint();
+      // Recover P2P after mobile network switch / temporary loss.
+      try {
+        const st = String(driverP2p.getState?.()?.state || "");
+        if (
+          st === P2P_STATE.FIREBASE_FALLBACK ||
+          st === P2P_STATE.DISABLED ||
+          st === ""
+        ) {
+          syncDriverP2pForActiveRide();
+        }
+      } catch {
+        /* ignore */
+      }
     }
     void breadcrumbCollector.onNetworkResume();
   });
   window.addEventListener("visibilitychange", () => {
     if (typeof document !== "undefined" && document.visibilityState === "visible") {
       void breadcrumbCollector.onAppResume();
+      try {
+        if (activeExecutionRide?.id) syncDriverP2pForActiveRide();
+      } catch {
+        /* ignore */
+      }
     }
   });
 }
@@ -403,6 +527,7 @@ function syncDriverP2pForActiveRide() {
   if (!ride?.id || !ACTIVE_EXECUTION_STATUSES.has(status) || !locationTrackingSessionId) {
     void driverP2p.stop({ closeRemote: true });
     checkpointPolicy.setP2pHealthy(false);
+    destroyDriverRideCommChat();
     return;
   }
   const lease = checkpointPolicy.getState?.()?.viewerLease;
@@ -412,6 +537,7 @@ function syncDriverP2pForActiveRide() {
     trackingSessionId: locationTrackingSessionId,
     viewerVisible,
   });
+  syncDriverRideCommChat();
 }
 
 function syncCheckpointPresenceForActiveRide() {
@@ -1254,6 +1380,12 @@ function setActiveView(view = "home") {
         console.warn("[SwiftGo Driver] home map resize", error);
       }
     });
+  }
+
+  if (key === "diagnostics") {
+    diagnosticsUi?.onShow?.();
+  } else if (prev === "diagnostics") {
+    diagnosticsUi?.onHide?.();
   }
 
   if (key !== "home") {
@@ -2342,6 +2474,201 @@ function paintLastDriverPositionOnMap(options = {}) {
   }
 }
 
+function loadDriverMapStyle() {
+  try {
+    const saved = localStorage.getItem(DRIVER_MAP_STYLE_KEY);
+    if (saved === "satellite" || saved === "streets") return saved;
+  } catch {
+    /* ignore */
+  }
+  return "streets";
+}
+
+function loadDriverTrafficEnabled() {
+  try {
+    return localStorage.getItem(DRIVER_TRAFFIC_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function persistDriverMapStyle(style) {
+  try {
+    localStorage.setItem(DRIVER_MAP_STYLE_KEY, style);
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistDriverTraffic(on) {
+  try {
+    localStorage.setItem(DRIVER_TRAFFIC_KEY, on ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
+
+function buildDriverTrafficSegments(centerLat, centerLng) {
+  const c = { lat: centerLat, lng: centerLng };
+  return [
+    {
+      color: "#ea4335",
+      weight: 6,
+      coords: [
+        [c.lat + 0.012, c.lng - 0.02],
+        [c.lat + 0.006, c.lng - 0.004],
+        [c.lat - 0.002, c.lng + 0.01],
+      ],
+    },
+    {
+      color: "#fbbc04",
+      weight: 5,
+      coords: [
+        [c.lat - 0.015, c.lng - 0.012],
+        [c.lat - 0.004, c.lng - 0.002],
+        [c.lat + 0.008, c.lng + 0.014],
+      ],
+    },
+    {
+      color: "#34a853",
+      weight: 5,
+      coords: [
+        [c.lat + 0.018, c.lng + 0.002],
+        [c.lat + 0.004, c.lng + 0.008],
+        [c.lat - 0.01, c.lng + 0.018],
+      ],
+    },
+  ];
+}
+
+function ensureDriverTrafficLayer() {
+  if (!map || typeof L === "undefined") return;
+  if (trafficLayerGroup) {
+    trafficLayerGroup.clearLayers();
+  } else {
+    trafficLayerGroup = L.layerGroup();
+  }
+  const center = map.getCenter();
+  buildDriverTrafficSegments(center.lat, center.lng).forEach((seg) => {
+    L.polyline(seg.coords, {
+      color: seg.color,
+      weight: seg.weight,
+      opacity: 0.88,
+      lineCap: "round",
+      lineJoin: "round",
+      className: "leaflet-traffic-line",
+      interactive: false,
+    }).addTo(trafficLayerGroup);
+  });
+}
+
+function syncDriverMapLayersUi() {
+  const streetsBtn = document.getElementById("btnLayerStreets");
+  const satBtn = document.getElementById("btnLayerSatellite");
+  const trafficBtn = document.getElementById("btnLayerTraffic");
+  const isSat = driverMapStyle === "satellite";
+  if (streetsBtn) {
+    streetsBtn.classList.toggle("is-active", !isSat);
+    streetsBtn.setAttribute("aria-pressed", !isSat ? "true" : "false");
+  }
+  if (satBtn) {
+    satBtn.classList.toggle("is-active", isSat);
+    satBtn.setAttribute("aria-pressed", isSat ? "true" : "false");
+  }
+  if (trafficBtn) {
+    trafficBtn.classList.toggle("is-active", driverTrafficEnabled);
+    trafficBtn.setAttribute("aria-pressed", driverTrafficEnabled ? "true" : "false");
+  }
+  const mapEl = homeUi?.getMapElement?.() || document.getElementById("driverMap");
+  mapEl?.classList.toggle("map--satellite", isSat);
+  mapEl?.classList.toggle("map--streets", !isSat);
+}
+
+function applyDriverMapStyle(style, opts = {}) {
+  const next = style === "satellite" ? "satellite" : "streets";
+  driverMapStyle = next;
+  if (map && streetsLayer && satelliteLayer) {
+    if (next === "satellite") {
+      if (map.hasLayer(streetsLayer)) map.removeLayer(streetsLayer);
+      if (!map.hasLayer(satelliteLayer)) satelliteLayer.addTo(map);
+      if (satelliteLabelsLayer && !map.hasLayer(satelliteLabelsLayer)) {
+        satelliteLabelsLayer.addTo(map);
+      }
+    } else {
+      if (satelliteLabelsLayer && map.hasLayer(satelliteLabelsLayer)) {
+        map.removeLayer(satelliteLabelsLayer);
+      }
+      if (map.hasLayer(satelliteLayer)) map.removeLayer(satelliteLayer);
+      if (!map.hasLayer(streetsLayer)) streetsLayer.addTo(map);
+    }
+  }
+  if (opts.persist !== false) persistDriverMapStyle(next);
+  if (opts.syncUi !== false) syncDriverMapLayersUi();
+  return next;
+}
+
+function setDriverTrafficEnabled(on, opts = {}) {
+  driverTrafficEnabled = Boolean(on);
+  document.documentElement.classList.toggle("show-traffic", driverTrafficEnabled);
+  if (map) {
+    if (driverTrafficEnabled) {
+      ensureDriverTrafficLayer();
+      if (trafficLayerGroup && !map.hasLayer(trafficLayerGroup)) {
+        trafficLayerGroup.addTo(map);
+      }
+    } else if (trafficLayerGroup && map.hasLayer(trafficLayerGroup)) {
+      map.removeLayer(trafficLayerGroup);
+    }
+  }
+  if (opts.persist !== false) persistDriverTraffic(driverTrafficEnabled);
+  if (opts.syncUi !== false) syncDriverMapLayersUi();
+  return driverTrafficEnabled;
+}
+
+function handleDriverMapLayer(layer) {
+  if (layer === "streets") {
+    applyDriverMapStyle("streets");
+    return;
+  }
+  if (layer === "satellite") {
+    applyDriverMapStyle("satellite");
+    return;
+  }
+  if (layer === "traffic") {
+    setDriverTrafficEnabled(!driverTrafficEnabled);
+  }
+}
+
+function locateDriverOnMap() {
+  ensureDriverMap();
+  if (!map) return;
+  if (lastDriverPosition && isValidCoord(lastDriverPosition.lat, lastDriverPosition.lng)) {
+    map.flyTo([lastDriverPosition.lat, lastDriverPosition.lng], 16, { duration: 0.8 });
+    hasCenteredOnDriver = true;
+    paintLastDriverPositionOnMap();
+    return;
+  }
+  if (!navigator.geolocation) {
+    map.flyTo(KARACHI, 13, { duration: 0.8 });
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      if (!isValidCoord(lat, lng)) return;
+      lastDriverPosition = { lat, lng };
+      paintLastDriverPositionOnMap();
+      map.flyTo([lat, lng], 16, { duration: 0.8 });
+      hasCenteredOnDriver = true;
+    },
+    () => {
+      map.flyTo(KARACHI, 13, { duration: 0.8 });
+    },
+    { enableHighAccuracy: true, timeout: 12_000, maximumAge: 5_000 }
+  );
+}
+
 function ensureDriverMap() {
   const mapEl = homeUi?.getMapElement?.() || document.getElementById("driverMap");
   if (!mapEl || typeof L === "undefined") return;
@@ -2355,17 +2682,42 @@ function ensureDriverMap() {
     map = null;
     locationMarker = null;
     accuracyCircle = null;
+    streetsLayer = null;
+    satelliteLayer = null;
+    satelliteLabelsLayer = null;
+    trafficLayerGroup = null;
   }
 
   if (!map) {
+    driverMapStyle = loadDriverMapStyle();
+    driverTrafficEnabled = loadDriverTrafficEnabled();
     map = L.map(mapEl, {
       zoomControl: true,
       attributionControl: true,
     }).setView(KARACHI, 13);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    streetsLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: "&copy; OpenStreetMap",
-    }).addTo(map);
+    });
+    satelliteLayer = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      {
+        maxZoom: 19,
+        attribution: "Tiles &copy; Esri",
+      }
+    );
+    satelliteLabelsLayer = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+      {
+        maxZoom: 19,
+        opacity: 0.9,
+        pane: "overlayPane",
+      }
+    );
+    applyDriverMapStyle(driverMapStyle, { persist: false, syncUi: false });
+    setDriverTrafficEnabled(driverTrafficEnabled, { persist: false, syncUi: true });
+  } else {
+    syncDriverMapLayersUi();
   }
 
   paintLastDriverPositionOnMap({ flyTo: true });
@@ -2495,6 +2847,20 @@ async function commitVehicleLocationJob(job) {
 
   locationDiagCounters.vehicleWritesAttempted += 1;
   await updateDoc(doc(db, "vehicles", linkedVehicle.id), payload);
+  try {
+    getFieldDiagnostics()?.record("publish_firebase", {
+      lat: job.envelope?.lat,
+      lng: job.envelope?.lng,
+      observedAt: job.envelope?.observedAt,
+      vehicleId: linkedVehicle.id,
+    });
+    getFieldDiagnostics()?.record("firebase_write", {
+      collection: "vehicles",
+      ok: true,
+    });
+  } catch {
+    /* ignore */
+  }
 
   if (job.stampSessionStart || locationTrackingSessionStartPending) {
     locationTrackingSessionStartPending = false;
@@ -2524,10 +2890,64 @@ async function syncVehicleLocationToFirestore(
   lng,
   { force = false, heading = null, accuracy = null, speed = null, observedAt = null } = {}
 ) {
-  if (!linkedVehicle?.id || !isOnlineReady() || !currentDriver?.uid) return;
+  const prevEnv = lastAcceptedLocationEnvelope;
+  const previousObservedAt = prevEnv?.observedAt ?? null;
+  const previousSequence = prevEnv?.sequence ?? null;
+  const obsIn = observedAt || Date.now();
+
+  function recordPublishBlocked(reason, extra = {}) {
+    const distanceMovedM =
+      lastVehicleLocationLatLng && Number.isFinite(lat) && Number.isFinite(lng)
+        ? (haversineKm(lastVehicleLocationLatLng, { lat, lng }) || 0) * 1000
+        : null;
+    const intervalMs = Number(extra.intervalMs);
+    const explanation = explainFirebaseWriteSkipped({
+      reason: String(reason || ""),
+      nowMs: Date.now(),
+      lastWriteMs: lastVehicleLocationWrite || null,
+      intervalMs: Number.isFinite(intervalMs)
+        ? intervalMs
+        : checkpointPolicy.currentDecision?.()?.intervalMs ?? null,
+      distanceMovedM,
+      minimumDistanceM: CFG_MIN_LOCATION_MOVE_M,
+    });
+    try {
+      getFieldDiagnostics()?.record("publish_blocked", {
+        reason: String(reason || ""),
+        accuracyM: extra.accuracyM ?? accuracy ?? null,
+        observedAt: extra.observedAt ?? obsIn ?? null,
+        previousObservedAt,
+        sequence: extra.sequence ?? null,
+        previousSequence,
+        latitude: extra.latitude ?? lat ?? null,
+        longitude: extra.longitude ?? lng ?? null,
+      });
+      getFieldDiagnostics()?.record("firebase_write_skipped", {
+        reason: String(reason || ""),
+        plainText: explanation.plainText,
+        reasonPlain: explanation.reasonPlain,
+        remainingWaitSec: explanation.remainingWaitSec,
+        nextExpectedWriteClock: explanation.nextExpectedWriteClock,
+        distanceMovedM: explanation.distanceMovedM,
+        minimumDistanceM: explanation.minimumDistanceM,
+        vehicleId: linkedVehicle?.id || null,
+        rideId: activeExecutionRide?.id || null,
+        gpsTimestamp: extra.observedAt ?? obsIn ?? null,
+        sequence: extra.sequence ?? null,
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (!linkedVehicle?.id || !isOnlineReady() || !currentDriver?.uid) {
+    recordPublishBlocked("not_ready");
+    return;
+  }
   if (!isValidCoord(lat, lng)) {
     console.warn("[SwiftGo Partner] skip vehicle location sync — invalid lat/lng");
     locationDiagCounters.fixesRejected += 1;
+    recordPublishBlocked("invalid_coords");
     return;
   }
 
@@ -2535,7 +2955,20 @@ async function syncVehicleLocationToFirestore(
   const trackingGen = locationTrackingGeneration;
   const sessionIdAtEnqueue = locationTrackingSessionId;
   locationDiagCounters.gpsFixesReceived += 1;
+  try {
+    getFieldDiagnostics()?.record("gps_fix", {
+      lat,
+      lng,
+      accuracyM: accuracy,
+      headingDeg: heading,
+      speedMps: speed,
+      observedAt: obsIn,
+    });
+  } catch {
+    /* ignore */
+  }
 
+  const sequence = nextLocationSequence();
   const normalized = normalizeLocationFix(
     {
       lat,
@@ -2543,12 +2976,12 @@ async function syncVehicleLocationToFirestore(
       headingDeg: heading,
       accuracyM: accuracy,
       speedMps: speed,
-      observedAt: observedAt || Date.now(),
+      observedAt: obsIn,
       source: "gps",
     },
     {
       sessionId: sessionIdAtEnqueue,
-      sequence: nextLocationSequence(),
+      sequence,
       nowMs: Date.now(),
     }
   );
@@ -2558,9 +2991,19 @@ async function syncVehicleLocationToFirestore(
       console.info(
         JSON.stringify({ type: "live_location_diag", reason: normalized.reason || LOCATION_DIAG.INVALID })
       );
+      getFieldDiagnostics()?.record(
+        "gps_error",
+        { code: normalized.reason || LOCATION_DIAG.INVALID, accepted: false },
+        { level: "error" }
+      );
     } catch {
       /* ignore */
     }
+    recordPublishBlocked(normalized.reason || LOCATION_DIAG.INVALID, {
+      sequence,
+      observedAt: obsIn,
+      accuracyM: accuracy,
+    });
     return;
   }
 
@@ -2586,6 +3029,13 @@ async function syncVehicleLocationToFirestore(
     } catch {
       /* ignore */
     }
+    recordPublishBlocked(gate.reason || "gate_reject", {
+      sequence: normalized.envelope.sequence,
+      observedAt: normalized.envelope.observedAt,
+      accuracyM: normalized.envelope.accuracyM ?? accuracy,
+      latitude: normalized.envelope.lat,
+      longitude: normalized.envelope.lng,
+    });
     return;
   }
 
@@ -2599,6 +3049,29 @@ async function syncVehicleLocationToFirestore(
       headingDeg: normalized.envelope.headingDeg,
       speedMps: normalized.envelope.speedMps,
     });
+    try {
+      getFieldDiagnostics()?.record("publish_p2p", {
+        lat: normalized.envelope.lat,
+        lng: normalized.envelope.lng,
+        observedAt: normalized.envelope.observedAt,
+        rideId: activeExecutionRide.id,
+      });
+      getFieldDiagnostics()?.record("p2p_send", {
+        ok: true,
+        rideId: activeExecutionRide.id,
+        sequence: normalized.envelope.sequence,
+        observedAt: normalized.envelope.observedAt,
+        latitude: normalized.envelope.lat,
+        longitude: normalized.envelope.lng,
+      });
+      getFieldDiagnostics()?.setMeta({
+        rideId: String(activeExecutionRide.id || ""),
+        rideStatus: String(activeExecutionRide.status || ""),
+        p2p: { lastSendAt: Date.now() },
+      });
+    } catch {
+      /* ignore */
+    }
   }
 
   // Phase 6: dense breadcrumb collection (in_progress only; independent of checkpoint gate).
@@ -2616,29 +3089,42 @@ async function syncVehicleLocationToFirestore(
   const zoneChanged = cell !== lastLocationGridCell;
   const matchCellChanged = geoCell !== lastMatchGeoCell;
   checkpointPolicy.noteRawGps();
+  const idleWaiting = !activeExecutionRide?.id;
   let movedEnough = true;
   if (lastVehicleLocationLatLng && Number.isFinite(lat) && Number.isFinite(lng)) {
     const movedKm = haversineKm(lastVehicleLocationLatLng, { lat, lng });
-    movedEnough = movedKm == null || movedKm * 1000 >= MIN_LOCATION_MOVE_M;
+    const moveThresholdM = idleWaiting
+      ? checkpointPolicy.getIdleMoveMeters()
+      : MIN_LOCATION_MOVE_M;
+    movedEnough = movedKm == null || movedKm * 1000 >= moveThresholdM;
   }
   const nextStatus = activeExecutionRide?.id ? "in_ride" : "online";
   const statusChanged = nextStatus !== lastVehicleStatusWritten;
 
   // Presence throttling applies only while executing an assigned ride.
-  if (!activeExecutionRide?.id) {
+  if (idleWaiting) {
     checkpointPolicy.setActiveRide({ active: false });
   }
 
+  // Idle waiting: publish on force, configured move threshold, or configured idle interval.
   const writeGate = checkpointPolicy.evaluateWriteGate({
     force,
     nowMs: now,
     lastWriteMs: lastVehicleLocationWrite,
     movedEnough,
-    zoneChanged,
-    matchCellChanged,
-    statusChanged,
+    zoneChanged: idleWaiting ? false : zoneChanged,
+    matchCellChanged: idleWaiting ? false : matchCellChanged,
+    statusChanged: idleWaiting ? false : statusChanged,
   });
   if (!writeGate.allow) {
+    recordPublishBlocked(writeGate.reason || "write_gate", {
+      sequence: normalized.envelope.sequence,
+      observedAt: normalized.envelope.observedAt,
+      accuracyM: normalized.envelope.accuracyM ?? accuracy,
+      latitude: normalized.envelope.lat,
+      longitude: normalized.envelope.lng,
+      intervalMs: writeGate.decision?.intervalMs,
+    });
     return;
   }
   if (writeGate.forceUsed) {
@@ -2660,6 +3146,28 @@ async function syncVehicleLocationToFirestore(
     payload.status = nextStatus;
   }
 
+  const prevWriteAt = lastVehicleLocationWrite || null;
+  const writeIntervalMs =
+    prevWriteAt != null ? Math.max(0, now - prevWriteAt) : null;
+  const writeReason = classifyFirebaseWriteReason({
+    force: Boolean(force || writeGate.forceUsed),
+    statusChanged,
+    movedEnough,
+    zoneChanged,
+    matchCellChanged,
+    writeGateReason: writeGate.reason || "",
+    ageMs: writeIntervalMs,
+    intervalMs: writeGate.decision?.intervalMs,
+  });
+  const intervalVerification = explainWriteIntervalTiming({
+    actualIntervalMs: writeIntervalMs,
+    policyIntervalMs: writeGate.decision?.intervalMs,
+    policyName: writeGate.decision?.policy || writeGate.decision?.diag || "",
+    writeReasonCode: writeReason.code,
+    writeReasonLabel: writeReason.label,
+    writeGateReason: writeGate.reason || "",
+  });
+
   try {
     await locationWriteSerializer.enqueue({
       generation: trackingGen,
@@ -2668,10 +3176,51 @@ async function syncVehicleLocationToFirestore(
       envelope: normalized.envelope,
       payload,
     });
+    try {
+      getFieldDiagnostics()?.record("publish_success", {
+        sequence: normalized.envelope.sequence,
+        observedAt: normalized.envelope.observedAt,
+        latitude: normalized.envelope.lat,
+        longitude: normalized.envelope.lng,
+      });
+      getFieldDiagnostics()?.record("firebase_write_detail", {
+        writeTimestamp: Date.now(),
+        previousWriteTimestamp: prevWriteAt,
+        intervalSincePreviousWriteMs: writeIntervalMs,
+        intervalSincePreviousWriteSec:
+          writeIntervalMs != null ? Math.round((writeIntervalMs / 1000) * 10) / 10 : null,
+        expectedResponsiveIntervalMs: intervalVerification.expectedIntervalMs,
+        policyIntervalMs: intervalVerification.policyIntervalMs,
+        policyName: writeGate.decision?.policy || writeGate.decision?.diag || "",
+        differenceFromResponsiveMs: intervalVerification.differenceMs,
+        timingClass: intervalVerification.timingClass,
+        timingExplanation: intervalVerification.explanation,
+        intervalVerification,
+        writeGateReason: writeGate.reason || "",
+        gpsTimestamp: normalized.envelope.observedAt,
+        vehicleId: linkedVehicle?.id || null,
+        rideId: activeExecutionRide?.id || null,
+        writeSequenceNumber: normalized.envelope.sequence,
+        writeReasonCode: writeReason.code,
+        writeReasonLabel: writeReason.label,
+        writeReasonPlain: writeReason.plain,
+        latitude: normalized.envelope.lat,
+        longitude: normalized.envelope.lng,
+      });
+    } catch {
+      /* ignore */
+    }
   } catch (error) {
     console.warn("[SwiftGo Partner] vehicle location sync", error);
     lastLocationSyncError = String(error?.code || error?.message || "sync_failed").slice(0, 80);
     paintDriverAvailabilityDiag();
+    recordPublishBlocked("write_failed", {
+      sequence: normalized.envelope.sequence,
+      observedAt: normalized.envelope.observedAt,
+      accuracyM: normalized.envelope.accuracyM ?? accuracy,
+      latitude: normalized.envelope.lat,
+      longitude: normalized.envelope.lng,
+    });
   }
 }
 
@@ -2975,6 +3524,19 @@ function handleLocationError(error) {
   lastGpsErrorCode = denied ? "permission_denied" : "unavailable";
   locationPermissionState = denied ? "denied" : "error";
   paintDriverAvailabilityDiag();
+  try {
+    getFieldDiagnostics()?.record(
+      "gps_error",
+      {
+        code: lastGpsErrorCode,
+        geoCode: error?.code ?? null,
+        message: error?.message || "",
+      },
+      { level: "error" }
+    );
+  } catch {
+    /* ignore */
+  }
 
   if (denied) {
     transientGpsFailCount = 0;
@@ -2993,6 +3555,99 @@ function handleLocationError(error) {
   setDriverOffline("موجودہ مقام حاصل نہیں ہو سکا، دوبارہ کوشش کریں");
 }
 
+function stopLocationRefreshRequestWatch() {
+  unsubscribeLocationRefreshRequest();
+  unsubscribeLocationRefreshRequest = () => {};
+}
+
+/**
+ * Silent match-time refresh: when CF stamps locationRefreshRequestedAt on our
+ * vehicle, force one Firebase publish (online + GPS only).
+ */
+function startLocationRefreshRequestWatch() {
+  stopLocationRefreshRequestWatch();
+  const { db } = getFirebase();
+  if (!db || !linkedVehicle?.id) return;
+  const vehicleId = linkedVehicle.id;
+  unsubscribeLocationRefreshRequest = onSnapshot(
+    doc(db, "vehicles", vehicleId),
+    (snap) => {
+      if (!isOnlineReady() || !linkedVehicle?.id || linkedVehicle.id !== vehicleId) return;
+      if (!snap.exists()) return;
+      const data = snap.data() || {};
+      const req = data.locationRefreshRequestedAt;
+      let reqMs = 0;
+      if (req && typeof req.toMillis === "function") reqMs = req.toMillis();
+      else if (typeof req?.seconds === "number") reqMs = req.seconds * 1000;
+      else if (typeof req === "number") reqMs = req;
+      if (!reqMs || reqMs <= lastHandledLocationRefreshReqMs) return;
+      if (lastVehicleLocationWrite && reqMs <= lastVehicleLocationWrite) {
+        lastHandledLocationRefreshReqMs = reqMs;
+        return;
+      }
+      lastHandledLocationRefreshReqMs = reqMs;
+      checkpointPolicy.requestImmediate("location_refresh_request");
+      if (lastDriverPosition && isValidCoord(lastDriverPosition.lat, lastDriverPosition.lng)) {
+        void syncVehicleLocationToFirestore(lastDriverPosition.lat, lastDriverPosition.lng, {
+          force: true,
+        });
+        return;
+      }
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (!isOnlineReady()) return;
+          syncVehicleLocationToFirestore(pos.coords.latitude, pos.coords.longitude, {
+            force: true,
+            heading: Number.isFinite(pos.coords.heading) ? pos.coords.heading : null,
+            accuracy: pos.coords.accuracy,
+            speed: Number.isFinite(pos.coords.speed) && pos.coords.speed >= 0 ? pos.coords.speed : null,
+            observedAt: Number(pos.timestamp) || Date.now(),
+          });
+        },
+        () => {
+          /* ignore — location service unavailable */
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 }
+      );
+    },
+    () => {
+      /* ignore listener errors */
+    }
+  );
+}
+
+/**
+ * Phase 1 idle publish: Super Admin dispatch idle interval / move meters.
+ * Defaults remain current production (5 min / 200 m) until settings/dispatch is changed.
+ */
+function startDispatchIdleSettingsWatch() {
+  stopDispatchIdleSettingsWatch();
+  const { db } = getFirebase();
+  if (!db) return;
+  unsubscribeDispatchIdleSettings = onSnapshot(
+    doc(db, "settings", "dispatch"),
+    (snap) => {
+      const data = snap.exists() ? snap.data() || {} : {};
+      const normalized = normalizeIdlePublishConfig(data);
+      checkpointPolicy.setIdlePublishConfig(normalized);
+      try {
+        window.__SWIFTGO_IDLE_PUBLISH_CONFIG__ = normalized;
+      } catch {
+        /* ignore */
+      }
+    },
+    () => {
+      /* keep module defaults on permission/network errors */
+    }
+  );
+}
+
+function stopDispatchIdleSettingsWatch() {
+  unsubscribeDispatchIdleSettings();
+  unsubscribeDispatchIdleSettings = () => {};
+}
+
 function startLocationWatch() {
   if (!navigator.geolocation) {
     setLocationMessage("یہ براؤزر لائیو لوکیشن سپورٹ نہیں کرتا");
@@ -3003,6 +3658,8 @@ function startLocationWatch() {
   hasCenteredOnDriver = false;
   if (!locationTrackingSessionId) beginLocationTrackingSession();
   setLocationMessage("آپ کا موجودہ مقام تلاش کیا جا رہا ہے...");
+  startDispatchIdleSettingsWatch();
+  startLocationRefreshRequestWatch();
 
   // Immediate fix for matching — don't wait for watchPosition throttle.
   navigator.geolocation.getCurrentPosition(
@@ -3038,6 +3695,8 @@ function stopLocationWatch() {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
+  stopLocationRefreshRequestWatch();
+  stopDispatchIdleSettingsWatch();
   endLocationTrackingSession();
 }
 
@@ -3258,6 +3917,11 @@ async function finalizeSuccessfulRideCompletion(ride, settlementResult) {
 
   activeExecutionRide = completedRide;
   showRideCompleteSheet(completedRide);
+  try {
+    recordPhase1RideComplete(getFieldDiagnostics(), { rideId: completedRide?.id });
+  } catch {
+    /* ignore */
+  }
   activeExecutionRide = null;
 
   try {
@@ -3422,9 +4086,97 @@ function stopActiveRideWatch() {
 }
 
 function hideActiveRideSheet() {
-  els.activeRideSheet?.classList.remove("is-visible");
+  els.activeRideSheet?.classList.remove("is-visible", "is-collapsed");
   els.app?.classList.remove("has-active-ride");
   if (els.activeRideSheet) els.activeRideSheet.hidden = true;
+  setActiveRideSheetExpanded(true, { silent: true });
+  destroyDriverRideCommChat();
+}
+
+let activeRideSheetExpanded = true;
+let activeRideSheetGestureBound = false;
+
+function setActiveRideSheetExpanded(expanded, { silent = false } = {}) {
+  activeRideSheetExpanded = Boolean(expanded);
+  els.activeRideSheet?.classList.toggle("is-collapsed", !activeRideSheetExpanded);
+  if (els.activeRideSheetHandle) {
+    els.activeRideSheetHandle.setAttribute("aria-expanded", String(activeRideSheetExpanded));
+    els.activeRideSheetHandle.setAttribute(
+      "aria-label",
+      activeRideSheetExpanded ? "نیچے والی پینل سمیٹیں" : "نیچے والی پینل کھولیں"
+    );
+  }
+  if (els.activeRideSheetHandleArrow) {
+    els.activeRideSheetHandleArrow.textContent = activeRideSheetExpanded ? "▼" : "▲";
+  }
+  void silent;
+}
+
+function initActiveRideSheetGestures() {
+  if (activeRideSheetGestureBound) return;
+  const handle = els.activeRideSheetHandle;
+  const sheet = els.activeRideSheet;
+  if (!handle || !sheet) return;
+  activeRideSheetGestureBound = true;
+
+  let dragActive = false;
+  let startY = 0;
+  let moved = false;
+  let pointerId = null;
+  let toggledByDrag = false;
+
+  const DRAG_THRESHOLD_PX = 36;
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.button != null && event.button !== 0) return;
+    dragActive = true;
+    moved = false;
+    toggledByDrag = false;
+    startY = event.clientY;
+    pointerId = event.pointerId;
+    try {
+      handle.setPointerCapture(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+  });
+
+  handle.addEventListener("pointermove", (event) => {
+    if (!dragActive || (pointerId != null && event.pointerId !== pointerId)) return;
+    const dy = event.clientY - startY;
+    if (Math.abs(dy) > 8) moved = true;
+    if (dy > DRAG_THRESHOLD_PX && activeRideSheetExpanded) {
+      setActiveRideSheetExpanded(false);
+      toggledByDrag = true;
+      dragActive = false;
+    } else if (dy < -DRAG_THRESHOLD_PX && !activeRideSheetExpanded) {
+      setActiveRideSheetExpanded(true);
+      toggledByDrag = true;
+      dragActive = false;
+    }
+  });
+
+  function endPointer(event) {
+    if (pointerId != null && event.pointerId !== pointerId) return;
+    dragActive = false;
+    pointerId = null;
+    try {
+      handle.releasePointerCapture(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  handle.addEventListener("pointerup", endPointer);
+  handle.addEventListener("pointercancel", endPointer);
+  handle.addEventListener("click", (event) => {
+    if (moved || toggledByDrag) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    setActiveRideSheetExpanded(!activeRideSheetExpanded);
+  });
 }
 
 function hideRideCompleteSheet() {
@@ -3498,6 +4250,7 @@ function renderActiveRideControls(ride) {
 
   if (els.activeRideSheet) els.activeRideSheet.hidden = false;
   els.app?.classList.add("has-active-ride");
+  setActiveRideSheetExpanded(true, { silent: true });
   requestAnimationFrame(() => els.activeRideSheet?.classList.add("is-visible"));
   rideRadarUi?.close();
   clearRadarPendingCache();
@@ -3506,6 +4259,7 @@ function renderActiveRideControls(ride) {
   }
   syncRideRadarFab();
   syncDriverActiveRouteFromRide(ride);
+  syncDriverRideCommChat();
 }
 
 function startActiveRideWatch(rideId, collectionName = "rides") {
@@ -3749,99 +4503,6 @@ async function findNewRideAfterCompletion() {
   }
 }
 
-async function resolveActiveRequest(nextStatus) {
-  const request = activeRequest;
-  const driver = currentDriver;
-  if (!request?.id || !driver) return;
-
-  setRequestButtonsBusy(true);
-  const { db } = getFirebase();
-  const rideRef = doc(db, "rides", request.id);
-  const vehicleRef =
-    nextStatus === "accepted" && linkedVehicle?.id
-      ? doc(db, "vehicles", linkedVehicle.id)
-      : null;
-
-  try {
-    await runTransaction(db, async (transaction) => {
-      if (nextStatus === "accepted" && !vehicleRef) {
-        throw new Error("VEHICLE_NOT_LINKED");
-      }
-
-      const [rideSnapshot, vehicleSnapshot] = await Promise.all([
-        transaction.get(rideRef),
-        vehicleRef ? transaction.get(vehicleRef) : Promise.resolve(null),
-      ]);
-
-      if (!rideSnapshot.exists() || rideSnapshot.data().status !== "searching_driver") {
-        throw new Error("RIDE_NOT_AVAILABLE");
-      }
-
-      const update = {
-        status: nextStatus,
-        driverId: driver.uid,
-      };
-
-      if (nextStatus === "accepted") {
-        if (
-          !vehicleSnapshot?.exists() ||
-          vehicleSnapshot.data().driverId !== driver.uid ||
-          !vehicleSnapshot.data().ownerId
-        ) {
-          throw new Error("VEHICLE_NOT_LINKED");
-        }
-
-        const rideData = rideSnapshot.data() || {};
-        const acceptedFare = Math.max(
-          0,
-          Math.round(
-            Number(
-              rideData.customerCounterFare > 0
-                ? rideData.customerCounterFare
-                : rideData.farePkr ?? rideData.estimatedFare ?? 0
-            ) || 0
-          )
-        );
-
-        update.vehicleId = vehicleSnapshot.id;
-        update.ownerId = vehicleSnapshot.data().ownerId;
-        update.vehiclePlate = vehicleSnapshot.data().plate || "—";
-        update.driverName = driver.displayName || "SwiftGo Driver";
-        update.farePkr = acceptedFare;
-        update.estimatedFare = acceptedFare;
-        update.driverBidFare = acceptedFare;
-      }
-
-      transaction.update(rideRef, update);
-    });
-
-    hideIncomingRide();
-
-    if (nextStatus === "accepted") {
-      stopRideListener();
-      activeExecutionRide = { id: request.id, ...request, status: "accepted", sourceCollection: "rides" };
-      await markVehicleRideId(request.id);
-      startActiveRideWatch(request.id);
-      syncCheckpointPresenceForActiveRide();
-      renderActiveRideControls(activeExecutionRide);
-      setLocationMessage("سواری قبول کر لی گئی ہے — پک اپ کی طرف جائیں");
-    } else {
-      setLocationMessage("سواری مسترد کر دی گئی ہے");
-    }
-  } catch (error) {
-    console.warn(`[SwiftGo Driver] ${nextStatus} ride`, error);
-    setLocationMessage(
-      error?.message === "RIDE_NOT_AVAILABLE"
-        ? "یہ سواری اب دستیاب نہیں ہے"
-        : error?.message === "VEHICLE_NOT_LINKED"
-          ? "منسلک گاڑی کی تصدیق نہیں ہو سکی"
-        : "کارروائی مکمل نہیں ہو سکی"
-    );
-  } finally {
-    setRequestButtonsBusy(false);
-  }
-}
-
 async function handleRadarRideAccepted(result) {
   const rideId = result?.rideId;
   const collectionName = result?.collection || "rides";
@@ -3921,6 +4582,7 @@ function boot() {
   // Phase 4C: legacy incoming accept/decline remain disabled (Ride Radar is canonical)
   els.activeRideActionBtn?.addEventListener("click", advanceActiveRideStatus);
   els.activeRideCancelBtn?.addEventListener("click", cancelAssignedActiveRideByDriver);
+  initActiveRideSheetGestures();
   els.activeRideRateBtn?.addEventListener("click", () => {
     const ride = activeExecutionRide;
     if (!ride) return;
@@ -3975,6 +4637,8 @@ function boot() {
     getWalletThreshold: () => cachedWalletThreshold,
     onOpenWallet: () => setActiveView("wallet"),
     onMapMount: () => ensureDriverMap(),
+    onLocate: () => locateDriverOnMap(),
+    onMapLayer: (layer) => handleDriverMapLayer(layer),
   });
 
   rideRadarUi = initRideRadarFlow({
@@ -3992,6 +4656,24 @@ function boot() {
     getCounterRideIds: () => driverOfferInbox?.rideIdsWithCustomerCounter?.() ?? [],
     onRideAccepted: handleRadarRideAccepted,
     onToast: driverToast,
+  });
+
+  diagnosticsUi = initDiagnosticsScreen({
+    role: "driver",
+    summaryId: "driverDiagSummary",
+    logId: "driverDiagLog",
+    copyBtnId: "driverDiagCopyBtn",
+    phase1CopyBtnId: "driverDiagPhase1CopyBtn",
+    phase2CopyBtnId: "driverDiagPhase2CopyBtn",
+    phase3CopyBtnId: "driverDiagPhase3CopyBtn",
+    clearBtnId: "driverDiagClearBtn",
+    statusId: "driverDiagCopyStatus",
+    onCopied: (ok) => {
+      if (ok) driverToast(t("diagnosticsCopy") || "Report copied");
+    },
+  });
+  getFieldDiagnostics()?.setMeta({
+    firebase: { configured: isFirebaseConfigured() },
   });
 
   driverOfferInbox = createDriverOfferInbox({
