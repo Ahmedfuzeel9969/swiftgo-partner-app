@@ -23,9 +23,9 @@
 | **Behavior change** | **Zero** — dead code only |
 | **Do not modify** | Package 1 unless bug discovered |
 
-**Remaining client legacy assign (next):** `owner-app/js/owner-app.js` → `resolveActiveRequest` (**Package 2**, pending approval).
+**Remaining client legacy assign (next):** ~~`owner-app/js/owner-app.js` → `resolveActiveRequest`~~ **REMOVED (Package 2 ✓)** · `createBooking`, `cancelRideRequest` (customer) — future packages.
 
-**Completed migration step:** SSOT M1.1 (driver `resolveActiveRequest` only). M1.2 deferred to Package 2.
+**Completed migration steps:** M1.1 (driver `resolveActiveRequest`) · M1.2 (owner `resolveActiveRequest`) — **DONE / frozen**.
 
 ---
 
@@ -73,7 +73,7 @@
 
 | Function | Action | Target disposition |
 |----------|--------|-------------------|
-| `resolveActiveRequest` | Client tx → `accepted` | **Deleted** driver-app (Package 1 ✓) · **Delete** owner-app (Package 2) |
+| `resolveActiveRequest` | Client tx → `accepted` | **Deleted** driver-app (Package 1 ✓) · **Deleted** owner-app (Package 2 ✓) |
 | `createBooking` / `bookings/` | Legacy booking | **Delete** |
 | Any direct client `updateDoc` on `rides.status` except arrived/in_progress | Bypass | **Block** except rules-approved progression |
 
@@ -303,7 +303,7 @@ Each step is **deployable independently**. Lab + physical checklist after every 
 | Step | Work | Files |
 |------|------|-------|
 | M1.1 | Delete `resolveActiveRequest` in driver-app | `driver-app.js` | **DONE** (Package 1, frozen) |
-| M1.2 | Delete owner `resolveActiveRequest` | `owner-app.js` | **Package 2** (pending) |
+| M1.2 | Delete owner `resolveActiveRequest` | `owner-app.js` | **DONE** (Package 2, frozen) |
 | M1.3 | Remove `cancelRideRequest`; grep callers → `cancelCustomerBookingClient` | `data.js`, callers |
 | M1.4 | Delete `bargain-capacity.js` + any import | driver-app |
 | M1.5 | Deploy hosting only | — |
