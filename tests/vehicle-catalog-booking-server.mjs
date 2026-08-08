@@ -140,25 +140,51 @@ async function runEmulatorBookingTests() {
   }
 
   const { createCustomerBooking } = require(join(root, "functions/bargaining.js"));
-  const admin = require("firebase-admin");
-  if (!admin.apps.length) {
-    admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || "demo-swiftgo-phase1" });
+  let admin;
+  try {
+    admin = require(
+      require.resolve("firebase-admin", { paths: [join(root, "functions"), root] })
+    );
+  } catch {
+    record("B07-emulator-booking-suite", "BLOCKED", "firebase-admin not installed");
+    return;
   }
-  const db = admin.firestore();
 
-  const uid = `vc-booking-${Date.now()}`;
-  await db.doc(`booking_slots/${uid}`).set({ count: 0 });
+  process.env.FIRESTORE_EMULATOR_HOST =
+    process.env.FIRESTORE_EMULATOR_HOST || host;
+  let app;
+  try {
+    app = admin.app();
+  } catch {
+    app = admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || "demo-swiftgo-phase1" });
+  }
+  const db = admin.firestore(app);
 
-  async function book(vehicleFields) {
+  async function bookFor(customerUid, vehicleFields, { confirmedExtraBooking = false } = {}) {
     return createCustomerBooking(db, {
-      customerUid: uid,
-      confirmedExtraBooking: false,
+      customerUid,
+      confirmedExtraBooking,
       ridePayload: { ...basePayload, ...vehicleFields },
     });
   }
 
+  async function expectBookingReject(customerUid, vehicleFields, code, name) {
+    let rejected = false;
+    let detail = "";
+    try {
+      await bookFor(customerUid, vehicleFields);
+    } catch (err) {
+      detail = `${err?.code || ""}:${err?.message || err}`;
+      rejected = err?.message === code || String(err?.message || "").includes(code);
+    }
+    record(name, rejected ? "PASS" : "FAIL", detail || "no throw");
+  }
+
+  const cleanupUids = [];
   try {
-    const created = await book({ vehicleTypeKey: "bike", vehicleType: "Bike" });
+    const canonicalUid = `vc-booking-canonical-${Date.now()}`;
+    cleanupUids.push(canonicalUid);
+    const created = await bookFor(canonicalUid, { vehicleTypeKey: "bike", vehicleType: "Bike" });
     const snap = await db.doc(`rides/${created.id}`).get();
     const data = snap.data() || {};
     record(
@@ -167,7 +193,9 @@ async function runEmulatorBookingTests() {
       JSON.stringify({ vehicleTypeKey: data.vehicleTypeKey, vehicleType: data.vehicleType })
     );
 
-    const legacy = await book({ vehicleTypeKey: "mini", vehicleType: "Go" });
+    const legacyUid = `vc-booking-legacy-${Date.now()}`;
+    cleanupUids.push(legacyUid);
+    const legacy = await bookFor(legacyUid, { vehicleTypeKey: "mini", vehicleType: "Go" });
     const legacySnap = await db.doc(`rides/${legacy.id}`).get();
     const legacyData = legacySnap.data() || {};
     record(
@@ -176,35 +204,36 @@ async function runEmulatorBookingTests() {
       JSON.stringify({ vehicleTypeKey: legacyData.vehicleTypeKey })
     );
 
-    let unknownRejected = false;
-    try {
-      await book({ vehicleTypeKey: "unknown-vehicle-x" });
-    } catch (err) {
-      unknownRejected = err?.message === "UNKNOWN_VEHICLE_TYPE" || err?.code === "invalid-argument";
-    }
-    record("B09-emulator-unknown-rejected", unknownRejected ? "PASS" : "FAIL");
+    await expectBookingReject(
+      `vc-booking-unknown-${Date.now()}`,
+      { vehicleTypeKey: "unknown-vehicle-x" },
+      "UNKNOWN_VEHICLE_TYPE",
+      "B09-emulator-unknown-rejected"
+    );
 
-    let emptyRejected = false;
-    try {
-      await book({});
-    } catch (err) {
-      emptyRejected = err?.message === "EMPTY_VEHICLE_TYPE" || err?.code === "invalid-argument";
-    }
-    record("B10-emulator-empty-rejected", emptyRejected ? "PASS" : "FAIL");
+    await expectBookingReject(
+      `vc-booking-empty-${Date.now()}`,
+      {},
+      "EMPTY_VEHICLE_TYPE",
+      "B10-emulator-empty-rejected"
+    );
 
-    let conflictRejected = false;
-    try {
-      await book({ vehicleTypeKey: "go", vehicleType: "premium" });
-    } catch (err) {
-      conflictRejected = err?.message === "VEHICLE_TYPE_CONFLICT" || err?.code === "invalid-argument";
-    }
-    record("B11-emulator-conflict-rejected", conflictRejected ? "PASS" : "FAIL");
+    await expectBookingReject(
+      `vc-booking-conflict-${Date.now()}`,
+      { vehicleTypeKey: "go", vehicleType: "premium" },
+      "VEHICLE_TYPE_CONFLICT",
+      "B11-emulator-conflict-rejected"
+    );
+  } catch (err) {
+    record("B12-emulator-booking-suite", "FAIL", String(err?.message || err));
   } finally {
-    const rides = await db.collection("rides").where("userId", "==", uid).get();
-    for (const docSnap of rides.docs) {
-      await docSnap.ref.delete();
+    for (const customerUid of cleanupUids) {
+      const rides = await db.collection("rides").where("userId", "==", customerUid).get();
+      for (const docSnap of rides.docs) {
+        await docSnap.ref.delete();
+      }
+      await db.doc(`booking_slots/${customerUid}`).delete().catch(() => {});
     }
-    await db.doc(`booking_slots/${uid}`).delete().catch(() => {});
   }
 }
 
