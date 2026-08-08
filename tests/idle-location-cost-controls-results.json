@@ -1,0 +1,159 @@
+{
+  "generatedAt": "2026-08-08T19:05:47.816Z",
+  "suite": "idle-location-cost-controls",
+  "total": 30,
+  "pass": 30,
+  "fail": 0,
+  "results": [
+    {
+      "name": "missing-settings-defaults",
+      "status": "PASS",
+      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10}"
+    },
+    {
+      "name": "valid-minimum-interval",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "valid-maximum-interval",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "valid-default-interval",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "invalid-type-interval-fallback",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "negative-interval-clamped-to-min",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "zero-interval-clamped-to-min",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "excessive-interval-clamped-to-max",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "valid-move-meters",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "invalid-move-fallback",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "idle-path-uses-configured-interval",
+      "status": "PASS",
+      "detail": "60000"
+    },
+    {
+      "name": "active-ride-ignores-idle-interval",
+      "status": "PASS",
+      "detail": "4000"
+    },
+    {
+      "name": "active-ride-p2p-sparse-unchanged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "active-ride-background-trip-unchanged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "controller-applies-idle-config",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "controller-active-ride-not-idle-interval",
+      "status": "PASS",
+      "detail": "4000"
+    },
+    {
+      "name": "controller-idle-uses-stored-interval",
+      "status": "PASS",
+      "detail": "120000"
+    },
+    {
+      "name": "one-dispatch-listener-fn",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "one-dispatch-unsubscribe-var",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "single-settings-doc-listener",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "idle-move-threshold-when-waiting",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-ride-driverLocation-client-write",
+      "status": "PASS",
+      "detail": "CF mirror remains sole ride.driverLocation writer"
+    },
+    {
+      "name": "no-p2p-import-change",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-breadcrumb-change",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "admin-html-idle-fields",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "admin-atomic-save-payload",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "admin-one-dispatch-submit-handler",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "server-idle-interval-validation",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "server-idle-move-validation",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-offer-timeout-in-this-pr",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

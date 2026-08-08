@@ -152,6 +152,8 @@ const els = {
   pricingStatusNote: document.getElementById("pricingStatusNote"),
   dispatchForm: document.getElementById("dispatchSettingsForm"),
   candidateDriverLimitInput: document.getElementById("candidateDriverLimit"),
+  idleLocationIntervalSecondsInput: document.getElementById("idleLocationIntervalSeconds"),
+  idleLocationMoveMetersInput: document.getElementById("idleLocationMoveMeters"),
   dispatchRadiusKmInput: document.getElementById("dispatchRadiusKm"),
   dispatchRadiusMetersInput: document.getElementById("dispatchRadiusMeters"),
   dispatchRadiusPreview: document.getElementById("dispatchRadiusPreview"),
@@ -1872,6 +1874,22 @@ async function loadDispatchSettings() {
     els.candidateDriverLimitInput.value =
       Number.isInteger(limit) && limit >= 1 && limit <= 100 ? String(limit) : "10";
 
+    const idleIntervalMs =
+      data.idleLocationIntervalMs != null && Number.isFinite(Number(data.idleLocationIntervalMs))
+        ? Math.round(Number(data.idleLocationIntervalMs))
+        : 4_000;
+    const idleSeconds = Math.max(1, Math.min(1800, Math.round(idleIntervalMs / 1000)));
+    if (els.idleLocationIntervalSecondsInput) {
+      els.idleLocationIntervalSecondsInput.value = String(idleSeconds);
+    }
+    const idleMove =
+      data.idleLocationMoveMeters != null && Number.isFinite(Number(data.idleLocationMoveMeters))
+        ? Math.round(Number(data.idleLocationMoveMeters))
+        : 10;
+    if (els.idleLocationMoveMetersInput) {
+      els.idleLocationMoveMetersInput.value = String(Math.max(1, Math.min(5000, idleMove)));
+    }
+
     const totalMeters =
       data.maxSearchRadiusMeters != null && Number.isFinite(Number(data.maxSearchRadiusMeters))
         ? Math.max(0, Math.round(Number(data.maxSearchRadiusMeters)))
@@ -1884,8 +1902,8 @@ async function loadDispatchSettings() {
 
     if (els.dispatchStatusNote) {
       els.dispatchStatusNote.textContent = snapshot.exists()
-        ? `موجودہ: ${els.candidateDriverLimitInput.value} ڈرائیور · ${formatDispatchRadiusPreview(totalMeters)} · settings/dispatch`
-        : "Default 10 drivers · 3 km — document not found yet.";
+        ? `موجودہ: ${els.candidateDriverLimitInput.value} ڈرائیور · idle ${els.idleLocationIntervalSecondsInput?.value || 4}s / ${els.idleLocationMoveMetersInput?.value || 10}m · ${formatDispatchRadiusPreview(totalMeters)} · settings/dispatch`
+        : "Default 10 drivers · idle 4s / 10m · 3 km — document not found yet.";
     }
   } catch (error) {
     console.warn("[SwiftGo Admin] loadDispatchSettings", error);
@@ -1923,6 +1941,23 @@ async function saveDispatchSettings(event) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     if (els.dispatchStatusNote) {
       els.dispatchStatusNote.textContent = "امیدوار حد 1 سے 100 کے درمیان ہونی چاہیے۔";
+    }
+    return;
+  }
+
+  const idleSeconds = Math.round(Number(els.idleLocationIntervalSecondsInput?.value));
+  if (!Number.isInteger(idleSeconds) || idleSeconds < 1 || idleSeconds > 1800) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent =
+        "ویٹنگ لوکیشن وقفہ 1 سے 1800 سیکنڈ کے درمیان ہونا چاہیے۔ / Idle interval must be 1–1800 seconds.";
+    }
+    return;
+  }
+  const idleMoveMeters = Math.round(Number(els.idleLocationMoveMetersInput?.value));
+  if (!Number.isInteger(idleMoveMeters) || idleMoveMeters < 1 || idleMoveMeters > 5000) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent =
+        "ویٹنگ حرکت حد 1 سے 5000 میٹر کے درمیان ہونی چاہیے۔ / Idle move threshold must be 1–5000 meters.";
     }
     return;
   }
@@ -1968,9 +2003,11 @@ async function saveDispatchSettings(event) {
       dispatchRadiusMeters: meters,
       maxSearchRadiusKm: totalKm,
       maxSearchRadiusMeters: totalMeters,
+      idleLocationIntervalMs: idleSeconds * 1000,
+      idleLocationMoveMeters: idleMoveMeters,
     });
     if (els.dispatchStatusNote) {
-      els.dispatchStatusNote.textContent = `محفوظ: ${limit} ڈرائیور · ${formatDispatchRadiusPreview(totalMeters)}`;
+      els.dispatchStatusNote.textContent = `محفوظ: ${limit} ڈرائیور · idle ${idleSeconds}s / ${idleMoveMeters}m · ${formatDispatchRadiusPreview(totalMeters)}`;
     }
     showAdminToast("ڈسپیچ سیٹنگ محفوظ ہو گئی");
   } catch (error) {

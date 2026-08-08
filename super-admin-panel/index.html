@@ -500,6 +500,35 @@
                   کل فاصلہ: 3 کلومیٹر / 3000 میٹر
                 </p>
               </div>
+              <label class="finance-field" for="idleLocationIntervalSeconds">
+                <span class="finance-field__label" id="idleLocationIntervalLabel">ویٹنگ لوکیشن وقفہ (سیکنڈ) / Idle location interval (seconds)</span>
+                <input
+                  type="number"
+                  id="idleLocationIntervalSeconds"
+                  name="idleLocationIntervalSeconds"
+                  min="1"
+                  max="1800"
+                  step="1"
+                  value="4"
+                  required
+                  aria-labelledby="idleLocationIntervalLabel"
+                />
+              </label>
+              <label class="finance-field" for="idleLocationMoveMeters">
+                <span class="finance-field__label" id="idleLocationMoveLabel">ویٹنگ حرکت حد (میٹر) / Idle move threshold (meters)</span>
+                <input
+                  type="number"
+                  id="idleLocationMoveMeters"
+                  name="idleLocationMoveMeters"
+                  min="1"
+                  max="5000"
+                  step="1"
+                  value="10"
+                  required
+                  aria-labelledby="idleLocationMoveLabel"
+                />
+              </label>
+              <p class="admin-live-note">آن لائن (فعال سواری کے بغیر) Firebase vehicle checkpoint وقفہ · Production defaults: 4 seconds OR 10 meters (whichever first). Save applies live — drivers pick up without restart.</p>
               <button type="submit" class="finance-save-btn" id="dispatchSaveBtn">
                 ڈسپیچ سیٹنگ محفوظ کریں
                 <span class="finance-save-btn__en">Save Dispatch Limit</span>

@@ -70,6 +70,7 @@ import {
   RESPONSIVE_INTERVAL_MS,
   VIEWER_LEASE,
   createCheckpointPolicyController,
+  normalizeIdlePublishConfig,
   presenceDocId,
 } from "./location-checkpoint-policy.mjs";
 import { createViewerPresenceConsumer } from "./viewer-presence-consumer.mjs";
@@ -235,6 +236,7 @@ let unsubscribeVehicles = () => {};
 let unsubscribeOwnerRides = () => {};
 let unsubscribePartnerDoc = () => {};
 let unsubscribeActiveRide = () => {};
+let unsubscribeDispatchIdleSettings = () => {};
 let authSequence = 0;
 let partnerMode = null;
 let ownerVehicles = [];
@@ -2600,10 +2602,14 @@ async function syncVehicleLocationToFirestore(
   const zoneChanged = cell !== lastLocationGridCell;
   const matchCellChanged = geoCell !== lastMatchGeoCell;
   checkpointPolicy.noteRawGps();
+  const idleWaiting = !activeExecutionRide?.id;
   let movedEnough = true;
   if (lastVehicleLocationLatLng && Number.isFinite(lat) && Number.isFinite(lng)) {
     const movedKm = haversineKm(lastVehicleLocationLatLng, { lat, lng });
-    movedEnough = movedKm == null || movedKm * 1000 >= MIN_LOCATION_MOVE_M;
+    const moveThresholdM = idleWaiting
+      ? checkpointPolicy.getIdleMoveMeters()
+      : MIN_LOCATION_MOVE_M;
+    movedEnough = movedKm == null || movedKm * 1000 >= moveThresholdM;
   }
   const nextStatus = activeExecutionRide?.id ? "in_ride" : "online";
   const statusChanged = nextStatus !== lastVehicleStatusWritten;
@@ -2987,6 +2993,7 @@ function startLocationWatch() {
   hasCenteredOnDriver = false;
   if (!locationTrackingSessionId) beginLocationTrackingSession();
   setLocationMessage("آپ کا موجودہ مقام تلاش کیا جا رہا ہے...");
+  startDispatchIdleSettingsWatch();
 
   // Immediate fix for matching — don't wait for watchPosition throttle.
   navigator.geolocation.getCurrentPosition(
@@ -3022,7 +3029,43 @@ function stopLocationWatch() {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
+  stopDispatchIdleSettingsWatch();
   endLocationTrackingSession();
+}
+
+/**
+ * Live idle publish config from settings/dispatch.
+ * On snapshot error / unavailable doc → keep current in-memory defaults (4s / 10m).
+ */
+function startDispatchIdleSettingsWatch() {
+  stopDispatchIdleSettingsWatch();
+  const { db } = getFirebase();
+  if (!db) return;
+  unsubscribeDispatchIdleSettings = onSnapshot(
+    doc(db, "settings", "dispatch"),
+    (snap) => {
+      try {
+        const data = snap.exists() ? snap.data() || {} : {};
+        const normalized = normalizeIdlePublishConfig(data);
+        checkpointPolicy.setIdlePublishConfig(normalized);
+        try {
+          window.__SWIFTGO_IDLE_PUBLISH_CONFIG__ = normalized;
+        } catch {
+          /* ignore */
+        }
+      } catch {
+        /* keep last good / default idle config; continue publishing */
+      }
+    },
+    () => {
+      /* offline / permission — keep last good defaults */
+    }
+  );
+}
+
+function stopDispatchIdleSettingsWatch() {
+  unsubscribeDispatchIdleSettings();
+  unsubscribeDispatchIdleSettings = () => {};
 }
 
 function stopRideListener() {

@@ -652,6 +652,21 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       updatedBy: request.auth.uid,
     };
 
+    if (request.data?.idleLocationIntervalMs != null) {
+      const idleMs = Math.round(Number(request.data.idleLocationIntervalMs));
+      if (!Number.isFinite(idleMs) || idleMs < 1_000 || idleMs > 30 * 60_000) {
+        throw new HttpsError("invalid-argument", "IDLE_INTERVAL_OUT_OF_RANGE");
+      }
+      payload.idleLocationIntervalMs = idleMs;
+    }
+    if (request.data?.idleLocationMoveMeters != null) {
+      const moveM = Math.round(Number(request.data.idleLocationMoveMeters));
+      if (!Number.isFinite(moveM) || moveM < 1 || moveM > 5_000) {
+        throw new HttpsError("invalid-argument", "IDLE_MOVE_OUT_OF_RANGE");
+      }
+      payload.idleLocationMoveMeters = moveM;
+    }
+
     if (radius) {
       payload.maxSearchRadiusKm = radius.maxSearchRadiusKm;
       payload.maxSearchRadiusMeters = radius.maxSearchRadiusMeters;
@@ -675,6 +690,8 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       maxSearchRadiusKm: payload.maxSearchRadiusKm ?? null,
       maxSearchRadiusMeters: payload.maxSearchRadiusMeters ?? null,
       searchRingsKm: payload.searchRingsKm,
+      idleLocationIntervalMs: payload.idleLocationIntervalMs ?? null,
+      idleLocationMoveMeters: payload.idleLocationMoveMeters ?? null,
     };
   } catch (err) {
     throw mapErr(err);
