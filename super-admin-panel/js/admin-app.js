@@ -46,6 +46,11 @@ import {
   saveAdminDispatchSettings,
   saveAdminPricingSettings as saveAdminPricingSettingsClient,
 } from "./admin-settings-client.js?v=dispatch_dynamic_1";
+import {
+  CANONICAL_VEHICLE_IDS,
+  DEFAULT_PRICING as CATALOG_DEFAULT_PRICING,
+  DEFAULT_VEHICLE_RATES as CATALOG_DEFAULT_VEHICLE_RATES,
+} from "./vehicle-catalog.mjs";
 
 /** Sole authorized Super Admin (Owner). No driver may enter Command Center. */
 const SUPER_ADMIN_EMAIL = "fuzail1158@gmail.com";
@@ -90,25 +95,14 @@ async function isAuthorizedAdminAsync(user) {
   return isAuthorizedAdmin(user);
 }
 
-const DEFAULT_VEHICLE_RATES = Object.freeze({
-  bike: Object.freeze({ baseFare: 40, perKmRate: 15, commissionPercent: 10 }),
-  go: Object.freeze({ baseFare: 100, perKmRate: 35, commissionPercent: 10 }),
-  "go-plus": Object.freeze({ baseFare: 130, perKmRate: 40, commissionPercent: 10 }),
-  business: Object.freeze({ baseFare: 200, perKmRate: 60, commissionPercent: 10 }),
-  "bike-cargo": Object.freeze({ baseFare: 60, perKmRate: 20, commissionPercent: 10 }),
-  suzuki: Object.freeze({ baseFare: 250, perKmRate: 50, commissionPercent: 10 }),
-  truck: Object.freeze({ baseFare: 500, perKmRate: 80, commissionPercent: 10 }),
-});
+const DEFAULT_VEHICLE_RATES = CATALOG_DEFAULT_VEHICLE_RATES;
 
 const DEFAULT_PRICING = Object.freeze({
-  baseFare: DEFAULT_VEHICLE_RATES.go.baseFare,
-  perKmRate: DEFAULT_VEHICLE_RATES.go.perKmRate,
-  commissionPercent: DEFAULT_VEHICLE_RATES.go.commissionPercent,
+  ...CATALOG_DEFAULT_PRICING,
   walletThreshold: -500,
-  vehicles: DEFAULT_VEHICLE_RATES,
 });
 
-const VEHICLE_RATE_KEYS = Object.freeze(Object.keys(DEFAULT_VEHICLE_RATES));
+const VEHICLE_RATE_KEYS = Object.freeze([...CANONICAL_VEHICLE_IDS]);
 
 const VIEW_TITLES = {
   dashboard: "ڈیش بورڈ",

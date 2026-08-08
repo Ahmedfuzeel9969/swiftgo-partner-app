@@ -14,34 +14,24 @@ import {
   getPricingSettings,
   getVehicleRates,
 } from "./data.js";
+import {
+  CANONICAL_VEHICLE_IDS,
+  resolveVehicleTypeKeyFromLabel,
+} from "./vehicle-catalog.mjs";
 
-/** Kept for vehicle-key resolution / legacy card mapping. */
-export const FARE_MATRIX = Object.freeze({
-  bike: Object.freeze({ base: 40, perKm: 15, perMin: 2 }),
-  go: Object.freeze({ base: 100, perKm: 35, perMin: 4 }),
-  "go-plus": Object.freeze({ base: 130, perKm: 40, perMin: 5 }),
-  business: Object.freeze({ base: 200, perKm: 60, perMin: 8 }),
-  "bike-cargo": Object.freeze({ base: 60, perKm: 20, perMin: 2 }),
-  suzuki: Object.freeze({ base: 250, perKm: 50, perMin: 5 }),
-  truck: Object.freeze({ base: 500, perKm: 80, perMin: 10 }),
-});
-
-const VEHICLE_NAME_TO_KEY = Object.freeze({
-  bike: "bike",
-  بائیک: "bike",
-  go: "go",
-  گو: "go",
-  "go plus": "go-plus",
-  "گو پلس": "go-plus",
-  business: "business",
-  بزنس: "business",
-  "bike cargo": "bike-cargo",
-  "بائیک کارگو": "bike-cargo",
-  suzuki: "suzuki",
-  سوزوکی: "suzuki",
-  truck: "truck",
-  ٹرک: "truck",
-});
+/** Kept for vehicle-key resolution / legacy card mapping (perMin unused in fare calc). */
+export const FARE_MATRIX = Object.freeze(
+  Object.fromEntries(
+    CANONICAL_VEHICLE_IDS.map((id) => [
+      id,
+      Object.freeze({
+        base: FALLBACK_VEHICLE_RATES[id].baseFare,
+        perKm: FALLBACK_VEHICLE_RATES[id].perKmRate,
+        perMin: 0,
+      }),
+    ])
+  )
+);
 
 let initialized = false;
 let fareUpdateSeq = 0;
@@ -60,7 +50,7 @@ function vehicleKey(card) {
     card.querySelector("img[alt]")?.alt ||
     "";
 
-  return VEHICLE_NAME_TO_KEY[name.trim().toLocaleLowerCase()] || null;
+  return resolveVehicleTypeKeyFromLabel(name.trim().toLocaleLowerCase()) || null;
 }
 
 /** Legacy helper — flat base + per-km (no tiers). */

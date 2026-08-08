@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": 1,
+  "canonicalVehicleIds": [
+    "bike",
+    "go",
+    "go-plus",
+    "business",
+    "bike-cargo",
+    "suzuki",
+    "truck"
+  ],
+  "legacyAliases": {
+    "mini": "go",
+    "ac": "go-plus",
+    "premium": "business",
+    "rickshaw": "bike-cargo",
+    "van": "suzuki",
+    "cargo": "truck"
+  },
+  "defaultRates": {
+    "bike": {
+      "baseFare": 40,
+      "perKmRate": 15,
+      "commissionPercent": 10
+    },
+    "go": {
+      "baseFare": 100,
+      "perKmRate": 35,
+      "commissionPercent": 10
+    },
+    "go-plus": {
+      "baseFare": 130,
+      "perKmRate": 40,
+      "commissionPercent": 10
+    },
+    "business": {
+      "baseFare": 200,
+      "perKmRate": 60,
+      "commissionPercent": 10
+    },
+    "bike-cargo": {
+      "baseFare": 60,
+      "perKmRate": 20,
+      "commissionPercent": 10
+    },
+    "suzuki": {
+      "baseFare": 250,
+      "perKmRate": 50,
+      "commissionPercent": 10
+    },
+    "truck": {
+      "baseFare": 500,
+      "perKmRate": 80,
+      "commissionPercent": 10
+    }
+  },
+  "displayLabelKeys": {
+    "bike": "vehBike",
+    "go": "vehGo",
+    "go-plus": "vehGoPlus",
+    "business": "vehBusiness",
+    "bike-cargo": "vehBikeCargo",
+    "suzuki": "vehSuzuki",
+    "truck": "vehTruck"
+  },
+  "nameAliases": {
+    "bike": ["bike", "بائیک"],
+    "go": ["go", "گو"],
+    "go-plus": ["go plus", "go-plus", "گو پلس"],
+    "business": ["business", "بزنس"],
+    "bike-cargo": ["bike cargo", "bike-cargo", "بائیک کارگو"],
+    "suzuki": ["suzuki", "سوزوکی"],
+    "truck": ["truck", "ٹرک"]
+  },
+  "validCommissionRange": {
+    "min": 0,
+    "max": 100
+  }
+}

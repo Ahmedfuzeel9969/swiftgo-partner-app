@@ -14,6 +14,14 @@ import {
   deleteField,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getFirebase, isFirebaseConfigured } from "./firebase.js";
+import {
+  CANONICAL_VEHICLE_IDS,
+  DEFAULT_PRICING as CATALOG_DEFAULT_PRICING,
+  DEFAULT_VEHICLE_RATES as CATALOG_DEFAULT_VEHICLE_RATES,
+  getDefaultVehicleRate,
+  lookupPricingVehicleEntry,
+  resolveVehicleTypeKeyForRead,
+} from "./vehicle-catalog.mjs";
 
 /**
  * users/{uid}: { displayName, email, walletBalance, createdAt, updatedAt }
@@ -317,68 +325,9 @@ export async function completeRideRequest(_rideId) {
   throw new Error("SETTLEMENT_SERVER_ONLY");
 }
 
-/**
- * Super Admin config: settings/pricing (Phase 30–47)
- * Per-vehicle baseFare + perKmRate + optional distanceTiers / paceTiers.
- */
-export const FALLBACK_VEHICLE_RATES = Object.freeze({
-  bike: Object.freeze({
-    baseFare: 40,
-    perKmRate: 15,
-    commissionPercent: 10,
-    distanceTiers: Object.freeze([]),
-    paceTiers: Object.freeze([]),
-  }),
-  go: Object.freeze({
-    baseFare: 100,
-    perKmRate: 35,
-    commissionPercent: 10,
-    distanceTiers: Object.freeze([]),
-    paceTiers: Object.freeze([]),
-  }),
-  "go-plus": Object.freeze({
-    baseFare: 130,
-    perKmRate: 40,
-    commissionPercent: 10,
-    distanceTiers: Object.freeze([]),
-    paceTiers: Object.freeze([]),
-  }),
-  business: Object.freeze({
-    baseFare: 200,
-    perKmRate: 60,
-    commissionPercent: 10,
-    distanceTiers: Object.freeze([]),
-    paceTiers: Object.freeze([]),
-  }),
-  "bike-cargo": Object.freeze({
-    baseFare: 60,
-    perKmRate: 20,
-    commissionPercent: 10,
-    distanceTiers: Object.freeze([]),
-    paceTiers: Object.freeze([]),
-  }),
-  suzuki: Object.freeze({
-    baseFare: 250,
-    perKmRate: 50,
-    commissionPercent: 10,
-    distanceTiers: Object.freeze([]),
-    paceTiers: Object.freeze([]),
-  }),
-  truck: Object.freeze({
-    baseFare: 500,
-    perKmRate: 80,
-    commissionPercent: 10,
-    distanceTiers: Object.freeze([]),
-    paceTiers: Object.freeze([]),
-  }),
-});
-
-export const FALLBACK_PRICING = Object.freeze({
-  baseFare: FALLBACK_VEHICLE_RATES.go.baseFare,
-  perKmRate: FALLBACK_VEHICLE_RATES.go.perKmRate,
-  commissionPercent: FALLBACK_VEHICLE_RATES.go.commissionPercent,
-  vehicles: FALLBACK_VEHICLE_RATES,
-});
+/** Canonical defaults — shared/js/vehicle-catalog.mjs */
+export const FALLBACK_VEHICLE_RATES = CATALOG_DEFAULT_VEHICLE_RATES;
+export const FALLBACK_PRICING = CATALOG_DEFAULT_PRICING;
 
 function normalizeDistanceTiers(list) {
   if (!Array.isArray(list)) return [];
@@ -527,9 +476,13 @@ export function normalizePricingSettings(data = {}) {
 
   /** @type {Record<string, { baseFare: number, perKmRate: number, commissionPercent: number }>} */
   const vehicles = {};
-  Object.keys(FALLBACK_VEHICLE_RATES).forEach((key) => {
+  CANONICAL_VEHICLE_IDS.forEach((key) => {
+    const resolution = resolveVehicleTypeKeyForRead(key);
+    const fromDoc =
+      (resolution.ok && lookupPricingVehicleEntry(data.vehicles, resolution)) ||
+      data.vehicles?.[key];
     vehicles[key] = normalizeRate(
-      data.vehicles?.[key] || legacyRate || FALLBACK_VEHICLE_RATES[key],
+      fromDoc || legacyRate || FALLBACK_VEHICLE_RATES[key],
       FALLBACK_VEHICLE_RATES[key]
     );
   });
@@ -544,18 +497,29 @@ export function normalizePricingSettings(data = {}) {
 }
 
 export function getVehicleRates(pricing, vehicleKey) {
-  const key = vehicleKey || "go";
-  const fromMap = pricing?.vehicles?.[key];
-  if (fromMap) return fromMap;
-  const fallback = FALLBACK_VEHICLE_RATES[key];
-  if (fallback) return fallback;
-  return {
-    baseFare: pricing?.baseFare ?? FALLBACK_PRICING.baseFare,
-    perKmRate: pricing?.perKmRate ?? FALLBACK_PRICING.perKmRate,
-    commissionPercent: pricing?.commissionPercent ?? FALLBACK_PRICING.commissionPercent,
-    distanceTiers: [],
-    paceTiers: [],
-  };
+  const raw = String(vehicleKey ?? "").trim();
+  if (!raw) {
+    return normalizeRate(null, getDefaultVehicleRate("go"));
+  }
+  const resolution = resolveVehicleTypeKeyForRead(raw);
+  if (!resolution.ok) {
+    const err = new Error(`${resolution.code}:${resolution.input}`);
+    err.code = resolution.code;
+    err.diagnostic = resolution;
+    throw err;
+  }
+  const fromMap = lookupPricingVehicleEntry(pricing?.vehicles, resolution);
+  if (fromMap) {
+    return normalizeRate(fromMap, getDefaultVehicleRate(resolution.canonicalId));
+  }
+  const fallback = getDefaultVehicleRate(resolution.canonicalId);
+  if (
+    Number.isFinite(Number(pricing?.baseFare)) ||
+    Number.isFinite(Number(pricing?.perKmRate))
+  ) {
+    return normalizeRate(pricing, fallback);
+  }
+  return normalizeRate(fallback, fallback);
 }
 
 export async function getPricingSettings() {
