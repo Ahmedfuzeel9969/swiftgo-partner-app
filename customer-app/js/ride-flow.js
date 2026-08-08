@@ -17,6 +17,7 @@ import {
   watchRideOffers,
 } from "./offer-client.js";
 import { checkCustomerBookingGate, listActiveCustomerBookings } from "./booking-gate.js";
+import { assertCanonicalVehicleTypeKeyForWrite } from "./vehicle-catalog.mjs";
 import {
   startDispatchSession,
   markT1RideCreated,
@@ -1191,7 +1192,15 @@ export async function startRideRequest(state) {
   requesting = true;
 
   const route = getRouteInfo();
-  const vehicleKey = state.vehicle || "";
+  let vehicleKey;
+  try {
+    vehicleKey = assertCanonicalVehicleTypeKeyForWrite(state.vehicle || "bike");
+  } catch (err) {
+    console.warn("[SwiftGo] invalid vehicle type for booking", err);
+    onToast?.(t("rideRequestFailed") || "Invalid vehicle type");
+    requesting = false;
+    return null;
+  }
   const faresByVehicle = window.SwiftGo?.lastFaresByVehicle || {};
   const liveByVehicle = Number(faresByVehicle[vehicleKey]);
   const liveEstimate = Number(window.SwiftGo?.lastEstimatedFare);

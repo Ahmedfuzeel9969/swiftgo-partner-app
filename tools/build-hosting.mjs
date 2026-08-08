@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -51,6 +52,7 @@ const SHARED_JS_MODULES = [
   "off-route-detector.mjs",
   "display-location-pipeline.mjs",
   "breadcrumb-schema.mjs",
+  "vehicle-catalog.mjs",
 ];
 
 function syncSharedJsInto(destJsDir) {
@@ -63,7 +65,23 @@ function syncSharedJsInto(destJsDir) {
     }
     fs.copyFileSync(from, path.join(destJsDir, name));
   }
+  const catalogJsonFrom = path.join(ROOT, "shared", "vehicle-catalog.json");
+  const catalogJsonTo = path.join(destJsDir, "..", "vehicle-catalog.json");
+  fs.copyFileSync(catalogJsonFrom, catalogJsonTo);
 }
+
+const syncCatalog = spawnSync(process.execPath, [path.join(ROOT, "tools", "sync-vehicle-catalog.mjs")], {
+  cwd: ROOT,
+  stdio: "inherit",
+});
+if (syncCatalog.status !== 0) {
+  throw new Error("sync-vehicle-catalog failed");
+}
+
+spawnSync(process.execPath, [path.join(ROOT, "tools", "sync-shared-js-wrappers.mjs")], {
+  cwd: ROOT,
+  stdio: "inherit",
+});
 
 rmrf(DIST);
 ensureDir(DIST);
@@ -79,6 +97,8 @@ copyApp("driver-app", "partner");
 syncSharedJsInto(path.join(DIST, "js"));
 syncSharedJsInto(path.join(DIST, "customer", "js"));
 syncSharedJsInto(path.join(DIST, "partner", "js"));
+syncSharedJsInto(path.join(DIST, "owner", "js"));
+syncSharedJsInto(path.join(DIST, "admin", "js"));
 // Optional inspection path
 syncSharedJsInto(path.join(DIST, "shared", "js"));
 

@@ -32,6 +32,7 @@ const { isValidGeoCell } = require("./geo-coverage");
 const { seedDriverLocationFromVehicle } = require("./driver-location");
 const { computeCancellationFare } = require("./partial-fare");
 const { settlePartialCancellation } = require("./settlement");
+const { normalizeBookingVehicleFields } = require("./vehicle-catalog");
 const {
   reconcileDriverAvailabilityInTx,
   healStaleDriverPointers,
@@ -358,6 +359,17 @@ async function createCustomerBooking(db, { customerUid, ridePayload, confirmedEx
     throw err("invalid-argument", "INVALID_DROPOFF");
   }
 
+  let normalizedVehicle;
+  try {
+    normalizedVehicle = normalizeBookingVehicleFields({
+      vehicleType: ridePayload.vehicleType,
+      vehicleTypeKey: ridePayload.vehicleTypeKey,
+    });
+  } catch (vehicleErr) {
+    const code = String(vehicleErr?.code || "UNKNOWN_VEHICLE_TYPE");
+    throw err("invalid-argument", code);
+  }
+
   // Sync slots to live rides and expire stale searching docs before limit checks.
   const reconciled = await reconcileCustomerBookingState(db, customerUid);
   const liveCount = reconciled.activeCount;
@@ -385,6 +397,8 @@ async function createCustomerBooking(db, { customerUid, ridePayload, confirmedEx
     const now = Date.now();
     const payload = {
       ...ridePayload,
+      vehicleTypeKey: normalizedVehicle.vehicleTypeKey,
+      vehicleType: normalizedVehicle.vehicleType,
       [CUSTOMER_RIDE_OWNER_FIELD]: customerUid,
       userId: customerUid,
       status: "searching_driver",
