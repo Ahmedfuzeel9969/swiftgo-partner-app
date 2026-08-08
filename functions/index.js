@@ -95,6 +95,13 @@ function mapErr(err) {
   if (message === "INVALID_PICKUP" || message === "INVALID_DROPOFF") {
     return new HttpsError("invalid-argument", message);
   }
+  if (
+    message === "EMPTY_VEHICLE_TYPE" ||
+    message === "UNKNOWN_VEHICLE_TYPE" ||
+    message === "VEHICLE_TYPE_CONFLICT"
+  ) {
+    return new HttpsError("invalid-argument", message);
+  }
   return new HttpsError("internal", message);
 }
 

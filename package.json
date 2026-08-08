@@ -35,6 +35,7 @@
     "sync:vehicle-catalog": "node tools/sync-vehicle-catalog.mjs",
     "sync:shared-js-wrappers": "node tools/sync-shared-js-wrappers.mjs",
     "test:vehicle-catalog": "node tools/sync-vehicle-catalog.mjs && node tests/vehicle-catalog-canonical.mjs",
+    "test:vehicle-catalog-booking": "node tools/sync-vehicle-catalog.mjs && firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/vehicle-catalog-booking-server.mjs\"",
     "test:audit": "node tests/audit.test.mjs",
     "test:i18n": "node tests/i18n-purity-scan.mjs",
     "test:ci-preview": "node tests/ci-preview-gate.mjs",

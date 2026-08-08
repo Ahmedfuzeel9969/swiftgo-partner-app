@@ -143,6 +143,64 @@ export function assertCanonicalVehicleTypeKeyForWrite(raw) {
 }
 
 /**
+ * Server-side booking normalization — accepts canonical + legacy keys/labels,
+ * stores canonical vehicleTypeKey. Rejects unknown or conflicting identifiers.
+ *
+ * @param {{ vehicleType?: unknown, vehicleTypeKey?: unknown }} fields
+ * @returns {{ vehicleTypeKey: string, vehicleType: string }}
+ */
+export function normalizeBookingVehicleFields(fields) {
+  const rawKey = String(fields?.vehicleTypeKey ?? "").trim();
+  const rawType = String(fields?.vehicleType ?? "").trim();
+
+  if (!rawKey && !rawType) {
+    const error = new Error("EMPTY_VEHICLE_TYPE");
+    error.code = "EMPTY_VEHICLE_TYPE";
+    throw error;
+  }
+
+  const keyResolution = rawKey ? resolveVehicleTypeKeyForRead(rawKey) : null;
+  const typeResolution = rawType ? resolveVehicleTypeKeyForRead(rawType) : null;
+
+  if (rawKey && keyResolution && !keyResolution.ok) {
+    const error = new Error(keyResolution.code);
+    error.code = keyResolution.code;
+    error.diagnostic = keyResolution;
+    throw error;
+  }
+
+  if (rawType && typeResolution && !typeResolution.ok && !keyResolution?.ok) {
+    const error = new Error(typeResolution.code);
+    error.code = typeResolution.code;
+    error.diagnostic = typeResolution;
+    throw error;
+  }
+
+  if (
+    keyResolution?.ok &&
+    typeResolution?.ok &&
+    keyResolution.canonicalId !== typeResolution.canonicalId
+  ) {
+    const error = new Error("VEHICLE_TYPE_CONFLICT");
+    error.code = "VEHICLE_TYPE_CONFLICT";
+    error.details = {
+      vehicleTypeKey: keyResolution.canonicalId,
+      vehicleType: typeResolution.canonicalId,
+    };
+    throw error;
+  }
+
+  const canonicalId = keyResolution?.ok
+    ? keyResolution.canonicalId
+    : typeResolution.canonicalId;
+
+  return {
+    vehicleTypeKey: canonicalId,
+    vehicleType: rawType ? rawType.slice(0, 40) : canonicalId,
+  };
+}
+
+/**
  * @param {string} canonicalId
  */
 export function getDefaultVehicleRate(canonicalId) {

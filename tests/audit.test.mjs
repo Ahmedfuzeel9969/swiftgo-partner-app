@@ -608,6 +608,10 @@ assert(
 );
 const routingJs = read("customer-app/js/routing.js");
 const fareJs = read("customer-app/js/fare.js");
+const catalogJson = read("shared/vehicle-catalog.json");
+const catalogJs = read("shared/js/vehicle-catalog.mjs");
+const catalogCanonicalCount = (catalogJson.match(/"bike"|"go"|"go-plus"|"business"|"bike-cargo"|"suzuki"|"truck"/g) || [])
+  .filter((v, i, a) => a.indexOf(v) === i).length;
 assert(
   "wiring",
   "Phase 14.1 OSRM polyline + auto fitBounds",
@@ -629,16 +633,22 @@ assert(
 );
 assert(
   "wiring",
-  "Phase 15 dynamic fare matrix and route listener",
+  "Phase 15 canonical catalog-driven fare matrix and route listener",
   fareJs.includes("swiftgo:route-updated") &&
     fareJs.includes("window.SwiftGo?.getRouteInfo?.()") &&
     fareJs.includes("calculateVehicleFare") &&
-    countMatches(fareJs, /perKm:/g) === 7 &&
-    countMatches(fareJs, /perMin:/g) === 7 &&
+    fareJs.includes('from "./vehicle-catalog.mjs"') &&
+    fareJs.includes("CANONICAL_VEHICLE_IDS.map") &&
+    fareJs.includes("FARE_MATRIX") &&
     fareJs.includes('".price, .vehicle-card__price"') &&
     fareJs.includes('".eta, .vehicle-card__eta"') &&
     sheetJs.includes("setDynamicVehicleFares") &&
-    appJs.includes("initFareCalculation")
+    appJs.includes("initFareCalculation") &&
+    catalogJs.includes("exportCatalogDataForParity") &&
+    catalogJson.includes('"canonicalVehicleIds"') &&
+    catalogCanonicalCount >= 7 &&
+    !dataJs.includes("baseFare: 40,\n      perKmRate: 15") &&
+    read("functions/vehicle-catalog.data.json") === catalogJson
 );
 const rideFlowJs = read("customer-app/js/ride-flow.js");
 assert(
