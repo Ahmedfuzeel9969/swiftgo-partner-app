@@ -11,8 +11,6 @@ const { buildLocationReportingConfigSnapshot } = require("./location-reporting-c
  * Mirrored in functions/ride-location-report-schema.js for Cloud Functions.
  */
 
-import { buildLocationReportingConfigSnapshot } from "./location-reporting-config.mjs";
-
 const RIDE_LOCATION_REPORT_SCHEMA_VERSION = 1;
 
 const REPORT_DOC_STATUS = Object.freeze(["open", "partial", "final"]);

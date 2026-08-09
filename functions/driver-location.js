@@ -7,6 +7,7 @@
 
 const { FieldValue } = require("firebase-admin/firestore");
 const { accumulateTraveledSegment } = require("./partial-fare");
+const { recordServerMirrorOutcome } = require("./ride-location-report");
 const {
   LOCATION_DIAG,
   evaluateFixAgainstPrevious,
@@ -265,8 +266,12 @@ async function seedDriverLocationFromVehicle(db, rideId, vehicleId) {
 }
 
 async function mirrorDriverLocationToRide(db, vehicleId, vehicle) {
-  // Trigger path: use immutable event snapshot for vehicle fields.
-  return mirrorRideLocationTransactional(db, vehicleId, vehicle || {}, {});
+  const rideId = String(vehicle?.activeRideId || "").trim();
+  const result = await mirrorRideLocationTransactional(db, vehicleId, vehicle || {}, {});
+  if (rideId) {
+    recordServerMirrorOutcome(db, rideId, result).catch(() => {});
+  }
+  return result;
 }
 
 module.exports = {

@@ -72,6 +72,7 @@ const {
   closeRidePeerSession,
 } = require("./ride-peer-session");
 const { submitRideBreadcrumbBatch } = require("./breadcrumb-batch");
+const { submitRideLocationReportSection } = require("./ride-location-report");
 
 if (!getApps().length) {
   initializeApp();
@@ -1093,6 +1094,22 @@ exports.submitRideBreadcrumbBatch = onCall({ region: "us-central1" }, async (req
     submitRideBreadcrumbBatch(db, {
       driverUid: request.auth.uid,
       batch: request.data?.batch,
+    })
+  );
+});
+
+/** Per-ride location delivery report — driver/customer diagnostic section submit. */
+exports.submitRideLocationReportSection = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("submitRideLocationReportSection", request, () =>
+    submitRideLocationReportSection(db, {
+      callerUid: request.auth.uid,
+      rideId: request.data?.rideId,
+      role: request.data?.role,
+      assignmentSessionTokenHash: request.data?.assignmentSessionTokenHash,
+      section: request.data?.section,
+      submitSequence: request.data?.submitSequence,
+      finalSubmit: request.data?.finalSubmit,
     })
   );
 });
