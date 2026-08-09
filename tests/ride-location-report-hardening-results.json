@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-09T20:49:17.406Z",
-  "pass": 33,
+  "generatedAt": "2026-08-09T22:07:20.098Z",
+  "pass": 39,
   "fail": 0,
   "billingEvidence": [
     {
@@ -170,6 +170,21 @@
       "detail": ""
     },
     {
+      "name": "emulator-config-failure-mirror-continues",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-assignment-reset-in-bargaining",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-no-record-server-mirror-outcome-in-production",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
       "name": "emulator-disabled-skips-ride-aggregate",
       "status": "PASS",
       "detail": ""
@@ -185,7 +200,22 @@
       "detail": ""
     },
     {
+      "name": "emulator-active-finalSubmit-not-final",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-cancelled-all-sections-final",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
       "name": "emulator-rematch-stale-token-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-rematch-resets-server-mirror-aggregate",
       "status": "PASS",
       "detail": ""
     },

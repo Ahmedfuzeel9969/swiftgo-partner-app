@@ -38,6 +38,7 @@ const {
   healStaleDriverPointers,
   isDriverAvailableForRematch,
 } = require("./active-ride-reconcile");
+const { assignmentServerMirrorAggregateResetPatch } = require("./server-mirror-aggregate");
 
 const CANCEL_REASON_KEYS = Object.freeze([
   "taking_too_long",
@@ -1280,6 +1281,7 @@ async function finalizeAssignmentFromOffer(db, params) {
       assignedAt: FieldValue.serverTimestamp(),
       // Fresh token per assignment — rematch must never reuse a prior session token.
       assignmentSessionToken: mintAssignmentSessionToken(),
+      ...assignmentServerMirrorAggregateResetPatch(),
     });
 
     tx.update(offerRef, {
@@ -1429,6 +1431,7 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
       driverBidFare: finalFare,
       assignedAt: FieldValue.serverTimestamp(),
       assignmentSessionToken: mintAssignmentSessionToken(),
+      ...assignmentServerMirrorAggregateResetPatch(),
     });
 
     const offerPayload = {

@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-09T20:47:49.633Z",
-  "pass": 17,
+  "generatedAt": "2026-08-09T22:07:59.911Z",
+  "pass": 18,
   "fail": 0,
   "results": [
     {
@@ -25,6 +25,11 @@
     },
     {
       "name": "static-no-settlement-import",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-no-record-server-mirror-outcome-in-production",
       "status": "PASS",
       "detail": ""
     },

@@ -67,9 +67,20 @@ function hasRideServerMirrorAggregate(ride = {}) {
   return (Number(ride.serverMirrorAccepted) || 0) > 0;
 }
 
+/** Reset assignment-scoped mirror aggregate when assignmentSessionToken is minted/rotated. */
+function assignmentServerMirrorAggregateResetPatch() {
+  return {
+    serverMirrorAccepted: 0,
+    firstServerMirrorAt: null,
+    lastServerMirrorAt: null,
+    maximumMirrorGapMs: 0,
+  };
+}
+
 module.exports = {
   buildAcceptedMirrorAggregatePatch,
   serverSectionFromRideAggregate,
   hasRideServerMirrorAggregate,
+  assignmentServerMirrorAggregateResetPatch,
   timestampToMs,
 };

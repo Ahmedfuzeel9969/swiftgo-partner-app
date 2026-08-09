@@ -24,11 +24,14 @@ function read(rel) {
 
 const {
   submitRideLocationReportSection,
-  recordServerMirrorOutcome,
   mapMirrorReasonToCounter,
   hashAssignmentSessionTokenSync,
   computeCompleteness,
+  computeDocStatus,
+  requiredSectionsAcknowledged,
+  TERMINAL_RIDE_STATUSES,
 } = require("../functions/ride-location-report.js");
+const { buildAcceptedMirrorAggregatePatch } = require("../functions/server-mirror-aggregate.js");
 const { LOCATION_DIAG } = require("../functions/live-location-envelope.js");
 const { createEmptyDriverCounters, createEmptyCustomerCounters } = require("../functions/ride-location-report-schema.js");
 
@@ -64,6 +67,25 @@ record(
   "static-no-settlement-import",
   !read("functions/ride-location-report.js").includes('require("./settlement') ? "PASS" : "FAIL"
 );
+
+record(
+  "static-no-record-server-mirror-outcome-in-production",
+  !read("functions/driver-location.js").includes("recordServerMirrorOutcome") &&
+    !read("functions/index.js").includes("recordServerMirrorOutcome") &&
+    !read("functions/bargaining.js").includes("recordServerMirrorOutcome") &&
+    !read("functions/ride-location-report.js").includes("recordServerMirrorOutcome")
+    ? "PASS"
+    : "FAIL"
+);
+
+async function applyAcceptedMirrorAggregate(db, rideId) {
+  const rideRef = db.doc(`rides/${rideId}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(rideRef);
+    if (!snap.exists) return;
+    tx.update(rideRef, buildAcceptedMirrorAggregatePatch(snap.data() || {}, Date.now()));
+  });
+}
 
 // ─── Emulator ───
 
@@ -211,8 +233,7 @@ record(
   customerRes.ok && reportAfterCustomer.customer?.lastAcceptedSequence === 1 ? "PASS" : "FAIL"
 );
 
-await recordServerMirrorOutcome(db, RIDE_ID, { mirrored: true, reason: LOCATION_DIAG.MIRRORED });
-await recordServerMirrorOutcome(db, RIDE_ID, { mirrored: false, reason: LOCATION_DIAG.NOOP_UNCHANGED });
+await applyAcceptedMirrorAggregate(db, RIDE_ID);
 await submitRideLocationReportSection(db, {
   callerUid: DRIVER,
   rideId: RIDE_ID,

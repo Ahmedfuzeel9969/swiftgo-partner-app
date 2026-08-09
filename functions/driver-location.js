@@ -7,10 +7,7 @@
 
 const { FieldValue } = require("firebase-admin/firestore");
 const { accumulateTraveledSegment } = require("./partial-fare");
-const {
-  getCachedLocationReportingConfig,
-  shouldAggregateServerMirror,
-} = require("./location-reporting-config-cache.js");
+const locationReportingConfigCache = require("./location-reporting-config-cache.js");
 const { buildAcceptedMirrorAggregatePatch } = require("./server-mirror-aggregate.js");
 const {
   LOCATION_DIAG,
@@ -187,11 +184,21 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
     return { mirrored: false, reason: "no_active_ride" };
   }
 
-  const reportingConfig =
-    opts.reportingConfig != null
-      ? opts.reportingConfig
-      : await getCachedLocationReportingConfig(db);
-  const trackServerAggregate = shouldAggregateServerMirror(reportingConfig);
+  let trackServerAggregate = false;
+  if (opts.reportingConfig != null) {
+    trackServerAggregate = locationReportingConfigCache.shouldAggregateServerMirror(opts.reportingConfig);
+  } else {
+    try {
+      const reportingConfig = await locationReportingConfigCache.getCachedLocationReportingConfig(db);
+      trackServerAggregate = locationReportingConfigCache.shouldAggregateServerMirror(reportingConfig);
+    } catch (configErr) {
+      if (!opts.silent) {
+        logLocationDiag(LOCATION_DIAG.REPORTING_CONFIG_UNAVAILABLE, {
+          code: String(configErr?.code || configErr?.message || "config_error").slice(0, 80),
+        });
+      }
+    }
+  }
 
   const vehicleRef = db.collection("vehicles").doc(vehicleId);
   const runTx =

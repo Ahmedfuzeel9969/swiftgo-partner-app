@@ -350,30 +350,6 @@ function applyServerMirrorOutcomeToReport(report, outcome, ride, config) {
 }
 
 /**
- * Test/legacy helper — updates ride aggregate only (never rideLocationReports).
- */
-async function recordServerMirrorOutcome(db, rideId, outcome = {}) {
-  if (!rideId) return { ok: false, reason: "missing_ride_id" };
-  if (outcome.mirrored !== true) return { ok: true, skipped: true, reason: "not_accepted" };
-
-  const config = await readReportingConfig(db);
-  if (!shouldAggregateServerMirror(config)) return { ok: true, skipped: true, reason: "REPORTING_DISABLED" };
-
-  const rideRef = db.collection("rides").doc(rideId);
-  try {
-    await db.runTransaction(async (tx) => {
-      const rideSnap = await tx.get(rideRef);
-      if (!rideSnap.exists) return;
-      const ride = rideSnap.data() || {};
-      tx.update(rideRef, buildAcceptedMirrorAggregatePatch(ride, Date.now()));
-    });
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, reason: String(e?.message || e).slice(0, 120) };
-  }
-}
-
-/**
  * Trusted callable — driver or customer submits location report section.
  */
 async function submitRideLocationReportSection(db, input) {
@@ -485,10 +461,7 @@ async function submitRideLocationReportSection(db, input) {
     }
 
     const terminal = TERMINAL_RIDE_STATUSES.includes(String(ride.status || ""));
-    const shouldFinalize =
-      (terminal && requiredSectionsAcknowledged(report, config)) ||
-      (input.finalSubmit === true &&
-        requiredSectionsAcknowledged(report, config));
+    const shouldFinalize = terminal && requiredSectionsAcknowledged(report, config);
     if (shouldFinalize) {
       report.status = "final";
       if (!report.finalizedAt) report.finalizedAt = FieldValue.serverTimestamp();
@@ -524,7 +497,6 @@ module.exports = {
   mapMirrorReasonToCounter,
   applyServerMirrorOutcomeToReport,
   mergeServerSectionFromRide,
-  recordServerMirrorOutcome,
   submitRideLocationReportSection,
   filterSectionCountersForConfig,
   hasRideServerMirrorAggregate,

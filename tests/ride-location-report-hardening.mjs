@@ -323,7 +323,13 @@ const {
   computeDocStatus,
 } = require("../functions/ride-location-report.js");
 const { mirrorRideLocationTransactional } = require("../functions/driver-location.js");
-const { invalidateLocationReportingConfigCache } = require("../functions/location-reporting-config-cache.js");
+const {
+  invalidateLocationReportingConfigCache,
+  getCachedLocationReportingConfig,
+} = require("../functions/location-reporting-config-cache.js");
+const {
+  assignmentServerMirrorAggregateResetPatch,
+} = require("../functions/server-mirror-aggregate.js");
 const { createEmptyDriverCounters, createEmptyCustomerCounters } = require("../functions/ride-location-report-schema.js");
 
 const RIDE_MERGE = "ride_loc_rpt_merge_7a";
@@ -417,6 +423,85 @@ record(
   noopWrites.rides === 0 && noopWrites.reports === 0 ? "PASS" : "FAIL"
 );
 
+// Config load failure must not block live-location mirror
+const RIDE_CFG_FAIL = "ride_loc_rpt_cfg_fail_7a2";
+const VEH_CFG_FAIL = "veh_cfg_fail_7a2";
+await db.doc(`rides/${RIDE_CFG_FAIL}`).set({
+  userId: CUSTOMER,
+  driverId: DRIVER,
+  vehicleId: VEH_CFG_FAIL,
+  status: "accepted",
+  assignmentSessionToken: TOKEN_MERGE,
+  assignedAt: admin.firestore.Timestamp.now(),
+  driverLocation: { lat: 24.86, lng: 67.0, sequence: 1, sessionId: "ts_cfg_fail", observedAt: 10_000 },
+  driverTrackingSessionId: "ts_cfg_fail",
+  driverTrackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  serverMirrorAccepted: 2,
+  firstServerMirrorAt: 1_000,
+  lastServerMirrorAt: 5_000,
+  maximumMirrorGapMs: 500,
+});
+await db.doc(`vehicles/${VEH_CFG_FAIL}`).set({
+  activeRideId: RIDE_CFG_FAIL,
+  trackingSessionId: "ts_cfg_fail",
+  trackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  location: {
+    lat: 24.86005,
+    lng: 67.00005,
+    sequence: 2,
+    sessionId: "ts_cfg_fail",
+    observedAt: 25_000,
+  },
+  locationUpdatedAt: admin.firestore.Timestamp.now(),
+});
+const vehicleCfgFail = (await db.doc(`vehicles/${VEH_CFG_FAIL}`).get()).data();
+const cacheMod = require("../functions/location-reporting-config-cache.js");
+const origGetCachedConfig = cacheMod.getCachedLocationReportingConfig;
+cacheMod.getCachedLocationReportingConfig = async () => {
+  throw new Error("config_read_failed");
+};
+const cfgFailInstrument = createInstrumentedTransaction(db);
+const cfgFailResult = await mirrorRideLocationTransactional(db, VEH_CFG_FAIL, vehicleCfgFail, {
+  runTransaction: cfgFailInstrument.runTransaction,
+});
+cacheMod.getCachedLocationReportingConfig = origGetCachedConfig;
+const cfgFailReads = pathCounts(cfgFailInstrument.ops.reads);
+const cfgFailWrites = pathCounts(cfgFailInstrument.ops.writes);
+const rideAfterCfgFail = (await db.doc(`rides/${RIDE_CFG_FAIL}`).get()).data();
+const reportAfterCfgFail = await db.doc(`rideLocationReports/${RIDE_CFG_FAIL}`).get();
+record(
+  "emulator-config-failure-mirror-continues",
+  cfgFailResult.mirrored === true &&
+    cfgFailReads.rides === 1 &&
+    cfgFailWrites.rides === 1 &&
+    cfgFailReads.reports === 0 &&
+    cfgFailWrites.reports === 0 &&
+    rideAfterCfgFail?.driverLocation?.sequence === 2 &&
+    Number(rideAfterCfgFail?.serverMirrorAccepted) === 2 &&
+    !reportAfterCfgFail.exists
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  "static-assignment-reset-in-bargaining",
+  (() => {
+    const src = fs.readFileSync(path.join(ROOT, "functions/bargaining.js"), "utf8");
+    const mintMatches = [...src.matchAll(/assignmentSessionToken:\s*mintAssignmentSessionToken\(\)/g)];
+    const resetMatches = [...src.matchAll(/\.\.\.assignmentServerMirrorAggregateResetPatch\(\)/g)];
+    return mintMatches.length === 2 && resetMatches.length === 2 ? "PASS" : "FAIL";
+  })()
+);
+
+record(
+  "static-no-record-server-mirror-outcome-in-production",
+  !fs.readFileSync(path.join(ROOT, "functions/driver-location.js"), "utf8").includes("recordServerMirrorOutcome") &&
+    !fs.readFileSync(path.join(ROOT, "functions/index.js"), "utf8").includes("recordServerMirrorOutcome") &&
+    !fs.readFileSync(path.join(ROOT, "functions/ride-location-report.js"), "utf8").includes("recordServerMirrorOutcome")
+    ? "PASS"
+    : "FAIL"
+);
+
 await db.doc("settings/locationReporting").set({ enabled: false, uploadMode: "disabled" });
 invalidateLocationReportingConfigCache();
 const rideBeforeDisabled = (await db.doc(`rides/${RIDE_MERGE}`).get()).data();
@@ -503,6 +588,102 @@ record(
   cancelDriverRes.ok && !cancelDriverRes.skipped ? "PASS" : "FAIL"
 );
 
+// Final status requires terminal ride (finalSubmit alone must not finalize)
+const RIDE_ACTIVE_FINAL = "ride_loc_rpt_active_final_7a2";
+await db.doc(`rides/${RIDE_ACTIVE_FINAL}`).set({
+  userId: CUSTOMER,
+  driverId: DRIVER,
+  status: "in_progress",
+  assignmentSessionToken: TOKEN_MERGE,
+  assignedAt: admin.firestore.Timestamp.now(),
+  tripStartedAt: admin.firestore.Timestamp.now(),
+  serverMirrorAccepted: 4,
+  firstServerMirrorAt: 1_000,
+  lastServerMirrorAt: 8_000,
+  maximumMirrorGapMs: 1_500,
+});
+await submitRideLocationReportSection(db, {
+  callerUid: DRIVER,
+  rideId: RIDE_ACTIVE_FINAL,
+  role: "driver",
+  assignmentSessionTokenHash: HASH_MERGE,
+  section: {
+    counters: { ...createEmptyDriverCounters(), gpsFixesReceived: 6 },
+    firstFixAtMs: 1000,
+    lastFixAtMs: 7000,
+  },
+  submitSequence: 1,
+  finalSubmit: true,
+});
+await submitRideLocationReportSection(db, {
+  callerUid: CUSTOMER,
+  rideId: RIDE_ACTIVE_FINAL,
+  role: "customer",
+  assignmentSessionTokenHash: HASH_MERGE,
+  section: {
+    counters: { ...createEmptyCustomerCounters(), firebaseSnapshotsReceived: 5, firebaseValidRendered: 4 },
+    firstRenderedAtMs: 2000,
+    lastRenderedAtMs: 7000,
+  },
+  submitSequence: 1,
+  finalSubmit: true,
+});
+const activeFinalReport = (await db.doc(`rideLocationReports/${RIDE_ACTIVE_FINAL}`).get()).data();
+record(
+  "emulator-active-finalSubmit-not-final",
+  activeFinalReport?.status !== "final" &&
+    activeFinalReport?.driver?.lastAcceptedSequence === 1 &&
+    activeFinalReport?.customer?.lastAcceptedSequence === 1 &&
+    activeFinalReport?.server?.counters?.mirrorAccepted === 4
+    ? "PASS"
+    : "FAIL"
+);
+
+const RIDE_CANCEL_FINAL = "ride_loc_rpt_cancel_final_7a2";
+await db.doc(`rides/${RIDE_CANCEL_FINAL}`).set({
+  userId: CUSTOMER,
+  driverId: DRIVER,
+  status: "cancelled_by_customer",
+  assignmentSessionToken: TOKEN_MERGE,
+  assignedAt: admin.firestore.Timestamp.now(),
+  cancelledAt: admin.firestore.Timestamp.now(),
+  serverMirrorAccepted: 2,
+  firstServerMirrorAt: 1_000,
+  lastServerMirrorAt: 4_000,
+  maximumMirrorGapMs: 900,
+});
+await submitRideLocationReportSection(db, {
+  callerUid: DRIVER,
+  rideId: RIDE_CANCEL_FINAL,
+  role: "driver",
+  assignmentSessionTokenHash: HASH_MERGE,
+  section: {
+    counters: { ...createEmptyDriverCounters(), gpsFixesReceived: 2 },
+    firstFixAtMs: 1000,
+    lastFixAtMs: 4000,
+  },
+  submitSequence: 1,
+  finalSubmit: true,
+});
+await submitRideLocationReportSection(db, {
+  callerUid: CUSTOMER,
+  rideId: RIDE_CANCEL_FINAL,
+  role: "customer",
+  assignmentSessionTokenHash: HASH_MERGE,
+  section: {
+    counters: { ...createEmptyCustomerCounters(), firebaseSnapshotsReceived: 2, firebaseValidRendered: 2 },
+    firstRenderedAtMs: 1500,
+    lastRenderedAtMs: 3500,
+  },
+  submitSequence: 1,
+  finalSubmit: true,
+});
+const cancelFinalReport = (await db.doc(`rideLocationReports/${RIDE_CANCEL_FINAL}`).get()).data();
+record(
+  "emulator-cancelled-all-sections-final",
+  cancelFinalReport?.status === "final" && cancelFinalReport?.finalizedAt != null ? "PASS" : "FAIL"
+);
+
 // Rematch stale token
 await db.doc(`rides/${RIDE_REMATCH}`).set({
   userId: CUSTOMER,
@@ -529,6 +710,119 @@ try {
   rematchDenied = e.message === "STALE_ASSIGNMENT";
 }
 record("emulator-rematch-stale-token-denied", rematchDenied ? "PASS" : "FAIL");
+
+// Rematch resets assignment-scoped server mirror aggregate
+const RIDE_AGG_RESET = "ride_loc_rpt_agg_reset_7a2";
+const TOKEN_AGG_D1 = "as_agg_reset_driver1_7a2";
+const TOKEN_AGG_D2 = "as_agg_reset_driver2_7a2";
+const HASH_AGG_D1 = hashToken(TOKEN_AGG_D1);
+const HASH_AGG_D2 = hashToken(TOKEN_AGG_D2);
+const VEH_AGG_D1 = "veh_agg_reset_d1_7a2";
+const VEH_AGG_D2 = "veh_agg_reset_d2_7a2";
+const DRIVER2 = "rlr7a-driver-2";
+
+await db.doc(`rides/${RIDE_AGG_RESET}`).set({
+  userId: CUSTOMER,
+  driverId: DRIVER,
+  vehicleId: VEH_AGG_D1,
+  status: "accepted",
+  assignmentSessionToken: TOKEN_AGG_D1,
+  assignedAt: admin.firestore.Timestamp.now(),
+  driverTrackingSessionId: "ts_agg_d1",
+  driverTrackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  pickupLocation: { lat: 24.86, lng: 67.0 },
+  dropoffLocation: { lat: 24.87, lng: 67.01 },
+});
+await db.doc(`vehicles/${VEH_AGG_D1}`).set({
+  activeRideId: RIDE_AGG_RESET,
+  trackingSessionId: "ts_agg_d1",
+  trackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  location: { lat: 24.86001, lng: 67.00001, sequence: 1, sessionId: "ts_agg_d1", observedAt: 10_000 },
+  locationUpdatedAt: admin.firestore.Timestamp.now(),
+});
+let vehAggSnap = (await db.doc(`vehicles/${VEH_AGG_D1}`).get()).data();
+for (const seq of [2, 3]) {
+  vehAggSnap = {
+    ...vehAggSnap,
+    location: {
+      lat: 24.86 + seq * 0.00001,
+      lng: 67.0 + seq * 0.00001,
+      sequence: seq,
+      sessionId: "ts_agg_d1",
+      observedAt: seq * 10_000,
+    },
+  };
+  await mirrorRideLocationTransactional(db, VEH_AGG_D1, vehAggSnap, {
+    reportingConfig: { enabled: true, uploadMode: "ride_end", collectFirebaseMetrics: true },
+  });
+}
+const rideAfterDriver1 = (await db.doc(`rides/${RIDE_AGG_RESET}`).get()).data();
+await db.doc(`rides/${RIDE_AGG_RESET}`).update({
+  driverId: DRIVER2,
+  vehicleId: VEH_AGG_D2,
+  assignmentSessionToken: TOKEN_AGG_D2,
+  driverLocation: { lat: 24.87001, lng: 67.01001, sequence: 1, sessionId: "ts_agg_d2", observedAt: 10_000 },
+  driverTrackingSessionId: "ts_agg_d2",
+  driverTrackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  ...assignmentServerMirrorAggregateResetPatch(),
+});
+await db.doc(`vehicles/${VEH_AGG_D2}`).set({
+  activeRideId: RIDE_AGG_RESET,
+  trackingSessionId: "ts_agg_d2",
+  trackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  location: { lat: 24.87002, lng: 67.01002, sequence: 2, sessionId: "ts_agg_d2", observedAt: 20_000 },
+  locationUpdatedAt: admin.firestore.Timestamp.now(),
+});
+const rideAfterRematch = (await db.doc(`rides/${RIDE_AGG_RESET}`).get()).data();
+const vehAggD2 = (await db.doc(`vehicles/${VEH_AGG_D2}`).get()).data();
+await mirrorRideLocationTransactional(db, VEH_AGG_D2, vehAggD2, {
+  reportingConfig: { enabled: true, uploadMode: "ride_end", collectFirebaseMetrics: true },
+});
+const rideAfterDriver2Mirror = (await db.doc(`rides/${RIDE_AGG_RESET}`).get()).data();
+let staleDriver1Denied = false;
+try {
+  await submitRideLocationReportSection(db, {
+    callerUid: DRIVER,
+    rideId: RIDE_AGG_RESET,
+    role: "driver",
+    assignmentSessionTokenHash: HASH_AGG_D1,
+    section: {
+      counters: { ...createEmptyDriverCounters(), gpsFixesReceived: 99 },
+      firstFixAtMs: 1000,
+      lastFixAtMs: 2000,
+    },
+    submitSequence: 1,
+  });
+} catch (e) {
+  staleDriver1Denied = e.message === "STALE_ASSIGNMENT";
+}
+await db.doc(`rides/${RIDE_AGG_RESET}`).update({ status: "completed", settledAt: admin.firestore.Timestamp.now() });
+const aggDriverRes = await submitRideLocationReportSection(db, {
+  callerUid: DRIVER2,
+  rideId: RIDE_AGG_RESET,
+  role: "driver",
+  assignmentSessionTokenHash: HASH_AGG_D2,
+  section: {
+    counters: { ...createEmptyDriverCounters(), gpsFixesReceived: 3 },
+    firstFixAtMs: 1000,
+    lastFixAtMs: 8000,
+  },
+  submitSequence: 1,
+  finalSubmit: true,
+});
+const aggReport = (await db.doc(`rideLocationReports/${RIDE_AGG_RESET}`).get()).data();
+record(
+  "emulator-rematch-resets-server-mirror-aggregate",
+  Number(rideAfterDriver1?.serverMirrorAccepted) === 2 &&
+    Number(rideAfterRematch?.serverMirrorAccepted) === 0 &&
+    rideAfterRematch?.firstServerMirrorAt == null &&
+    Number(rideAfterDriver2Mirror?.serverMirrorAccepted) === 1 &&
+    staleDriver1Denied &&
+    aggDriverRes.ok &&
+    aggReport?.server?.counters?.mirrorAccepted === 1
+    ? "PASS"
+    : "FAIL"
+);
 
 // Wrong assignment
 await db.doc(`rides/${RIDE_REMATCH}`).update({ status: "cancelled_by_user", assignmentSessionToken: TOKEN_MERGE });
@@ -581,7 +875,7 @@ record(
     : "FAIL"
 );
 
-const { getCachedLocationReportingConfig, CACHE_TTL_MS } = require("../functions/location-reporting-config-cache.js");
+const { CACHE_TTL_MS } = require("../functions/location-reporting-config-cache.js");
 await db.doc("settings/locationReporting").set({ enabled: true, uploadMode: "ride_end", collectFirebaseMetrics: true });
 invalidateLocationReportingConfigCache();
 const enabledCfg = await getCachedLocationReportingConfig(db);
