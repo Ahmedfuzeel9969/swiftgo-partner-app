@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-08-09T06:07:03.934Z",
-  "commit": "ed2856c44a3e8961f349d00af765f33ec90dfd1a",
+  "generatedAt": "2026-08-09T07:43:41.122Z",
+  "commit": "ec50a92edeefe342ee95f5b9fba15ceb9cb276fc",
   "suite": "idle-location-cost-controls",
   "categories": {
     "unit": {
-      "total": 37,
-      "pass": 37,
+      "total": 40,
+      "pass": 40,
       "fail": 0,
       "blocked": 0
     },
@@ -22,8 +22,8 @@
       "blocked": 0
     }
   },
-  "total": 82,
-  "pass": 82,
+  "total": 85,
+  "pass": 85,
   "fail": 0,
   "blocked": 0,
   "results": [
@@ -148,13 +148,31 @@
       "category": "unit"
     },
     {
-      "name": "expired-diagnostic-fails-closed",
+      "name": "active-diagnostic-retains-custom-interval-move",
       "status": "PASS",
       "detail": "",
       "category": "unit"
     },
     {
-      "name": "malformed-diagnostic-expiry-fails-closed",
+      "name": "expired-diagnostic-fails-closed-full-safe-defaults",
+      "status": "PASS",
+      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10,\"idleMovementTriggerDisabled\":false,\"idleDiagnosticExpiresAtMs\":null}",
+      "category": "unit"
+    },
+    {
+      "name": "malformed-diagnostic-expiry-fails-closed-full-safe-defaults",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "reload-after-expiry-stored-firestore-fails-closed",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "timer-expiry-reapply-safe-defaults-once",
       "status": "PASS",
       "detail": "",
       "category": "unit"
@@ -480,7 +498,7 @@
     {
       "name": "admin-enable-diagnostic-movement-disabled",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":null,\"idleMovementTriggerDisabled\":true,\"idleDiagnosticExpiresAt\":{\"_seconds\":1786256223,\"_nanoseconds\":748000000}}",
+      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":null,\"idleMovementTriggerDisabled\":true,\"idleDiagnosticExpiresAt\":{\"_seconds\":1786262020,\"_nanoseconds\":795000000}}",
       "category": "emulator"
     },
     {
@@ -490,7 +508,7 @@
       "category": "emulator"
     },
     {
-      "name": "expired-diagnostic-emulator-fails-closed",
+      "name": "expired-diagnostic-emulator-fails-closed-full-safe-defaults",
       "status": "PASS",
       "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10,\"idleMovementTriggerDisabled\":false,\"idleDiagnosticExpiresAtMs\":null}",
       "category": "emulator"

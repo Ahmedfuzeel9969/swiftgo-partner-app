@@ -1973,7 +1973,7 @@ async function loadDispatchSettings() {
     els.candidateDriverLimitInput.value =
       Number.isInteger(limit) && limit >= 1 && limit <= 100 ? String(limit) : "10";
 
-    const normalizedIdle = normalizeIdlePublishConfig(data);
+    const normalizedIdle = normalizeIdlePublishConfig(data, { nowMs: Date.now() });
     const idleSeconds = Math.round(normalizedIdle.idleLocationIntervalMs / 1000);
     if (els.idleLocationIntervalSecondsInput) {
       els.idleLocationIntervalSecondsInput.value = String(idleSeconds);

@@ -34,6 +34,7 @@ import {
   isLocationFreshForMatching,
   validateIdleIntervalMsForCallable,
   validateIdleMoveMetersForCallable,
+  getSafeIdlePublishConfig,
 } from "../driver-app/js/idle-publish-config.mjs";
 
 const require = createRequire(import.meta.url);
@@ -225,22 +226,31 @@ record(
   })()
 );
 
+function isFullSafeIdleConfig(config) {
+  const safe = getSafeIdlePublishConfig();
+  return (
+    config.idleLocationIntervalMs === safe.idleLocationIntervalMs &&
+    config.idleLocationMoveMeters === safe.idleLocationMoveMeters &&
+    config.idleMovementTriggerDisabled === safe.idleMovementTriggerDisabled &&
+    config.idleDiagnosticExpiresAtMs === safe.idleDiagnosticExpiresAtMs
+  );
+}
+
 record(
   unitResults,
-  "expired-diagnostic-fails-closed",
+  "active-diagnostic-retains-custom-interval-move",
   (() => {
-    const c = normalizeIdlePublishConfig(
-      {
-        idleMovementTriggerDisabled: true,
-        idleDiagnosticExpiresAt: { toMillis: () => Date.now() - 1_000 },
-        idleLocationIntervalMs: 120_000,
-      },
-      { nowMs: Date.now() }
-    );
+    const c = normalizeIdlePublishConfig({
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticExpiresAt: { toMillis: () => Date.now() + 120_000 },
+      idleLocationIntervalMs: 60_000,
+      idleLocationMoveMeters: 50,
+    });
     return (
-      c.idleMovementTriggerDisabled === false &&
-      c.idleLocationIntervalMs === 120_000 &&
-      c.idleLocationMoveMeters === 10
+      c.idleMovementTriggerDisabled === true &&
+      c.idleLocationIntervalMs === 60_000 &&
+      c.idleLocationMoveMeters === 50 &&
+      c.idleDiagnosticExpiresAtMs != null
     )
       ? "PASS"
       : "FAIL";
@@ -249,13 +259,84 @@ record(
 
 record(
   unitResults,
-  "malformed-diagnostic-expiry-fails-closed",
-  normalizeIdlePublishConfig({
-    idleMovementTriggerDisabled: true,
-    idleDiagnosticExpiresAt: "not-a-timestamp",
-  }).idleMovementTriggerDisabled === false
-    ? "PASS"
-    : "FAIL"
+  "expired-diagnostic-fails-closed-full-safe-defaults",
+  (() => {
+    const c = normalizeIdlePublishConfig(
+      {
+        idleMovementTriggerDisabled: true,
+        idleDiagnosticExpiresAt: { toMillis: () => Date.now() - 1_000 },
+        idleLocationIntervalMs: 120_000,
+        idleLocationMoveMeters: 50,
+      },
+      { nowMs: Date.now() }
+    );
+    return isFullSafeIdleConfig(c) ? "PASS" : "FAIL";
+  })(),
+  JSON.stringify(
+    normalizeIdlePublishConfig(
+      {
+        idleMovementTriggerDisabled: true,
+        idleDiagnosticExpiresAt: { toMillis: () => Date.now() - 1_000 },
+        idleLocationIntervalMs: 120_000,
+        idleLocationMoveMeters: 50,
+      },
+      { nowMs: Date.now() }
+    )
+  )
+);
+
+record(
+  unitResults,
+  "malformed-diagnostic-expiry-fails-closed-full-safe-defaults",
+  (() => {
+    const c = normalizeIdlePublishConfig({
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticExpiresAt: "not-a-timestamp",
+      idleLocationIntervalMs: 120_000,
+      idleLocationMoveMeters: 50,
+    });
+    return isFullSafeIdleConfig(c) ? "PASS" : "FAIL";
+  })()
+);
+
+record(
+  unitResults,
+  "reload-after-expiry-stored-firestore-fails-closed",
+  (() => {
+    const stored = {
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticExpiresAt: { _seconds: Math.floor(Date.now() / 1000) - 120, _nanoseconds: 0 },
+      idleLocationIntervalMs: 60_000,
+      idleLocationMoveMeters: 50,
+    };
+    return isFullSafeIdleConfig(normalizeIdlePublishConfig(stored, { nowMs: Date.now() }))
+      ? "PASS"
+      : "FAIL";
+  })()
+);
+
+record(
+  unitResults,
+  "timer-expiry-reapply-safe-defaults-once",
+  (() => {
+    const raw = {
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticExpiresAt: { toMillis: () => 1000 },
+      idleLocationIntervalMs: 60_000,
+      idleLocationMoveMeters: 50,
+    };
+    const active = normalizeIdlePublishConfig(raw, { nowMs: 500 });
+    const expiredOnce = normalizeIdlePublishConfig(raw, { nowMs: 2000 });
+    const expiredTwice = normalizeIdlePublishConfig(raw, { nowMs: 3000 });
+    return (
+      active.idleMovementTriggerDisabled === true &&
+      active.idleLocationIntervalMs === 60_000 &&
+      isFullSafeIdleConfig(expiredOnce) &&
+      isFullSafeIdleConfig(expiredTwice)
+    )
+      ? "PASS"
+      : "FAIL";
+  })()
 );
 
 record(
@@ -510,6 +591,7 @@ record(
     adminHtml.includes("حرکت کی بنیاد پر لوکیشن بھیجنا") &&
     adminHtml.includes("idleReturnSafeDefaultsBtn") &&
     adminHtml.includes("idleDiagnosticRedWarning") &&
+    adminHtml.includes("4 سیکنڈ / 10 میٹر") &&
     adminHtml.includes("idleHighMoveWarning")
     ? "PASS"
     : "FAIL"
@@ -554,7 +636,7 @@ record(
 record(
   staticResults,
   "admin-uses-normalize-on-load",
-  adminApp.includes("normalizeIdlePublishConfig(data)") ? "PASS" : "FAIL"
+  adminApp.includes("normalizeIdlePublishConfig(data, { nowMs: Date.now() })") ? "PASS" : "FAIL"
 );
 record(
   staticResults,
@@ -911,12 +993,8 @@ async function runEmulatorTests() {
   );
   record(
     emulatorResults,
-    "expired-diagnostic-emulator-fails-closed",
-    expiredNorm.idleMovementTriggerDisabled === false &&
-      expiredNorm.idleLocationIntervalMs === 4_000 &&
-      expiredNorm.idleLocationMoveMeters === 10
-      ? "PASS"
-      : "FAIL",
+    "expired-diagnostic-emulator-fails-closed-full-safe-defaults",
+    isFullSafeIdleConfig(expiredNorm) ? "PASS" : "FAIL",
     JSON.stringify(expiredNorm)
   );
 

@@ -3052,44 +3052,27 @@ function clearIdleDiagnosticExpiryTimer() {
   }
 }
 
-function applyDispatchIdleSettingsFromFirestore(data = {}) {
+function applyDispatchIdleSettingsFromFirestore(data = {}, { nowMs = Date.now() } = {}) {
   lastDispatchIdleSettingsRaw = data || {};
-  const normalized = normalizeIdlePublishConfig(lastDispatchIdleSettingsRaw);
-  checkpointPolicy.setIdlePublishConfig(lastDispatchIdleSettingsRaw);
+  const normalized = normalizeIdlePublishConfig(lastDispatchIdleSettingsRaw, { nowMs });
+  checkpointPolicy.setIdlePublishConfig(lastDispatchIdleSettingsRaw, { nowMs });
   try {
     window.__SWIFTGO_IDLE_PUBLISH_CONFIG__ = normalized;
   } catch {
     /* ignore */
   }
   clearIdleDiagnosticExpiryTimer();
-  if (normalized.idleMovementTriggerDisabled && normalized.idleDiagnosticExpiresAtMs) {
-    const delay = normalized.idleDiagnosticExpiresAtMs - Date.now();
-    if (delay <= 0) {
-      const safe = normalizeIdlePublishConfig(lastDispatchIdleSettingsRaw, { nowMs: Date.now() });
-      checkpointPolicy.setIdlePublishConfig({
-        idleLocationIntervalMs: safe.idleLocationIntervalMs,
-        idleLocationMoveMeters: safe.idleLocationMoveMeters,
-        idleMovementTriggerDisabled: false,
-        idleDiagnosticExpiresAt: null,
-      });
-      return;
-    }
-    idleDiagnosticExpiryTimer = setTimeout(() => {
-      idleDiagnosticExpiryTimer = null;
-      const safe = normalizeIdlePublishConfig(lastDispatchIdleSettingsRaw, { nowMs: Date.now() });
-      checkpointPolicy.setIdlePublishConfig({
-        idleLocationIntervalMs: safe.idleLocationIntervalMs,
-        idleLocationMoveMeters: safe.idleLocationMoveMeters,
-        idleMovementTriggerDisabled: false,
-        idleDiagnosticExpiresAt: null,
-      });
-      try {
-        window.__SWIFTGO_IDLE_PUBLISH_CONFIG__ = safe;
-      } catch {
-        /* ignore */
-      }
-    }, delay + 50);
+  if (!normalized.idleMovementTriggerDisabled || !normalized.idleDiagnosticExpiresAtMs) {
+    return;
   }
+  const delay = normalized.idleDiagnosticExpiresAtMs - nowMs;
+  if (delay <= 0) {
+    return;
+  }
+  idleDiagnosticExpiryTimer = setTimeout(() => {
+    idleDiagnosticExpiryTimer = null;
+    applyDispatchIdleSettingsFromFirestore(lastDispatchIdleSettingsRaw, { nowMs: Date.now() });
+  }, delay + 50);
 }
 
 function startDispatchIdleSettingsWatch() {

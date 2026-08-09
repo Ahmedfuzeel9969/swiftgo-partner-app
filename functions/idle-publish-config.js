@@ -82,11 +82,11 @@ function safeDefaults() {
   };
 }
 
-function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}) {
-  const now = Number(nowMs);
-  const base = safeDefaults();
-  if (!Number.isFinite(now)) return { ...base };
+function getSafeIdlePublishConfig() {
+  return safeDefaults();
+}
 
+function applyValidIntervalAndMove(base, raw) {
   if (raw.idleLocationIntervalMs != null) {
     if (
       isStrictIntegerInRange(
@@ -111,12 +111,30 @@ function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}) {
     }
   }
 
+  return base;
+}
+
+function isDiagnosticStateInvalid(raw, nowMs) {
+  if (raw.idleMovementTriggerDisabled !== true) return false;
+  const expiresMs = parseFirestoreTimestampMs(raw.idleDiagnosticExpiresAt);
+  return expiresMs == null || expiresMs <= nowMs;
+}
+
+function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}) {
+  const now = Number(nowMs);
+  if (!Number.isFinite(now)) return safeDefaults();
+
+  if (isDiagnosticStateInvalid(raw, now)) {
+    return safeDefaults();
+  }
+
+  const base = safeDefaults();
+  applyValidIntervalAndMove(base, raw);
+
   if (raw.idleMovementTriggerDisabled === true) {
     const expiresMs = parseFirestoreTimestampMs(raw.idleDiagnosticExpiresAt);
-    if (expiresMs != null && expiresMs > now) {
-      base.idleMovementTriggerDisabled = true;
-      base.idleDiagnosticExpiresAtMs = expiresMs;
-    }
+    base.idleMovementTriggerDisabled = true;
+    base.idleDiagnosticExpiresAtMs = expiresMs;
   }
 
   return base;
@@ -168,6 +186,7 @@ module.exports = {
   MAX_IDLE_INTERVAL_MS,
   IDLE_DIAGNOSTIC_MAX_DURATION_MS,
   normalizeIdlePublishConfig,
+  getSafeIdlePublishConfig,
   validateIdleIntervalMsForCallable,
   validateIdleMoveMetersForCallable,
   validateIdleMovementTriggerDisabledForCallable,

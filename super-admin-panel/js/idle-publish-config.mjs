@@ -105,18 +105,12 @@ function safeDefaults() {
   };
 }
 
-/**
- * Runtime consumer normalization: missing or invalid → canonical defaults (4000 ms / 10 m / movement enabled).
- * Expired or malformed diagnostic state fails closed to safe defaults.
- * Does not coerce strings or clamp out-of-range values to boundaries.
- * @param {Record<string, unknown>} [raw]
- * @param {{ nowMs?: number }} [opts]
- */
-export function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}) {
-  const now = Number(nowMs);
-  const base = safeDefaults();
-  if (!Number.isFinite(now)) return { ...base };
+/** Canonical fail-closed runtime config (4000 ms / 10 m / movement enabled). */
+export function getSafeIdlePublishConfig() {
+  return safeDefaults();
+}
 
+function applyValidIntervalAndMove(base, raw) {
   if (raw.idleLocationIntervalMs != null) {
     if (
       isStrictIntegerInRange(
@@ -141,12 +135,37 @@ export function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}
     }
   }
 
+  return base;
+}
+
+function isDiagnosticStateInvalid(raw, nowMs) {
+  if (raw.idleMovementTriggerDisabled !== true) return false;
+  const expiresMs = parseFirestoreTimestampMs(raw.idleDiagnosticExpiresAt);
+  return expiresMs == null || expiresMs <= nowMs;
+}
+
+/**
+ * Runtime consumer normalization: missing or invalid → canonical defaults (4000 ms / 10 m / movement enabled).
+ * Expired or malformed diagnostic state fails closed to full safe defaults (interval/move reset too).
+ * Does not coerce strings or clamp out-of-range values to boundaries.
+ * @param {Record<string, unknown>} [raw]
+ * @param {{ nowMs?: number }} [opts]
+ */
+export function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}) {
+  const now = Number(nowMs);
+  if (!Number.isFinite(now)) return safeDefaults();
+
+  if (isDiagnosticStateInvalid(raw, now)) {
+    return safeDefaults();
+  }
+
+  const base = safeDefaults();
+  applyValidIntervalAndMove(base, raw);
+
   if (raw.idleMovementTriggerDisabled === true) {
     const expiresMs = parseFirestoreTimestampMs(raw.idleDiagnosticExpiresAt);
-    if (expiresMs != null && expiresMs > now) {
-      base.idleMovementTriggerDisabled = true;
-      base.idleDiagnosticExpiresAtMs = expiresMs;
-    }
+    base.idleMovementTriggerDisabled = true;
+    base.idleDiagnosticExpiresAtMs = expiresMs;
   }
 
   return base;
