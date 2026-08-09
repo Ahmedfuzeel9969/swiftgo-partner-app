@@ -204,11 +204,12 @@
                     <th>کل کرایہ</th>
                     <th>کمیشن</th>
                     <th>ریٹنگ</th>
+                    <th>لوکیشن رپورٹ</th>
                   </tr>
                 </thead>
                 <tbody id="allRidesTableBody">
                   <tr class="rides-table__empty">
-                    <td colspan="7">لوڈ ہو رہا ہے...</td>
+                    <td colspan="8">لوڈ ہو رہا ہے...</td>
                   </tr>
                 </tbody>
               </table>
@@ -778,6 +779,30 @@
   </div>
 
   <div class="admin-toast" id="adminToast" role="status" aria-live="polite"></div>
+
+  <!-- Per-ride location delivery report (Super Admin read-only) -->
+  <div class="location-report-modal" id="locationReportModal" aria-hidden="true" hidden>
+    <button class="location-report-modal__backdrop" id="locationReportModalBackdrop" type="button" aria-label="بند کریں"></button>
+    <section
+      class="location-report-modal__panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="locationReportModalTitle"
+      aria-describedby="locationReportModalBody"
+    >
+      <div class="location-report-modal__heading">
+        <div>
+          <p>Diagnostic</p>
+          <h2 id="locationReportModalTitle">لوکیشن ڈیلیوری رپورٹ</h2>
+        </div>
+        <button type="button" class="location-report-modal__close" id="locationReportModalCloseBtn" aria-label="بند کریں">×</button>
+      </div>
+      <p class="location-report-modal__ride-id" id="locationReportModalRideId" aria-live="polite"></p>
+      <div class="location-report-modal__body" id="locationReportModalBody" tabindex="-1">
+        <p class="location-report-loading">لوڈ ہو رہا ہے…</p>
+      </div>
+    </section>
+  </div>
 
   <!-- Phase 39: notification settings -->
   <div class="notify-settings-modal" id="notificationSettingsModal" aria-hidden="true" hidden>

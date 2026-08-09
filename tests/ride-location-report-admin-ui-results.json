@@ -1,0 +1,67 @@
+{
+  "generatedAt": "2026-08-09T19:37:49.328Z",
+  "pass": 12,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-admin-ui-modal-present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-admin-table-report-button",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-view-module-present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-collection-name",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-format-duration-ms",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-completeness-missing",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-completeness-complete",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-view-model-found",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-render-includes-counters",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-render-no-coordinates",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-render-missing-safe",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-forbidden-key-rejected",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

@@ -2082,3 +2082,214 @@ input:disabled {
   color: var(--accent);
   font-weight: 700;
 }
+
+/* Per-ride location report modal */
+.location-report-modal[hidden] {
+  display: none !important;
+}
+
+.location-report-modal {
+  position: fixed;
+  z-index: 990;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.location-report-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(2, 8, 18, 0.76);
+  backdrop-filter: blur(4px);
+}
+
+.location-report-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 760px);
+  max-height: min(88dvh, 900px);
+  overflow: auto;
+  padding: 1.15rem 1.15rem 1.35rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(165deg, #111827, #0b1220 55%);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
+}
+
+.location-report-modal__heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.location-report-modal__heading p {
+  margin: 0;
+  color: #38bdf8;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.location-report-modal__heading h2 {
+  margin: 0.2rem 0 0;
+  font-family: var(--urdu);
+  font-size: 1.25rem;
+}
+
+.location-report-modal__close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.14);
+  color: #e2e8f0;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.location-report-modal__ride-id {
+  margin: 0 0 0.85rem;
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.location-report-modal__body {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.location-report-loading {
+  margin: 0;
+  color: #cbd5e1;
+}
+
+.location-report-summary {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.location-report-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.location-report-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.location-report-pill--completeness {
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+}
+
+.location-report-pill--healthy {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.location-report-pill--warning {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+}
+
+.location-report-pill--critical {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+
+.location-report-pill--insufficient_data {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+
+.location-report-pill--neutral {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e2e8f0;
+}
+
+.location-report-meta,
+.location-report-reasons,
+.location-report-footnote {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.location-report-section h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+  color: #e2e8f0;
+}
+
+.location-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.location-report-table th,
+.location-report-table td {
+  padding: 0.35rem 0.45rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  text-align: start;
+  vertical-align: top;
+}
+
+.location-report-table th {
+  width: 58%;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.location-report-table td {
+  color: #f8fafc;
+}
+
+.location-report-empty,
+.location-report-empty-state {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.location-report-empty-state__hint {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.rides-table__report-btn {
+  padding: 0.28rem 0.55rem;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.08);
+  color: #7dd3fc;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rides-table__report-btn:hover {
+  background: rgba(56, 189, 248, 0.16);
+}
+
+.rides-table__report-btn:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
