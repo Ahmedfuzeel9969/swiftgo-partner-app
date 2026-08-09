@@ -500,6 +500,102 @@
                   کل فاصلہ: 3 کلومیٹر / 3000 میٹر
                 </p>
               </div>
+              <div class="finance-field">
+                <span class="finance-field__label" id="idleLocationIntervalLabel">ویٹنگ لوکیشن وقفہ / Idle location interval</span>
+                <div class="finance-field-row" role="group" aria-labelledby="idleLocationIntervalLabel">
+                  <label class="finance-field finance-field--inline" for="idleLocationIntervalPreset">
+                    <span class="finance-field__label">تجویز / Preset</span>
+                    <select id="idleLocationIntervalPreset" name="idleLocationIntervalPreset" aria-label="Idle interval preset">
+                      <option value="4">4 سیکنڈ</option>
+                      <option value="10">10 سیکنڈ</option>
+                      <option value="30">30 سیکنڈ</option>
+                      <option value="60">60 سیکنڈ</option>
+                      <option value="custom">اپنی قیمت / Custom</option>
+                    </select>
+                  </label>
+                  <label class="finance-field finance-field--inline" for="idleLocationIntervalSeconds">
+                    <span class="finance-field__label">سیکنڈ / Seconds</span>
+                    <input
+                      type="number"
+                      id="idleLocationIntervalSeconds"
+                      name="idleLocationIntervalSeconds"
+                      min="4"
+                      max="300"
+                      step="1"
+                      value="4"
+                      required
+                      aria-labelledby="idleLocationIntervalLabel"
+                    />
+                  </label>
+                </div>
+              </div>
+              <div class="finance-field">
+                <span class="finance-field__label" id="idleLocationMoveLabel">ویٹنگ حرکت حد / Idle move threshold</span>
+                <div class="finance-field-row" role="group" aria-labelledby="idleLocationMoveLabel">
+                  <label class="finance-field finance-field--inline" for="idleLocationMovePreset">
+                    <span class="finance-field__label">تجویز / Preset</span>
+                    <select id="idleLocationMovePreset" name="idleLocationMovePreset" aria-label="Idle move preset">
+                      <option value="10">10 میٹر</option>
+                      <option value="25">25 میٹر</option>
+                      <option value="50">50 میٹر</option>
+                      <option value="100">100 میٹر</option>
+                      <option value="custom">اپنی قیمت / Custom</option>
+                    </select>
+                  </label>
+                  <label class="finance-field finance-field--inline" for="idleLocationMoveMeters">
+                    <span class="finance-field__label">میٹر / Meters</span>
+                    <input
+                      type="number"
+                      id="idleLocationMoveMeters"
+                      name="idleLocationMoveMeters"
+                      min="10"
+                      max="5000"
+                      step="1"
+                      value="10"
+                      required
+                      aria-labelledby="idleLocationMoveLabel"
+                    />
+                  </label>
+                </div>
+                <p class="admin-live-note admin-high-move-warning" id="idleHighMoveWarning" role="alert" hidden>
+                  <strong>انتباہ (100m سے زیادہ):</strong> Firebase writes کم ہو سکتی ہیں، مگر ڈسپیچ لوکیشن غلط ہو سکتی ہے، قریبی ڈرائیور دور نظر آ سکتا ہے۔
+                  یہ سیٹنگ صرف کنٹرولڈ ٹیسٹنگ کے لیے ہے۔
+                </p>
+              </div>
+              <p class="admin-live-note admin-cost-warning" role="note">
+                <strong>لاگت انتباہ:</strong> چھوٹا وقفہ (مثلاً 4 سیکنڈ) Firebase میں زیادہ لوکیشن writes کرتا ہے اور بل بڑھ سکتا ہے۔
+                بڑا وقفہ یا زیادہ میٹر حد لاگت کم کرتی ہے، مگر آن لائن ڈرائیور کی محفوظ لوکیشن پرانی ہو سکتی ہے۔
+                یہ کنٹرولز صرف <strong>فعال سواری کے بغیر</strong> (idle/waiting) لاگو ہوتے ہیں — سواری کے دوران 4s/30s/60s اور P2P policies بدل نہیں ہوتیں۔
+              </p>
+              <fieldset class="finance-field finance-diagnostic-panel" id="idleDiagnosticSection">
+                <legend>تشخیصی ٹیسٹنگ / Diagnostic testing</legend>
+                <label class="finance-field finance-field--checkbox" for="idleMovementTriggerDisabled">
+                  <input type="checkbox" id="idleMovementTriggerDisabled" name="idleMovementTriggerDisabled" />
+                  <span>حرکت کی بنیاد پر لوکیشن بھیجنا عارضی طور پر بند کریں (صرف وقت وقفہ سے publish)</span>
+                </label>
+                <label class="finance-field" for="idleDiagnosticDurationMinutes">
+                  <span class="finance-field__label">تشخیصی مدت (منٹ) / Diagnostic duration (minutes)</span>
+                  <select id="idleDiagnosticDurationMinutes" name="idleDiagnosticDurationMinutes">
+                    <option value="5">5 منٹ</option>
+                    <option value="10">10 منٹ</option>
+                    <option value="15">15 منٹ</option>
+                    <option value="20">20 منٹ</option>
+                    <option value="30">30 منٹ</option>
+                  </select>
+                </label>
+                <label class="finance-field" for="idleDiagnosticReason">
+                  <span class="finance-field__label">وجہ (اختیاری، زیادہ سے زیادہ 80 حروف) / Reason (optional)</span>
+                  <input type="text" id="idleDiagnosticReason" name="idleDiagnosticReason" maxlength="80" placeholder="مثلاً field-test-grid-7" />
+                </label>
+                <p class="admin-danger-warning" id="idleDiagnosticRedWarning" role="alert" hidden>
+                  <strong>خطرہ:</strong> حرکت کی بنیاد پر publish بند ہے — صرف وقت وقفہ سے لوکیشن بھیجی جائے گی۔
+                  ڈسپیچ درستگی متاثر ہو سکتی ہے۔ زیادہ سے زیادہ 30 منٹ کے بعد خودکار طور پر <strong>4 سیکنڈ / 10 میٹر</strong> محفوظ ڈیفالٹ پر واپس آ جائے گا۔
+                </p>
+                <p class="admin-live-note" id="idleDiagnosticExpiryDisplay" role="status" aria-live="polite"></p>
+                <button type="button" class="finance-save-btn finance-save-btn--secondary" id="idleReturnSafeDefaultsBtn">
+                  محفوظ ڈیفالٹ پر واپس / Return to safe defaults
+                </button>
+              </fieldset>
               <button type="submit" class="finance-save-btn" id="dispatchSaveBtn">
                 ڈسپیچ سیٹنگ محفوظ کریں
                 <span class="finance-save-btn__en">Save Dispatch Limit</span>

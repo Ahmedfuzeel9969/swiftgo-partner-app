@@ -9,7 +9,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { logger } = require("firebase-functions");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { initializeApp, getApps } = require("firebase-admin/app");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { createDispatchTimer, withDispatchTimeout } = require("./dispatch-latency");
 const {
   evaluateCustomerBookingGate,
@@ -40,10 +40,13 @@ const {
   bootstrapAdminClaim,
   initSuperAdminAccess,
   grantAdminClaim,
+  grantSuperAdminClaim,
   revokeAdminClaim,
   setAdminEmailBootstrap,
   isAdminAuth,
   ensureCallerCanAdminWrite,
+  requestTouchesDiagnosticControls,
+  isCallerAuthorizedForDiagnostic,
 } = require("./admin-claims");
 const { linkVehicleByPin } = require("./pin-link");
 const {
@@ -162,6 +165,14 @@ exports.initSuperAdminAccess = onCall({ region: "us-central1" }, async (request)
 exports.grantAdminClaim = onCall({ region: "us-central1" }, async (request) => {
   try {
     return await grantAdminClaim(db, request.auth, request.data?.uid);
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+exports.grantSuperAdminClaim = onCall({ region: "us-central1" }, async (request) => {
+  try {
+    return await grantSuperAdminClaim(db, request.auth, request.data?.uid);
   } catch (err) {
     throw mapErr(err);
   }
@@ -616,7 +627,15 @@ exports.acceptCustomerInitialFare = onCall({ region: "us-central1" }, async (req
 
 /** Super Admin: dispatch settings (candidate limit + search radius). */
 exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (request) => {
-  if (!request.auth?.uid || !(await ensureCallerCanAdminWrite(db, request.auth))) {
+  if (!request.auth?.uid) {
+    throw new HttpsError("permission-denied", "ADMIN_ONLY");
+  }
+  if (requestTouchesDiagnosticControls(request.data)) {
+    if (!(await isCallerAuthorizedForDiagnostic(db, request.auth))) {
+      throw new HttpsError("permission-denied", "SUPER_ADMIN_DIAGNOSTIC_ONLY");
+    }
+  }
+  if (!(await ensureCallerCanAdminWrite(db, request.auth))) {
     throw new HttpsError("permission-denied", "ADMIN_ONLY");
   }
   try {
@@ -652,6 +671,62 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       updatedBy: request.auth.uid,
     };
 
+    const {
+      validateIdleIntervalMsForCallable,
+      validateIdleMoveMetersForCallable,
+      validateIdleMovementTriggerDisabledForCallable,
+      validateDiagnosticDurationMinutesForCallable,
+      sanitizeDiagnosticReason,
+      IDLE_DIAGNOSTIC_MAX_DURATION_MS,
+    } = require("./idle-publish-config");
+
+    if (request.data?.idleDiagnosticExpiresAt != null) {
+      throw new HttpsError("invalid-argument", "IDLE_DIAGNOSTIC_EXPIRY_CLIENT_FORBIDDEN");
+    }
+
+    if (request.data?.idleLocationIntervalMs != null) {
+      const idleMs = request.data.idleLocationIntervalMs;
+      if (!validateIdleIntervalMsForCallable(idleMs)) {
+        throw new HttpsError("invalid-argument", "IDLE_INTERVAL_OUT_OF_RANGE");
+      }
+      payload.idleLocationIntervalMs = idleMs;
+    }
+    if (request.data?.idleLocationMoveMeters != null) {
+      const moveM = request.data.idleLocationMoveMeters;
+      if (!validateIdleMoveMetersForCallable(moveM)) {
+        throw new HttpsError("invalid-argument", "IDLE_MOVE_OUT_OF_RANGE");
+      }
+      payload.idleLocationMoveMeters = moveM;
+    }
+
+    if (request.data?.idleMovementTriggerDisabled != null) {
+      if (!validateIdleMovementTriggerDisabledForCallable(request.data.idleMovementTriggerDisabled)) {
+        throw new HttpsError("invalid-argument", "IDLE_MOVEMENT_TRIGGER_FLAG_INVALID");
+      }
+      if (request.data.idleMovementTriggerDisabled === true) {
+        const durationMin = request.data?.idleDiagnosticDurationMinutes;
+        if (!validateDiagnosticDurationMinutesForCallable(durationMin)) {
+          throw new HttpsError("invalid-argument", "IDLE_DIAGNOSTIC_DURATION_OUT_OF_RANGE");
+        }
+        const durationMs = durationMin * 60_000;
+        if (durationMs > IDLE_DIAGNOSTIC_MAX_DURATION_MS) {
+          throw new HttpsError("invalid-argument", "IDLE_DIAGNOSTIC_DURATION_OUT_OF_RANGE");
+        }
+        payload.idleMovementTriggerDisabled = true;
+        payload.idleDiagnosticExpiresAt = Timestamp.fromMillis(Date.now() + durationMs);
+        payload.idleDiagnosticEnabledBy = request.auth.uid;
+        payload.idleDiagnosticEnabledAt = FieldValue.serverTimestamp();
+        const reason = sanitizeDiagnosticReason(request.data?.idleDiagnosticReason);
+        if (reason) payload.idleDiagnosticReason = reason;
+      } else {
+        payload.idleMovementTriggerDisabled = false;
+        payload.idleDiagnosticExpiresAt = FieldValue.delete();
+        payload.idleDiagnosticEnabledBy = FieldValue.delete();
+        payload.idleDiagnosticEnabledAt = FieldValue.delete();
+        payload.idleDiagnosticReason = FieldValue.delete();
+      }
+    }
+
     if (radius) {
       payload.maxSearchRadiusKm = radius.maxSearchRadiusKm;
       payload.maxSearchRadiusMeters = radius.maxSearchRadiusMeters;
@@ -675,6 +750,10 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       maxSearchRadiusKm: payload.maxSearchRadiusKm ?? null,
       maxSearchRadiusMeters: payload.maxSearchRadiusMeters ?? null,
       searchRingsKm: payload.searchRingsKm,
+      idleLocationIntervalMs: payload.idleLocationIntervalMs ?? null,
+      idleLocationMoveMeters: payload.idleLocationMoveMeters ?? null,
+      idleMovementTriggerDisabled: payload.idleMovementTriggerDisabled ?? null,
+      idleDiagnosticExpiresAt: payload.idleDiagnosticExpiresAt ?? null,
     };
   } catch (err) {
     throw mapErr(err);

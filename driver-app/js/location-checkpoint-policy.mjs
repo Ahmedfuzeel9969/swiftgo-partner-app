@@ -54,12 +54,52 @@ export const CHECKPOINT_DIAG = Object.freeze({
 
 /** Visible customer / no-active-ride online: current responsive policy. */
 export const RESPONSIVE_INTERVAL_MS = 4_000;
+/** Default idle (no active ride) publish interval — overridable via settings/dispatch. */
+export const IDLE_LOCATION_INTERVAL_MS = RESPONSIVE_INTERVAL_MS;
 /** Hidden/unknown before trip (accepted | arrived). */
 export const BACKGROUND_APPROACH_INTERVAL_MS = 60_000;
 /** Hidden/unknown during trip (in_progress). */
 export const BACKGROUND_TRIP_INTERVAL_MS = 30_000;
-/** Existing movement gate (metres) — preserved. */
+/** Existing movement gate (metres) — preserved for active-ride paths. */
 export const MIN_LOCATION_MOVE_M = 10;
+
+import {
+  IDLE_PUBLISH_BOUNDS,
+  IDLE_PUBLISH_DEFAULTS,
+  IDLE_PUBLISH_PRESETS,
+  MATCHING_STALE_LOCATION_MS,
+  MAX_IDLE_INTERVAL_MS,
+  normalizeIdlePublishConfig,
+  getSafeIdlePublishConfig,
+  parseFirestoreTimestampMs,
+  resolveIdleIntervalMsForPolicy,
+  resolveIdleMoveMetersForPolicy,
+  validateIdleIntervalMsForCallable,
+  validateIdleMoveMetersForCallable,
+  isIdleMovementPublishEnabled,
+} from "./idle-publish-config.mjs";
+
+export {
+  IDLE_PUBLISH_BOUNDS,
+  IDLE_PUBLISH_DEFAULTS,
+  IDLE_PUBLISH_PRESETS,
+  MATCHING_STALE_LOCATION_MS,
+  MAX_IDLE_INTERVAL_MS,
+  normalizeIdlePublishConfig,
+  getSafeIdlePublishConfig,
+  parseFirestoreTimestampMs,
+  resolveIdleIntervalMsForPolicy,
+  resolveIdleMoveMetersForPolicy,
+  validateIdleIntervalMsForCallable,
+  validateIdleMoveMetersForCallable,
+  isIdleMovementPublishEnabled,
+} from "./idle-publish-config.mjs";
+
+/** Dispatch settings keys for idle publish (Super Admin cost controls). */
+export const IDLE_PUBLISH_CONFIG_KEYS = Object.freeze({
+  intervalMs: "idleLocationIntervalMs",
+  moveMeters: "idleLocationMoveMeters",
+});
 /** Anti-flap: enter sparse Firebase only after P2P healthy this long. */
 export const P2P_SPARSE_ENTER_HYSTERESIS_MS = 5_000;
 /** Anti-flap: leave sparse only after unhealthy this long. */
@@ -127,6 +167,7 @@ export function resolveViewerLeaseState(input = {}) {
  *   rideStatus?: string,
  *   viewerLease?: string,
  *   p2pHealthy?: boolean,
+ *   idleIntervalMs?: number,
  * }} input
  * @returns {{ policy: string, intervalMs: number, hardInterval: boolean, diag: string }}
  */
@@ -134,7 +175,7 @@ export function resolveCheckpointPolicy(input = {}) {
   if (!input.hasActiveRide) {
     return {
       policy: CHECKPOINT_POLICY.NO_ACTIVE_RIDE,
-      intervalMs: RESPONSIVE_INTERVAL_MS,
+      intervalMs: resolveIdleIntervalMsForPolicy(input.idleIntervalMs),
       hardInterval: false,
       diag: CHECKPOINT_DIAG.POLICY_RESPONSIVE,
     };
@@ -279,6 +320,10 @@ export function createCheckpointPolicyController(opts = {}) {
   let p2pUnhealthySince = null;
   let lastPolicy = CHECKPOINT_POLICY.NO_ACTIVE_RIDE;
   let immediatePending = false;
+  let idleLocationIntervalMs = IDLE_LOCATION_INTERVAL_MS;
+  let idleLocationMoveMeters = MIN_LOCATION_MOVE_M;
+  let idleMovementTriggerDisabled = false;
+  let idleDiagnosticExpiresAtMs = null;
 
   const counters = {
     rawGpsFixes: 0,
@@ -329,7 +374,55 @@ export function createCheckpointPolicyController(opts = {}) {
       rideStatus,
       viewerLease,
       p2pHealthy: p2pEffectiveHealthy && viewerLease === VIEWER_LEASE.VISIBLE,
+      idleIntervalMs: idleLocationIntervalMs,
     });
+  }
+
+  function setIdlePublishConfig(raw = {}, opts = {}) {
+    const next = normalizeIdlePublishConfig(
+      {
+        idleLocationIntervalMs:
+          raw.idleLocationIntervalMs != null ? raw.idleLocationIntervalMs : idleLocationIntervalMs,
+        idleLocationMoveMeters:
+          raw.idleLocationMoveMeters != null ? raw.idleLocationMoveMeters : idleLocationMoveMeters,
+        idleMovementTriggerDisabled:
+          raw.idleMovementTriggerDisabled != null
+            ? raw.idleMovementTriggerDisabled
+            : idleMovementTriggerDisabled,
+        idleDiagnosticExpiresAt:
+          raw.idleDiagnosticExpiresAt != null
+            ? raw.idleDiagnosticExpiresAt
+            : idleDiagnosticExpiresAtMs,
+      },
+      opts
+    );
+    idleLocationIntervalMs = next.idleLocationIntervalMs;
+    idleLocationMoveMeters = next.idleLocationMoveMeters;
+    idleMovementTriggerDisabled = next.idleMovementTriggerDisabled;
+    idleDiagnosticExpiresAtMs = next.idleDiagnosticExpiresAtMs;
+    emitPolicyIfChanged();
+    return getIdlePublishConfig();
+  }
+
+  function getIdlePublishConfig() {
+    return {
+      idleLocationIntervalMs,
+      idleLocationMoveMeters,
+      idleMovementTriggerDisabled,
+      idleDiagnosticExpiresAtMs,
+    };
+  }
+
+  function isIdleMovementTriggerDisabled() {
+    return idleMovementTriggerDisabled === true;
+  }
+
+  function isIdleMovementPublishAllowed() {
+    return isIdleMovementPublishEnabled({ idleMovementTriggerDisabled });
+  }
+
+  function getIdleMoveMeters() {
+    return idleLocationMoveMeters;
   }
 
   function emitPolicyIfChanged() {
@@ -493,6 +586,10 @@ export function createCheckpointPolicyController(opts = {}) {
       p2pEffectiveHealthy,
       lastPolicy,
       immediatePending,
+      idleLocationIntervalMs,
+      idleLocationMoveMeters,
+      idleMovementTriggerDisabled,
+      idleDiagnosticExpiresAtMs,
       decision: currentDecision(),
     };
   }
@@ -506,6 +603,11 @@ export function createCheckpointPolicyController(opts = {}) {
     setActiveRide,
     setViewerLease,
     setP2pHealthy,
+    setIdlePublishConfig,
+    getIdlePublishConfig,
+    getIdleMoveMeters,
+    isIdleMovementTriggerDisabled,
+    isIdleMovementPublishAllowed,
     requestImmediate,
     consumeImmediate,
     hasImmediatePending,

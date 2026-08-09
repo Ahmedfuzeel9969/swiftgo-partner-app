@@ -690,6 +690,39 @@ body {
   font-size: 0.8rem;
 }
 
+.admin-danger-warning {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(239, 68, 68, 0.55);
+  border-radius: 12px;
+  background: rgba(127, 29, 29, 0.35);
+  color: #fecaca;
+  font-size: 0.85rem;
+}
+
+.admin-high-move-warning {
+  border-left: 3px solid #f59e0b;
+  padding-left: 0.65rem;
+}
+
+.finance-diagnostic-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px dashed rgba(239, 68, 68, 0.45);
+  border-radius: 14px;
+}
+
+.finance-field--checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.finance-save-btn--secondary {
+  margin-top: 0.75rem;
+  background: rgba(55, 65, 81, 0.9);
+}
+
 .table-panel {
   border: 1px solid var(--line);
   border-radius: 18px;

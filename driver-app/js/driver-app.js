@@ -70,6 +70,7 @@ import {
   RESPONSIVE_INTERVAL_MS,
   VIEWER_LEASE,
   createCheckpointPolicyController,
+  normalizeIdlePublishConfig,
   presenceDocId,
 } from "./location-checkpoint-policy.mjs";
 import { createViewerPresenceConsumer } from "./viewer-presence-consumer.mjs";
@@ -235,6 +236,9 @@ let unsubscribeVehicles = () => {};
 let unsubscribeOwnerRides = () => {};
 let unsubscribePartnerDoc = () => {};
 let unsubscribeActiveRide = () => {};
+let unsubscribeDispatchIdleSettings = () => {};
+let lastDispatchIdleSettingsRaw = {};
+let idleDiagnosticExpiryTimer = null;
 let authSequence = 0;
 let partnerMode = null;
 let ownerVehicles = [];
@@ -2600,10 +2604,20 @@ async function syncVehicleLocationToFirestore(
   const zoneChanged = cell !== lastLocationGridCell;
   const matchCellChanged = geoCell !== lastMatchGeoCell;
   checkpointPolicy.noteRawGps();
+  const idleWaiting = !activeExecutionRide?.id;
   let movedEnough = true;
   if (lastVehicleLocationLatLng && Number.isFinite(lat) && Number.isFinite(lng)) {
     const movedKm = haversineKm(lastVehicleLocationLatLng, { lat, lng });
-    movedEnough = movedKm == null || movedKm * 1000 >= MIN_LOCATION_MOVE_M;
+    const movementPublishAllowed =
+      !idleWaiting || checkpointPolicy.isIdleMovementPublishAllowed();
+    if (!movementPublishAllowed) {
+      movedEnough = false;
+    } else {
+      const moveThresholdM = idleWaiting
+        ? checkpointPolicy.getIdleMoveMeters()
+        : MIN_LOCATION_MOVE_M;
+      movedEnough = movedKm == null || movedKm * 1000 >= moveThresholdM;
+    }
   }
   const nextStatus = activeExecutionRide?.id ? "in_ride" : "online";
   const statusChanged = nextStatus !== lastVehicleStatusWritten;
@@ -2987,6 +3001,7 @@ function startLocationWatch() {
   hasCenteredOnDriver = false;
   if (!locationTrackingSessionId) beginLocationTrackingSession();
   setLocationMessage("آپ کا موجودہ مقام تلاش کیا جا رہا ہے...");
+  startDispatchIdleSettingsWatch();
 
   // Immediate fix for matching — don't wait for watchPosition throttle.
   navigator.geolocation.getCurrentPosition(
@@ -3022,7 +3037,68 @@ function stopLocationWatch() {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
+  stopDispatchIdleSettingsWatch();
   endLocationTrackingSession();
+}
+
+/**
+ * Live idle publish config from settings/dispatch.
+ * On snapshot error / unavailable doc → keep current in-memory defaults (4s / 10m).
+ */
+function clearIdleDiagnosticExpiryTimer() {
+  if (idleDiagnosticExpiryTimer != null) {
+    clearTimeout(idleDiagnosticExpiryTimer);
+    idleDiagnosticExpiryTimer = null;
+  }
+}
+
+function applyDispatchIdleSettingsFromFirestore(data = {}, { nowMs = Date.now() } = {}) {
+  lastDispatchIdleSettingsRaw = data || {};
+  const normalized = normalizeIdlePublishConfig(lastDispatchIdleSettingsRaw, { nowMs });
+  checkpointPolicy.setIdlePublishConfig(lastDispatchIdleSettingsRaw, { nowMs });
+  try {
+    window.__SWIFTGO_IDLE_PUBLISH_CONFIG__ = normalized;
+  } catch {
+    /* ignore */
+  }
+  clearIdleDiagnosticExpiryTimer();
+  if (!normalized.idleMovementTriggerDisabled || !normalized.idleDiagnosticExpiresAtMs) {
+    return;
+  }
+  const delay = normalized.idleDiagnosticExpiresAtMs - nowMs;
+  if (delay <= 0) {
+    return;
+  }
+  idleDiagnosticExpiryTimer = setTimeout(() => {
+    idleDiagnosticExpiryTimer = null;
+    applyDispatchIdleSettingsFromFirestore(lastDispatchIdleSettingsRaw, { nowMs: Date.now() });
+  }, delay + 50);
+}
+
+function startDispatchIdleSettingsWatch() {
+  stopDispatchIdleSettingsWatch();
+  const { db } = getFirebase();
+  if (!db) return;
+  unsubscribeDispatchIdleSettings = onSnapshot(
+    doc(db, "settings", "dispatch"),
+    (snap) => {
+      try {
+        const data = snap.exists() ? snap.data() || {} : {};
+        applyDispatchIdleSettingsFromFirestore(data);
+      } catch {
+        /* keep last good / default idle config; continue publishing */
+      }
+    },
+    () => {
+      /* offline / permission — keep last good defaults */
+    }
+  );
+}
+
+function stopDispatchIdleSettingsWatch() {
+  clearIdleDiagnosticExpiryTimer();
+  unsubscribeDispatchIdleSettings();
+  unsubscribeDispatchIdleSettings = () => {};
 }
 
 function stopRideListener() {

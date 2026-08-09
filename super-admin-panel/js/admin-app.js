@@ -9,6 +9,13 @@ import {
   initNotificationSettingsUI,
 } from "./audio-service.js";
 
+import {
+  normalizeIdlePublishConfig,
+  parseFirestoreTimestampMs,
+  IDLE_PUBLISH_BOUNDS,
+  IDLE_PUBLISH_DEFAULTS,
+  IDLE_PUBLISH_PRESETS,
+} from "./idle-publish-config.mjs";
 import { firebaseConfig } from "./firebase-config.js";
 import { getFirebase, isFirebaseConfigured } from "./firebase.js?v=dispatch_dynamic_1";
 import {
@@ -152,6 +159,17 @@ const els = {
   pricingStatusNote: document.getElementById("pricingStatusNote"),
   dispatchForm: document.getElementById("dispatchSettingsForm"),
   candidateDriverLimitInput: document.getElementById("candidateDriverLimit"),
+  idleLocationIntervalSecondsInput: document.getElementById("idleLocationIntervalSeconds"),
+  idleLocationIntervalPreset: document.getElementById("idleLocationIntervalPreset"),
+  idleLocationMoveMetersInput: document.getElementById("idleLocationMoveMeters"),
+  idleLocationMovePreset: document.getElementById("idleLocationMovePreset"),
+  idleHighMoveWarning: document.getElementById("idleHighMoveWarning"),
+  idleMovementTriggerDisabledInput: document.getElementById("idleMovementTriggerDisabled"),
+  idleDiagnosticDurationMinutes: document.getElementById("idleDiagnosticDurationMinutes"),
+  idleDiagnosticReason: document.getElementById("idleDiagnosticReason"),
+  idleDiagnosticRedWarning: document.getElementById("idleDiagnosticRedWarning"),
+  idleDiagnosticExpiryDisplay: document.getElementById("idleDiagnosticExpiryDisplay"),
+  idleReturnSafeDefaultsBtn: document.getElementById("idleReturnSafeDefaultsBtn"),
   dispatchRadiusKmInput: document.getElementById("dispatchRadiusKm"),
   dispatchRadiusMetersInput: document.getElementById("dispatchRadiusMeters"),
   dispatchRadiusPreview: document.getElementById("dispatchRadiusPreview"),
@@ -1862,6 +1880,89 @@ function normalizePricingDocument(data) {
   };
 }
 
+function syncIdlePresetSelect(presetEl, valueInput, presets) {
+  if (!presetEl || !valueInput) return;
+  const val = Number(valueInput.value);
+  const match = presets.find((p) => p === val);
+  presetEl.value = match != null ? String(match) : "custom";
+}
+
+function applyIdlePresetFromSelect(presetEl, valueInput, presets) {
+  if (!presetEl || !valueInput) return;
+  const chosen = presetEl.value;
+  if (chosen !== "custom" && presets.includes(Number(chosen))) {
+    valueInput.value = chosen;
+  }
+  updateIdleMoveWarnings();
+}
+
+function updateIdleMoveWarnings() {
+  const moveM = Math.round(Number(els.idleLocationMoveMetersInput?.value));
+  if (els.idleHighMoveWarning) {
+    const show =
+      Number.isInteger(moveM) && moveM > IDLE_PUBLISH_BOUNDS.highMoveWarningMeters;
+    els.idleHighMoveWarning.hidden = !show;
+  }
+}
+
+function updateIdleDiagnosticUi(normalized, raw = {}) {
+  const disabled = normalized?.idleMovementTriggerDisabled === true;
+  if (els.idleMovementTriggerDisabledInput) {
+    els.idleMovementTriggerDisabledInput.checked = disabled;
+  }
+  if (els.idleDiagnosticRedWarning) {
+    els.idleDiagnosticRedWarning.hidden = !disabled;
+  }
+  if (els.idleDiagnosticExpiryDisplay) {
+    if (disabled && normalized?.idleDiagnosticExpiresAtMs) {
+      const expires = new Date(normalized.idleDiagnosticExpiresAtMs);
+      els.idleDiagnosticExpiryDisplay.textContent = `تشخیصی موڈ ختم: ${expires.toLocaleString("ur-PK")} تک`;
+    } else {
+      els.idleDiagnosticExpiryDisplay.textContent = disabled
+        ? "تشخیصی موڈ فعال — میعاد ظاہر نہیں"
+        : "";
+    }
+  }
+  if (els.idleDiagnosticReason && raw?.idleDiagnosticReason && typeof raw.idleDiagnosticReason === "string") {
+    els.idleDiagnosticReason.value = raw.idleDiagnosticReason.slice(0, 80);
+  }
+}
+
+async function returnIdleToSafeDefaults() {
+  const confirmed = window.confirm(
+    "محفوظ ڈیفالٹ: 4s / 10m / حرکت publish فعال / تشخیصی موڈ بند۔\nکیا آپ محفوظ کرنا چاہتے ہیں؟"
+  );
+  if (!confirmed) return;
+  const liveUser = getFirebase().auth?.currentUser || currentAdminUser;
+  if (!liveUser) {
+    showAdminToast("براہ کرم دوبارہ لاگ اِن کریں");
+    return;
+  }
+  try {
+    await prepareAdminSaveForWrite(liveUser);
+  } catch (error) {
+    showAdminToast(adminSaveErrorMessage(error));
+    return;
+  }
+  setFinanceSaveBusy(els.dispatchSaveBtn, true);
+  try {
+    const limit = Number(els.candidateDriverLimitInput?.value) || 10;
+    await saveAdminDispatchSettings({
+      candidateDriverLimit: limit,
+      idleLocationIntervalMs: IDLE_PUBLISH_DEFAULTS.idleLocationIntervalMs,
+      idleLocationMoveMeters: IDLE_PUBLISH_DEFAULTS.idleLocationMoveMeters,
+      idleMovementTriggerDisabled: false,
+    });
+    showAdminToast("محفوظ ڈیفالٹ سیٹنگز لاگو ہو گئیں");
+    await loadDispatchSettings();
+  } catch (error) {
+    showAdminToast(adminSaveErrorMessage(error));
+  } finally {
+    setFinanceSaveBusy(els.dispatchSaveBtn, false);
+    updateFinanceWriteUi();
+  }
+}
+
 async function loadDispatchSettings() {
   const { db } = getFirebase();
   if (!db || !els.candidateDriverLimitInput) return;
@@ -1871,6 +1972,27 @@ async function loadDispatchSettings() {
     const limit = Number(data.candidateDriverLimit);
     els.candidateDriverLimitInput.value =
       Number.isInteger(limit) && limit >= 1 && limit <= 100 ? String(limit) : "10";
+
+    const normalizedIdle = normalizeIdlePublishConfig(data, { nowMs: Date.now() });
+    const idleSeconds = Math.round(normalizedIdle.idleLocationIntervalMs / 1000);
+    if (els.idleLocationIntervalSecondsInput) {
+      els.idleLocationIntervalSecondsInput.value = String(idleSeconds);
+    }
+    syncIdlePresetSelect(
+      els.idleLocationIntervalPreset,
+      els.idleLocationIntervalSecondsInput,
+      IDLE_PUBLISH_PRESETS.intervalSeconds
+    );
+    if (els.idleLocationMoveMetersInput) {
+      els.idleLocationMoveMetersInput.value = String(normalizedIdle.idleLocationMoveMeters);
+    }
+    syncIdlePresetSelect(
+      els.idleLocationMovePreset,
+      els.idleLocationMoveMetersInput,
+      IDLE_PUBLISH_PRESETS.moveMeters
+    );
+    updateIdleMoveWarnings();
+    updateIdleDiagnosticUi(normalizedIdle, data);
 
     const totalMeters =
       data.maxSearchRadiusMeters != null && Number.isFinite(Number(data.maxSearchRadiusMeters))
@@ -1884,8 +2006,8 @@ async function loadDispatchSettings() {
 
     if (els.dispatchStatusNote) {
       els.dispatchStatusNote.textContent = snapshot.exists()
-        ? `موجودہ: ${els.candidateDriverLimitInput.value} ڈرائیور · ${formatDispatchRadiusPreview(totalMeters)} · settings/dispatch`
-        : "Default 10 drivers · 3 km — document not found yet.";
+        ? `موجودہ: ${els.candidateDriverLimitInput.value} ڈرائیور · idle ${els.idleLocationIntervalSecondsInput?.value || 4}s / ${els.idleLocationMoveMetersInput?.value || 10}m · ${formatDispatchRadiusPreview(totalMeters)} · settings/dispatch`
+        : "Default 10 drivers · idle 4s / 10m · 3 km — document not found yet.";
     }
   } catch (error) {
     console.warn("[SwiftGo Admin] loadDispatchSettings", error);
@@ -1927,6 +2049,53 @@ async function saveDispatchSettings(event) {
     return;
   }
 
+  const idleSeconds = Math.round(Number(els.idleLocationIntervalSecondsInput?.value));
+  if (
+    !Number.isInteger(idleSeconds) ||
+    idleSeconds < IDLE_PUBLISH_BOUNDS.intervalMsMin / 1000 ||
+    idleSeconds > IDLE_PUBLISH_BOUNDS.intervalMsMax / 1000
+  ) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent =
+        "ویٹنگ لوکیشن وقفہ 4 سے 300 سیکنڈ کے درمیان ہونا چاہیے۔ / Idle interval must be 4–300 seconds.";
+    }
+    return;
+  }
+  const idleMoveMeters = Math.round(Number(els.idleLocationMoveMetersInput?.value));
+  if (
+    !Number.isInteger(idleMoveMeters) ||
+    idleMoveMeters < IDLE_PUBLISH_BOUNDS.moveMetersMin ||
+    idleMoveMeters > IDLE_PUBLISH_BOUNDS.moveMetersMax
+  ) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent =
+        "ویٹنگ حرکت حد 10 سے 5000 میٹر کے درمیان ہونی چاہیے۔ / Idle move threshold must be 10–5000 meters.";
+    }
+    return;
+  }
+
+  const diagnosticEnabled = Boolean(els.idleMovementTriggerDisabledInput?.checked);
+  const diagnosticDurationMin = Math.round(Number(els.idleDiagnosticDurationMinutes?.value));
+  if (diagnosticEnabled) {
+    if (
+      !Number.isInteger(diagnosticDurationMin) ||
+      diagnosticDurationMin < IDLE_PUBLISH_BOUNDS.diagnosticDurationMinutesMin ||
+      diagnosticDurationMin > IDLE_PUBLISH_BOUNDS.diagnosticDurationMinutesMax
+    ) {
+      if (els.dispatchStatusNote) {
+        els.dispatchStatusNote.textContent =
+          "تشخیصی مدت 1 سے 30 منٹ کے درمیان ہونی چاہیے۔";
+      }
+      return;
+    }
+    const confirmed = window.confirm(
+      "تشخیصی موڈ: حرکت کی بنیاد پر لوکیشن publish بند ہو جائے گی۔\n" +
+        "صرف وقت وقفہ سے publish ہوگا۔ ڈسپیچ درستگی متاثر ہو سکتی ہے۔\n" +
+        "کیا آپ واقعی جاری رکھنا چاہتے ہیں؟"
+    );
+    if (!confirmed) return;
+  }
+
   const { km, meters, totalMeters, totalKm } = parseDispatchRadiusInputs();
   if (totalMeters <= 0) {
     if (els.dispatchStatusNote) {
@@ -1962,17 +2131,27 @@ async function saveDispatchSettings(event) {
   setFinanceSaveBusy(els.dispatchSaveBtn, true);
   if (els.dispatchStatusNote) els.dispatchStatusNote.textContent = "محفوظ ہو رہا ہے…";
   try {
-    await saveAdminDispatchSettings({
+    const payload = {
       candidateDriverLimit: limit,
       dispatchRadiusKm: km,
       dispatchRadiusMeters: meters,
       maxSearchRadiusKm: totalKm,
       maxSearchRadiusMeters: totalMeters,
-    });
+      idleLocationIntervalMs: idleSeconds * 1000,
+      idleLocationMoveMeters: idleMoveMeters,
+      idleMovementTriggerDisabled: diagnosticEnabled,
+    };
+    if (diagnosticEnabled) {
+      payload.idleDiagnosticDurationMinutes = diagnosticDurationMin;
+      const reason = String(els.idleDiagnosticReason?.value || "").trim().slice(0, 80);
+      if (reason) payload.idleDiagnosticReason = reason;
+    }
+    await saveAdminDispatchSettings(payload);
     if (els.dispatchStatusNote) {
-      els.dispatchStatusNote.textContent = `محفوظ: ${limit} ڈرائیور · ${formatDispatchRadiusPreview(totalMeters)}`;
+      els.dispatchStatusNote.textContent = `محفوظ: ${limit} ڈرائیور · idle ${idleSeconds}s / ${idleMoveMeters}m · ${formatDispatchRadiusPreview(totalMeters)}`;
     }
     showAdminToast("ڈسپیچ سیٹنگ محفوظ ہو گئی");
+    await loadDispatchSettings();
   } catch (error) {
     console.error("[Financial Settings Error]:", error?.code, error?.message);
     const msg = adminSaveErrorMessage(error);
@@ -2457,6 +2636,48 @@ function boot() {
   wirePromoTableActions();
   els.pricingForm?.addEventListener("submit", savePricingSettings);
   els.dispatchForm?.addEventListener("submit", saveDispatchSettings);
+  els.idleReturnSafeDefaultsBtn?.addEventListener("click", returnIdleToSafeDefaults);
+  els.idleLocationIntervalPreset?.addEventListener("change", () =>
+    applyIdlePresetFromSelect(
+      els.idleLocationIntervalPreset,
+      els.idleLocationIntervalSecondsInput,
+      IDLE_PUBLISH_PRESETS.intervalSeconds
+    )
+  );
+  els.idleLocationMovePreset?.addEventListener("change", () =>
+    applyIdlePresetFromSelect(
+      els.idleLocationMovePreset,
+      els.idleLocationMoveMetersInput,
+      IDLE_PUBLISH_PRESETS.moveMeters
+    )
+  );
+  for (const input of [
+    els.idleLocationIntervalSecondsInput,
+    els.idleLocationMoveMetersInput,
+  ]) {
+    input?.addEventListener("input", () => {
+      if (input === els.idleLocationIntervalSecondsInput) {
+        syncIdlePresetSelect(
+          els.idleLocationIntervalPreset,
+          els.idleLocationIntervalSecondsInput,
+          IDLE_PUBLISH_PRESETS.intervalSeconds
+        );
+      }
+      if (input === els.idleLocationMoveMetersInput) {
+        syncIdlePresetSelect(
+          els.idleLocationMovePreset,
+          els.idleLocationMoveMetersInput,
+          IDLE_PUBLISH_PRESETS.moveMeters
+        );
+        updateIdleMoveWarnings();
+      }
+    });
+  }
+  els.idleMovementTriggerDisabledInput?.addEventListener("change", () => {
+    if (els.idleDiagnosticRedWarning) {
+      els.idleDiagnosticRedWarning.hidden = !els.idleMovementTriggerDisabledInput.checked;
+    }
+  });
   for (const input of [els.dispatchRadiusKmInput, els.dispatchRadiusMetersInput]) {
     input?.addEventListener("input", updateDispatchRadiusPreview);
     input?.addEventListener("change", updateDispatchRadiusPreview);
