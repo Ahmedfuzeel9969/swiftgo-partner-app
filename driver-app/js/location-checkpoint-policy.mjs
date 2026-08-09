@@ -63,43 +63,27 @@ export const BACKGROUND_TRIP_INTERVAL_MS = 30_000;
 /** Existing movement gate (metres) — preserved for active-ride paths. */
 export const MIN_LOCATION_MOVE_M = 10;
 
+import {
+  IDLE_PUBLISH_BOUNDS,
+  IDLE_PUBLISH_DEFAULTS,
+  normalizeIdlePublishConfig,
+  validateIdleIntervalMsForCallable,
+  validateIdleMoveMetersForCallable,
+} from "./idle-publish-config.mjs";
+
+export {
+  IDLE_PUBLISH_BOUNDS,
+  IDLE_PUBLISH_DEFAULTS,
+  normalizeIdlePublishConfig,
+  validateIdleIntervalMsForCallable,
+  validateIdleMoveMetersForCallable,
+} from "./idle-publish-config.mjs";
+
 /** Dispatch settings keys for idle publish (Super Admin cost controls). */
 export const IDLE_PUBLISH_CONFIG_KEYS = Object.freeze({
   intervalMs: "idleLocationIntervalMs",
   moveMeters: "idleLocationMoveMeters",
 });
-
-/** Bounds for admin / runtime overrides (must allow production 4s / 10m). */
-export const IDLE_PUBLISH_BOUNDS = Object.freeze({
-  intervalMsMin: 1_000,
-  intervalMsMax: 30 * 60_000,
-  moveMetersMin: 1,
-  moveMetersMax: 5_000,
-});
-
-/**
- * Normalize idle publish overrides; missing/invalid → production defaults (4s / 10m).
- * @param {{ idleLocationIntervalMs?: unknown, idleLocationMoveMeters?: unknown }} [raw]
- */
-export function normalizeIdlePublishConfig(raw = {}) {
-  let intervalMs = IDLE_LOCATION_INTERVAL_MS;
-  let moveMeters = MIN_LOCATION_MOVE_M;
-  if (raw.idleLocationIntervalMs != null && Number.isFinite(Number(raw.idleLocationIntervalMs))) {
-    intervalMs = Math.round(Number(raw.idleLocationIntervalMs));
-  }
-  if (raw.idleLocationMoveMeters != null && Number.isFinite(Number(raw.idleLocationMoveMeters))) {
-    moveMeters = Math.round(Number(raw.idleLocationMoveMeters));
-  }
-  intervalMs = Math.min(
-    IDLE_PUBLISH_BOUNDS.intervalMsMax,
-    Math.max(IDLE_PUBLISH_BOUNDS.intervalMsMin, intervalMs)
-  );
-  moveMeters = Math.min(
-    IDLE_PUBLISH_BOUNDS.moveMetersMax,
-    Math.max(IDLE_PUBLISH_BOUNDS.moveMetersMin, moveMeters)
-  );
-  return { idleLocationIntervalMs: intervalMs, idleLocationMoveMeters: moveMeters };
-}
 /** Anti-flap: enter sparse Firebase only after P2P healthy this long. */
 export const P2P_SPARSE_ENTER_HYSTERESIS_MS = 5_000;
 /** Anti-flap: leave sparse only after unhealthy this long. */

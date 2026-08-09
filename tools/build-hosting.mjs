@@ -53,6 +53,7 @@ const SHARED_JS_MODULES = [
   "display-location-pipeline.mjs",
   "breadcrumb-schema.mjs",
   "vehicle-catalog.mjs",
+  "idle-publish-config.mjs",
 ];
 
 function syncSharedJsInto(destJsDir) {

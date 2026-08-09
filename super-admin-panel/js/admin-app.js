@@ -9,6 +9,7 @@ import {
   initNotificationSettingsUI,
 } from "./audio-service.js";
 
+import { normalizeIdlePublishConfig, IDLE_PUBLISH_BOUNDS } from "./idle-publish-config.mjs";
 import { firebaseConfig } from "./firebase-config.js";
 import { getFirebase, isFirebaseConfigured } from "./firebase.js?v=dispatch_dynamic_1";
 import {
@@ -1874,20 +1875,13 @@ async function loadDispatchSettings() {
     els.candidateDriverLimitInput.value =
       Number.isInteger(limit) && limit >= 1 && limit <= 100 ? String(limit) : "10";
 
-    const idleIntervalMs =
-      data.idleLocationIntervalMs != null && Number.isFinite(Number(data.idleLocationIntervalMs))
-        ? Math.round(Number(data.idleLocationIntervalMs))
-        : 4_000;
-    const idleSeconds = Math.max(1, Math.min(1800, Math.round(idleIntervalMs / 1000)));
+    const normalizedIdle = normalizeIdlePublishConfig(data);
+    const idleSeconds = Math.round(normalizedIdle.idleLocationIntervalMs / 1000);
     if (els.idleLocationIntervalSecondsInput) {
       els.idleLocationIntervalSecondsInput.value = String(idleSeconds);
     }
-    const idleMove =
-      data.idleLocationMoveMeters != null && Number.isFinite(Number(data.idleLocationMoveMeters))
-        ? Math.round(Number(data.idleLocationMoveMeters))
-        : 10;
     if (els.idleLocationMoveMetersInput) {
-      els.idleLocationMoveMetersInput.value = String(Math.max(1, Math.min(5000, idleMove)));
+      els.idleLocationMoveMetersInput.value = String(normalizedIdle.idleLocationMoveMeters);
     }
 
     const totalMeters =
@@ -1946,18 +1940,26 @@ async function saveDispatchSettings(event) {
   }
 
   const idleSeconds = Math.round(Number(els.idleLocationIntervalSecondsInput?.value));
-  if (!Number.isInteger(idleSeconds) || idleSeconds < 1 || idleSeconds > 1800) {
+  if (
+    !Number.isInteger(idleSeconds) ||
+    idleSeconds < IDLE_PUBLISH_BOUNDS.intervalMsMin / 1000 ||
+    idleSeconds > IDLE_PUBLISH_BOUNDS.intervalMsMax / 1000
+  ) {
     if (els.dispatchStatusNote) {
       els.dispatchStatusNote.textContent =
-        "ویٹنگ لوکیشن وقفہ 1 سے 1800 سیکنڈ کے درمیان ہونا چاہیے۔ / Idle interval must be 1–1800 seconds.";
+        "ویٹنگ لوکیشن وقفہ 4 سے 1800 سیکنڈ کے درمیان ہونا چاہیے۔ / Idle interval must be 4–1800 seconds.";
     }
     return;
   }
   const idleMoveMeters = Math.round(Number(els.idleLocationMoveMetersInput?.value));
-  if (!Number.isInteger(idleMoveMeters) || idleMoveMeters < 1 || idleMoveMeters > 5000) {
+  if (
+    !Number.isInteger(idleMoveMeters) ||
+    idleMoveMeters < IDLE_PUBLISH_BOUNDS.moveMetersMin ||
+    idleMoveMeters > IDLE_PUBLISH_BOUNDS.moveMetersMax
+  ) {
     if (els.dispatchStatusNote) {
       els.dispatchStatusNote.textContent =
-        "ویٹنگ حرکت حد 1 سے 5000 میٹر کے درمیان ہونی چاہیے۔ / Idle move threshold must be 1–5000 meters.";
+        "ویٹنگ حرکت حد 10 سے 5000 میٹر کے درمیان ہونی چاہیے۔ / Idle move threshold must be 10–5000 meters.";
     }
     return;
   }

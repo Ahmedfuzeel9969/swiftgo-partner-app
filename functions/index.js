@@ -652,16 +652,21 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       updatedBy: request.auth.uid,
     };
 
+    const {
+      validateIdleIntervalMsForCallable,
+      validateIdleMoveMetersForCallable,
+    } = require("./idle-publish-config");
+
     if (request.data?.idleLocationIntervalMs != null) {
-      const idleMs = Math.round(Number(request.data.idleLocationIntervalMs));
-      if (!Number.isFinite(idleMs) || idleMs < 1_000 || idleMs > 30 * 60_000) {
+      const idleMs = request.data.idleLocationIntervalMs;
+      if (!validateIdleIntervalMsForCallable(idleMs)) {
         throw new HttpsError("invalid-argument", "IDLE_INTERVAL_OUT_OF_RANGE");
       }
       payload.idleLocationIntervalMs = idleMs;
     }
     if (request.data?.idleLocationMoveMeters != null) {
-      const moveM = Math.round(Number(request.data.idleLocationMoveMeters));
-      if (!Number.isFinite(moveM) || moveM < 1 || moveM > 5_000) {
+      const moveM = request.data.idleLocationMoveMeters;
+      if (!validateIdleMoveMetersForCallable(moveM)) {
         throw new HttpsError("invalid-argument", "IDLE_MOVE_OUT_OF_RANGE");
       }
       payload.idleLocationMoveMeters = moveM;

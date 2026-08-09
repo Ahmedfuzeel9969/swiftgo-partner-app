@@ -1,159 +1,361 @@
 {
-  "generatedAt": "2026-08-08T19:05:47.816Z",
+  "generatedAt": "2026-08-09T04:23:59.089Z",
+  "commit": "f675782cd0e21a5b072f9e92355612a5ecf36298",
   "suite": "idle-location-cost-controls",
-  "total": 30,
-  "pass": 30,
+  "categories": {
+    "unit": {
+      "total": 24,
+      "pass": 24,
+      "fail": 0,
+      "blocked": 0
+    },
+    "static": {
+      "total": 12,
+      "pass": 12,
+      "fail": 0,
+      "blocked": 0
+    },
+    "emulator": {
+      "total": 19,
+      "pass": 19,
+      "fail": 0,
+      "blocked": 0
+    }
+  },
+  "total": 55,
+  "pass": 55,
   "fail": 0,
+  "blocked": 0,
   "results": [
     {
       "name": "missing-settings-defaults",
       "status": "PASS",
-      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10}"
+      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10}",
+      "category": "unit"
     },
     {
-      "name": "valid-minimum-interval",
+      "name": "valid-custom-interval-retained",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
     },
     {
-      "name": "valid-maximum-interval",
+      "name": "valid-minimum-interval-boundary",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
     },
     {
-      "name": "valid-default-interval",
+      "name": "valid-maximum-interval-boundary",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
     },
     {
-      "name": "invalid-type-interval-fallback",
+      "name": "below-min-interval-falls-back-to-default",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
     },
     {
-      "name": "negative-interval-clamped-to-min",
+      "name": "string-interval-falls-back-to-default",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
     },
     {
-      "name": "zero-interval-clamped-to-min",
+      "name": "negative-interval-falls-back-to-default",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
     },
     {
-      "name": "excessive-interval-clamped-to-max",
+      "name": "zero-interval-falls-back-to-default",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
     },
     {
-      "name": "valid-move-meters",
+      "name": "fractional-interval-falls-back-to-default",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
     },
     {
-      "name": "invalid-move-fallback",
+      "name": "excessive-interval-falls-back-to-default-not-clamped",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "valid-move-meters-retained",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "below-min-move-falls-back-to-default",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "string-move-falls-back-to-default",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "invalid-move-falls-back-to-default",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "malformed-stored-settings-fallback",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
     },
     {
       "name": "idle-path-uses-configured-interval",
       "status": "PASS",
-      "detail": "60000"
+      "detail": "60000",
+      "category": "unit"
     },
     {
       "name": "active-ride-ignores-idle-interval",
       "status": "PASS",
-      "detail": "4000"
+      "detail": "4000",
+      "category": "unit"
     },
     {
       "name": "active-ride-p2p-sparse-unchanged",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
     },
     {
       "name": "active-ride-background-trip-unchanged",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
     },
     {
       "name": "controller-applies-idle-config",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "unit"
     },
     {
       "name": "controller-active-ride-not-idle-interval",
       "status": "PASS",
-      "detail": "4000"
+      "detail": "",
+      "category": "unit"
     },
     {
       "name": "controller-idle-uses-stored-interval",
       "status": "PASS",
-      "detail": "120000"
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "listener-restart-replaces-not-duplicates",
+      "status": "PASS",
+      "detail": "double start leaves one active subscription",
+      "category": "unit"
+    },
+    {
+      "name": "listener-stop-clears-subscription",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
     },
     {
       "name": "one-dispatch-listener-fn",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "static"
     },
     {
-      "name": "one-dispatch-unsubscribe-var",
+      "name": "stop-before-subscribe-pattern",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "static"
     },
     {
       "name": "single-settings-doc-listener",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "static"
     },
     {
       "name": "idle-move-threshold-when-waiting",
       "status": "PASS",
-      "detail": ""
-    },
-    {
-      "name": "no-ride-driverLocation-client-write",
-      "status": "PASS",
-      "detail": "CF mirror remains sole ride.driverLocation writer"
+      "detail": "",
+      "category": "static"
     },
     {
       "name": "no-p2p-import-change",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "static"
     },
     {
-      "name": "no-breadcrumb-change",
+      "name": "admin-html-idle-minimums",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "static"
     },
     {
-      "name": "admin-html-idle-fields",
+      "name": "admin-urdu-cost-warning",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "static"
     },
     {
-      "name": "admin-atomic-save-payload",
+      "name": "admin-uses-normalize-on-load",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "static"
     },
     {
-      "name": "admin-one-dispatch-submit-handler",
+      "name": "admin-save-minimum-validation",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "static"
     },
     {
-      "name": "server-idle-interval-validation",
+      "name": "server-strict-idle-validation-module",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "static"
     },
     {
-      "name": "server-idle-move-validation",
+      "name": "server-no-number-coercion-on-idle",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "static"
     },
     {
       "name": "no-offer-timeout-in-this-pr",
       "status": "PASS",
-      "detail": ""
+      "detail": "",
+      "category": "static"
+    },
+    {
+      "name": "admin-save-valid-60s-50m",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":50}",
+      "category": "emulator"
+    },
+    {
+      "name": "firestore-idle-values-exact",
+      "status": "PASS",
+      "detail": "{\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":50}",
+      "category": "emulator"
+    },
+    {
+      "name": "authenticated-driver-reads-dispatch",
+      "status": "PASS",
+      "detail": "",
+      "category": "emulator"
+    },
+    {
+      "name": "non-admin-cannot-save-settings",
+      "status": "PASS",
+      "detail": "functions/permission-denied | ADMIN_ONLY",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-numeric-string-interval",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_INTERVAL_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-numeric-string-move",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_MOVE_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-fractional-interval",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_INTERVAL_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-fractional-move",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_MOVE_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-negative-interval",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_INTERVAL_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-zero-interval",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_INTERVAL_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-below-minimum-interval",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_INTERVAL_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-above-maximum-interval",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_INTERVAL_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-negative-move",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_MOVE_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-zero-move",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_MOVE_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-below-minimum-move",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_MOVE_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-above-maximum-move",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_MOVE_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "missing-idle-settings-use-defaults",
+      "status": "PASS",
+      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10}",
+      "category": "emulator"
+    },
+    {
+      "name": "malformed-stored-settings-consumer-defaults",
+      "status": "PASS",
+      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10}",
+      "category": "emulator"
+    },
+    {
+      "name": "unrelated-dispatch-fields-preserved",
+      "status": "PASS",
+      "detail": "{\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":5,\"maxSearchRadiusMeters\":500,\"customMarkerField\":\"preserve-me\"}",
+      "category": "emulator"
     }
   ]
 }
