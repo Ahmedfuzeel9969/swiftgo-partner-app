@@ -1,0 +1,87 @@
+{
+  "generatedAt": "2026-08-09T18:29:59.546Z",
+  "pass": 16,
+  "fail": 0,
+  "results": [
+    {
+      "name": "unit-arrived-stamps-driver-arrived-only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-in-progress-stamps-trip-started-only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-no-stamp-when-status-unchanged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-idempotent-when-timestamp-present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-has-timestamp-detects-firestore-shape",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-build-patch-null-when-nothing-to-stamp",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-assignment-always-mints-fresh-token",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-cancel-clears-token-and-lifecycle-fields",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-trigger-exported",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-rules-still-status-only-for-driver-advance",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-assignment-mints-token",
+      "status": "PASS",
+      "detail": "as_msm50mf2_"
+    },
+    {
+      "name": "emulator-cancel-clears-assignment-token",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-rematch-rotates-token",
+      "status": "PASS",
+      "detail": "as_msm50→as_msm50"
+    },
+    {
+      "name": "emulator-stamp-driver-arrived-at",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-driver-arrived-idempotent",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-stamp-trip-started-at",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

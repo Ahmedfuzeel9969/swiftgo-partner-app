@@ -50,6 +50,7 @@
     "test:checkpoint-policy": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/checkpoint-policy.mjs\"",
     "test:idle-location-cost-controls": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/idle-location-cost-controls.mjs\"",
     "test:ride-location-report-foundation": "node tests/ride-location-report-foundation.mjs",
+    "test:ride-lifecycle-timestamps": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/ride-lifecycle-timestamps.mjs\"",
     "test:p2p-webrtc": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/p2p-webrtc.mjs\"",
     "test:road-routing": "node tests/road-routing.mjs",
     "test:road-snapping": "node tests/road-snapping.mjs",

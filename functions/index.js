@@ -7,7 +7,7 @@
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { logger } = require("firebase-functions");
-const { onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onDocumentWritten, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { initializeApp, getApps } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { createDispatchTimer, withDispatchTimeout } = require("./dispatch-latency");
@@ -63,6 +63,7 @@ const {
 } = require("./ops-monitor");
 const { reportGeoCellCoverage } = require("./geo-coverage");
 const { mirrorDriverLocationToRide } = require("./driver-location");
+const { applyRideLifecycleTimestampStamp } = require("./ride-lifecycle-timestamps");
 const { settleRide } = require("./settlement");
 const { refreshRideViewerPresence } = require("./ride-viewer-presence");
 const {
@@ -925,6 +926,26 @@ exports.submitSupportReport = onCall({ region: "us-central1" }, async (request) 
     throw mapErr(err);
   }
 });
+
+/** Server-authoritative driverArrivedAt / tripStartedAt for location reporting lifecycle. */
+exports.stampRideLifecycleTimestamps = onDocumentUpdated(
+  { document: "rides/{rideId}", region: "us-central1" },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!after) return;
+    try {
+      await applyRideLifecycleTimestampStamp(
+        db,
+        event.params.rideId,
+        before || {},
+        after
+      );
+    } catch (err) {
+      console.warn("[stampRideLifecycleTimestamps]", err?.message || err);
+    }
+  }
+);
 
 /** Mirror assigned driver GPS onto rides; rematch when driver becomes matchable. */
 exports.mirrorDriverLocationOnVehicleUpdate = onDocumentWritten(

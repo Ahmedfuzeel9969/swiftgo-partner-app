@@ -1278,9 +1278,8 @@ async function finalizeAssignmentFromOffer(db, params) {
       estimatedFare: finalFare,
       driverBidFare: finalFare,
       assignedAt: FieldValue.serverTimestamp(),
-      // Immutable for this assignment; never overwrite if somehow already present.
-      assignmentSessionToken:
-        String(ride.assignmentSessionToken || "").trim() || mintAssignmentSessionToken(),
+      // Fresh token per assignment — rematch must never reuse a prior session token.
+      assignmentSessionToken: mintAssignmentSessionToken(),
     });
 
     tx.update(offerRef, {
@@ -1429,8 +1428,7 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
       estimatedFare: finalFare,
       driverBidFare: finalFare,
       assignedAt: FieldValue.serverTimestamp(),
-      assignmentSessionToken:
-        String(ride.assignmentSessionToken || "").trim() || mintAssignmentSessionToken(),
+      assignmentSessionToken: mintAssignmentSessionToken(),
     });
 
     const offerPayload = {
