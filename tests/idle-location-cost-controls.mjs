@@ -20,12 +20,21 @@ import {
   CHECKPOINT_POLICY,
   IDLE_PUBLISH_BOUNDS,
   IDLE_PUBLISH_DEFAULTS,
+  MATCHING_STALE_LOCATION_MS,
+  MAX_IDLE_INTERVAL_MS,
   RESPONSIVE_INTERVAL_MS,
   VIEWER_LEASE,
   createCheckpointPolicyController,
   normalizeIdlePublishConfig,
   resolveCheckpointPolicy,
+  shouldAllowCheckpointWrite,
 } from "../driver-app/js/location-checkpoint-policy.mjs";
+import {
+  isIdleMovementPublishEnabled,
+  isLocationFreshForMatching,
+  validateIdleIntervalMsForCallable,
+  validateIdleMoveMetersForCallable,
+} from "../driver-app/js/idle-publish-config.mjs";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -90,10 +99,23 @@ record(
 
 record(
   unitResults,
+  "defaults-movement-trigger-enabled",
+  normalizeIdlePublishConfig({}).idleMovementTriggerDisabled === false ? "PASS" : "FAIL"
+);
+
+record(
+  unitResults,
   "valid-maximum-interval-boundary",
-  normalizeIdlePublishConfig({ idleLocationIntervalMs: 1_800_000 }).idleLocationIntervalMs === 1_800_000
+  normalizeIdlePublishConfig({ idleLocationIntervalMs: 300_000 }).idleLocationIntervalMs === 300_000
     ? "PASS"
     : "FAIL"
+);
+
+record(
+  unitResults,
+  "max-idle-interval-below-stale-threshold",
+  MAX_IDLE_INTERVAL_MS < MATCHING_STALE_LOCATION_MS ? "PASS" : "FAIL",
+  `${MAX_IDLE_INTERVAL_MS} < ${MATCHING_STALE_LOCATION_MS}`
 );
 
 record(
@@ -145,8 +167,26 @@ record(
 
 record(
   unitResults,
-  "valid-move-meters-retained",
-  normalizeIdlePublishConfig({ idleLocationMoveMeters: 50 }).idleLocationMoveMeters === 50 ? "PASS" : "FAIL"
+  "reject-infinity-interval-validation",
+  !validateIdleIntervalMsForCallable(Infinity) && !validateIdleMoveMetersForCallable(Infinity)
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  unitResults,
+  "valid-maximum-move-5000m",
+  normalizeIdlePublishConfig({ idleLocationMoveMeters: 5_000 }).idleLocationMoveMeters === 5_000
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  unitResults,
+  "above-max-move-falls-back-to-default",
+  normalizeIdlePublishConfig({ idleLocationMoveMeters: 5_001 }).idleLocationMoveMeters === 10
+    ? "PASS"
+    : "FAIL"
 );
 
 record(
@@ -169,6 +209,110 @@ record(
 
 record(
   unitResults,
+  "valid-move-meters-retained",
+  normalizeIdlePublishConfig({ idleLocationMoveMeters: 50 }).idleLocationMoveMeters === 50 ? "PASS" : "FAIL"
+);
+
+record(
+  unitResults,
+  "diagnostic-active-with-future-expiry",
+  (() => {
+    const c = normalizeIdlePublishConfig({
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticExpiresAt: { toMillis: () => Date.now() + 60_000 },
+    });
+    return c.idleMovementTriggerDisabled === true && c.idleDiagnosticExpiresAtMs != null ? "PASS" : "FAIL";
+  })()
+);
+
+record(
+  unitResults,
+  "expired-diagnostic-fails-closed",
+  (() => {
+    const c = normalizeIdlePublishConfig(
+      {
+        idleMovementTriggerDisabled: true,
+        idleDiagnosticExpiresAt: { toMillis: () => Date.now() - 1_000 },
+        idleLocationIntervalMs: 120_000,
+      },
+      { nowMs: Date.now() }
+    );
+    return (
+      c.idleMovementTriggerDisabled === false &&
+      c.idleLocationIntervalMs === 120_000 &&
+      c.idleLocationMoveMeters === 10
+    )
+      ? "PASS"
+      : "FAIL";
+  })()
+);
+
+record(
+  unitResults,
+  "malformed-diagnostic-expiry-fails-closed",
+  normalizeIdlePublishConfig({
+    idleMovementTriggerDisabled: true,
+    idleDiagnosticExpiresAt: "not-a-timestamp",
+  }).idleMovementTriggerDisabled === false
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  unitResults,
+  "movement-disabled-blocks-move-only-publish",
+  (() => {
+    const now = 100_000;
+    const gate = shouldAllowCheckpointWrite({
+      nowMs: now,
+      lastWriteMs: now - 5_000,
+      intervalMs: 60_000,
+      movedEnough: false,
+      zoneChanged: false,
+      matchCellChanged: false,
+    });
+    return gate.allow === false && gate.reason === "interval_and_move" ? "PASS" : "FAIL";
+  })()
+);
+
+record(
+  unitResults,
+  "mandatory-heartbeat-still-publishes",
+  (() => {
+    const now = 200_000;
+    const gate = shouldAllowCheckpointWrite({
+      nowMs: now,
+      lastWriteMs: now - 60_000,
+      intervalMs: 60_000,
+      movedEnough: false,
+      zoneChanged: false,
+      matchCellChanged: false,
+    });
+    return gate.allow === true ? "PASS" : "FAIL";
+  })()
+);
+
+record(
+  unitResults,
+  "driver-matchable-before-mandatory-heartbeat",
+  (() => {
+    const now = Date.now();
+    const lastWrite = now - MAX_IDLE_INTERVAL_MS + 30_000;
+    return isLocationFreshForMatching(lastWrite, now, MATCHING_STALE_LOCATION_MS) ? "PASS" : "FAIL";
+  })()
+);
+
+record(
+  unitResults,
+  "is-idle-movement-publish-disabled-flag",
+  isIdleMovementPublishEnabled({ idleMovementTriggerDisabled: true }) === false &&
+    isIdleMovementPublishEnabled({ idleMovementTriggerDisabled: false }) === true
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  unitResults,
   "malformed-stored-settings-fallback",
   (() => {
     const c = normalizeIdlePublishConfig({
@@ -176,6 +320,19 @@ record(
       idleLocationMoveMeters: { x: 1 },
     });
     return c.idleLocationIntervalMs === 4_000 && c.idleLocationMoveMeters === 10 ? "PASS" : "FAIL";
+  })()
+);
+
+record(
+  unitResults,
+  "controller-diagnostic-movement-flag",
+  (() => {
+    const c = createCheckpointPolicyController();
+    c.setIdlePublishConfig({
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticExpiresAt: { toMillis: () => Date.now() + 120_000 },
+    });
+    return c.isIdleMovementTriggerDisabled() === true ? "PASS" : "FAIL";
   })()
 );
 
@@ -336,11 +493,52 @@ record(
   staticResults,
   "admin-html-idle-minimums",
   adminHtml.includes('id="idleLocationIntervalSeconds"') &&
-    adminHtml.includes('min="4"') &&
+    adminHtml.includes('max="300"') &&
     adminHtml.includes('id="idleLocationMoveMeters"') &&
+    adminHtml.includes('max="5000"') &&
     adminHtml.includes('min="10"') &&
     !adminHtml.includes("offerTimeoutSeconds") &&
     !adminHtml.includes("searchTimeoutSeconds")
+    ? "PASS"
+    : "FAIL"
+);
+record(
+  staticResults,
+  "admin-diagnostic-section-and-urdu",
+  adminHtml.includes("idleDiagnosticSection") &&
+    adminHtml.includes("idleMovementTriggerDisabled") &&
+    adminHtml.includes("حرکت کی بنیاد پر لوکیشن بھیجنا") &&
+    adminHtml.includes("idleReturnSafeDefaultsBtn") &&
+    adminHtml.includes("idleDiagnosticRedWarning") &&
+    adminHtml.includes("idleHighMoveWarning")
+    ? "PASS"
+    : "FAIL"
+);
+record(
+  staticResults,
+  "admin-diagnostic-confirmation-and-save",
+  adminApp.includes("window.confirm") &&
+    adminApp.includes("idleMovementTriggerDisabled") &&
+    adminApp.includes("idleDiagnosticDurationMinutes") &&
+    adminApp.includes("returnIdleToSafeDefaults")
+    ? "PASS"
+    : "FAIL"
+);
+record(
+  staticResults,
+  "driver-movement-disabled-publish-path",
+  driverApp.includes("isIdleMovementPublishAllowed") &&
+    driverApp.includes("clearIdleDiagnosticExpiryTimer") &&
+    driverApp.includes("applyDispatchIdleSettingsFromFirestore")
+    ? "PASS"
+    : "FAIL"
+);
+record(
+  staticResults,
+  "no-financial-module-idle-coupling",
+  !read("functions/bargaining.js").includes("idleMovementTriggerDisabled") &&
+    !read("functions/matching.js").includes("idleMovementTriggerDisabled") &&
+    !read("driver-app/js/settlement-client.js").includes("idleMovementTriggerDisabled")
     ? "PASS"
     : "FAIL"
 );
@@ -374,7 +572,7 @@ record(
   "server-strict-idle-validation-module",
   fnIndex.includes('require("./idle-publish-config")') &&
     fnIndex.includes("validateIdleIntervalMsForCallable") &&
-    idleCfg.includes("intervalMsMin: 4_000") &&
+    idleCfg.includes("intervalMsMax: 300_000") &&
     idleCfg.includes("moveMetersMin: 10")
     ? "PASS"
     : "FAIL"
@@ -570,8 +768,26 @@ async function runEmulatorTests() {
   await expectCallableReject(
     boot.functions,
     "setCandidateDriverLimit",
-    { candidateDriverLimit: 15, idleLocationIntervalMs: 9_999_999, idleLocationMoveMeters: 50 },
+    { candidateDriverLimit: 15, idleLocationIntervalMs: 400_000, idleLocationMoveMeters: 50 },
     "reject-above-maximum-interval"
+  );
+  let infinityClientRejected = false;
+  try {
+    await callAs(boot.functions, "setCandidateDriverLimit", {
+      candidateDriverLimit: 15,
+      idleLocationIntervalMs: Infinity,
+      idleLocationMoveMeters: 50,
+    });
+  } catch (e) {
+    infinityClientRejected =
+      String(e?.message || "").includes("JSON") ||
+      String(e?.code || "").includes("invalid-argument");
+  }
+  record(
+    emulatorResults,
+    "reject-infinity-interval",
+    infinityClientRejected ? "PASS" : "FAIL",
+    "Infinity cannot be encoded or accepted"
   );
   await expectCallableReject(
     boot.functions,
@@ -594,8 +810,125 @@ async function runEmulatorTests() {
   await expectCallableReject(
     boot.functions,
     "setCandidateDriverLimit",
-    { candidateDriverLimit: 15, idleLocationIntervalMs: 60_000, idleLocationMoveMeters: 9_999 },
-    "reject-above-maximum-move"
+    { candidateDriverLimit: 15, idleLocationIntervalMs: 60_000, idleLocationMoveMeters: 5_001 },
+    "reject-above-maximum-move-5001m"
+  );
+
+  const move5kRes = await callAs(boot.functions, "setCandidateDriverLimit", {
+    candidateDriverLimit: 15,
+    idleLocationMoveMeters: 5_000,
+  });
+  record(
+    emulatorResults,
+    "accept-5000m-move-testing-range",
+    move5kRes?.idleLocationMoveMeters === 5_000 ? "PASS" : "FAIL",
+    JSON.stringify({ move: move5kRes?.idleLocationMoveMeters })
+  );
+
+  await expectCallableReject(
+    boot.functions,
+    "setCandidateDriverLimit",
+    {
+      candidateDriverLimit: 15,
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticDurationMinutes: 10,
+      idleDiagnosticExpiresAt: { seconds: 9999999999, nanoseconds: 0 },
+    },
+    "reject-client-supplied-diagnostic-expiry"
+  );
+
+  await expectCallableReject(
+    ordinary.functions,
+    "setCandidateDriverLimit",
+    {
+      candidateDriverLimit: 15,
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticDurationMinutes: 5,
+    },
+    "non-admin-cannot-enable-diagnostic"
+  );
+
+  await expectCallableReject(
+    boot.functions,
+    "setCandidateDriverLimit",
+    {
+      candidateDriverLimit: 15,
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticDurationMinutes: 31,
+    },
+    "reject-diagnostic-duration-above-30m"
+  );
+
+  await expectCallableReject(
+    boot.functions,
+    "setCandidateDriverLimit",
+    {
+      candidateDriverLimit: 15,
+      idleMovementTriggerDisabled: "true",
+      idleDiagnosticDurationMinutes: 5,
+    },
+    "reject-diagnostic-flag-string"
+  );
+
+  const diagRes = await callAs(boot.functions, "setCandidateDriverLimit", {
+    candidateDriverLimit: 15,
+    idleLocationIntervalMs: 60_000,
+    idleMovementTriggerDisabled: true,
+    idleDiagnosticDurationMinutes: 10,
+    idleDiagnosticReason: "field-test-grid",
+  });
+  record(
+    emulatorResults,
+    "admin-enable-diagnostic-movement-disabled",
+    diagRes?.idleMovementTriggerDisabled === true ? "PASS" : "FAIL",
+    JSON.stringify(diagRes)
+  );
+
+  const diagDoc = (await db.doc("settings/dispatch").get()).data() || {};
+  record(
+    emulatorResults,
+    "diagnostic-audit-metadata-non-pii",
+    diagDoc.idleMovementTriggerDisabled === true &&
+      typeof diagDoc.idleDiagnosticEnabledBy === "string" &&
+      diagDoc.idleDiagnosticExpiresAt != null &&
+      diagDoc.idleDiagnosticReason === "field-test-grid" &&
+      !String(diagDoc.idleDiagnosticEnabledBy).includes("@")
+      ? "PASS"
+      : "FAIL",
+    JSON.stringify({
+      enabledBy: diagDoc.idleDiagnosticEnabledBy,
+      reason: diagDoc.idleDiagnosticReason,
+      hasExpiry: Boolean(diagDoc.idleDiagnosticExpiresAt),
+    })
+  );
+
+  const expiredNorm = normalizeIdlePublishConfig(
+    {
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticExpiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 60_000),
+    },
+    { nowMs: Date.now() }
+  );
+  record(
+    emulatorResults,
+    "expired-diagnostic-emulator-fails-closed",
+    expiredNorm.idleMovementTriggerDisabled === false &&
+      expiredNorm.idleLocationIntervalMs === 4_000 &&
+      expiredNorm.idleLocationMoveMeters === 10
+      ? "PASS"
+      : "FAIL",
+    JSON.stringify(expiredNorm)
+  );
+
+  await callAs(boot.functions, "setCandidateDriverLimit", {
+    candidateDriverLimit: 15,
+    idleMovementTriggerDisabled: false,
+  });
+  const clearedDoc = (await db.doc("settings/dispatch").get()).data() || {};
+  record(
+    emulatorResults,
+    "admin-disable-diagnostic-clears-flag",
+    clearedDoc.idleMovementTriggerDisabled === false ? "PASS" : "FAIL"
   );
 
   await db.doc("settings/dispatch-empty").set({});

@@ -66,17 +66,27 @@ export const MIN_LOCATION_MOVE_M = 10;
 import {
   IDLE_PUBLISH_BOUNDS,
   IDLE_PUBLISH_DEFAULTS,
+  IDLE_PUBLISH_PRESETS,
+  MATCHING_STALE_LOCATION_MS,
+  MAX_IDLE_INTERVAL_MS,
   normalizeIdlePublishConfig,
+  parseFirestoreTimestampMs,
   validateIdleIntervalMsForCallable,
   validateIdleMoveMetersForCallable,
+  isIdleMovementPublishEnabled,
 } from "./idle-publish-config.mjs";
 
 export {
   IDLE_PUBLISH_BOUNDS,
   IDLE_PUBLISH_DEFAULTS,
+  IDLE_PUBLISH_PRESETS,
+  MATCHING_STALE_LOCATION_MS,
+  MAX_IDLE_INTERVAL_MS,
   normalizeIdlePublishConfig,
+  parseFirestoreTimestampMs,
   validateIdleIntervalMsForCallable,
   validateIdleMoveMetersForCallable,
+  isIdleMovementPublishEnabled,
 } from "./idle-publish-config.mjs";
 
 /** Dispatch settings keys for idle publish (Super Admin cost controls). */
@@ -310,6 +320,8 @@ export function createCheckpointPolicyController(opts = {}) {
   let immediatePending = false;
   let idleLocationIntervalMs = IDLE_LOCATION_INTERVAL_MS;
   let idleLocationMoveMeters = MIN_LOCATION_MOVE_M;
+  let idleMovementTriggerDisabled = false;
+  let idleDiagnosticExpiresAtMs = null;
 
   const counters = {
     rawGpsFixes: 0,
@@ -364,15 +376,28 @@ export function createCheckpointPolicyController(opts = {}) {
     });
   }
 
-  function setIdlePublishConfig(raw = {}) {
-    const next = normalizeIdlePublishConfig({
-      idleLocationIntervalMs:
-        raw.idleLocationIntervalMs != null ? raw.idleLocationIntervalMs : idleLocationIntervalMs,
-      idleLocationMoveMeters:
-        raw.idleLocationMoveMeters != null ? raw.idleLocationMoveMeters : idleLocationMoveMeters,
-    });
+  function setIdlePublishConfig(raw = {}, opts = {}) {
+    const next = normalizeIdlePublishConfig(
+      {
+        idleLocationIntervalMs:
+          raw.idleLocationIntervalMs != null ? raw.idleLocationIntervalMs : idleLocationIntervalMs,
+        idleLocationMoveMeters:
+          raw.idleLocationMoveMeters != null ? raw.idleLocationMoveMeters : idleLocationMoveMeters,
+        idleMovementTriggerDisabled:
+          raw.idleMovementTriggerDisabled != null
+            ? raw.idleMovementTriggerDisabled
+            : idleMovementTriggerDisabled,
+        idleDiagnosticExpiresAt:
+          raw.idleDiagnosticExpiresAt != null
+            ? raw.idleDiagnosticExpiresAt
+            : idleDiagnosticExpiresAtMs,
+      },
+      opts
+    );
     idleLocationIntervalMs = next.idleLocationIntervalMs;
     idleLocationMoveMeters = next.idleLocationMoveMeters;
+    idleMovementTriggerDisabled = next.idleMovementTriggerDisabled;
+    idleDiagnosticExpiresAtMs = next.idleDiagnosticExpiresAtMs;
     emitPolicyIfChanged();
     return getIdlePublishConfig();
   }
@@ -381,7 +406,17 @@ export function createCheckpointPolicyController(opts = {}) {
     return {
       idleLocationIntervalMs,
       idleLocationMoveMeters,
+      idleMovementTriggerDisabled,
+      idleDiagnosticExpiresAtMs,
     };
+  }
+
+  function isIdleMovementTriggerDisabled() {
+    return idleMovementTriggerDisabled === true;
+  }
+
+  function isIdleMovementPublishAllowed() {
+    return isIdleMovementPublishEnabled({ idleMovementTriggerDisabled });
   }
 
   function getIdleMoveMeters() {
@@ -551,6 +586,8 @@ export function createCheckpointPolicyController(opts = {}) {
       immediatePending,
       idleLocationIntervalMs,
       idleLocationMoveMeters,
+      idleMovementTriggerDisabled,
+      idleDiagnosticExpiresAtMs,
       decision: currentDecision(),
     };
   }
@@ -567,6 +604,8 @@ export function createCheckpointPolicyController(opts = {}) {
     setIdlePublishConfig,
     getIdlePublishConfig,
     getIdleMoveMeters,
+    isIdleMovementTriggerDisabled,
+    isIdleMovementPublishAllowed,
     requestImmediate,
     consumeImmediate,
     hasImmediatePending,

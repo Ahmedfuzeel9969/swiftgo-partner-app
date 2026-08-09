@@ -3,17 +3,30 @@
  */
 "use strict";
 
+const MATCHING_STALE_LOCATION_MS = 600_000;
+
 const IDLE_PUBLISH_DEFAULTS = Object.freeze({
   idleLocationIntervalMs: 4_000,
   idleLocationMoveMeters: 10,
+  idleMovementTriggerDisabled: false,
 });
 
 const IDLE_PUBLISH_BOUNDS = Object.freeze({
   intervalMsMin: 4_000,
-  intervalMsMax: 1_800_000,
+  intervalMsMax: 300_000,
   moveMetersMin: 10,
   moveMetersMax: 5_000,
+  highMoveWarningMeters: 100,
+  diagnosticDurationMinutesMin: 1,
+  diagnosticDurationMinutesMax: 30,
 });
+
+const MAX_IDLE_INTERVAL_MS = IDLE_PUBLISH_BOUNDS.intervalMsMax;
+const IDLE_DIAGNOSTIC_MAX_DURATION_MS = 30 * 60_000;
+
+if (!(MAX_IDLE_INTERVAL_MS < MATCHING_STALE_LOCATION_MS)) {
+  throw new Error("MAX_IDLE_INTERVAL_MS must stay below MATCHING_STALE_LOCATION_MS");
+}
 
 function isStrictIntegerInRange(value, min, max) {
   return (
@@ -25,9 +38,54 @@ function isStrictIntegerInRange(value, min, max) {
   );
 }
 
-function normalizeIdlePublishConfig(raw = {}) {
-  let intervalMs = IDLE_PUBLISH_DEFAULTS.idleLocationIntervalMs;
-  let moveMeters = IDLE_PUBLISH_DEFAULTS.idleLocationMoveMeters;
+function isStrictBoolean(value) {
+  return value === true || value === false;
+}
+
+function parseFirestoreTimestampMs(value) {
+  if (value == null) return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Number.isInteger(value) ? value : null;
+  }
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return value.getTime();
+  }
+  if (typeof value === "object") {
+    if (typeof value.toMillis === "function") {
+      const ms = value.toMillis();
+      return Number.isFinite(ms) ? ms : null;
+    }
+    if (typeof value.toDate === "function") {
+      try {
+        const ms = value.toDate().getTime();
+        return Number.isFinite(ms) ? ms : null;
+      } catch {
+        return null;
+      }
+    }
+    if (Number.isInteger(value.seconds) && Number.isInteger(value.nanoseconds)) {
+      return value.seconds * 1000 + Math.floor(value.nanoseconds / 1_000_000);
+    }
+    if (Number.isInteger(value._seconds) && Number.isInteger(value._nanoseconds)) {
+      return value._seconds * 1000 + Math.floor(value._nanoseconds / 1_000_000);
+    }
+  }
+  return null;
+}
+
+function safeDefaults() {
+  return {
+    idleLocationIntervalMs: IDLE_PUBLISH_DEFAULTS.idleLocationIntervalMs,
+    idleLocationMoveMeters: IDLE_PUBLISH_DEFAULTS.idleLocationMoveMeters,
+    idleMovementTriggerDisabled: false,
+    idleDiagnosticExpiresAtMs: null,
+  };
+}
+
+function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}) {
+  const now = Number(nowMs);
+  const base = safeDefaults();
+  if (!Number.isFinite(now)) return { ...base };
 
   if (raw.idleLocationIntervalMs != null) {
     if (
@@ -37,7 +95,7 @@ function normalizeIdlePublishConfig(raw = {}) {
         IDLE_PUBLISH_BOUNDS.intervalMsMax
       )
     ) {
-      intervalMs = raw.idleLocationIntervalMs;
+      base.idleLocationIntervalMs = raw.idleLocationIntervalMs;
     }
   }
 
@@ -49,11 +107,19 @@ function normalizeIdlePublishConfig(raw = {}) {
         IDLE_PUBLISH_BOUNDS.moveMetersMax
       )
     ) {
-      moveMeters = raw.idleLocationMoveMeters;
+      base.idleLocationMoveMeters = raw.idleLocationMoveMeters;
     }
   }
 
-  return { idleLocationIntervalMs: intervalMs, idleLocationMoveMeters: moveMeters };
+  if (raw.idleMovementTriggerDisabled === true) {
+    const expiresMs = parseFirestoreTimestampMs(raw.idleDiagnosticExpiresAt);
+    if (expiresMs != null && expiresMs > now) {
+      base.idleMovementTriggerDisabled = true;
+      base.idleDiagnosticExpiresAtMs = expiresMs;
+    }
+  }
+
+  return base;
 }
 
 function validateIdleIntervalMsForCallable(value) {
@@ -72,10 +138,41 @@ function validateIdleMoveMetersForCallable(value) {
   );
 }
 
+function validateIdleMovementTriggerDisabledForCallable(value) {
+  return isStrictBoolean(value);
+}
+
+function validateDiagnosticDurationMinutesForCallable(value) {
+  return isStrictIntegerInRange(
+    value,
+    IDLE_PUBLISH_BOUNDS.diagnosticDurationMinutesMin,
+    IDLE_PUBLISH_BOUNDS.diagnosticDurationMinutesMax
+  );
+}
+
+function rejectClientDiagnosticExpiry(value) {
+  return value != null;
+}
+
+function sanitizeDiagnosticReason(value) {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().slice(0, 80);
+  return trimmed || null;
+}
+
 module.exports = {
+  MATCHING_STALE_LOCATION_MS,
   IDLE_PUBLISH_DEFAULTS,
   IDLE_PUBLISH_BOUNDS,
+  MAX_IDLE_INTERVAL_MS,
+  IDLE_DIAGNOSTIC_MAX_DURATION_MS,
   normalizeIdlePublishConfig,
   validateIdleIntervalMsForCallable,
   validateIdleMoveMetersForCallable,
+  validateIdleMovementTriggerDisabledForCallable,
+  validateDiagnosticDurationMinutesForCallable,
+  rejectClientDiagnosticExpiry,
+  sanitizeDiagnosticReason,
+  parseFirestoreTimestampMs,
 };

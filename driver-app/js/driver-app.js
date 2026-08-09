@@ -237,6 +237,8 @@ let unsubscribeOwnerRides = () => {};
 let unsubscribePartnerDoc = () => {};
 let unsubscribeActiveRide = () => {};
 let unsubscribeDispatchIdleSettings = () => {};
+let lastDispatchIdleSettingsRaw = {};
+let idleDiagnosticExpiryTimer = null;
 let authSequence = 0;
 let partnerMode = null;
 let ownerVehicles = [];
@@ -2606,10 +2608,16 @@ async function syncVehicleLocationToFirestore(
   let movedEnough = true;
   if (lastVehicleLocationLatLng && Number.isFinite(lat) && Number.isFinite(lng)) {
     const movedKm = haversineKm(lastVehicleLocationLatLng, { lat, lng });
-    const moveThresholdM = idleWaiting
-      ? checkpointPolicy.getIdleMoveMeters()
-      : MIN_LOCATION_MOVE_M;
-    movedEnough = movedKm == null || movedKm * 1000 >= moveThresholdM;
+    const movementPublishAllowed =
+      !idleWaiting || checkpointPolicy.isIdleMovementPublishAllowed();
+    if (!movementPublishAllowed) {
+      movedEnough = false;
+    } else {
+      const moveThresholdM = idleWaiting
+        ? checkpointPolicy.getIdleMoveMeters()
+        : MIN_LOCATION_MOVE_M;
+      movedEnough = movedKm == null || movedKm * 1000 >= moveThresholdM;
+    }
   }
   const nextStatus = activeExecutionRide?.id ? "in_ride" : "online";
   const statusChanged = nextStatus !== lastVehicleStatusWritten;
@@ -3037,6 +3045,53 @@ function stopLocationWatch() {
  * Live idle publish config from settings/dispatch.
  * On snapshot error / unavailable doc → keep current in-memory defaults (4s / 10m).
  */
+function clearIdleDiagnosticExpiryTimer() {
+  if (idleDiagnosticExpiryTimer != null) {
+    clearTimeout(idleDiagnosticExpiryTimer);
+    idleDiagnosticExpiryTimer = null;
+  }
+}
+
+function applyDispatchIdleSettingsFromFirestore(data = {}) {
+  lastDispatchIdleSettingsRaw = data || {};
+  const normalized = normalizeIdlePublishConfig(lastDispatchIdleSettingsRaw);
+  checkpointPolicy.setIdlePublishConfig(lastDispatchIdleSettingsRaw);
+  try {
+    window.__SWIFTGO_IDLE_PUBLISH_CONFIG__ = normalized;
+  } catch {
+    /* ignore */
+  }
+  clearIdleDiagnosticExpiryTimer();
+  if (normalized.idleMovementTriggerDisabled && normalized.idleDiagnosticExpiresAtMs) {
+    const delay = normalized.idleDiagnosticExpiresAtMs - Date.now();
+    if (delay <= 0) {
+      const safe = normalizeIdlePublishConfig(lastDispatchIdleSettingsRaw, { nowMs: Date.now() });
+      checkpointPolicy.setIdlePublishConfig({
+        idleLocationIntervalMs: safe.idleLocationIntervalMs,
+        idleLocationMoveMeters: safe.idleLocationMoveMeters,
+        idleMovementTriggerDisabled: false,
+        idleDiagnosticExpiresAt: null,
+      });
+      return;
+    }
+    idleDiagnosticExpiryTimer = setTimeout(() => {
+      idleDiagnosticExpiryTimer = null;
+      const safe = normalizeIdlePublishConfig(lastDispatchIdleSettingsRaw, { nowMs: Date.now() });
+      checkpointPolicy.setIdlePublishConfig({
+        idleLocationIntervalMs: safe.idleLocationIntervalMs,
+        idleLocationMoveMeters: safe.idleLocationMoveMeters,
+        idleMovementTriggerDisabled: false,
+        idleDiagnosticExpiresAt: null,
+      });
+      try {
+        window.__SWIFTGO_IDLE_PUBLISH_CONFIG__ = safe;
+      } catch {
+        /* ignore */
+      }
+    }, delay + 50);
+  }
+}
+
 function startDispatchIdleSettingsWatch() {
   stopDispatchIdleSettingsWatch();
   const { db } = getFirebase();
@@ -3046,13 +3101,7 @@ function startDispatchIdleSettingsWatch() {
     (snap) => {
       try {
         const data = snap.exists() ? snap.data() || {} : {};
-        const normalized = normalizeIdlePublishConfig(data);
-        checkpointPolicy.setIdlePublishConfig(normalized);
-        try {
-          window.__SWIFTGO_IDLE_PUBLISH_CONFIG__ = normalized;
-        } catch {
-          /* ignore */
-        }
+        applyDispatchIdleSettingsFromFirestore(data);
       } catch {
         /* keep last good / default idle config; continue publishing */
       }
@@ -3064,6 +3113,7 @@ function startDispatchIdleSettingsWatch() {
 }
 
 function stopDispatchIdleSettingsWatch() {
+  clearIdleDiagnosticExpiryTimer();
   unsubscribeDispatchIdleSettings();
   unsubscribeDispatchIdleSettings = () => {};
 }

@@ -3,17 +3,47 @@
  * Synced to app js/ folders via build-hosting; mirrored in functions/idle-publish-config.js.
  */
 
+/** Mirror of functions/matching.js STALE_LOCATION_MS — driver must heartbeat before this. */
+export const MATCHING_STALE_LOCATION_MS = 600_000;
+
 export const IDLE_PUBLISH_DEFAULTS = Object.freeze({
   idleLocationIntervalMs: 4_000,
   idleLocationMoveMeters: 10,
+  idleMovementTriggerDisabled: false,
 });
 
 /** Minimums match production default — controls may only reduce cost, not increase write rate. */
 export const IDLE_PUBLISH_BOUNDS = Object.freeze({
   intervalMsMin: 4_000,
-  intervalMsMax: 1_800_000,
+  intervalMsMax: 300_000,
   moveMetersMin: 10,
   moveMetersMax: 5_000,
+  highMoveWarningMeters: 100,
+  diagnosticDurationMinutesMin: 1,
+  diagnosticDurationMinutesMax: 30,
+});
+
+/** Recommended Super Admin UI presets (normal mode). */
+export const IDLE_PUBLISH_PRESETS = Object.freeze({
+  intervalSeconds: Object.freeze([4, 10, 30, 60]),
+  moveMeters: Object.freeze([10, 25, 50, 100]),
+});
+
+export const MAX_IDLE_INTERVAL_MS = IDLE_PUBLISH_BOUNDS.intervalMsMax;
+export const IDLE_DIAGNOSTIC_MAX_DURATION_MS = 30 * 60_000;
+
+if (!(MAX_IDLE_INTERVAL_MS < MATCHING_STALE_LOCATION_MS)) {
+  throw new Error("MAX_IDLE_INTERVAL_MS must stay below MATCHING_STALE_LOCATION_MS");
+}
+
+export const IDLE_PUBLISH_CONFIG_KEYS = Object.freeze({
+  intervalMs: "idleLocationIntervalMs",
+  moveMeters: "idleLocationMoveMeters",
+  movementTriggerDisabled: "idleMovementTriggerDisabled",
+  diagnosticExpiresAt: "idleDiagnosticExpiresAt",
+  diagnosticEnabledBy: "idleDiagnosticEnabledBy",
+  diagnosticEnabledAt: "idleDiagnosticEnabledAt",
+  diagnosticReason: "idleDiagnosticReason",
 });
 
 function isStrictIntegerInRange(value, min, max) {
@@ -26,13 +56,66 @@ function isStrictIntegerInRange(value, min, max) {
   );
 }
 
+function isStrictBoolean(value) {
+  return value === true || value === false;
+}
+
 /**
- * Runtime consumer normalization: missing or invalid → canonical defaults (4000 ms / 10 m).
- * Does not coerce strings or clamp out-of-range values to boundaries.
+ * Parse Firestore Timestamp / Date / epoch ms without Number() coercion on strings.
+ * @param {unknown} value
+ * @returns {number|null}
  */
-export function normalizeIdlePublishConfig(raw = {}) {
-  let intervalMs = IDLE_PUBLISH_DEFAULTS.idleLocationIntervalMs;
-  let moveMeters = IDLE_PUBLISH_DEFAULTS.idleLocationMoveMeters;
+export function parseFirestoreTimestampMs(value) {
+  if (value == null) return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Number.isInteger(value) ? value : null;
+  }
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return value.getTime();
+  }
+  if (typeof value === "object") {
+    if (typeof value.toMillis === "function") {
+      const ms = value.toMillis();
+      return Number.isFinite(ms) ? ms : null;
+    }
+    if (typeof value.toDate === "function") {
+      try {
+        const ms = value.toDate().getTime();
+        return Number.isFinite(ms) ? ms : null;
+      } catch {
+        return null;
+      }
+    }
+    if (Number.isInteger(value.seconds) && Number.isInteger(value.nanoseconds)) {
+      return value.seconds * 1000 + Math.floor(value.nanoseconds / 1_000_000);
+    }
+    if (Number.isInteger(value._seconds) && Number.isInteger(value._nanoseconds)) {
+      return value._seconds * 1000 + Math.floor(value._nanoseconds / 1_000_000);
+    }
+  }
+  return null;
+}
+
+function safeDefaults() {
+  return {
+    idleLocationIntervalMs: IDLE_PUBLISH_DEFAULTS.idleLocationIntervalMs,
+    idleLocationMoveMeters: IDLE_PUBLISH_DEFAULTS.idleLocationMoveMeters,
+    idleMovementTriggerDisabled: false,
+    idleDiagnosticExpiresAtMs: null,
+  };
+}
+
+/**
+ * Runtime consumer normalization: missing or invalid → canonical defaults (4000 ms / 10 m / movement enabled).
+ * Expired or malformed diagnostic state fails closed to safe defaults.
+ * Does not coerce strings or clamp out-of-range values to boundaries.
+ * @param {Record<string, unknown>} [raw]
+ * @param {{ nowMs?: number }} [opts]
+ */
+export function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}) {
+  const now = Number(nowMs);
+  const base = safeDefaults();
+  if (!Number.isFinite(now)) return { ...base };
 
   if (raw.idleLocationIntervalMs != null) {
     if (
@@ -42,7 +125,7 @@ export function normalizeIdlePublishConfig(raw = {}) {
         IDLE_PUBLISH_BOUNDS.intervalMsMax
       )
     ) {
-      intervalMs = raw.idleLocationIntervalMs;
+      base.idleLocationIntervalMs = raw.idleLocationIntervalMs;
     }
   }
 
@@ -54,11 +137,19 @@ export function normalizeIdlePublishConfig(raw = {}) {
         IDLE_PUBLISH_BOUNDS.moveMetersMax
       )
     ) {
-      moveMeters = raw.idleLocationMoveMeters;
+      base.idleLocationMoveMeters = raw.idleLocationMoveMeters;
     }
   }
 
-  return { idleLocationIntervalMs: intervalMs, idleLocationMoveMeters: moveMeters };
+  if (raw.idleMovementTriggerDisabled === true) {
+    const expiresMs = parseFirestoreTimestampMs(raw.idleDiagnosticExpiresAt);
+    if (expiresMs != null && expiresMs > now) {
+      base.idleMovementTriggerDisabled = true;
+      base.idleDiagnosticExpiresAtMs = expiresMs;
+    }
+  }
+
+  return base;
 }
 
 /** Callable validation when idleLocationIntervalMs is explicitly provided. */
@@ -77,4 +168,48 @@ export function validateIdleMoveMetersForCallable(value) {
     IDLE_PUBLISH_BOUNDS.moveMetersMin,
     IDLE_PUBLISH_BOUNDS.moveMetersMax
   );
+}
+
+export function validateIdleMovementTriggerDisabledForCallable(value) {
+  return isStrictBoolean(value);
+}
+
+export function validateDiagnosticDurationMinutesForCallable(value) {
+  return isStrictIntegerInRange(
+    value,
+    IDLE_PUBLISH_BOUNDS.diagnosticDurationMinutesMin,
+    IDLE_PUBLISH_BOUNDS.diagnosticDurationMinutesMax
+  );
+}
+
+/** Reject client-supplied expiry timestamps — server computes expiry only. */
+export function rejectClientDiagnosticExpiry(value) {
+  return value != null;
+}
+
+/**
+ * Sanitize bounded diagnostic reason note (no PII; max 80 chars).
+ * @param {unknown} value
+ */
+export function sanitizeDiagnosticReason(value) {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().slice(0, 80);
+  return trimmed || null;
+}
+
+/** Whether movement alone may trigger an idle publish. */
+export function isIdleMovementPublishEnabled(config = {}) {
+  return config.idleMovementTriggerDisabled !== true;
+}
+
+/** Location remains matchable if last write age stays below stale threshold. */
+export function isLocationFreshForMatching(lastWriteMs, nowMs = Date.now(), staleMs = MATCHING_STALE_LOCATION_MS) {
+  if (!Number.isFinite(lastWriteMs) || lastWriteMs <= 0) return false;
+  return nowMs - lastWriteMs < staleMs;
+}
+
+/** Next mandatory heartbeat must occur before matching stale cutoff. */
+export function maxSafeIdleIntervalMs(staleMs = MATCHING_STALE_LOCATION_MS) {
+  return MAX_IDLE_INTERVAL_MS < staleMs;
 }

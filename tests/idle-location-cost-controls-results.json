@@ -1,36 +1,36 @@
 {
-  "generatedAt": "2026-08-09T04:40:32.484Z",
-  "commit": "5ff97f72a764714ebf7fcc9a1c12adfb5b3408e0",
+  "generatedAt": "2026-08-09T05:53:23.236Z",
+  "commit": "a7d5cbc563f56108c80ab666ee66419e815eeaf5",
   "suite": "idle-location-cost-controls",
   "categories": {
     "unit": {
-      "total": 24,
-      "pass": 24,
+      "total": 37,
+      "pass": 37,
       "fail": 0,
       "blocked": 0
     },
     "static": {
-      "total": 12,
-      "pass": 12,
+      "total": 16,
+      "pass": 16,
       "fail": 0,
       "blocked": 0
     },
     "emulator": {
-      "total": 19,
-      "pass": 19,
+      "total": 29,
+      "pass": 29,
       "fail": 0,
       "blocked": 0
     }
   },
-  "total": 55,
-  "pass": 55,
+  "total": 82,
+  "pass": 82,
   "fail": 0,
   "blocked": 0,
   "results": [
     {
       "name": "missing-settings-defaults",
       "status": "PASS",
-      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10}",
+      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10,\"idleMovementTriggerDisabled\":false,\"idleDiagnosticExpiresAtMs\":null}",
       "category": "unit"
     },
     {
@@ -46,9 +46,21 @@
       "category": "unit"
     },
     {
+      "name": "defaults-movement-trigger-enabled",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
       "name": "valid-maximum-interval-boundary",
       "status": "PASS",
       "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "max-idle-interval-below-stale-threshold",
+      "status": "PASS",
+      "detail": "300000 < 600000",
       "category": "unit"
     },
     {
@@ -88,7 +100,19 @@
       "category": "unit"
     },
     {
-      "name": "valid-move-meters-retained",
+      "name": "reject-infinity-interval-validation",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "valid-maximum-move-5000m",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "above-max-move-falls-back-to-default",
       "status": "PASS",
       "detail": "",
       "category": "unit"
@@ -112,7 +136,61 @@
       "category": "unit"
     },
     {
+      "name": "valid-move-meters-retained",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "diagnostic-active-with-future-expiry",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "expired-diagnostic-fails-closed",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "malformed-diagnostic-expiry-fails-closed",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "movement-disabled-blocks-move-only-publish",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "mandatory-heartbeat-still-publishes",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "driver-matchable-before-mandatory-heartbeat",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "is-idle-movement-publish-disabled-flag",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
       "name": "malformed-stored-settings-fallback",
+      "status": "PASS",
+      "detail": "",
+      "category": "unit"
+    },
+    {
+      "name": "controller-diagnostic-movement-flag",
       "status": "PASS",
       "detail": "",
       "category": "unit"
@@ -208,6 +286,30 @@
       "category": "static"
     },
     {
+      "name": "admin-diagnostic-section-and-urdu",
+      "status": "PASS",
+      "detail": "",
+      "category": "static"
+    },
+    {
+      "name": "admin-diagnostic-confirmation-and-save",
+      "status": "PASS",
+      "detail": "",
+      "category": "static"
+    },
+    {
+      "name": "driver-movement-disabled-publish-path",
+      "status": "PASS",
+      "detail": "",
+      "category": "static"
+    },
+    {
+      "name": "no-financial-module-idle-coupling",
+      "status": "PASS",
+      "detail": "",
+      "category": "static"
+    },
+    {
       "name": "admin-urdu-cost-warning",
       "status": "PASS",
       "detail": "",
@@ -246,7 +348,7 @@
     {
       "name": "admin-save-valid-60s-50m",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":50}",
+      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":50,\"idleMovementTriggerDisabled\":null,\"idleDiagnosticExpiresAt\":null}",
       "category": "emulator"
     },
     {
@@ -316,6 +418,12 @@
       "category": "emulator"
     },
     {
+      "name": "reject-infinity-interval",
+      "status": "PASS",
+      "detail": "Infinity cannot be encoded or accepted",
+      "category": "emulator"
+    },
+    {
       "name": "reject-negative-move",
       "status": "PASS",
       "detail": "functions/invalid-argument | IDLE_MOVE_OUT_OF_RANGE",
@@ -334,21 +442,75 @@
       "category": "emulator"
     },
     {
-      "name": "reject-above-maximum-move",
+      "name": "reject-above-maximum-move-5001m",
       "status": "PASS",
       "detail": "functions/invalid-argument | IDLE_MOVE_OUT_OF_RANGE",
       "category": "emulator"
     },
     {
+      "name": "accept-5000m-move-testing-range",
+      "status": "PASS",
+      "detail": "{\"move\":5000}",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-client-supplied-diagnostic-expiry",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_DIAGNOSTIC_EXPIRY_CLIENT_FORBIDDEN",
+      "category": "emulator"
+    },
+    {
+      "name": "non-admin-cannot-enable-diagnostic",
+      "status": "PASS",
+      "detail": "functions/permission-denied | ADMIN_ONLY",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-diagnostic-duration-above-30m",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_DIAGNOSTIC_DURATION_OUT_OF_RANGE",
+      "category": "emulator"
+    },
+    {
+      "name": "reject-diagnostic-flag-string",
+      "status": "PASS",
+      "detail": "functions/invalid-argument | IDLE_MOVEMENT_TRIGGER_FLAG_INVALID",
+      "category": "emulator"
+    },
+    {
+      "name": "admin-enable-diagnostic-movement-disabled",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":null,\"idleMovementTriggerDisabled\":true,\"idleDiagnosticExpiresAt\":{\"_seconds\":1786255403,\"_nanoseconds\":84000000}}",
+      "category": "emulator"
+    },
+    {
+      "name": "diagnostic-audit-metadata-non-pii",
+      "status": "PASS",
+      "detail": "{\"enabledBy\":\"idle-admin\",\"reason\":\"field-test-grid\",\"hasExpiry\":true}",
+      "category": "emulator"
+    },
+    {
+      "name": "expired-diagnostic-emulator-fails-closed",
+      "status": "PASS",
+      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10,\"idleMovementTriggerDisabled\":false,\"idleDiagnosticExpiresAtMs\":null}",
+      "category": "emulator"
+    },
+    {
+      "name": "admin-disable-diagnostic-clears-flag",
+      "status": "PASS",
+      "detail": "",
+      "category": "emulator"
+    },
+    {
       "name": "missing-idle-settings-use-defaults",
       "status": "PASS",
-      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10}",
+      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10,\"idleMovementTriggerDisabled\":false,\"idleDiagnosticExpiresAtMs\":null}",
       "category": "emulator"
     },
     {
       "name": "malformed-stored-settings-consumer-defaults",
       "status": "PASS",
-      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10}",
+      "detail": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10,\"idleMovementTriggerDisabled\":false,\"idleDiagnosticExpiresAtMs\":null}",
       "category": "emulator"
     },
     {
