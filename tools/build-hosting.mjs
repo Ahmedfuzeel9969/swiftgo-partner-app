@@ -57,6 +57,7 @@ const SHARED_JS_MODULES = [
   "location-reporting-config.mjs",
   "ride-location-report-schema.mjs",
   "ride-location-local-counter-store.mjs",
+  "ride-location-report-client.mjs",
 ];
 
 function syncSharedJsInto(destJsDir) {

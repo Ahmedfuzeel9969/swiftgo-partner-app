@@ -333,6 +333,21 @@ record(
 );
 
 record(
+  "counter-store-apply-counter-snapshot",
+  (() => {
+    const storage = createMemoryStorageAdapter();
+    const store = createRideLocationLocalCounterStore({ role: "driver", storage });
+    store.bind({ rideId: RIDE_A, assignmentSessionTokenHash: HASH_1 });
+    store.applyCounterSnapshot({ gpsFixesReceived: 7, vehicleWritesAcknowledged: 4 });
+    const section = store.snapshotSection();
+    return section?.counters?.gpsFixesReceived === 7 &&
+      section?.counters?.vehicleWritesAcknowledged === 4
+      ? "PASS"
+      : "FAIL";
+  })()
+);
+
+record(
   "static-forbidden-keys-documented",
   read("shared/js/ride-location-report-schema.mjs").includes("FORBIDDEN_REPORT_PAYLOAD_KEYS")
     ? "PASS"

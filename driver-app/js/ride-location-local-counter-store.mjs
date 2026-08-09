@@ -311,6 +311,21 @@ export function createRideLocationLocalCounterStore(options) {
     persistenceEnabled = enabled === true;
   }
 
+  function applyCounterSnapshot(counters) {
+    if (!isBound()) return { ok: false, reason: "not_bound" };
+    if (counters == null || typeof counters !== "object") {
+      return { ok: false, reason: "invalid_counters" };
+    }
+    for (const key of allowedCounterKeys(role)) {
+      const value = counters[key];
+      if (typeof value === "number" && Number.isFinite(value) && Number.isInteger(value) && value >= 0) {
+        state.counters[key] = Math.max(state.counters[key] || 0, value);
+      }
+    }
+    persist();
+    return { ok: true };
+  }
+
   return {
     bind,
     isBound,
@@ -319,6 +334,7 @@ export function createRideLocationLocalCounterStore(options) {
     addVisibleDurationMs,
     addBackgroundDurationMs,
     bumpSubmitSequence,
+    applyCounterSnapshot,
     snapshotSection,
     snapshot,
     clear,

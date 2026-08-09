@@ -53,6 +53,7 @@
     "test:ride-lifecycle-timestamps": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/ride-lifecycle-timestamps.mjs\"",
     "test:ride-location-report-submit": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/ride-location-report-submit.mjs\"",
     "test:ride-location-report-rules": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/ride-location-report-rules.mjs\"",
+    "test:ride-location-report-ride-end": "node tests/ride-location-report-ride-end.mjs",
     "test:p2p-webrtc": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/p2p-webrtc.mjs\"",
     "test:road-routing": "node tests/road-routing.mjs",
     "test:road-snapping": "node tests/road-snapping.mjs",
