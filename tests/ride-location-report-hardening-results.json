@@ -1,0 +1,180 @@
+{
+  "generatedAt": "2026-08-09T20:27:15.305Z",
+  "pass": 24,
+  "fail": 0,
+  "billingEvidence": [
+    {
+      "cadenceSec": 4,
+      "checkpoints": 300,
+      "clientVehicleWrites": 300,
+      "before": {
+        "rideMirrorTxns": 300,
+        "separateReportTxns": 300,
+        "totalReportWrites": 300,
+        "terminalCallableWrites": 2
+      },
+      "after": {
+        "mergedMirrorTxns": 300,
+        "separateReportTxns": 0,
+        "totalReportWrites": 300,
+        "terminalCallableWrites": 2
+      }
+    },
+    {
+      "cadenceSec": 30,
+      "checkpoints": 40,
+      "clientVehicleWrites": 40,
+      "before": {
+        "rideMirrorTxns": 40,
+        "separateReportTxns": 40,
+        "totalReportWrites": 40,
+        "terminalCallableWrites": 2
+      },
+      "after": {
+        "mergedMirrorTxns": 40,
+        "separateReportTxns": 0,
+        "totalReportWrites": 40,
+        "terminalCallableWrites": 2
+      }
+    },
+    {
+      "cadenceSec": 60,
+      "checkpoints": 20,
+      "clientVehicleWrites": 20,
+      "before": {
+        "rideMirrorTxns": 20,
+        "separateReportTxns": 20,
+        "totalReportWrites": 20,
+        "terminalCallableWrites": 2
+      },
+      "after": {
+        "mergedMirrorTxns": 20,
+        "separateReportTxns": 0,
+        "totalReportWrites": 20,
+        "terminalCallableWrites": 2
+      }
+    }
+  ],
+  "results": [
+    {
+      "name": "unit-customer-no-firebase-double-count",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-driver-p2p-separate-counters",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-customer-source-switch-directional",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-completeness-partial-both-clients",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-lifecycle-segment-durations",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-derived-firebase-window-only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-retention-policy-marker",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-config-unimplemented-modes-blocked",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-config-disabled-inactive",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-pending-queue-enqueue",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-pending-retry-ack-removes",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-flush-timeout-enqueues-pending",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-billing-4s-no-extra-report-txn",
+      "status": "PASS",
+      "detail": "checkpoints=300"
+    },
+    {
+      "name": "unit-billing-30s-no-extra-report-txn",
+      "status": "PASS",
+      "detail": "checkpoints=40"
+    },
+    {
+      "name": "unit-billing-60s-no-extra-report-txn",
+      "status": "PASS",
+      "detail": "checkpoints=20"
+    },
+    {
+      "name": "static-driver-location-no-recordServerMirrorOutcome-call",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-merge-applyServerMirrorOutcomeToReport",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-single-txn-mirror-updates-report",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-disabled-skips-report-update",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-cancelled-ride-driver-submit",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-rematch-stale-token-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-wrong-assignment-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-final-requires-all-enabled-sections",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-config-mode-behavior-table",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-09T19:31:52.470Z",
-  "pass": 14,
+  "generatedAt": "2026-08-09T20:29:41.585Z",
+  "pass": 15,
   "fail": 0,
   "results": [
     {
@@ -40,6 +40,11 @@
     },
     {
       "name": "unit-disabled-mode-forces-enabled-false",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-periodic-mode-not-implemented",
       "status": "PASS",
       "detail": ""
     },

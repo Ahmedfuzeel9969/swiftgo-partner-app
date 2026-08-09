@@ -12,11 +12,15 @@ export const REPORT_DOC_STATUS = Object.freeze(["open", "partial", "final"]);
 
 export const REPORT_COMPLETENESS = Object.freeze([
   "complete",
+  "partial_both_clients",
   "partial_driver_only",
   "partial_customer_only",
   "server_only",
   "missing",
 ]);
+
+/** Retention marker only — Firestore TTL not activated in this release. */
+export const REPORT_RETENTION_POLICY = "expiry_marker_pending_ttl";
 
 export const REPORT_HEALTH_STATUS = Object.freeze([
   "healthy",
@@ -50,6 +54,8 @@ export const DRIVER_COUNTER_KEYS = Object.freeze([
   "vehicleWritesFailed",
   "p2pFramesAttempted",
   "p2pFramesSent",
+  "p2pFramesAcknowledged",
+  "p2pFramesRejected",
   "p2pHealthySessionCount",
   "p2pDegradedOrFallbackTransitions",
 ]);
@@ -158,7 +164,12 @@ export function createEmptyLifecycleSection() {
     driverArrivedAtMs: null,
     tripStartedAtMs: null,
     settledAtMs: null,
+    terminalAtMs: null,
     bookingToAssignmentMs: null,
+    assignedToArrivedMs: null,
+    arrivedToTripStartMs: null,
+    tripStartToTerminalMs: null,
+    assignedToTerminalMs: null,
     driverApproachMs: null,
     inProgressMs: null,
     totalLifecycleMs: null,
@@ -282,19 +293,30 @@ export function computeDerivedMetrics(sections = {}) {
     server.counters?.mirrorAccepted
   );
   const avgCustomerFirebaseReceiveIntervalMs = averageIntervalMs(
-    customer.firstRenderedAtMs,
-    customer.lastRenderedAtMs,
+    customer.firstFirebaseReceiveAtMs ?? customer.firstRenderedAtMs,
+    customer.lastFirebaseReceiveAtMs ?? customer.lastRenderedAtMs,
     customerCounters.firebaseSnapshotsReceived
   );
   const avgP2pReceiveIntervalMs = averageIntervalMs(
-    customer.firstRenderedAtMs,
-    customer.lastRenderedAtMs,
+    customer.firstP2pReceiveAtMs ?? customer.firstRenderedAtMs,
+    customer.lastP2pReceiveAtMs ?? customer.lastRenderedAtMs,
     customerCounters.p2pFramesReceived
   );
-  const renderedCount =
-    (customerCounters.firebaseValidRendered || 0) + (customerCounters.p2pValidRendered || 0);
+  const firebaseRenderedCount = customerCounters.firebaseValidRendered || 0;
+  const p2pRenderedCount = customerCounters.p2pValidRendered || 0;
+  const renderedCount = firebaseRenderedCount + p2pRenderedCount;
   const receivedCount =
     (customerCounters.firebaseSnapshotsReceived || 0) + (customerCounters.p2pFramesReceived || 0);
+  const avgFirebaseRenderIntervalMs = averageIntervalMs(
+    customer.firstFirebaseRenderedAtMs ?? customer.firstRenderedAtMs,
+    customer.lastFirebaseRenderedAtMs ?? customer.lastRenderedAtMs,
+    firebaseRenderedCount
+  );
+  const avgP2pRenderIntervalMs = averageIntervalMs(
+    customer.firstP2pRenderedAtMs ?? customer.firstRenderedAtMs,
+    customer.lastP2pRenderedAtMs ?? customer.lastRenderedAtMs,
+    p2pRenderedCount
+  );
   const avgMapRefreshIntervalMs = averageIntervalMs(
     customer.firstRenderedAtMs,
     customer.lastRenderedAtMs,
@@ -307,6 +329,8 @@ export function computeDerivedMetrics(sections = {}) {
     avgMirrorIntervalMs,
     avgCustomerFirebaseReceiveIntervalMs,
     avgP2pReceiveIntervalMs,
+    avgFirebaseRenderIntervalMs,
+    avgP2pRenderIntervalMs,
     avgMapRefreshIntervalMs,
     deliveryRatios: {
       mirrorToGps: safeRatio(server.counters?.mirrorAccepted, driverCounters.gpsFixesReceived),
@@ -334,6 +358,7 @@ export function computeLifecycleDurations(lifecycle = {}) {
   const driverArrivedAtMs = parseOptionalTimestampMs(lifecycle.driverArrivedAtMs);
   const tripStartedAtMs = parseOptionalTimestampMs(lifecycle.tripStartedAtMs);
   const settledAtMs = parseOptionalTimestampMs(lifecycle.settledAtMs);
+  const terminalAtMs = parseOptionalTimestampMs(lifecycle.terminalAtMs) ?? settledAtMs;
 
   return {
     bookingCreatedAtMs,
@@ -342,11 +367,33 @@ export function computeLifecycleDurations(lifecycle = {}) {
     driverArrivedAtMs,
     tripStartedAtMs,
     settledAtMs,
+    terminalAtMs,
     bookingToAssignmentMs: durationMs(bookingCreatedAtMs, assignedAtMs),
-    driverApproachMs: durationMs(assignedAtMs, tripStartedAtMs),
-    inProgressMs: durationMs(tripStartedAtMs, settledAtMs),
-    totalLifecycleMs: durationMs(bookingCreatedAtMs, settledAtMs),
+    assignedToArrivedMs: durationMs(assignedAtMs, driverArrivedAtMs),
+    arrivedToTripStartMs: durationMs(driverArrivedAtMs, tripStartedAtMs),
+    tripStartToTerminalMs: durationMs(tripStartedAtMs, terminalAtMs),
+    assignedToTerminalMs: durationMs(assignedAtMs, terminalAtMs),
+    driverApproachMs: durationMs(assignedAtMs, driverArrivedAtMs),
+    inProgressMs: durationMs(tripStartedAtMs, terminalAtMs),
+    totalLifecycleMs: durationMs(bookingCreatedAtMs, terminalAtMs),
   };
+}
+
+export function computeReportCompleteness(report = {}) {
+  const hasClientSection = (role) => {
+    const section = role === "driver" ? report?.driver : report?.customer;
+    const seq = section?.lastAcceptedSequence || section?.submitSequence || 0;
+    return seq >= 1;
+  };
+  const driver = hasClientSection("driver");
+  const customer = hasClientSection("customer");
+  const server = (report?.server?.counters?.mirrorAttempts || 0) > 0;
+  if (driver && customer && server) return "complete";
+  if (driver && customer) return "partial_both_clients";
+  if (driver) return "partial_driver_only";
+  if (customer) return "partial_customer_only";
+  if (server) return "server_only";
+  return "missing";
 }
 
 /**
@@ -454,6 +501,14 @@ export function validateCustomerSubmitSection(raw = {}) {
       counters: counterResult.counters,
       firstRenderedAtMs: parseOptionalTimestampMs(raw.firstRenderedAtMs),
       lastRenderedAtMs: parseOptionalTimestampMs(raw.lastRenderedAtMs),
+      firstFirebaseReceiveAtMs: parseOptionalTimestampMs(raw.firstFirebaseReceiveAtMs),
+      lastFirebaseReceiveAtMs: parseOptionalTimestampMs(raw.lastFirebaseReceiveAtMs),
+      firstP2pReceiveAtMs: parseOptionalTimestampMs(raw.firstP2pReceiveAtMs),
+      lastP2pReceiveAtMs: parseOptionalTimestampMs(raw.lastP2pReceiveAtMs),
+      firstFirebaseRenderedAtMs: parseOptionalTimestampMs(raw.firstFirebaseRenderedAtMs),
+      lastFirebaseRenderedAtMs: parseOptionalTimestampMs(raw.lastFirebaseRenderedAtMs),
+      firstP2pRenderedAtMs: parseOptionalTimestampMs(raw.firstP2pRenderedAtMs),
+      lastP2pRenderedAtMs: parseOptionalTimestampMs(raw.lastP2pRenderedAtMs),
       longestGapMs: parseOptionalGapMs(raw.longestGapMs),
       visibleDurationMs: raw.visibleDurationMs == null ? 0 : raw.visibleDurationMs,
       backgroundDurationMs: raw.backgroundDurationMs == null ? 0 : raw.backgroundDurationMs,
@@ -532,6 +587,20 @@ export function mergeSubmitSections(existing = {}, incoming = {}) {
     lastFixAtMs: pickMax(existing.lastFixAtMs, incoming.lastFixAtMs),
     firstRenderedAtMs: pickMin(existing.firstRenderedAtMs, incoming.firstRenderedAtMs),
     lastRenderedAtMs: pickMax(existing.lastRenderedAtMs, incoming.lastRenderedAtMs),
+    firstFirebaseReceiveAtMs: pickMin(existing.firstFirebaseReceiveAtMs, incoming.firstFirebaseReceiveAtMs),
+    lastFirebaseReceiveAtMs: pickMax(existing.lastFirebaseReceiveAtMs, incoming.lastFirebaseReceiveAtMs),
+    firstP2pReceiveAtMs: pickMin(existing.firstP2pReceiveAtMs, incoming.firstP2pReceiveAtMs),
+    lastP2pReceiveAtMs: pickMax(existing.lastP2pReceiveAtMs, incoming.lastP2pReceiveAtMs),
+    firstFirebaseRenderedAtMs: pickMin(
+      existing.firstFirebaseRenderedAtMs,
+      incoming.firstFirebaseRenderedAtMs
+    ),
+    lastFirebaseRenderedAtMs: pickMax(
+      existing.lastFirebaseRenderedAtMs,
+      incoming.lastFirebaseRenderedAtMs
+    ),
+    firstP2pRenderedAtMs: pickMin(existing.firstP2pRenderedAtMs, incoming.firstP2pRenderedAtMs),
+    lastP2pRenderedAtMs: pickMax(existing.lastP2pRenderedAtMs, incoming.lastP2pRenderedAtMs),
     longestGapMs: pickMax(existing.longestGapMs, incoming.longestGapMs),
     visibleDurationMs: Math.max(existing.visibleDurationMs || 0, incoming.visibleDurationMs || 0),
     backgroundDurationMs: Math.max(

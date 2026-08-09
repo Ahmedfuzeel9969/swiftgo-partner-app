@@ -127,6 +127,14 @@ function ensureCustomerLocationReport() {
   });
   if (typeof window !== "undefined") {
     window.__SWIFTGO_LOCATION_REPORT_COUNTERS__ = () => customerLocationReport?.snapshotSection?.() || null;
+    window.addEventListener("online", () => {
+      void ensureCustomerLocationReport().retryPendingReports();
+    });
+    window.addEventListener("visibilitychange", () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void ensureCustomerLocationReport().retryPendingReports();
+      }
+    });
   }
   return customerLocationReport;
 }
@@ -495,7 +503,7 @@ function unbindRideView() {
 /** Sign-out / session teardown — zero listeners and heartbeats. */
 export function clearCustomerRideSession() {
   unbindRideView();
-  ensureCustomerLocationReport().clearBinding();
+  void ensureCustomerLocationReport().clearBinding({ flushFirst: true });
   presenceClient?.stop();
   if (activeRide?.id) clearDispatchSession(activeRide.id);
   clearSearchTimers();

@@ -12,6 +12,8 @@ const LOCATION_REPORTING_UPLOAD_MODES = Object.freeze([
   "disabled",
 ]);
 
+const LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED = Object.freeze(["ride_end", "disabled"]);
+
 const LOCATION_REPORTING_DEFAULTS = Object.freeze({
   enabled: true,
   uploadMode: "ride_end",
@@ -186,12 +188,29 @@ function requiresPeriodicInterval(uploadMode) {
   return uploadMode === "periodic_and_ride_end";
 }
 
+function isUploadModeImplemented(mode) {
+  return LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED.includes(mode);
+}
+
+function isReportingActive(config) {
+  const normalized = normalizeLocationReportingConfig(config);
+  return (
+    normalized.enabled === true &&
+    normalized.uploadMode !== "disabled" &&
+    isUploadModeImplemented(normalized.uploadMode)
+  );
+}
+
 function buildLocationReportingConfigSnapshot(config = {}) {
   const normalized = normalizeLocationReportingConfig(config);
   return {
     enabled: normalized.enabled,
     uploadMode: normalized.uploadMode,
     retentionDays: normalized.retentionDays,
+    collectDriverMetrics: normalized.collectDriverMetrics,
+    collectCustomerMetrics: normalized.collectCustomerMetrics,
+    collectFirebaseMetrics: normalized.collectFirebaseMetrics,
+    collectP2pMetrics: normalized.collectP2pMetrics,
   };
 }
 
@@ -201,6 +220,7 @@ function buildValidatedLocationReportingSettings(raw = {}) {
   }
   if (!validateEnabledForCallable(raw.enabled)) throw new Error("INVALID_ENABLED");
   if (!validateUploadModeForCallable(raw.uploadMode)) throw new Error("INVALID_UPLOAD_MODE");
+  if (!isUploadModeImplemented(raw.uploadMode)) throw new Error("INVALID_UPLOAD_MODE_NOT_IMPLEMENTED");
   if (!validateUploadOnAnomalyForCallable(raw.uploadOnAnomaly)) {
     throw new Error("INVALID_UPLOAD_ON_ANOMALY");
   }
@@ -250,6 +270,7 @@ function buildValidatedLocationReportingSettings(raw = {}) {
 module.exports = {
   LOCATION_REPORTING_SCHEMA_VERSION,
   LOCATION_REPORTING_UPLOAD_MODES,
+  LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED,
   LOCATION_REPORTING_DEFAULTS,
   LOCATION_REPORTING_BOUNDS,
   LOCATION_REPORTING_CONFIG_DOC_PATH,
@@ -263,6 +284,8 @@ module.exports = {
   validateCollectMetricsFlagForCallable,
   validateUploadOnAnomalyForCallable,
   requiresPeriodicInterval,
+  isUploadModeImplemented,
+  isReportingActive,
   buildLocationReportingConfigSnapshot,
   buildValidatedLocationReportingSettings,
 };

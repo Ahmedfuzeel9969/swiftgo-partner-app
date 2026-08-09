@@ -912,6 +912,8 @@ exports.saveAdminLocationReportingSettings = onCall({ region: "us-central1" }, a
       },
       { merge: true }
     );
+    const { invalidateLocationReportingConfigCache } = require("./location-reporting-config-cache");
+    invalidateLocationReportingConfigCache();
     return { ok: true, config };
   } catch (err) {
     const msg = String(err?.message || err || "");

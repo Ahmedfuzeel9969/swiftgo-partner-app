@@ -93,6 +93,14 @@ function createEmptyState(role) {
     lastFixAtMs: null,
     firstRenderedAtMs: null,
     lastRenderedAtMs: null,
+    firstFirebaseReceiveAtMs: null,
+    lastFirebaseReceiveAtMs: null,
+    firstP2pReceiveAtMs: null,
+    lastP2pReceiveAtMs: null,
+    firstFirebaseRenderedAtMs: null,
+    lastFirebaseRenderedAtMs: null,
+    firstP2pRenderedAtMs: null,
+    lastP2pRenderedAtMs: null,
     longestGapMs: null,
     lastEventAtMs: null,
     visibleDurationMs: 0,
@@ -207,6 +215,70 @@ export function createRideLocationLocalCounterStore(options) {
     return { ok: true, value: state.counters[counterKey] };
   }
 
+  function recordFirebaseReceiveAtMs(eventMs) {
+    if (role !== "customer" || !isBound()) return { ok: false, reason: "not_customer" };
+    if (typeof eventMs !== "number" || !Number.isFinite(eventMs) || eventMs <= 0) {
+      return { ok: false, reason: "invalid_event_ms" };
+    }
+    if (state.firstFirebaseReceiveAtMs == null || eventMs < state.firstFirebaseReceiveAtMs) {
+      state.firstFirebaseReceiveAtMs = eventMs;
+    }
+    if (state.lastFirebaseReceiveAtMs == null || eventMs > state.lastFirebaseReceiveAtMs) {
+      state.lastFirebaseReceiveAtMs = eventMs;
+    }
+    persist();
+    return { ok: true };
+  }
+
+  function recordP2pReceiveAtMs(eventMs) {
+    if (role !== "customer" || !isBound()) return { ok: false, reason: "not_customer" };
+    if (typeof eventMs !== "number" || !Number.isFinite(eventMs) || eventMs <= 0) {
+      return { ok: false, reason: "invalid_event_ms" };
+    }
+    if (state.firstP2pReceiveAtMs == null || eventMs < state.firstP2pReceiveAtMs) {
+      state.firstP2pReceiveAtMs = eventMs;
+    }
+    if (state.lastP2pReceiveAtMs == null || eventMs > state.lastP2pReceiveAtMs) {
+      state.lastP2pReceiveAtMs = eventMs;
+    }
+    persist();
+    return { ok: true };
+  }
+
+  function recordFirebaseRenderedAtMs(eventMs) {
+    if (role !== "customer" || !isBound()) return { ok: false, reason: "not_customer" };
+    if (typeof eventMs !== "number" || !Number.isFinite(eventMs) || eventMs <= 0) {
+      return { ok: false, reason: "invalid_event_ms" };
+    }
+    if (state.firstFirebaseRenderedAtMs == null || eventMs < state.firstFirebaseRenderedAtMs) {
+      state.firstFirebaseRenderedAtMs = eventMs;
+    }
+    if (state.lastFirebaseRenderedAtMs == null || eventMs > state.lastFirebaseRenderedAtMs) {
+      state.lastFirebaseRenderedAtMs = eventMs;
+    }
+    if (state.firstRenderedAtMs == null || eventMs < state.firstRenderedAtMs) state.firstRenderedAtMs = eventMs;
+    if (state.lastRenderedAtMs == null || eventMs > state.lastRenderedAtMs) state.lastRenderedAtMs = eventMs;
+    persist();
+    return { ok: true };
+  }
+
+  function recordP2pRenderedAtMs(eventMs) {
+    if (role !== "customer" || !isBound()) return { ok: false, reason: "not_customer" };
+    if (typeof eventMs !== "number" || !Number.isFinite(eventMs) || eventMs <= 0) {
+      return { ok: false, reason: "invalid_event_ms" };
+    }
+    if (state.firstP2pRenderedAtMs == null || eventMs < state.firstP2pRenderedAtMs) {
+      state.firstP2pRenderedAtMs = eventMs;
+    }
+    if (state.lastP2pRenderedAtMs == null || eventMs > state.lastP2pRenderedAtMs) {
+      state.lastP2pRenderedAtMs = eventMs;
+    }
+    if (state.firstRenderedAtMs == null || eventMs < state.firstRenderedAtMs) state.firstRenderedAtMs = eventMs;
+    if (state.lastRenderedAtMs == null || eventMs > state.lastRenderedAtMs) state.lastRenderedAtMs = eventMs;
+    persist();
+    return { ok: true };
+  }
+
   function recordEventAtMs(eventMs) {
     if (!isBound()) return { ok: false, reason: "not_bound" };
     if (typeof eventMs !== "number" || !Number.isFinite(eventMs) || eventMs <= 0) {
@@ -278,6 +350,14 @@ export function createRideLocationLocalCounterStore(options) {
       counters: { ...state.counters },
       firstRenderedAtMs: state.firstRenderedAtMs,
       lastRenderedAtMs: state.lastRenderedAtMs,
+      firstFirebaseReceiveAtMs: state.firstFirebaseReceiveAtMs,
+      lastFirebaseReceiveAtMs: state.lastFirebaseReceiveAtMs,
+      firstP2pReceiveAtMs: state.firstP2pReceiveAtMs,
+      lastP2pReceiveAtMs: state.lastP2pReceiveAtMs,
+      firstFirebaseRenderedAtMs: state.firstFirebaseRenderedAtMs,
+      lastFirebaseRenderedAtMs: state.lastFirebaseRenderedAtMs,
+      firstP2pRenderedAtMs: state.firstP2pRenderedAtMs,
+      lastP2pRenderedAtMs: state.lastP2pRenderedAtMs,
       longestGapMs: state.longestGapMs,
       visibleDurationMs: state.visibleDurationMs,
       backgroundDurationMs: state.backgroundDurationMs,
@@ -294,6 +374,11 @@ export function createRideLocationLocalCounterStore(options) {
         : validateCustomerSubmitSection(section);
     if (!validated.ok) return null;
     return cloneState(state);
+  }
+
+  function clearBindingOnly() {
+    state = createEmptyState(role);
+    return { ok: true };
   }
 
   function clear() {
@@ -331,6 +416,10 @@ export function createRideLocationLocalCounterStore(options) {
     isBound,
     incrementCounter,
     recordEventAtMs,
+    recordFirebaseReceiveAtMs,
+    recordP2pReceiveAtMs,
+    recordFirebaseRenderedAtMs,
+    recordP2pRenderedAtMs,
     addVisibleDurationMs,
     addBackgroundDurationMs,
     bumpSubmitSequence,
@@ -338,6 +427,7 @@ export function createRideLocationLocalCounterStore(options) {
     snapshotSection,
     snapshot,
     clear,
+    clearBindingOnly,
     setPersistenceEnabled,
     getBinding() {
       return isBound()

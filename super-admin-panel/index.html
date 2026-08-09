@@ -617,10 +617,13 @@
                 <span class="finance-field__label" id="locationReportingUploadModeLabel">اپ لوڈ موڈ / Upload mode</span>
                 <select id="locationReportingUploadMode" name="uploadMode" aria-labelledby="locationReportingUploadModeLabel">
                   <option value="ride_end">سواری ختم پر (ride_end)</option>
-                  <option value="periodic_and_ride_end">وقفے + سواری ختم (periodic_and_ride_end)</option>
-                  <option value="anomaly_and_ride_end">غیر معمول + سواری ختم (anomaly_and_ride_end)</option>
+                  <option value="periodic_and_ride_end" disabled>وقفے + سواری ختم — جلد (not implemented)</option>
+                  <option value="anomaly_and_ride_end" disabled>غیر معمول + سواری ختم — جلد (not implemented)</option>
                   <option value="disabled">بند (disabled)</option>
                 </select>
+                <p class="finance-field__hint" id="locationReportingModeHint">
+                  ride_end: terminal flush only. periodic/anomaly modes are disabled until implemented. expiresAt is a retention marker only — Firestore TTL not active.
+                </p>
               </label>
               <label class="finance-field" for="locationReportingPeriodicInterval" id="locationReportingPeriodicField">
                 <span class="finance-field__label" id="locationReportingPeriodicLabel">وقفہ (منٹ) / Periodic interval (minutes)</span>

@@ -21,6 +21,7 @@ import {
   LOCATION_REPORTING_DEFAULTS,
   LOCATION_REPORTING_BOUNDS,
   LOCATION_REPORTING_UPLOAD_MODES,
+  LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED,
   requiresPeriodicInterval,
 } from "./location-reporting-config.mjs";
 import {
@@ -2324,9 +2325,12 @@ function fillLocationReportingForm(config = {}) {
     els.locationReportingEnabled.checked = normalized.enabled === true;
   }
   if (els.locationReportingUploadMode) {
-    els.locationReportingUploadMode.value = LOCATION_REPORTING_UPLOAD_MODES.includes(normalized.uploadMode)
+    const mode = LOCATION_REPORTING_UPLOAD_MODES.includes(normalized.uploadMode)
       ? normalized.uploadMode
       : LOCATION_REPORTING_DEFAULTS.uploadMode;
+    els.locationReportingUploadMode.value = LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED.includes(mode)
+      ? mode
+      : "ride_end";
   }
   if (els.locationReportingPeriodicInterval) {
     els.locationReportingPeriodicInterval.value = String(normalized.periodicIntervalMinutes);
@@ -2359,6 +2363,9 @@ function readLocationReportingFormValues() {
   const uploadMode = String(els.locationReportingUploadMode?.value || "").trim();
   if (!LOCATION_REPORTING_UPLOAD_MODES.includes(uploadMode)) {
     throw new Error("اپ لوڈ موڈ درست نہیں۔");
+  }
+  if (!LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED.includes(uploadMode)) {
+    throw new Error("یہ اپ لوڈ موڈ ابھی لاگو نہیں — ride_end یا disabled منتخب کریں۔");
   }
   const retentionDays = Math.round(Number(els.locationReportingRetentionDays?.value));
   if (

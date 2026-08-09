@@ -43,7 +43,8 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     p2pAccepted: 0,
     firebaseAccepted: 0,
     staleRejected: 0,
-    sourceSwitches: 0,
+    sourceSwitchP2pToFirebase: 0,
+    sourceSwitchFirebaseToP2p: 0,
   };
 
   function bumpGeneration() {
@@ -80,7 +81,8 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     const prevSource = lastRendered?.source;
     lastRendered = fix;
     if (prevSource && prevSource !== fix.source) {
-      counters.sourceSwitches += 1;
+      if (fix.source === "p2p") counters.sourceSwitchFirebaseToP2p += 1;
+      else counters.sourceSwitchP2pToFirebase += 1;
       diag(fix.source === "p2p" ? P2P_DIAG.SOURCE_P2P : P2P_DIAG.SOURCE_FIREBASE);
     }
     onRender(fix, { reason, preferred, p2pHealthy, generation });

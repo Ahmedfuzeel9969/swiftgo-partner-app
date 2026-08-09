@@ -12,9 +12,15 @@ const {
   LOCATION_REPORTING_CONFIG_DOC_PATH,
   normalizeLocationReportingConfig,
   buildLocationReportingConfigSnapshot,
+  isReportingActive,
 } = require("./location-reporting-config.js");
 const {
+  getCachedLocationReportingConfig,
+  shouldAggregateServerMirror,
+} = require("./location-reporting-config-cache.js");
+const {
   RIDE_LOCATION_REPORT_SCHEMA_VERSION,
+  REPORT_RETENTION_POLICY,
   validateDriverSubmitSection,
   validateCustomerSubmitSection,
   validateSubmitSequenceForCallable,
@@ -25,9 +31,12 @@ const {
   computeDerivedMetrics,
   classifyReportHealth,
   computeLifecycleDurations,
+  computeReportCompleteness,
   createEmptyDriverSection,
   createEmptyServerSection,
   createEmptyCustomerSection,
+  DRIVER_COUNTER_KEYS,
+  CUSTOMER_COUNTER_KEYS,
 } = require("./ride-location-report-schema.js");
 
 const REPORT_COLLECTION = "rideLocationReports";
@@ -36,6 +45,15 @@ const REPORT_SUBMIT_ALLOWED_STATUSES = Object.freeze([
   "accepted",
   "arrived",
   "in_progress",
+  "completed",
+  "cancelled_by_customer",
+  "cancelled_by_admin",
+  "cancelled_by_user",
+  "expired",
+  "no_driver_found",
+]);
+
+const TERMINAL_RIDE_STATUSES = Object.freeze([
   "completed",
   "cancelled_by_customer",
   "cancelled_by_admin",
@@ -67,13 +85,17 @@ function timestampToMs(value) {
 }
 
 function lifecycleFromRide(ride = {}) {
+  const settledAtMs = timestampToMs(ride.settledAt);
+  const cancelledAtMs = timestampToMs(ride.cancelledAt) || timestampToMs(ride.cancelledAtMs);
+  const terminalAtMs = settledAtMs ?? cancelledAtMs;
   return computeLifecycleDurations({
     bookingCreatedAtMs: timestampToMs(ride.createdAt),
     matchedAtMs: timestampToMs(ride.matchedAt),
     assignedAtMs: timestampToMs(ride.assignedAt),
     driverArrivedAtMs: timestampToMs(ride.driverArrivedAt),
     tripStartedAtMs: timestampToMs(ride.tripStartedAt),
-    settledAtMs: timestampToMs(ride.settledAt),
+    settledAtMs,
+    terminalAtMs,
   });
 }
 
@@ -86,32 +108,51 @@ function hasClientSection(report, role) {
 }
 
 function hasServerSection(report) {
-  const attempts = report?.server?.counters?.mirrorAttempts || 0;
-  return attempts > 0;
+  return (report?.server?.counters?.mirrorAttempts || 0) > 0;
 }
 
 function computeCompleteness(report = {}) {
-  const driver = hasClientSection(report, "driver");
-  const customer = hasClientSection(report, "customer");
-  const server = hasServerSection(report);
-  if (driver && customer && server) return "complete";
-  if (driver && customer) return "partial_driver_only";
-  if (driver) return "partial_driver_only";
-  if (customer) return "partial_customer_only";
-  if (server) return "server_only";
-  return "missing";
+  return computeReportCompleteness(report);
 }
 
-function computeDocStatus(report = {}, rideStatus = "") {
-  const completeness = computeCompleteness(report);
-  const driverDone = hasClientSection(report, "driver");
-  const customerDone = hasClientSection(report, "customer");
-  const terminal = ["completed", "cancelled_by_customer", "cancelled_by_admin", "cancelled_by_user", "expired", "no_driver_found"].includes(
-    String(rideStatus || "")
-  );
-  if (driverDone && customerDone && terminal) return "final";
-  if (driverDone || customerDone || hasServerSection(report)) return "partial";
+function requiredSectionsAcknowledged(report = {}, config = {}) {
+  const normalized = normalizeLocationReportingConfig(config);
+  if (normalized.collectDriverMetrics !== false && !hasClientSection(report, "driver")) return false;
+  if (normalized.collectCustomerMetrics !== false && !hasClientSection(report, "customer")) {
+    return false;
+  }
+  if (normalized.collectFirebaseMetrics !== false && !hasServerSection(report)) return false;
+  return true;
+}
+
+function computeDocStatus(report = {}, rideStatus = "", config = {}) {
+  const terminal = TERMINAL_RIDE_STATUSES.includes(String(rideStatus || ""));
+  const requiredAck = requiredSectionsAcknowledged(report, config);
+  if (terminal && requiredAck) return "final";
+  if (hasClientSection(report, "driver") || hasClientSection(report, "customer") || hasServerSection(report)) {
+    return "partial";
+  }
   return "open";
+}
+
+function createEmptyLifecyclePlain() {
+  return {
+    bookingCreatedAtMs: null,
+    matchedAtMs: null,
+    assignedAtMs: null,
+    driverArrivedAtMs: null,
+    tripStartedAtMs: null,
+    settledAtMs: null,
+    terminalAtMs: null,
+    bookingToAssignmentMs: null,
+    assignedToArrivedMs: null,
+    arrivedToTripStartMs: null,
+    tripStartToTerminalMs: null,
+    assignedToTerminalMs: null,
+    driverApproachMs: null,
+    inProgressMs: null,
+    totalLifecycleMs: null,
+  };
 }
 
 function emptyReportDoc(rideId, tokenHash, configSnapshot) {
@@ -128,25 +169,11 @@ function emptyReportDoc(rideId, tokenHash, configSnapshot) {
     derived: computeDerivedMetrics({}),
     health: classifyReportHealth({}),
     configSnapshot,
+    retentionPolicy: REPORT_RETENTION_POLICY,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     finalizedAt: null,
     expiresAt: null,
-  };
-}
-
-function createEmptyLifecyclePlain() {
-  return {
-    bookingCreatedAtMs: null,
-    matchedAtMs: null,
-    assignedAtMs: null,
-    driverArrivedAtMs: null,
-    tripStartedAtMs: null,
-    settledAtMs: null,
-    bookingToAssignmentMs: null,
-    driverApproachMs: null,
-    inProgressMs: null,
-    totalLifecycleMs: null,
   };
 }
 
@@ -173,17 +200,41 @@ function mergeClientSection(existing = {}, incoming = {}, role) {
 }
 
 async function readReportingConfig(db) {
-  const snap = await db.doc(LOCATION_REPORTING_CONFIG_DOC_PATH).get();
-  return normalizeLocationReportingConfig(snap.exists ? snap.data() : {});
+  return getCachedLocationReportingConfig(db);
 }
 
 function assertRoleMetricsEnabled(config, role) {
+  if (!isReportingActive(config)) return;
   if (role === "driver" && config.collectDriverMetrics === false) {
     throw err("failed-precondition", "DRIVER_METRICS_DISABLED");
   }
   if (role === "customer" && config.collectCustomerMetrics === false) {
     throw err("failed-precondition", "CUSTOMER_METRICS_DISABLED");
   }
+}
+
+function filterSectionCountersForConfig(section, role, config) {
+  const normalized = normalizeLocationReportingConfig(config);
+  const counters = { ...(section?.counters || {}) };
+  if (role === "driver" && normalized.collectP2pMetrics === false) {
+    for (const key of DRIVER_COUNTER_KEYS) {
+      if (key.startsWith("p2p")) counters[key] = 0;
+    }
+  }
+  if (role === "customer") {
+    if (normalized.collectFirebaseMetrics === false) {
+      counters.firebaseSnapshotsReceived = 0;
+      counters.firebaseValidRendered = 0;
+      counters.sourceSwitchP2pToFirebase = 0;
+      counters.sourceSwitchFirebaseToP2p = 0;
+    }
+    if (normalized.collectP2pMetrics === false) {
+      for (const key of CUSTOMER_COUNTER_KEYS) {
+        if (key.startsWith("p2p") || key.startsWith("sourceSwitch")) counters[key] = 0;
+      }
+    }
+  }
+  return { ...section, counters };
 }
 
 function mapMirrorReasonToCounter(reason, mirrored) {
@@ -216,69 +267,92 @@ function mapMirrorReasonToCounter(reason, mirrored) {
 }
 
 /**
- * Record server mirror outcome into rideLocationReports (non-blocking for mirror path).
- * @param {import("firebase-admin/firestore").Firestore} db
- * @param {string} rideId
- * @param {{ mirrored?: boolean, reason?: string }} outcome
+ * Pure helper — apply one mirror outcome to an in-memory report document.
+ * @returns {object|null} patched report fields or null when skipped (disabled/stale token)
+ */
+function applyServerMirrorOutcomeToReport(report, outcome, ride, config) {
+  if (!shouldAggregateServerMirror(config)) return null;
+
+  const token = String(ride?.assignmentSessionToken || "").trim();
+  const tokenHash = hashAssignmentSessionTokenSync(token);
+  if (!tokenHash) return null;
+
+  const rideId = String(ride?.id || ride?.rideId || "").trim();
+  const base =
+    report && Object.keys(report).length > 0
+      ? { ...report }
+      : emptyReportDoc(rideId, tokenHash, buildLocationReportingConfigSnapshot(config));
+
+  if (base.assignmentSessionTokenHash && base.assignmentSessionTokenHash !== tokenHash) {
+    return null;
+  }
+
+  const counterKey = mapMirrorReasonToCounter(outcome.reason, outcome.mirrored === true);
+  const server = base.server || createEmptyServerSection();
+  const counters = { ...(server.counters || {}) };
+  counters.mirrorAttempts = (counters.mirrorAttempts || 0) + 1;
+  counters[counterKey] = (counters[counterKey] || 0) + 1;
+
+  const nowMs = Date.now();
+  if (counterKey === "mirrorAccepted") {
+    if (server.firstMirrorAtMs == null) server.firstMirrorAtMs = nowMs;
+    server.lastMirrorAtMs = nowMs;
+    if (server.lastEventAtMs != null && nowMs > server.lastEventAtMs) {
+      const gap = nowMs - server.lastEventAtMs;
+      server.longestGapMs = server.longestGapMs == null ? gap : Math.max(server.longestGapMs, gap);
+    }
+    server.lastEventAtMs = nowMs;
+  }
+
+  server.counters = counters;
+  base.server = server;
+  base.assignmentSessionTokenHash = tokenHash;
+  base.lifecycle = lifecycleFromRide(ride);
+  base.derived = computeDerivedMetrics(base);
+  base.health = classifyReportHealth({ ...base, derived: base.derived });
+  base.completeness = computeCompleteness(base);
+  base.status = computeDocStatus(base, ride.status, config);
+  base.configSnapshot = buildLocationReportingConfigSnapshot(config);
+  base.retentionPolicy = REPORT_RETENTION_POLICY;
+  base.updatedAt = FieldValue.serverTimestamp();
+
+  const retentionDays = config.retentionDays || 30;
+  if (!base.expiresAt) {
+    base.expiresAt = Timestamp.fromMillis(Date.now() + retentionDays * 24 * 60 * 60 * 1000);
+  }
+
+  if (base.status === "final" && !base.finalizedAt) {
+    base.finalizedAt = FieldValue.serverTimestamp();
+  }
+
+  return base;
+}
+
+/**
+ * Standalone mirror outcome recorder (tests / legacy). Prefer merged ride mirror txn.
  */
 async function recordServerMirrorOutcome(db, rideId, outcome = {}) {
   if (!rideId) return { ok: false, reason: "missing_ride_id" };
+  const config = await readReportingConfig(db);
+  if (!shouldAggregateServerMirror(config)) return { ok: true, skipped: true, reason: "REPORTING_DISABLED" };
+
   const rideRef = db.collection("rides").doc(rideId);
   const reportRef = db.collection(REPORT_COLLECTION).doc(rideId);
 
   try {
     await db.runTransaction(async (tx) => {
-      const rideSnap = await tx.get(rideRef);
+      const [rideSnap, reportSnap] = await Promise.all([tx.get(rideRef), tx.get(reportRef)]);
       if (!rideSnap.exists) return;
-      const ride = rideSnap.data() || {};
-      const token = String(ride.assignmentSessionToken || "").trim();
-      const tokenHash = hashAssignmentSessionTokenSync(token);
-      if (!tokenHash) return;
-
-      const reportSnap = await tx.get(reportRef);
-      const configSnapshot = buildLocationReportingConfigSnapshot({});
-      const report = reportSnap.exists
-        ? { ...reportSnap.data() }
-        : emptyReportDoc(rideId, tokenHash, configSnapshot);
-
-      if (report.assignmentSessionTokenHash && report.assignmentSessionTokenHash !== tokenHash) {
-        return;
-      }
-
-      const counterKey = mapMirrorReasonToCounter(outcome.reason, outcome.mirrored === true);
-      const server = report.server || createEmptyServerSection();
-      const counters = { ...(server.counters || {}) };
-      counters.mirrorAttempts = (counters.mirrorAttempts || 0) + 1;
-      counters[counterKey] = (counters[counterKey] || 0) + 1;
-
-      const nowMs = Date.now();
-      if (counterKey === "mirrorAccepted") {
-        if (server.firstMirrorAtMs == null) server.firstMirrorAtMs = nowMs;
-        server.lastMirrorAtMs = nowMs;
-        if (server.lastEventAtMs != null && nowMs > server.lastEventAtMs) {
-          const gap = nowMs - server.lastEventAtMs;
-          server.longestGapMs =
-            server.longestGapMs == null ? gap : Math.max(server.longestGapMs, gap);
-        }
-        server.lastEventAtMs = nowMs;
-      }
-
-      server.counters = counters;
-      report.server = server;
-      report.assignmentSessionTokenHash = tokenHash;
-      report.lifecycle = lifecycleFromRide(ride);
-      report.derived = computeDerivedMetrics(report);
-      report.health = classifyReportHealth({ ...report, derived: report.derived });
-      report.completeness = computeCompleteness(report);
-      report.status = computeDocStatus(report, ride.status);
-      report.updatedAt = FieldValue.serverTimestamp();
-
-      if (report.status === "final" && !report.finalizedAt) {
-        report.finalizedAt = FieldValue.serverTimestamp();
-      }
-
-      if (reportSnap.exists) tx.update(reportRef, report);
-      else tx.set(reportRef, report);
+      const ride = { ...(rideSnap.data() || {}), id: rideId };
+      const patched = applyServerMirrorOutcomeToReport(
+        reportSnap.exists ? reportSnap.data() : {},
+        outcome,
+        ride,
+        config
+      );
+      if (!patched) return;
+      if (reportSnap.exists) tx.update(reportRef, patched);
+      else tx.set(reportRef, patched);
     });
     return { ok: true };
   } catch (e) {
@@ -288,16 +362,6 @@ async function recordServerMirrorOutcome(db, rideId, outcome = {}) {
 
 /**
  * Trusted callable — driver or customer submits location report section.
- * @param {import("firebase-admin/firestore").Firestore} db
- * @param {{
- *   callerUid: string,
- *   rideId: string,
- *   role: "driver" | "customer",
- *   assignmentSessionTokenHash: string,
- *   section: object,
- *   submitSequence: number,
- *   finalSubmit?: boolean,
- * }} input
  */
 async function submitRideLocationReportSection(db, input) {
   const callerUid = String(input?.callerUid || "").trim();
@@ -319,17 +383,18 @@ async function submitRideLocationReportSection(db, input) {
   }
   const submitSequence = input.submitSequence;
 
-  const validated =
-    role === "driver"
-      ? validateDriverSubmitSection({ ...(input?.section || {}), submitSequence })
-      : validateCustomerSubmitSection({ ...(input?.section || {}), submitSequence });
-  if (!validated.ok) throw err("invalid-argument", String(validated.reason || "INVALID_SECTION").toUpperCase());
-
   const config = await readReportingConfig(db);
-  if (config.enabled === false || config.uploadMode === "disabled") {
+  if (!isReportingActive(config)) {
     return { ok: true, skipped: true, reason: "REPORTING_DISABLED" };
   }
   assertRoleMetricsEnabled(config, role);
+
+  const filteredSection = filterSectionCountersForConfig(input?.section || {}, role, config);
+  const validated =
+    role === "driver"
+      ? validateDriverSubmitSection({ ...filteredSection, submitSequence })
+      : validateCustomerSubmitSection({ ...filteredSection, submitSequence });
+  if (!validated.ok) throw err("invalid-argument", String(validated.reason || "INVALID_SECTION").toUpperCase());
 
   const rideRef = db.collection("rides").doc(rideId);
   const reportRef = db.collection(REPORT_COLLECTION).doc(rideId);
@@ -390,8 +455,9 @@ async function submitRideLocationReportSection(db, input) {
     report.derived = computeDerivedMetrics(report);
     report.health = classifyReportHealth({ ...report, derived: report.derived });
     report.completeness = computeCompleteness(report);
-    report.status = computeDocStatus(report, ride.status);
+    report.status = computeDocStatus(report, ride.status, config);
     report.configSnapshot = configSnapshot;
+    report.retentionPolicy = REPORT_RETENTION_POLICY;
     report.updatedAt = FieldValue.serverTimestamp();
 
     const retentionDays = config.retentionDays || 30;
@@ -399,11 +465,11 @@ async function submitRideLocationReportSection(db, input) {
       report.expiresAt = Timestamp.fromMillis(Date.now() + retentionDays * 24 * 60 * 60 * 1000);
     }
 
+    const terminal = TERMINAL_RIDE_STATUSES.includes(String(ride.status || ""));
     const shouldFinalize =
-      report.status === "final" ||
+      (terminal && requiredSectionsAcknowledged(report, config)) ||
       (input.finalSubmit === true &&
-        hasClientSection(report, "driver") &&
-        hasClientSection(report, "customer"));
+        requiredSectionsAcknowledged(report, config));
     if (shouldFinalize) {
       report.status = "final";
       if (!report.finalizedAt) report.finalizedAt = FieldValue.serverTimestamp();
@@ -430,11 +496,15 @@ async function submitRideLocationReportSection(db, input) {
 module.exports = {
   REPORT_COLLECTION,
   REPORT_SUBMIT_ALLOWED_STATUSES,
+  TERMINAL_RIDE_STATUSES,
   hashAssignmentSessionTokenSync,
   lifecycleFromRide,
   computeCompleteness,
   computeDocStatus,
+  requiredSectionsAcknowledged,
   mapMirrorReasonToCounter,
+  applyServerMirrorOutcomeToReport,
   recordServerMirrorOutcome,
   submitRideLocationReportSection,
+  filterSectionCountersForConfig,
 };

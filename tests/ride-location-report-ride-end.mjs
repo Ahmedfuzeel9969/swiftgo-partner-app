@@ -46,11 +46,10 @@ record(
   "unit-map-customer-runtime-counters",
   (() => {
     const mapped = mapCustomerRuntimeCounters(
-      { firebaseAccepted: 4, p2pAccepted: 2, fixesReceived: 3, staleRejected: 1, sourceSwitches: 1 },
-      { acceptedProjections: 5, backwardJitterRejects: 1 },
-      { snapshotEvents: 6 }
+      { firebaseAccepted: 4, p2pAccepted: 2, fixesReceived: 3, staleRejected: 1, sourceSwitchFirebaseToP2p: 1 },
+      { acceptedProjections: 5, backwardJitterRejects: 1 }
     );
-    return mapped.firebaseSnapshotsReceived === 10 && mapped.firebaseValidRendered === 5
+    return mapped.firebaseSnapshotsReceived === 4 && mapped.firebaseValidRendered === 5
       ? "PASS"
       : "FAIL";
   })()
@@ -88,8 +87,13 @@ record(
 );
 
 record(
-  "static-shared-client-module",
-  fs.existsSync(path.join(ROOT, "shared/js/ride-location-report-client.mjs")) ? "PASS" : "FAIL"
+  "static-pending-queue-module",
+  fs.existsSync(path.join(ROOT, "shared/js/ride-location-report-pending-queue.mjs")) ? "PASS" : "FAIL"
+);
+
+record(
+  "static-retry-on-startup-driver",
+  read("driver-app/js/driver-app.js").includes("retryPendingReports") ? "PASS" : "FAIL"
 );
 
 const timeoutClient = createRideLocationReportClient({

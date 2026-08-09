@@ -15,6 +15,7 @@ export const RIDE_LOCATION_REPORT_COLLECTION = "rideLocationReports";
 
 const COMPLETENESS_LABELS = Object.freeze({
   complete: "مکمل / Complete",
+  partial_both_clients: "جزوی · دونوں کلائنٹ (سرور نہیں)",
   partial_driver_only: "جزوی · صرف ڈرائیور",
   partial_customer_only: "جزوی · صرف کسٹمر",
   server_only: "صرف سرور",
@@ -38,6 +39,8 @@ const COUNTER_LABELS = Object.freeze({
   vehicleWritesFailed: "Vehicle writes failed",
   p2pFramesAttempted: "P2P frames attempted",
   p2pFramesSent: "P2P frames sent",
+  p2pFramesAcknowledged: "P2P frames acknowledged",
+  p2pFramesRejected: "P2P frames rejected",
   p2pHealthySessionCount: "P2P healthy sessions",
   p2pDegradedOrFallbackTransitions: "P2P degraded/fallback transitions",
   mirrorAttempts: "Mirror attempts",
@@ -83,7 +86,7 @@ export function computeReportCompleteness(report = {}) {
   const customer = hasClientSection(report, "customer");
   const server = hasServerSection(report);
   if (driver && customer && server) return "complete";
-  if (driver && customer) return "partial_driver_only";
+  if (driver && customer) return "partial_both_clients";
   if (driver) return "partial_driver_only";
   if (customer) return "partial_customer_only";
   if (server) return "server_only";

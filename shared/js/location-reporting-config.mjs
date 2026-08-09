@@ -13,6 +13,39 @@ export const LOCATION_REPORTING_UPLOAD_MODES = Object.freeze([
   "disabled",
 ]);
 
+/** Modes with full client/server implementation (Task 7A). Others are Admin-disabled. */
+export const LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED = Object.freeze(["ride_end", "disabled"]);
+
+/**
+ * Billing / Firestore behavior per upload mode (diagnostic reports only).
+ * - ride_end: client submit at terminal only (0–2 callables/ride); server mirror counters merged into ride mirror txn (0 extra txns).
+ * - periodic_and_ride_end: NOT IMPLEMENTED — treated as ride_end until Task 8+.
+ * - anomaly_and_ride_end: NOT IMPLEMENTED — treated as ride_end until Task 8+.
+ * - disabled: no rideLocationReports create/update; mirror aggregation skipped.
+ */
+export const LOCATION_REPORTING_MODE_BEHAVIOR = Object.freeze({
+  ride_end: {
+    clientUploads: "terminal_only",
+    serverMirrorAggregation: "merged_in_ride_mirror_txn",
+    extraReportTxnPerCheckpoint: 0,
+  },
+  periodic_and_ride_end: {
+    clientUploads: "not_implemented",
+    serverMirrorAggregation: "not_implemented",
+    extraReportTxnPerCheckpoint: 0,
+  },
+  anomaly_and_ride_end: {
+    clientUploads: "not_implemented",
+    serverMirrorAggregation: "not_implemented",
+    extraReportTxnPerCheckpoint: 0,
+  },
+  disabled: {
+    clientUploads: "none",
+    serverMirrorAggregation: "none",
+    extraReportTxnPerCheckpoint: 0,
+  },
+});
+
 export const LOCATION_REPORTING_DEFAULTS = Object.freeze({
   enabled: true,
   uploadMode: "ride_end",
@@ -194,6 +227,19 @@ export function requiresPeriodicInterval(uploadMode) {
   return uploadMode === "periodic_and_ride_end";
 }
 
+export function isUploadModeImplemented(mode) {
+  return LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED.includes(mode);
+}
+
+export function isReportingActive(config) {
+  const normalized = normalizeLocationReportingConfig(config);
+  return (
+    normalized.enabled === true &&
+    normalized.uploadMode !== "disabled" &&
+    isUploadModeImplemented(normalized.uploadMode)
+  );
+}
+
 /** Snapshot subset stored on rideLocationReports.configSnapshot. */
 export function buildLocationReportingConfigSnapshot(config = {}) {
   const normalized = normalizeLocationReportingConfig(config);
@@ -201,6 +247,10 @@ export function buildLocationReportingConfigSnapshot(config = {}) {
     enabled: normalized.enabled,
     uploadMode: normalized.uploadMode,
     retentionDays: normalized.retentionDays,
+    collectDriverMetrics: normalized.collectDriverMetrics,
+    collectCustomerMetrics: normalized.collectCustomerMetrics,
+    collectFirebaseMetrics: normalized.collectFirebaseMetrics,
+    collectP2pMetrics: normalized.collectP2pMetrics,
   };
 }
 
@@ -214,6 +264,7 @@ export function buildValidatedLocationReportingSettings(raw = {}) {
   }
   if (!validateEnabledForCallable(raw.enabled)) throw new Error("INVALID_ENABLED");
   if (!validateUploadModeForCallable(raw.uploadMode)) throw new Error("INVALID_UPLOAD_MODE");
+  if (!isUploadModeImplemented(raw.uploadMode)) throw new Error("INVALID_UPLOAD_MODE_NOT_IMPLEMENTED");
   if (!validateUploadOnAnomalyForCallable(raw.uploadOnAnomaly)) {
     throw new Error("INVALID_UPLOAD_ON_ANOMALY");
   }

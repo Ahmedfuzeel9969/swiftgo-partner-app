@@ -117,6 +117,28 @@ record(
 );
 
 record(
+  "unit-periodic-mode-not-implemented",
+  expectInvalid(
+    () =>
+      buildValidatedLocationReportingSettings({
+        enabled: true,
+        uploadMode: "periodic_and_ride_end",
+        periodicIntervalMinutes: 10,
+        uploadOnAnomaly: false,
+        finalUploadRequired: true,
+        collectDriverMetrics: true,
+        collectCustomerMetrics: true,
+        collectFirebaseMetrics: true,
+        collectP2pMetrics: true,
+        retentionDays: 30,
+      }),
+    "INVALID_UPLOAD_MODE_NOT_IMPLEMENTED"
+  )
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
   "unit-periodic-mode-requires-interval",
   expectInvalid(
     () =>
@@ -132,7 +154,7 @@ record(
         collectP2pMetrics: true,
         retentionDays: 30,
       }),
-    "INVALID_PERIODIC_INTERVAL"
+    "INVALID_UPLOAD_MODE_NOT_IMPLEMENTED"
   )
     ? "PASS"
     : "FAIL"
@@ -172,7 +194,7 @@ record(
     const cjs = require("../functions/location-reporting-config.js");
     const payload = {
       enabled: true,
-      uploadMode: "anomaly_and_ride_end",
+      uploadMode: "ride_end",
       periodicIntervalMinutes: 15,
       uploadOnAnomaly: true,
       finalUploadRequired: false,

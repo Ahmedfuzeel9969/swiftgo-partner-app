@@ -357,10 +357,12 @@ if (typeof window !== "undefined") {
       maybeFlushImmediateCheckpoint();
     }
     void breadcrumbCollector.onNetworkResume();
+    void driverLocationReport.retryPendingReports();
   });
   window.addEventListener("visibilitychange", () => {
     if (typeof document !== "undefined" && document.visibilityState === "visible") {
       void breadcrumbCollector.onAppResume();
+      void driverLocationReport.retryPendingReports();
     }
   });
 }
@@ -973,6 +975,7 @@ async function activateAuthenticatedDriver(user) {
   currentDriver = user;
   hideAccountBlockedOverlay();
   showAuthOverlay("ڈرائیور پروفائل لوڈ کیا جا رہا ہے...");
+  void driverLocationReport.retryPendingReports();
 
   try {
     const { db } = getFirebase();
@@ -3338,7 +3341,7 @@ async function finalizeSuccessfulRideCompletion(ride, settlementResult) {
   } catch {
     /* purge must not block settlement UI */
   }
-  driverLocationReport.clearBinding();
+  driverLocationReport.clearBinding({ flushFirst: false });
 
   activeExecutionRide = null;
   activeRideRecoveryPending = false;
@@ -3728,7 +3731,7 @@ async function cancelAssignedActiveRideByDriver() {
     });
     stopActiveRideWatch();
     detachCheckpointPresence("driver_cancelled");
-    driverLocationReport.clearBinding();
+    await driverLocationReport.clearBinding({ flushFirst: true });
     clearDriverActiveRoute();
     activeExecutionRide = null;
     clearActiveRideCache();
@@ -4139,6 +4142,7 @@ function boot() {
         clearActiveRideCache();
         void breadcrumbCollector.stop({ purge: true, flush: false, reason: "sign_out" });
         detachCheckpointPresence("sign_out");
+        void driverLocationReport.clearBinding({ flushFirst: true });
         earningsUi?.deactivate();
         dashboardUi?.deactivate();
         homeUi?.deactivate();
