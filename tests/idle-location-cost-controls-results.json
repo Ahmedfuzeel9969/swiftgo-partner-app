@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-09T08:20:47.311Z",
-  "commit": "742be889a4f6113d27b7468b55bc9ba03cd51aaa",
+  "generatedAt": "2026-08-09T09:10:42.446Z",
+  "commit": "530dd1936e16566df3dce4598efb3bcb8a40ed85",
   "suite": "idle-location-cost-controls",
   "categories": {
     "unit": {
@@ -10,20 +10,20 @@
       "blocked": 0
     },
     "static": {
-      "total": 18,
-      "pass": 18,
+      "total": 20,
+      "pass": 20,
       "fail": 0,
       "blocked": 0
     },
     "emulator": {
-      "total": 35,
-      "pass": 35,
+      "total": 38,
+      "pass": 38,
       "fail": 0,
       "blocked": 0
     }
   },
-  "total": 101,
-  "pass": 101,
+  "total": 106,
+  "pass": 106,
   "fail": 0,
   "blocked": 0,
   "results": [
@@ -424,6 +424,18 @@
       "category": "static"
     },
     {
+      "name": "server-no-claim-admin-promotion-on-dispatch-write",
+      "status": "PASS",
+      "detail": "",
+      "category": "static"
+    },
+    {
+      "name": "grant-admin-separate-from-super-admin",
+      "status": "PASS",
+      "detail": "",
+      "category": "static"
+    },
+    {
       "name": "admin-save-valid-60s-50m",
       "status": "PASS",
       "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":50,\"idleMovementTriggerDisabled\":null,\"idleDiagnosticExpiresAt\":null}",
@@ -556,7 +568,7 @@
       "category": "emulator"
     },
     {
-      "name": "claim-admin-denied-diagnostic-mode",
+      "name": "ordinary-admin-denied-diagnostic-first",
       "status": "PASS",
       "detail": "functions/permission-denied | SUPER_ADMIN_DIAGNOSTIC_ONLY",
       "category": "emulator"
@@ -568,9 +580,27 @@
       "category": "emulator"
     },
     {
-      "name": "claim-admin-can-save-normal-dispatch",
+      "name": "ordinary-admin-saves-normal-60s-50m",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":45000,\"idleLocationMoveMeters\":40,\"idleMovementTriggerDisabled\":null,\"idleDiagnosticExpiresAt\":null}",
+      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":50,\"idleMovementTriggerDisabled\":null,\"idleDiagnosticExpiresAt\":null}",
+      "category": "emulator"
+    },
+    {
+      "name": "ordinary-admin-role-remains-admin-after-normal-save",
+      "status": "PASS",
+      "detail": "{\"role\":\"admin\"}",
+      "category": "emulator"
+    },
+    {
+      "name": "ordinary-admin-still-denied-diagnostic-after-normal-save",
+      "status": "PASS",
+      "detail": "functions/permission-denied | SUPER_ADMIN_DIAGNOSTIC_ONLY",
+      "category": "emulator"
+    },
+    {
+      "name": "ordinary-admin-role-still-admin-after-diagnostic-retry",
+      "status": "PASS",
+      "detail": "{\"role\":\"admin\"}",
       "category": "emulator"
     },
     {
@@ -588,7 +618,7 @@
     {
       "name": "admin-enable-diagnostic-movement-disabled",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":null,\"idleMovementTriggerDisabled\":true,\"idleDiagnosticExpiresAt\":{\"_seconds\":1786264246,\"_nanoseconds\":993000000}}",
+      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":null,\"idleMovementTriggerDisabled\":true,\"idleDiagnosticExpiresAt\":{\"_seconds\":1786267242,\"_nanoseconds\":217000000}}",
       "category": "emulator"
     },
     {

@@ -40,6 +40,7 @@ const {
   bootstrapAdminClaim,
   initSuperAdminAccess,
   grantAdminClaim,
+  grantSuperAdminClaim,
   revokeAdminClaim,
   setAdminEmailBootstrap,
   isAdminAuth,
@@ -164,6 +165,14 @@ exports.initSuperAdminAccess = onCall({ region: "us-central1" }, async (request)
 exports.grantAdminClaim = onCall({ region: "us-central1" }, async (request) => {
   try {
     return await grantAdminClaim(db, request.auth, request.data?.uid);
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+exports.grantSuperAdminClaim = onCall({ region: "us-central1" }, async (request) => {
+  try {
+    return await grantSuperAdminClaim(db, request.auth, request.data?.uid);
   } catch (err) {
     throw mapErr(err);
   }

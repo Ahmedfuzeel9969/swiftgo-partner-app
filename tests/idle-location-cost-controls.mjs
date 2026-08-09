@@ -753,6 +753,23 @@ record(
     ? "PASS"
     : "FAIL"
 );
+record(
+  staticResults,
+  "server-no-claim-admin-promotion-on-dispatch-write",
+  read("functions/admin-claims.js").includes("Ordinary admin:true operators keep users/{uid}.role = admin") &&
+    !read("functions/admin-claims.js").match(/if \(isClaimAdmin\(auth\) \|\| isBootstrapEmailAuth\(auth\)\)/)
+    ? "PASS"
+    : "FAIL"
+);
+record(
+  staticResults,
+  "grant-admin-separate-from-super-admin",
+  read("functions/admin-claims.js").includes("grantSuperAdminClaim") &&
+    read("functions/admin-claims.js").includes('role: "admin"') &&
+    fnIndex.includes("grantSuperAdminClaim")
+    ? "PASS"
+    : "FAIL"
+);
 
 // ─── Emulator: Admin-save → Firestore → Driver-read ───
 
@@ -1056,6 +1073,7 @@ async function runEmulatorTests() {
   const preDenialSnap = await db.doc("settings/dispatch").get();
   const preDenialData = preDenialSnap.data() || {};
 
+  // Sequence: ordinary admin denied → saves normal 60s/50m → still denied → role stays admin.
   await expectCallableReject(
     claimAdmin.functions,
     "setCandidateDriverLimit",
@@ -1065,20 +1083,20 @@ async function runEmulatorTests() {
       idleDiagnosticDurationMinutes: 5,
       idleDiagnosticReason: "should-not-apply",
     },
-    "claim-admin-denied-diagnostic-mode",
+    "ordinary-admin-denied-diagnostic-first",
     { messageIncludes: "SUPER_ADMIN_DIAGNOSTIC_ONLY" }
   );
 
-  const afterDenialSnap = await db.doc("settings/dispatch").get();
-  const afterDenialData = afterDenialSnap.data() || {};
+  const afterFirstDenialSnap = await db.doc("settings/dispatch").get();
+  const afterFirstDenialData = afterFirstDenialSnap.data() || {};
   record(
     emulatorResults,
     "diagnostic-denial-no-partial-write",
-    afterDenialData.candidateDriverLimit === preDenialData.candidateDriverLimit &&
-      afterDenialData.idleLocationIntervalMs === preDenialData.idleLocationIntervalMs &&
-      afterDenialData.idleLocationMoveMeters === preDenialData.idleLocationMoveMeters &&
-      afterDenialData.idleMovementTriggerDisabled !== true &&
-      afterDenialData.idleDiagnosticReason !== "should-not-apply"
+    afterFirstDenialData.candidateDriverLimit === preDenialData.candidateDriverLimit &&
+      afterFirstDenialData.idleLocationIntervalMs === preDenialData.idleLocationIntervalMs &&
+      afterFirstDenialData.idleLocationMoveMeters === preDenialData.idleLocationMoveMeters &&
+      afterFirstDenialData.idleMovementTriggerDisabled !== true &&
+      afterFirstDenialData.idleDiagnosticReason !== "should-not-apply"
       ? "PASS"
       : "FAIL",
     JSON.stringify({
@@ -1088,26 +1106,55 @@ async function runEmulatorTests() {
         idleMovementTriggerDisabled: preDenialData.idleMovementTriggerDisabled,
       },
       after: {
-        candidateDriverLimit: afterDenialData.candidateDriverLimit,
-        idleLocationIntervalMs: afterDenialData.idleLocationIntervalMs,
-        idleMovementTriggerDisabled: afterDenialData.idleMovementTriggerDisabled,
-        idleDiagnosticReason: afterDenialData.idleDiagnosticReason,
+        candidateDriverLimit: afterFirstDenialData.candidateDriverLimit,
+        idleLocationIntervalMs: afterFirstDenialData.idleLocationIntervalMs,
+        idleMovementTriggerDisabled: afterFirstDenialData.idleMovementTriggerDisabled,
+        idleDiagnosticReason: afterFirstDenialData.idleDiagnosticReason,
       },
     })
   );
 
   const claimNormalRes = await callAs(claimAdmin.functions, "setCandidateDriverLimit", {
     candidateDriverLimit: 15,
-    idleLocationIntervalMs: 45_000,
-    idleLocationMoveMeters: 40,
+    idleLocationIntervalMs: 60_000,
+    idleLocationMoveMeters: 50,
   });
   record(
     emulatorResults,
-    "claim-admin-can-save-normal-dispatch",
-    claimNormalRes?.idleLocationIntervalMs === 45_000 && claimNormalRes?.idleLocationMoveMeters === 40
+    "ordinary-admin-saves-normal-60s-50m",
+    claimNormalRes?.idleLocationIntervalMs === 60_000 && claimNormalRes?.idleLocationMoveMeters === 50
       ? "PASS"
       : "FAIL",
     JSON.stringify(claimNormalRes)
+  );
+
+  const claimRoleSnap = await db.doc("users/idle-claim-admin").get();
+  record(
+    emulatorResults,
+    "ordinary-admin-role-remains-admin-after-normal-save",
+    claimRoleSnap.exists && claimRoleSnap.data()?.role === "admin" ? "PASS" : "FAIL",
+    JSON.stringify({ role: claimRoleSnap.data()?.role })
+  );
+
+  await expectCallableReject(
+    claimAdmin.functions,
+    "setCandidateDriverLimit",
+    {
+      candidateDriverLimit: 15,
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticDurationMinutes: 5,
+      idleDiagnosticReason: "still-denied",
+    },
+    "ordinary-admin-still-denied-diagnostic-after-normal-save",
+    { messageIncludes: "SUPER_ADMIN_DIAGNOSTIC_ONLY" }
+  );
+
+  const claimRoleAfterRetrySnap = await db.doc("users/idle-claim-admin").get();
+  record(
+    emulatorResults,
+    "ordinary-admin-role-still-admin-after-diagnostic-retry",
+    claimRoleAfterRetrySnap.exists && claimRoleAfterRetrySnap.data()?.role === "admin" ? "PASS" : "FAIL",
+    JSON.stringify({ role: claimRoleAfterRetrySnap.data()?.role })
   );
 
   await expectCallableReject(
