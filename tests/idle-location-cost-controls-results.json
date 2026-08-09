@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-09T04:23:59.089Z",
-  "commit": "f675782cd0e21a5b072f9e92355612a5ecf36298",
+  "generatedAt": "2026-08-09T04:40:32.484Z",
+  "commit": "5ff97f72a764714ebf7fcc9a1c12adfb5b3408e0",
   "suite": "idle-location-cost-controls",
   "categories": {
     "unit": {
