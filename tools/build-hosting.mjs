@@ -54,6 +54,9 @@ const SHARED_JS_MODULES = [
   "breadcrumb-schema.mjs",
   "vehicle-catalog.mjs",
   "idle-publish-config.mjs",
+  "location-reporting-config.mjs",
+  "ride-location-report-schema.mjs",
+  "ride-location-local-counter-store.mjs",
 ];
 
 function syncSharedJsInto(destJsDir) {
