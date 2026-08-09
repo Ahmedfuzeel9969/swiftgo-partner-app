@@ -1,63 +1,76 @@
 {
-  "generatedAt": "2026-08-09T20:27:15.305Z",
-  "pass": 24,
+  "generatedAt": "2026-08-09T20:49:17.406Z",
+  "pass": 33,
   "fail": 0,
   "billingEvidence": [
     {
       "cadenceSec": 4,
-      "checkpoints": 300,
-      "clientVehicleWrites": 300,
-      "before": {
-        "rideMirrorTxns": 300,
-        "separateReportTxns": 300,
-        "totalReportWrites": 300,
-        "terminalCallableWrites": 2
+      "acceptedCheckpoints": 300,
+      "before7A": {
+        "ridesReads": 300,
+        "ridesWrites": 300,
+        "reportReads": 300,
+        "reportWrites": 300,
+        "terminalReportWrites": 2
       },
-      "after": {
-        "mergedMirrorTxns": 300,
-        "separateReportTxns": 0,
-        "totalReportWrites": 300,
-        "terminalCallableWrites": 2
+      "after7A1": {
+        "ridesReads": 300,
+        "ridesWrites": 300,
+        "reportReads": 0,
+        "reportWrites": 0,
+        "terminalReportWrites": 2
       }
     },
     {
       "cadenceSec": 30,
-      "checkpoints": 40,
-      "clientVehicleWrites": 40,
-      "before": {
-        "rideMirrorTxns": 40,
-        "separateReportTxns": 40,
-        "totalReportWrites": 40,
-        "terminalCallableWrites": 2
+      "acceptedCheckpoints": 40,
+      "before7A": {
+        "ridesReads": 40,
+        "ridesWrites": 40,
+        "reportReads": 40,
+        "reportWrites": 40,
+        "terminalReportWrites": 2
       },
-      "after": {
-        "mergedMirrorTxns": 40,
-        "separateReportTxns": 0,
-        "totalReportWrites": 40,
-        "terminalCallableWrites": 2
+      "after7A1": {
+        "ridesReads": 40,
+        "ridesWrites": 40,
+        "reportReads": 0,
+        "reportWrites": 0,
+        "terminalReportWrites": 2
       }
     },
     {
       "cadenceSec": 60,
-      "checkpoints": 20,
-      "clientVehicleWrites": 20,
-      "before": {
-        "rideMirrorTxns": 20,
-        "separateReportTxns": 20,
-        "totalReportWrites": 20,
-        "terminalCallableWrites": 2
+      "acceptedCheckpoints": 20,
+      "before7A": {
+        "ridesReads": 20,
+        "ridesWrites": 20,
+        "reportReads": 20,
+        "reportWrites": 20,
+        "terminalReportWrites": 2
       },
-      "after": {
-        "mergedMirrorTxns": 20,
-        "separateReportTxns": 0,
-        "totalReportWrites": 20,
-        "terminalCallableWrites": 2
+      "after7A1": {
+        "ridesReads": 20,
+        "ridesWrites": 20,
+        "reportReads": 0,
+        "reportWrites": 0,
+        "terminalReportWrites": 2
       }
     }
   ],
   "results": [
     {
       "name": "unit-customer-no-firebase-double-count",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-mixed-source-p2p-not-counted-as-firebase-render",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-driver-no-invented-invalid-fixes-counter",
       "status": "PASS",
       "detail": ""
     },
@@ -117,37 +130,52 @@
       "detail": ""
     },
     {
-      "name": "unit-billing-4s-no-extra-report-txn",
+      "name": "unit-billing-4s-zero-checkpoint-report-doc-ops",
       "status": "PASS",
-      "detail": "checkpoints=300"
+      "detail": "accepted=300"
     },
     {
-      "name": "unit-billing-30s-no-extra-report-txn",
+      "name": "unit-billing-30s-zero-checkpoint-report-doc-ops",
       "status": "PASS",
-      "detail": "checkpoints=40"
+      "detail": "accepted=40"
     },
     {
-      "name": "unit-billing-60s-no-extra-report-txn",
+      "name": "unit-billing-60s-zero-checkpoint-report-doc-ops",
       "status": "PASS",
-      "detail": "checkpoints=20"
+      "detail": "accepted=20"
     },
     {
-      "name": "static-driver-location-no-recordServerMirrorOutcome-call",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "name": "static-merge-applyServerMirrorOutcomeToReport",
+      "name": "static-driver-location-no-report-collection",
       "status": "PASS",
       "detail": ""
     },
     {
-      "name": "emulator-single-txn-mirror-updates-report",
+      "name": "static-driver-location-uses-ride-aggregate",
       "status": "PASS",
       "detail": ""
     },
     {
-      "name": "emulator-disabled-skips-report-update",
+      "name": "unit-config-propagation-bounds-documented",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-accepted-checkpoint-doc-ops",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-skipped-checkpoint-no-ride-write",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-disabled-skips-ride-aggregate",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-final-submit-merges-ride-server-aggregate",
       "status": "PASS",
       "detail": ""
     },
@@ -173,6 +201,26 @@
     },
     {
       "name": "unit-config-mode-behavior-table",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-server-config-cache-respects-ttl-bound",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-client-config-cache-respects-ttl-bound",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-customer-startup-retry-drains-pending",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-idempotent-retry-safe",
       "status": "PASS",
       "detail": ""
     }

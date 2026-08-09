@@ -41,7 +41,6 @@ export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}) {
   return {
     gpsFixesReceived: rawGps,
     validFixesAccepted: Math.max(0, rawGps - rejected),
-    invalidFixesRejected: 0,
     duplicateOrOutOfOrderRejected: rejected,
     vehicleWritesAttempted: attempted,
     vehicleWritesAcknowledged: committed,
@@ -56,24 +55,20 @@ export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}) {
 }
 
 /**
- * @param {Record<string, unknown>} p2p
- * @param {Record<string, unknown>} display
+ * @param {Record<string, unknown>} arbiter Counters from live-location-source-arbiter (+ optional p2p session)
+ * @param {Record<string, unknown>} display display-location-pipeline counters (rejections only)
  */
-export function mapCustomerRuntimeCounters(p2p = {}, display = {}) {
-  const firebaseReceived = Number(p2p.firebaseAccepted) || 0;
-  const firebaseRendered = Number(display.acceptedProjections) || 0;
-  const p2pReceived = Number(p2p.fixesReceived) || Number(p2p.p2pAccepted) || 0;
-  const p2pRendered = Number(p2p.p2pAccepted) || 0;
+export function mapCustomerRuntimeCounters(arbiter = {}, display = {}) {
   return {
-    firebaseSnapshotsReceived: firebaseReceived,
-    firebaseValidRendered: firebaseRendered,
-    p2pFramesReceived: p2pReceived,
-    p2pValidRendered: p2pRendered,
-    staleRejected: Number(p2p.staleRejected) || 0,
+    firebaseSnapshotsReceived: Number(arbiter.firebaseAccepted) || 0,
+    firebaseValidRendered: Number(arbiter.firebaseRendered) || 0,
+    p2pFramesReceived: Number(arbiter.p2pAccepted) || 0,
+    p2pValidRendered: Number(arbiter.p2pRendered) || 0,
+    staleRejected: Number(arbiter.staleRejected) || 0,
     duplicateRejected: Number(display.backwardJitterRejects) || 0,
     rollbackRejected: Number(display.rejectedProjections) || 0,
-    sourceSwitchP2pToFirebase: Number(p2p.sourceSwitchP2pToFirebase) || 0,
-    sourceSwitchFirebaseToP2p: Number(p2p.sourceSwitchFirebaseToP2p) || 0,
+    sourceSwitchP2pToFirebase: Number(arbiter.sourceSwitchP2pToFirebase) || 0,
+    sourceSwitchFirebaseToP2p: Number(arbiter.sourceSwitchFirebaseToP2p) || 0,
   };
 }
 

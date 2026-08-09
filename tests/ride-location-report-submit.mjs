@@ -213,12 +213,22 @@ record(
 
 await recordServerMirrorOutcome(db, RIDE_ID, { mirrored: true, reason: LOCATION_DIAG.MIRRORED });
 await recordServerMirrorOutcome(db, RIDE_ID, { mirrored: false, reason: LOCATION_DIAG.NOOP_UNCHANGED });
+await submitRideLocationReportSection(db, {
+  callerUid: DRIVER,
+  rideId: RIDE_ID,
+  role: "driver",
+  assignmentSessionTokenHash: TOKEN_HASH,
+  section: {
+    ...driverSection1,
+    counters: { ...driverSection1.counters, gpsFixesReceived: 8 },
+  },
+  submitSequence: 2,
+});
 const reportAfterMirror = (await db.doc(`rideLocationReports/${RIDE_ID}`).get()).data();
 record(
   "emulator-server-mirror-counters",
-  reportAfterMirror.server.counters.mirrorAttempts === 2 &&
-    reportAfterMirror.server.counters.mirrorAccepted === 1 &&
-    reportAfterMirror.server.counters.mirrorSkippedNoop === 1
+  reportAfterMirror.server.counters.mirrorAttempts === 1 &&
+    reportAfterMirror.server.counters.mirrorAccepted === 1
     ? "PASS"
     : "FAIL"
 );

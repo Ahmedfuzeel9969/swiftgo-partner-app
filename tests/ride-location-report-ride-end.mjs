@@ -46,10 +46,12 @@ record(
   "unit-map-customer-runtime-counters",
   (() => {
     const mapped = mapCustomerRuntimeCounters(
-      { firebaseAccepted: 4, p2pAccepted: 2, fixesReceived: 3, staleRejected: 1, sourceSwitchFirebaseToP2p: 1 },
-      { acceptedProjections: 5, backwardJitterRejects: 1 }
+      { firebaseAccepted: 4, firebaseRendered: 3, p2pAccepted: 2, p2pRendered: 5, sourceSwitchFirebaseToP2p: 1 },
+      { backwardJitterRejects: 1 }
     );
-    return mapped.firebaseSnapshotsReceived === 4 && mapped.firebaseValidRendered === 5
+    return mapped.firebaseSnapshotsReceived === 4 &&
+      mapped.firebaseValidRendered === 3 &&
+      mapped.p2pValidRendered === 5
       ? "PASS"
       : "FAIL";
   })()
@@ -94,6 +96,11 @@ record(
 record(
   "static-retry-on-startup-driver",
   read("driver-app/js/driver-app.js").includes("retryPendingReports") ? "PASS" : "FAIL"
+);
+
+record(
+  "static-retry-on-startup-customer",
+  read("customer-app/js/ride-flow.js").includes("scheduleCustomerLocationReportStartupRetry") ? "PASS" : "FAIL"
 );
 
 const timeoutClient = createRideLocationReportClient({

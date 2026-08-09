@@ -52,7 +52,6 @@ const FORBIDDEN_REPORT_PAYLOAD_KEYS = Object.freeze([
 const DRIVER_COUNTER_KEYS = Object.freeze([
   "gpsFixesReceived",
   "validFixesAccepted",
-  "invalidFixesRejected",
   "duplicateOrOutOfOrderRejected",
   "vehicleWritesAttempted",
   "vehicleWritesAcknowledged",

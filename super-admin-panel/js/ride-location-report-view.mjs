@@ -32,7 +32,6 @@ const HEALTH_LABELS = Object.freeze({
 const COUNTER_LABELS = Object.freeze({
   gpsFixesReceived: "GPS fixes received",
   validFixesAccepted: "Valid fixes accepted",
-  invalidFixesRejected: "Invalid fixes rejected",
   duplicateOrOutOfOrderRejected: "Duplicate/out-of-order rejected",
   vehicleWritesAttempted: "Vehicle writes attempted",
   vehicleWritesAcknowledged: "Vehicle writes acknowledged",

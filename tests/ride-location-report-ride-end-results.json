@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-09T20:26:31.181Z",
-  "pass": 10,
+  "generatedAt": "2026-08-09T20:47:01.213Z",
+  "pass": 11,
   "fail": 0,
   "results": [
     {
@@ -40,6 +40,11 @@
     },
     {
       "name": "static-retry-on-startup-driver",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-retry-on-startup-customer",
       "status": "PASS",
       "detail": ""
     },

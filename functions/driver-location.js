@@ -8,12 +8,10 @@
 const { FieldValue } = require("firebase-admin/firestore");
 const { accumulateTraveledSegment } = require("./partial-fare");
 const {
-  applyServerMirrorOutcomeToReport,
-} = require("./ride-location-report");
-const {
   getCachedLocationReportingConfig,
   shouldAggregateServerMirror,
 } = require("./location-reporting-config-cache.js");
+const { buildAcceptedMirrorAggregatePatch } = require("./server-mirror-aggregate.js");
 const {
   LOCATION_DIAG,
   evaluateFixAgainstPrevious,
@@ -26,7 +24,6 @@ const {
 
 const ACTIVE_RIDE_STATUSES = Object.freeze(["accepted", "arrived", "in_progress"]);
 const FALLBACK_SPEED_KMH = 24;
-const REPORT_COLLECTION = "rideLocationReports";
 
 function haversineKm(a, b) {
   const R = 6371;
@@ -179,8 +176,8 @@ function buildDriverLocationPatch(vehicle, ride) {
 }
 
 /**
- * Shared transactional mirror. All reads precede any write.
- * Server mirror report counters are merged into this txn when reporting is enabled.
+ * Shared transactional mirror. Accepted mirrors may add compact server aggregate fields
+ * to the same rides/{rideId} write — never touches rideLocationReports.
  */
 async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts = {}) {
   if (!vehicleId) return { mirrored: false, reason: LOCATION_DIAG.INVALID };
@@ -194,7 +191,7 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
     opts.reportingConfig != null
       ? opts.reportingConfig
       : await getCachedLocationReportingConfig(db);
-  const aggregateReport = shouldAggregateServerMirror(reportingConfig);
+  const trackServerAggregate = shouldAggregateServerMirror(reportingConfig);
 
   const vehicleRef = db.collection("vehicles").doc(vehicleId);
   const runTx =
@@ -229,37 +226,17 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
         return { mirrored: false, reason: "vehicle_mismatch" };
       }
 
-      let reportSnap = null;
-      let reportRef = null;
-      if (aggregateReport) {
-        reportRef = db.collection(REPORT_COLLECTION).doc(rideId);
-        reportSnap = await tx.get(reportRef);
-      }
-
       const decision = buildDriverLocationPatch(vehicle, ride);
-      const mirrorOutcome = {
-        mirrored: !decision.skip,
-        reason: decision.reason,
-      };
-
-      if (!decision.skip) {
-        tx.update(rideRef, decision.patch);
+      if (decision.skip) {
+        return { mirrored: false, reason: decision.reason };
       }
 
-      if (aggregateReport && reportRef) {
-        const patched = applyServerMirrorOutcomeToReport(
-          reportSnap?.exists ? reportSnap.data() : {},
-          mirrorOutcome,
-          { ...ride, id: rideId },
-          reportingConfig
-        );
-        if (patched) {
-          if (reportSnap?.exists) tx.update(reportRef, patched);
-          else tx.set(reportRef, patched);
-        }
+      const patch = { ...decision.patch };
+      if (trackServerAggregate) {
+        Object.assign(patch, buildAcceptedMirrorAggregatePatch(ride, Date.now()));
       }
-
-      return { mirrored: !decision.skip, reason: decision.reason };
+      tx.update(rideRef, patch);
+      return { mirrored: true, reason: decision.reason };
     });
   } catch (err) {
     if (!opts.silent) {

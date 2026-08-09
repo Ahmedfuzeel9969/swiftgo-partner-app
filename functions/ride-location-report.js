@@ -19,6 +19,11 @@ const {
   shouldAggregateServerMirror,
 } = require("./location-reporting-config-cache.js");
 const {
+  buildAcceptedMirrorAggregatePatch,
+  serverSectionFromRideAggregate,
+  hasRideServerMirrorAggregate,
+} = require("./server-mirror-aggregate.js");
+const {
   RIDE_LOCATION_REPORT_SCHEMA_VERSION,
   REPORT_RETENTION_POLICY,
   validateDriverSubmitSection,
@@ -109,6 +114,22 @@ function hasClientSection(report, role) {
 
 function hasServerSection(report) {
   return (report?.server?.counters?.mirrorAttempts || 0) > 0;
+}
+
+function mergeServerSectionFromRide(report, ride, config) {
+  if (!shouldAggregateServerMirror(config)) return false;
+  const serverSection = serverSectionFromRideAggregate(ride);
+  if (!serverSection) return false;
+  report.server = serverSection;
+  return true;
+}
+
+function recomputeReportDerived(report, ride, config) {
+  report.lifecycle = lifecycleFromRide(ride);
+  report.derived = computeDerivedMetrics(report);
+  report.health = classifyReportHealth({ ...report, derived: report.derived });
+  report.completeness = computeCompleteness(report);
+  report.status = computeDocStatus(report, ride.status, config);
 }
 
 function computeCompleteness(report = {}) {
@@ -329,30 +350,22 @@ function applyServerMirrorOutcomeToReport(report, outcome, ride, config) {
 }
 
 /**
- * Standalone mirror outcome recorder (tests / legacy). Prefer merged ride mirror txn.
+ * Test/legacy helper — updates ride aggregate only (never rideLocationReports).
  */
 async function recordServerMirrorOutcome(db, rideId, outcome = {}) {
   if (!rideId) return { ok: false, reason: "missing_ride_id" };
+  if (outcome.mirrored !== true) return { ok: true, skipped: true, reason: "not_accepted" };
+
   const config = await readReportingConfig(db);
   if (!shouldAggregateServerMirror(config)) return { ok: true, skipped: true, reason: "REPORTING_DISABLED" };
 
   const rideRef = db.collection("rides").doc(rideId);
-  const reportRef = db.collection(REPORT_COLLECTION).doc(rideId);
-
   try {
     await db.runTransaction(async (tx) => {
-      const [rideSnap, reportSnap] = await Promise.all([tx.get(rideRef), tx.get(reportRef)]);
+      const rideSnap = await tx.get(rideRef);
       if (!rideSnap.exists) return;
-      const ride = { ...(rideSnap.data() || {}), id: rideId };
-      const patched = applyServerMirrorOutcomeToReport(
-        reportSnap.exists ? reportSnap.data() : {},
-        outcome,
-        ride,
-        config
-      );
-      if (!patched) return;
-      if (reportSnap.exists) tx.update(reportRef, patched);
-      else tx.set(reportRef, patched);
+      const ride = rideSnap.data() || {};
+      tx.update(rideRef, buildAcceptedMirrorAggregatePatch(ride, Date.now()));
     });
     return { ok: true };
   } catch (e) {
@@ -432,10 +445,20 @@ async function submitRideLocationReportSection(db, input) {
     );
     const lastAccepted = roleSection.lastAcceptedSequence || 0;
 
+    mergeServerSectionFromRide(report, ride, config);
+
     if (submitSequence < lastAccepted) {
       throw err("failed-precondition", "STALE_SUBMIT_SEQUENCE");
     }
     if (submitSequence === lastAccepted) {
+      recomputeReportDerived(report, ride, config);
+      report.configSnapshot = configSnapshot;
+      report.retentionPolicy = REPORT_RETENTION_POLICY;
+      report.updatedAt = FieldValue.serverTimestamp();
+      if (reportSnap.exists) tx.update(reportRef, report);
+      else if (hasClientSection(report, "driver") || hasClientSection(report, "customer") || hasServerSection(report)) {
+        tx.set(reportRef, report);
+      }
       return {
         ok: true,
         already: true,
@@ -451,11 +474,7 @@ async function submitRideLocationReportSection(db, input) {
     }
 
     report[roleKey] = mergeClientSection(roleSection, validated.section, role);
-    report.lifecycle = lifecycleFromRide(ride);
-    report.derived = computeDerivedMetrics(report);
-    report.health = classifyReportHealth({ ...report, derived: report.derived });
-    report.completeness = computeCompleteness(report);
-    report.status = computeDocStatus(report, ride.status, config);
+    recomputeReportDerived(report, ride, config);
     report.configSnapshot = configSnapshot;
     report.retentionPolicy = REPORT_RETENTION_POLICY;
     report.updatedAt = FieldValue.serverTimestamp();
@@ -504,7 +523,9 @@ module.exports = {
   requiredSectionsAcknowledged,
   mapMirrorReasonToCounter,
   applyServerMirrorOutcomeToReport,
+  mergeServerSectionFromRide,
   recordServerMirrorOutcome,
   submitRideLocationReportSection,
   filterSectionCountersForConfig,
+  hasRideServerMirrorAggregate,
 };

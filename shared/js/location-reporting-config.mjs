@@ -26,24 +26,34 @@ export const LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED = Object.freeze(["ride_
 export const LOCATION_REPORTING_MODE_BEHAVIOR = Object.freeze({
   ride_end: {
     clientUploads: "terminal_only",
-    serverMirrorAggregation: "merged_in_ride_mirror_txn",
-    extraReportTxnPerCheckpoint: 0,
+    serverMirrorAggregation: "rides_doc_aggregate_fields",
+    checkpointReportDocReads: 0,
+    checkpointReportDocWrites: 0,
   },
   periodic_and_ride_end: {
     clientUploads: "not_implemented",
     serverMirrorAggregation: "not_implemented",
-    extraReportTxnPerCheckpoint: 0,
+    checkpointReportDocReads: 0,
+    checkpointReportDocWrites: 0,
   },
   anomaly_and_ride_end: {
     clientUploads: "not_implemented",
     serverMirrorAggregation: "not_implemented",
-    extraReportTxnPerCheckpoint: 0,
+    checkpointReportDocReads: 0,
+    checkpointReportDocWrites: 0,
   },
   disabled: {
     clientUploads: "none",
     serverMirrorAggregation: "none",
-    extraReportTxnPerCheckpoint: 0,
+    checkpointReportDocReads: 0,
+    checkpointReportDocWrites: 0,
   },
+});
+
+/** Config propagation bounds (diagnostic reporting only). */
+export const LOCATION_REPORTING_CONFIG_PROPAGATION = Object.freeze({
+  serverCacheTtlMs: 60_000,
+  clientCacheTtlMs: 5 * 60_000,
 });
 
 export const LOCATION_REPORTING_DEFAULTS = Object.freeze({

@@ -630,6 +630,20 @@ export function initRideFlow(handlers = {}) {
   initRatingStars();
   ensureRideViewLifecycle();
   ensureCustomerLocationReport();
+  scheduleCustomerLocationReportStartupRetry();
+}
+
+function scheduleCustomerLocationReportStartupRetry() {
+  void (async () => {
+    for (let i = 0; i < 30; i += 1) {
+      const fb = getFirebase();
+      if (fb?.ready && fb?.functions) {
+        await ensureCustomerLocationReport().retryPendingReports();
+        return;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 100));
+    }
+  })();
 }
 
 function clearSearchTimers() {

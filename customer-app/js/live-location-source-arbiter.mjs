@@ -42,6 +42,8 @@ export function createLiveLocationSourceArbiter(opts = {}) {
   const counters = {
     p2pAccepted: 0,
     firebaseAccepted: 0,
+    firebaseRendered: 0,
+    p2pRendered: 0,
     staleRejected: 0,
     sourceSwitchP2pToFirebase: 0,
     sourceSwitchFirebaseToP2p: 0,
@@ -86,6 +88,8 @@ export function createLiveLocationSourceArbiter(opts = {}) {
       diag(fix.source === "p2p" ? P2P_DIAG.SOURCE_P2P : P2P_DIAG.SOURCE_FIREBASE);
     }
     onRender(fix, { reason, preferred, p2pHealthy, generation });
+    if (fix.source === "p2p") counters.p2pRendered += 1;
+    else counters.firebaseRendered += 1;
     return true;
   }
 

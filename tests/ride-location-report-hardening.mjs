@@ -28,7 +28,14 @@ import {
   isReportingActive,
   isUploadModeImplemented,
   LOCATION_REPORTING_MODE_BEHAVIOR,
+  LOCATION_REPORTING_CONFIG_PROPAGATION,
 } from "../shared/js/location-reporting-config.mjs";
+import { createLiveLocationSourceArbiter } from "../customer-app/js/live-location-source-arbiter.mjs";
+import {
+  LOCATION_REPORTING_CLIENT_CACHE_TTL_MS,
+  readCachedLocationReportingConfig,
+  writeCachedLocationReportingConfig,
+} from "../shared/js/location-reporting-config-cache.mjs";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -44,39 +51,89 @@ function hashToken(token) {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
-function billingOpsPerRide(checkpointCadenceSec, rideMinutes = 20) {
-  const checkpoints = Math.floor((rideMinutes * 60) / checkpointCadenceSec);
-  const clientVehicleWrites = checkpoints;
-  const mergedMirrorTxns = checkpoints;
-  const separateReportTxnsBefore = checkpoints;
-  const separateReportTxnsAfter = 0;
-  const terminalCallableWrites = 2;
+function billingDocOpsPerRide(checkpointCadenceSec, rideMinutes = 20) {
+  const acceptedCheckpoints = Math.floor((rideMinutes * 60) / checkpointCadenceSec);
   return {
-    checkpoints,
-    clientVehicleWrites,
-    before: {
-      rideMirrorTxns: checkpoints,
-      separateReportTxns: separateReportTxnsBefore,
-      totalReportWrites: checkpoints,
-      terminalCallableWrites,
+    cadenceSec: checkpointCadenceSec,
+    acceptedCheckpoints,
+    before7A: {
+      ridesReads: acceptedCheckpoints,
+      ridesWrites: acceptedCheckpoints,
+      reportReads: acceptedCheckpoints,
+      reportWrites: acceptedCheckpoints,
+      terminalReportWrites: 2,
     },
-    after: {
-      mergedMirrorTxns,
-      separateReportTxns: separateReportTxnsAfter,
-      totalReportWrites: checkpoints,
-      terminalCallableWrites,
+    after7A1: {
+      ridesReads: acceptedCheckpoints,
+      ridesWrites: acceptedCheckpoints,
+      reportReads: 0,
+      reportWrites: 0,
+      terminalReportWrites: 2,
     },
   };
+}
+
+function createInstrumentedTransaction(db) {
+  const ops = { reads: [], writes: [] };
+  const runTransaction = async (fn) =>
+    db.runTransaction(async (tx) => {
+      const instrumented = {
+        get: async (ref) => {
+          ops.reads.push(ref.path);
+          return tx.get(ref);
+        },
+        update: (ref, data) => {
+          ops.writes.push(ref.path);
+          return tx.update(ref, data);
+        },
+        set: (ref, data, options) => {
+          ops.writes.push(ref.path);
+          return tx.set(ref, data, options);
+        },
+      };
+      return fn(instrumented);
+    });
+  return { runTransaction, ops };
+}
+
+function pathCounts(paths) {
+  const counts = { rides: 0, reports: 0, other: 0 };
+  for (const p of paths) {
+    if (p.startsWith("rides/")) counts.rides += 1;
+    else if (p.startsWith("rideLocationReports/")) counts.reports += 1;
+    else counts.other += 1;
+  }
+  return counts;
 }
 
 // ─── Unit: metrics ───
 
 record(
   "unit-customer-no-firebase-double-count",
-  mapCustomerRuntimeCounters({ firebaseAccepted: 4, p2pAccepted: 2 }, { acceptedProjections: 5 })
-    .firebaseSnapshotsReceived === 4
+  mapCustomerRuntimeCounters({ firebaseAccepted: 4, firebaseRendered: 3, p2pAccepted: 2, p2pRendered: 1 }, {})
+    .firebaseSnapshotsReceived === 4 && mapCustomerRuntimeCounters({ firebaseAccepted: 4, firebaseRendered: 3 }, {}).firebaseValidRendered === 3
     ? "PASS"
     : "FAIL"
+);
+
+record(
+  "unit-mixed-source-p2p-not-counted-as-firebase-render",
+  (() => {
+    const arbiter = createLiveLocationSourceArbiter();
+    const gen = arbiter.getGeneration();
+    arbiter.ingestP2p({ lat: 24.86, lng: 67.0, observedAt: 1000 }, gen);
+    arbiter.ingestP2p({ lat: 24.861, lng: 67.001, observedAt: 2000 }, gen);
+    arbiter.ingestFirebase({ lat: 24.862, lng: 67.002, observedAt: 3000 }, gen);
+    const mapped = mapCustomerRuntimeCounters(arbiter.getCounters(), {});
+    return mapped.p2pValidRendered === 2 && mapped.firebaseValidRendered === 1 && mapped.firebaseValidRendered !== mapped.p2pValidRendered
+      ? "PASS"
+      : "FAIL";
+  })()
+);
+
+record(
+  "unit-driver-no-invented-invalid-fixes-counter",
+  !("invalidFixesRejected" in mapDriverRuntimeCounters({ rawGpsFixes: 5 }, {})) ? "PASS" : "FAIL"
 );
 
 record(
@@ -214,27 +271,35 @@ record(
   readPendingQueue(timeoutStorage).some((row) => row.rideId === "ride_hard_timeout") ? "PASS" : "FAIL"
 );
 
-// ─── Unit: billing contract table ───
+// ─── Unit: billing document ops table ───
 
 for (const cadence of [4, 30, 60]) {
-  const ops = billingOpsPerRide(cadence);
+  const ops = billingDocOpsPerRide(cadence);
   record(
-    `unit-billing-${cadence}s-no-extra-report-txn`,
-    ops.after.separateReportTxns === 0 && ops.before.separateReportTxns === ops.checkpoints ? "PASS" : "FAIL",
-    `checkpoints=${ops.checkpoints}`
+    `unit-billing-${cadence}s-zero-checkpoint-report-doc-ops`,
+    ops.after7A1.reportReads === 0 && ops.after7A1.reportWrites === 0 ? "PASS" : "FAIL",
+    `accepted=${ops.acceptedCheckpoints}`
   );
 }
 
 record(
-  "static-driver-location-no-recordServerMirrorOutcome-call",
-  !fs.readFileSync(path.join(ROOT, "functions/driver-location.js"), "utf8").includes("recordServerMirrorOutcome")
+  "static-driver-location-no-report-collection",
+  !fs.readFileSync(path.join(ROOT, "functions/driver-location.js"), "utf8").includes('collection("rideLocationReports")')
     ? "PASS"
     : "FAIL"
 );
 
 record(
-  "static-merge-applyServerMirrorOutcomeToReport",
-  fs.readFileSync(path.join(ROOT, "functions/driver-location.js"), "utf8").includes("applyServerMirrorOutcomeToReport")
+  "static-driver-location-uses-ride-aggregate",
+  fs.readFileSync(path.join(ROOT, "functions/driver-location.js"), "utf8").includes("buildAcceptedMirrorAggregatePatch")
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  "unit-config-propagation-bounds-documented",
+  LOCATION_REPORTING_CONFIG_PROPAGATION.serverCacheTtlMs === 60_000 &&
+    LOCATION_REPORTING_CONFIG_PROPAGATION.clientCacheTtlMs === LOCATION_REPORTING_CLIENT_CACHE_TTL_MS
     ? "PASS"
     : "FAIL"
 );
@@ -290,26 +355,27 @@ await db.doc(`rides/${RIDE_MERGE}`).set({
   createdAt: admin.firestore.Timestamp.now(),
   pickupLocation: { lat: 24.86, lng: 67.0 },
   dropoffLocation: { lat: 24.87, lng: 67.01 },
-  driverLocation: { lat: 24.861, lng: 67.001, sequence: 2, sessionId: "ts_merge_new", observedAt: 2000 },
+  driverLocation: { lat: 24.86, lng: 67.0, sequence: 1, sessionId: "ts_merge_new", observedAt: 10_000 },
   driverTrackingSessionId: "ts_merge_new",
+  driverTrackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
 });
 
 await db.doc("vehicles/veh_merge_7a").set({
   activeRideId: RIDE_MERGE,
   trackingSessionId: "ts_merge_new",
-  trackingSessionStartedAt: admin.firestore.Timestamp.now(),
+  trackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
   location: {
-    lat: 24.861,
-    lng: 67.001,
+    lat: 24.86001,
+    lng: 67.00001,
     sequence: 2,
     sessionId: "ts_merge_new",
-    observedAt: 2000,
+    observedAt: 20_000,
   },
   locationUpdatedAt: admin.firestore.Timestamp.now(),
 });
 
-let txnWriteCount = 0;
 const vehicleSnap = (await db.doc("vehicles/veh_merge_7a").get()).data();
+const acceptedInstrument = createInstrumentedTransaction(db);
 await mirrorRideLocationTransactional(db, "veh_merge_7a", vehicleSnap, {
   reportingConfig: {
     enabled: true,
@@ -317,35 +383,98 @@ await mirrorRideLocationTransactional(db, "veh_merge_7a", vehicleSnap, {
     collectFirebaseMetrics: true,
     retentionDays: 30,
   },
-  runTransaction: async (fn) => {
-    txnWriteCount += 1;
-    return db.runTransaction(fn);
-  },
+  runTransaction: acceptedInstrument.runTransaction,
 });
-
-const mergeReport = (await db.doc(`rideLocationReports/${RIDE_MERGE}`).get()).data();
+const acceptedReads = pathCounts(acceptedInstrument.ops.reads);
+const acceptedWrites = pathCounts(acceptedInstrument.ops.writes);
+const rideAfterAccepted = (await db.doc(`rides/${RIDE_MERGE}`).get()).data();
+const reportAfterAccepted = await db.doc(`rideLocationReports/${RIDE_MERGE}`).get();
 record(
-  "emulator-single-txn-mirror-updates-report",
-  txnWriteCount === 1 &&
-    mergeReport?.server?.counters?.mirrorAttempts === 1 &&
-    mergeReport?.retentionPolicy === "expiry_marker_pending_ttl"
+  "emulator-accepted-checkpoint-doc-ops",
+  acceptedReads.rides === 1 &&
+    acceptedWrites.rides === 1 &&
+    acceptedReads.reports === 0 &&
+    acceptedWrites.reports === 0 &&
+    Number(rideAfterAccepted?.serverMirrorAccepted) === 1 &&
+    !reportAfterAccepted.exists
     ? "PASS"
     : "FAIL"
 );
 
+const noopInstrument = createInstrumentedTransaction(db);
+await mirrorRideLocationTransactional(db, "veh_merge_7a", vehicleSnap, {
+  reportingConfig: {
+    enabled: true,
+    uploadMode: "ride_end",
+    collectFirebaseMetrics: true,
+    retentionDays: 30,
+  },
+  runTransaction: noopInstrument.runTransaction,
+});
+const noopWrites = pathCounts(noopInstrument.ops.writes);
+record(
+  "emulator-skipped-checkpoint-no-ride-write",
+  noopWrites.rides === 0 && noopWrites.reports === 0 ? "PASS" : "FAIL"
+);
+
 await db.doc("settings/locationReporting").set({ enabled: false, uploadMode: "disabled" });
 invalidateLocationReportingConfigCache();
-const beforeDisabled = (await db.doc(`rideLocationReports/${RIDE_MERGE}`).get()).data()?.server?.counters
-  ?.mirrorAttempts;
-await mirrorRideLocationTransactional(db, "veh_merge_7a", vehicleSnap, {});
-const afterDisabledSnap = await db.doc(`rideLocationReports/${RIDE_MERGE}`).get();
+const rideBeforeDisabled = (await db.doc(`rides/${RIDE_MERGE}`).get()).data();
+await db.doc("vehicles/veh_merge_7a").update({
+  location: {
+    lat: 24.86002,
+    lng: 67.00002,
+    sequence: 3,
+    sessionId: "ts_merge_new",
+    observedAt: 30_000,
+  },
+});
+const vehicleSnap3 = (await db.doc("vehicles/veh_merge_7a").get()).data();
+await mirrorRideLocationTransactional(db, "veh_merge_7a", vehicleSnap3, {});
+const rideAfterDisabled = (await db.doc(`rides/${RIDE_MERGE}`).get()).data();
 record(
-  "emulator-disabled-skips-report-update",
-  afterDisabledSnap.data()?.server?.counters?.mirrorAttempts === beforeDisabled ? "PASS" : "FAIL"
+  "emulator-disabled-skips-ride-aggregate",
+  Number(rideAfterDisabled?.serverMirrorAccepted) === Number(rideBeforeDisabled?.serverMirrorAccepted) ? "PASS" : "FAIL"
 );
 
 await db.doc("settings/locationReporting").set({ enabled: true, uploadMode: "ride_end", collectFirebaseMetrics: true });
 invalidateLocationReportingConfigCache();
+
+const RIDE_FINAL = "ride_loc_rpt_final_7a1";
+await db.doc(`rides/${RIDE_FINAL}`).set({
+  userId: CUSTOMER,
+  driverId: DRIVER,
+  status: "completed",
+  assignmentSessionToken: TOKEN_MERGE,
+  assignedAt: admin.firestore.Timestamp.now(),
+  settledAt: admin.firestore.Timestamp.now(),
+  serverMirrorAccepted: 5,
+  firstServerMirrorAt: 1_000,
+  lastServerMirrorAt: 9_000,
+  maximumMirrorGapMs: 2_000,
+});
+const finalDriverRes = await submitRideLocationReportSection(db, {
+  callerUid: DRIVER,
+  rideId: RIDE_FINAL,
+  role: "driver",
+  assignmentSessionTokenHash: HASH_MERGE,
+  section: {
+    counters: { ...createEmptyDriverCounters(), gpsFixesReceived: 4 },
+    firstFixAtMs: 1000,
+    lastFixAtMs: 8000,
+  },
+  submitSequence: 1,
+  finalSubmit: true,
+});
+const finalReport = (await db.doc(`rideLocationReports/${RIDE_FINAL}`).get()).data();
+record(
+  "emulator-final-submit-merges-ride-server-aggregate",
+  finalDriverRes.ok &&
+    finalReport?.server?.counters?.mirrorAccepted === 5 &&
+    finalReport?.server?.longestGapMs === 2_000
+    ? "PASS"
+    : "FAIL"
+);
 
 // Cancelled ride submit
 await db.doc(`rides/${RIDE_CANCEL}`).set({
@@ -446,19 +575,90 @@ record(
 
 record(
   "unit-config-mode-behavior-table",
-  LOCATION_REPORTING_MODE_BEHAVIOR.ride_end.extraReportTxnPerCheckpoint === 0 &&
-    LOCATION_REPORTING_MODE_BEHAVIOR.disabled.extraReportTxnPerCheckpoint === 0
+  LOCATION_REPORTING_MODE_BEHAVIOR.ride_end.checkpointReportDocWrites === 0 &&
+    LOCATION_REPORTING_MODE_BEHAVIOR.disabled.checkpointReportDocWrites === 0
     ? "PASS"
     : "FAIL"
+);
+
+const { getCachedLocationReportingConfig, CACHE_TTL_MS } = require("../functions/location-reporting-config-cache.js");
+await db.doc("settings/locationReporting").set({ enabled: true, uploadMode: "ride_end", collectFirebaseMetrics: true });
+invalidateLocationReportingConfigCache();
+const enabledCfg = await getCachedLocationReportingConfig(db);
+await db.doc("settings/locationReporting").set({ enabled: false, uploadMode: "disabled" });
+const stillEnabledCached = await getCachedLocationReportingConfig(db);
+invalidateLocationReportingConfigCache();
+const disabledCfg = await getCachedLocationReportingConfig(db);
+record(
+  "emulator-server-config-cache-respects-ttl-bound",
+  enabledCfg.enabled === true &&
+    stillEnabledCached.enabled === true &&
+    disabledCfg.enabled === false &&
+    CACHE_TTL_MS === 60_000
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  "unit-client-config-cache-respects-ttl-bound",
+  (() => {
+    const mem = createMemoryStorageAdapter();
+    const t0 = 1_000_000;
+    writeCachedLocationReportingConfig({ enabled: false, uploadMode: "disabled" }, mem, t0);
+    const within = readCachedLocationReportingConfig(mem, t0 + LOCATION_REPORTING_CLIENT_CACHE_TTL_MS - 1);
+    const after = readCachedLocationReportingConfig(mem, t0 + LOCATION_REPORTING_CLIENT_CACHE_TTL_MS + 1);
+    return within.enabled === false && after.enabled === true ? "PASS" : "FAIL";
+  })()
+);
+
+const startupStorage = createMemoryStorageAdapter();
+enqueuePendingReport(startupStorage, {
+  rideId: "ride_startup_retry",
+  role: "customer",
+  assignmentSessionTokenHash: HASH_MERGE,
+  section: { submitSequence: 1, counters: { firebaseSnapshotsReceived: 1 } },
+  finalSubmit: true,
+});
+let startupSubmitCalls = 0;
+const startupClient = createRideLocationReportClient({
+  role: "customer",
+  storage: startupStorage,
+  getFirebase: () => ({ ready: true, db: {}, functions: {} }),
+  callSubmit: async () => {
+    startupSubmitCalls += 1;
+    return { ok: true };
+  },
+});
+await startupClient.retryPendingReports();
+record(
+  "unit-customer-startup-retry-drains-pending",
+  startupSubmitCalls === 1 && readPendingQueue(startupStorage).length === 0 ? "PASS" : "FAIL"
+);
+
+const idemStorage = createMemoryStorageAdapter();
+let idemCalls = 0;
+const idemClient = createRideLocationReportClient({
+  role: "driver",
+  storage: idemStorage,
+  getFirebase: () => ({ ready: true, functions: {} }),
+  callSubmit: async () => {
+    idemCalls += 1;
+    return { ok: true, already: idemCalls > 1 };
+  },
+});
+await idemClient.bindForRide({ rideId: "ride_idem_retry", assignmentSessionToken: "as_idem_token_xx" });
+idemClient.noteGpsFix(Date.now());
+await idemClient.flushFinal({ timeoutMs: 500 });
+await idemClient.retryPendingReports();
+record(
+  "unit-idempotent-retry-safe",
+  idemCalls >= 1 ? "PASS" : "FAIL"
 );
 
 const failCount = results.filter((r) => r.status === "FAIL").length;
 const passCount = results.filter((r) => r.status === "PASS").length;
 
-const billingEvidence = [4, 30, 60].map((cadence) => ({
-  cadenceSec: cadence,
-  ...billingOpsPerRide(cadence),
-}));
+const billingEvidence = [4, 30, 60].map((cadence) => billingDocOpsPerRide(cadence));
 
 fs.writeFileSync(
   OUT,
