@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-09T05:53:23.236Z",
-  "commit": "a7d5cbc563f56108c80ab666ee66419e815eeaf5",
+  "generatedAt": "2026-08-09T06:07:03.934Z",
+  "commit": "ed2856c44a3e8961f349d00af765f33ec90dfd1a",
   "suite": "idle-location-cost-controls",
   "categories": {
     "unit": {
@@ -480,7 +480,7 @@
     {
       "name": "admin-enable-diagnostic-movement-disabled",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":null,\"idleMovementTriggerDisabled\":true,\"idleDiagnosticExpiresAt\":{\"_seconds\":1786255403,\"_nanoseconds\":84000000}}",
+      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":null,\"idleMovementTriggerDisabled\":true,\"idleDiagnosticExpiresAt\":{\"_seconds\":1786256223,\"_nanoseconds\":748000000}}",
       "category": "emulator"
     },
     {
