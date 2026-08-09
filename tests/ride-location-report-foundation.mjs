@@ -13,6 +13,7 @@ import {
   getSafeLocationReportingConfig,
   validateRetentionDaysForCallable,
   validateUploadModeForCallable,
+  buildValidatedLocationReportingSettings,
 } from "../shared/js/location-reporting-config.mjs";
 import {
   averageIntervalMs,
@@ -99,6 +100,29 @@ record(
     !validateUploadModeForCallable("bogus")
     ? "PASS"
     : "FAIL"
+);
+
+record(
+  "config-callable-build-validated-settings",
+  (() => {
+    try {
+      const cfg = buildValidatedLocationReportingSettings({
+        enabled: true,
+        uploadMode: "ride_end",
+        periodicIntervalMinutes: 10,
+        uploadOnAnomaly: false,
+        finalUploadRequired: true,
+        collectDriverMetrics: true,
+        collectCustomerMetrics: true,
+        collectFirebaseMetrics: true,
+        collectP2pMetrics: true,
+        retentionDays: 30,
+      });
+      return cfg.uploadMode === "ride_end" ? "PASS" : "FAIL";
+    } catch {
+      return "FAIL";
+    }
+  })()
 );
 
 record(

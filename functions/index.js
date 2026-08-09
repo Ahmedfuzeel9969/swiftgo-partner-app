@@ -888,6 +888,41 @@ exports.saveAdminPricingSettings = onCall({ region: "us-central1" }, async (requ
   }
 });
 
+/** Super Admin: persist location reporting config (settings/locationReporting). Diagnostic only. */
+exports.saveAdminLocationReportingSettings = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("permission-denied", "ADMIN_ONLY");
+  }
+  if (!(await isCallerAuthorizedForDiagnostic(db, request.auth))) {
+    throw new HttpsError("permission-denied", "SUPER_ADMIN_REPORTING_CONFIG_ONLY");
+  }
+  try {
+    const {
+      LOCATION_REPORTING_SCHEMA_VERSION,
+      LOCATION_REPORTING_CONFIG_DOC_PATH,
+      buildValidatedLocationReportingSettings,
+    } = require("./location-reporting-config");
+    const config = buildValidatedLocationReportingSettings(request.data || {});
+    await db.doc(LOCATION_REPORTING_CONFIG_DOC_PATH).set(
+      {
+        schemaVersion: LOCATION_REPORTING_SCHEMA_VERSION,
+        ...config,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: request.auth.uid,
+      },
+      { merge: true }
+    );
+    return { ok: true, config };
+  } catch (err) {
+    const msg = String(err?.message || err || "");
+    if (msg.startsWith("INVALID_")) {
+      throw new HttpsError("invalid-argument", msg);
+    }
+    console.error("[saveAdminLocationReportingSettings]", err?.code || err?.message || err);
+    throw mapErr(err);
+  }
+});
+
 exports.getDispatchSettings = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   return readDispatchSettings(db);

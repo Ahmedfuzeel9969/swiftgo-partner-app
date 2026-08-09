@@ -195,6 +195,58 @@ function buildLocationReportingConfigSnapshot(config = {}) {
   };
 }
 
+function buildValidatedLocationReportingSettings(raw = {}) {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("INVALID_PAYLOAD");
+  }
+  if (!validateEnabledForCallable(raw.enabled)) throw new Error("INVALID_ENABLED");
+  if (!validateUploadModeForCallable(raw.uploadMode)) throw new Error("INVALID_UPLOAD_MODE");
+  if (!validateUploadOnAnomalyForCallable(raw.uploadOnAnomaly)) {
+    throw new Error("INVALID_UPLOAD_ON_ANOMALY");
+  }
+  if (!validateFinalUploadRequiredForCallable(raw.finalUploadRequired)) {
+    throw new Error("INVALID_FINAL_UPLOAD_REQUIRED");
+  }
+  if (!validateCollectMetricsFlagForCallable(raw.collectDriverMetrics)) {
+    throw new Error("INVALID_COLLECT_DRIVER_METRICS");
+  }
+  if (!validateCollectMetricsFlagForCallable(raw.collectCustomerMetrics)) {
+    throw new Error("INVALID_COLLECT_CUSTOMER_METRICS");
+  }
+  if (!validateCollectMetricsFlagForCallable(raw.collectFirebaseMetrics)) {
+    throw new Error("INVALID_COLLECT_FIREBASE_METRICS");
+  }
+  if (!validateCollectMetricsFlagForCallable(raw.collectP2pMetrics)) {
+    throw new Error("INVALID_COLLECT_P2P_METRICS");
+  }
+  if (!validateRetentionDaysForCallable(raw.retentionDays)) throw new Error("INVALID_RETENTION_DAYS");
+
+  if (requiresPeriodicInterval(raw.uploadMode)) {
+    if (!validatePeriodicIntervalMinutesForCallable(raw.periodicIntervalMinutes)) {
+      throw new Error("INVALID_PERIODIC_INTERVAL");
+    }
+  } else if (
+    raw.periodicIntervalMinutes != null &&
+    !validatePeriodicIntervalMinutesForCallable(raw.periodicIntervalMinutes)
+  ) {
+    throw new Error("INVALID_PERIODIC_INTERVAL");
+  }
+
+  return normalizeLocationReportingConfig({
+    enabled: raw.enabled,
+    uploadMode: raw.uploadMode,
+    periodicIntervalMinutes:
+      raw.periodicIntervalMinutes ?? LOCATION_REPORTING_DEFAULTS.periodicIntervalMinutes,
+    uploadOnAnomaly: raw.uploadOnAnomaly,
+    finalUploadRequired: raw.finalUploadRequired,
+    collectDriverMetrics: raw.collectDriverMetrics,
+    collectCustomerMetrics: raw.collectCustomerMetrics,
+    collectFirebaseMetrics: raw.collectFirebaseMetrics,
+    collectP2pMetrics: raw.collectP2pMetrics,
+    retentionDays: raw.retentionDays,
+  });
+}
+
 module.exports = {
   LOCATION_REPORTING_SCHEMA_VERSION,
   LOCATION_REPORTING_UPLOAD_MODES,
@@ -212,4 +264,5 @@ module.exports = {
   validateUploadOnAnomalyForCallable,
   requiresPeriodicInterval,
   buildLocationReportingConfigSnapshot,
+  buildValidatedLocationReportingSettings,
 };

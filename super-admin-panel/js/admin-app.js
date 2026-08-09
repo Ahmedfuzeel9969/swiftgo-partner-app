@@ -16,6 +16,13 @@ import {
   IDLE_PUBLISH_DEFAULTS,
   IDLE_PUBLISH_PRESETS,
 } from "./idle-publish-config.mjs";
+import {
+  normalizeLocationReportingConfig,
+  LOCATION_REPORTING_DEFAULTS,
+  LOCATION_REPORTING_BOUNDS,
+  LOCATION_REPORTING_UPLOAD_MODES,
+  requiresPeriodicInterval,
+} from "./location-reporting-config.mjs";
 import { firebaseConfig } from "./firebase-config.js";
 import { getFirebase, isFirebaseConfigured } from "./firebase.js?v=dispatch_dynamic_1";
 import {
@@ -51,6 +58,7 @@ import {
   ensureFreshAuthUser,
   initSuperAdminAccess,
   saveAdminDispatchSettings,
+  saveAdminLocationReportingSettings,
   saveAdminPricingSettings as saveAdminPricingSettingsClient,
 } from "./admin-settings-client.js?v=dispatch_dynamic_1";
 import {
@@ -175,6 +183,21 @@ const els = {
   dispatchRadiusPreview: document.getElementById("dispatchRadiusPreview"),
   dispatchSaveBtn: document.getElementById("dispatchSaveBtn"),
   dispatchStatusNote: document.getElementById("dispatchStatusNote"),
+  locationReportingForm: document.getElementById("locationReportingSettingsForm"),
+  locationReportingEnabled: document.getElementById("locationReportingEnabled"),
+  locationReportingUploadMode: document.getElementById("locationReportingUploadMode"),
+  locationReportingPeriodicField: document.getElementById("locationReportingPeriodicField"),
+  locationReportingPeriodicInterval: document.getElementById("locationReportingPeriodicInterval"),
+  locationReportingUploadOnAnomaly: document.getElementById("locationReportingUploadOnAnomaly"),
+  locationReportingFinalRequired: document.getElementById("locationReportingFinalRequired"),
+  locationReportingCollectDriver: document.getElementById("locationReportingCollectDriver"),
+  locationReportingCollectCustomer: document.getElementById("locationReportingCollectCustomer"),
+  locationReportingCollectFirebase: document.getElementById("locationReportingCollectFirebase"),
+  locationReportingCollectP2p: document.getElementById("locationReportingCollectP2p"),
+  locationReportingRetentionDays: document.getElementById("locationReportingRetentionDays"),
+  locationReportingSaveBtn: document.getElementById("locationReportingSaveBtn"),
+  locationReportingSuccessMessage: document.getElementById("locationReportingSuccessMessage"),
+  locationReportingStatusNote: document.getElementById("locationReportingStatusNote"),
   promoCodeForm: document.getElementById("promoCodeForm"),
   promoCodeInput: document.getElementById("promoCodeInput"),
   promoTypeInput: document.getElementById("promoTypeInput"),
@@ -543,7 +566,7 @@ async function persistPricingSettings(values) {
 function updateFinanceWriteUi() {
   // Save buttons stay clickable — errors show on submit. Avoid disabled+wait cursor (Windows spinning circle on hover).
   const blocked = adminCanWriteSettings === false;
-  for (const btn of [els.pricingSaveBtn, els.dispatchSaveBtn]) {
+  for (const btn of [els.pricingSaveBtn, els.dispatchSaveBtn, els.locationReportingSaveBtn]) {
     if (!btn || btn.classList.contains("is-saving")) continue;
     btn.disabled = false;
     btn.classList.toggle("finance-save-btn--blocked", blocked);
@@ -641,6 +664,7 @@ function setActiveView(viewKey) {
   if (key === "finance") {
     loadPricingSettings();
     loadDispatchSettings();
+    loadLocationReportingSettings();
     fetchAndRenderPromoCodes();
   }
 
@@ -2163,6 +2187,213 @@ async function saveDispatchSettings(event) {
   }
 }
 
+let locationReportingSuccessTimer = 0;
+
+function hideLocationReportingSuccess() {
+  window.clearTimeout(locationReportingSuccessTimer);
+  if (els.locationReportingSuccessMessage) els.locationReportingSuccessMessage.hidden = true;
+}
+
+function showLocationReportingSuccess() {
+  hideLocationReportingSuccess();
+  if (!els.locationReportingSuccessMessage) return;
+  els.locationReportingSuccessMessage.hidden = false;
+  locationReportingSuccessTimer = window.setTimeout(() => {
+    if (els.locationReportingSuccessMessage) els.locationReportingSuccessMessage.hidden = true;
+  }, 3000);
+}
+
+function updateLocationReportingFieldVisibility() {
+  const mode = String(els.locationReportingUploadMode?.value || "ride_end");
+  const showPeriodic = requiresPeriodicInterval(mode);
+  if (els.locationReportingPeriodicField) {
+    els.locationReportingPeriodicField.hidden = !showPeriodic;
+  }
+  if (mode === "disabled" && els.locationReportingEnabled) {
+    els.locationReportingEnabled.checked = false;
+    els.locationReportingEnabled.disabled = true;
+  } else if (els.locationReportingEnabled) {
+    els.locationReportingEnabled.disabled = false;
+  }
+}
+
+function fillLocationReportingForm(config = {}) {
+  const normalized = normalizeLocationReportingConfig(config);
+  if (els.locationReportingEnabled) {
+    els.locationReportingEnabled.checked = normalized.enabled === true;
+  }
+  if (els.locationReportingUploadMode) {
+    els.locationReportingUploadMode.value = LOCATION_REPORTING_UPLOAD_MODES.includes(normalized.uploadMode)
+      ? normalized.uploadMode
+      : LOCATION_REPORTING_DEFAULTS.uploadMode;
+  }
+  if (els.locationReportingPeriodicInterval) {
+    els.locationReportingPeriodicInterval.value = String(normalized.periodicIntervalMinutes);
+  }
+  if (els.locationReportingUploadOnAnomaly) {
+    els.locationReportingUploadOnAnomaly.checked = normalized.uploadOnAnomaly === true;
+  }
+  if (els.locationReportingFinalRequired) {
+    els.locationReportingFinalRequired.checked = normalized.finalUploadRequired === true;
+  }
+  if (els.locationReportingCollectDriver) {
+    els.locationReportingCollectDriver.checked = normalized.collectDriverMetrics === true;
+  }
+  if (els.locationReportingCollectCustomer) {
+    els.locationReportingCollectCustomer.checked = normalized.collectCustomerMetrics === true;
+  }
+  if (els.locationReportingCollectFirebase) {
+    els.locationReportingCollectFirebase.checked = normalized.collectFirebaseMetrics === true;
+  }
+  if (els.locationReportingCollectP2p) {
+    els.locationReportingCollectP2p.checked = normalized.collectP2pMetrics === true;
+  }
+  if (els.locationReportingRetentionDays) {
+    els.locationReportingRetentionDays.value = String(normalized.retentionDays);
+  }
+  updateLocationReportingFieldVisibility();
+}
+
+function readLocationReportingFormValues() {
+  const uploadMode = String(els.locationReportingUploadMode?.value || "").trim();
+  if (!LOCATION_REPORTING_UPLOAD_MODES.includes(uploadMode)) {
+    throw new Error("اپ لوڈ موڈ درست نہیں۔");
+  }
+  const retentionDays = Math.round(Number(els.locationReportingRetentionDays?.value));
+  if (
+    !Number.isInteger(retentionDays) ||
+    retentionDays < LOCATION_REPORTING_BOUNDS.retentionDaysMin ||
+    retentionDays > LOCATION_REPORTING_BOUNDS.retentionDaysMax
+  ) {
+    throw new Error(
+      `Retention ${LOCATION_REPORTING_BOUNDS.retentionDaysMin}–${LOCATION_REPORTING_BOUNDS.retentionDaysMax} دن کے درمیان ہونی چاہیے۔`
+    );
+  }
+  let periodicIntervalMinutes = Math.round(Number(els.locationReportingPeriodicInterval?.value));
+  if (requiresPeriodicInterval(uploadMode)) {
+    if (
+      !Number.isInteger(periodicIntervalMinutes) ||
+      periodicIntervalMinutes < LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMin ||
+      periodicIntervalMinutes > LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMax
+    ) {
+      throw new Error(
+        `وقفہ ${LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMin}–${LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMax} منٹ کے درمیان ہونا چاہیے۔`
+      );
+    }
+  } else {
+    periodicIntervalMinutes = LOCATION_REPORTING_DEFAULTS.periodicIntervalMinutes;
+  }
+
+  const enabled =
+    uploadMode === "disabled" ? false : Boolean(els.locationReportingEnabled?.checked);
+
+  return {
+    enabled,
+    uploadMode,
+    periodicIntervalMinutes,
+    uploadOnAnomaly: Boolean(els.locationReportingUploadOnAnomaly?.checked),
+    finalUploadRequired: Boolean(els.locationReportingFinalRequired?.checked),
+    collectDriverMetrics: Boolean(els.locationReportingCollectDriver?.checked),
+    collectCustomerMetrics: Boolean(els.locationReportingCollectCustomer?.checked),
+    collectFirebaseMetrics: Boolean(els.locationReportingCollectFirebase?.checked),
+    collectP2pMetrics: Boolean(els.locationReportingCollectP2p?.checked),
+    retentionDays,
+  };
+}
+
+async function loadLocationReportingSettings() {
+  const { db } = getFirebase();
+  if (!db) {
+    fillLocationReportingForm(LOCATION_REPORTING_DEFAULTS);
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent = "Firestore is not configured.";
+    }
+    return;
+  }
+
+  if (els.locationReportingStatusNote) {
+    els.locationReportingStatusNote.textContent = "لوکیشن رپورٹنگ سیٹنگز لوڈ ہو رہی ہیں…";
+  }
+
+  try {
+    const snapshot = await getDoc(doc(db, "settings", "locationReporting"));
+    const data = snapshot.exists() ? snapshot.data() : null;
+    fillLocationReportingForm(data || {});
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent = snapshot.exists()
+        ? `موجودہ: ${els.locationReportingUploadMode?.value || "ride_end"} · retention ${els.locationReportingRetentionDays?.value || 30}d · settings/locationReporting`
+        : "Defaults loaded — document not found yet.";
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] loadLocationReportingSettings", error);
+    fillLocationReportingForm(LOCATION_REPORTING_DEFAULTS);
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent =
+        error?.code === "permission-denied"
+          ? "Permission denied reading settings/locationReporting."
+          : `Could not load location reporting: ${error?.message || "unknown error"}`;
+    }
+  }
+}
+
+async function saveLocationReportingSettings(event) {
+  event.preventDefault();
+  hideLocationReportingSuccess();
+
+  const liveUser = getFirebase().auth?.currentUser || currentAdminUser;
+  if (!liveUser) {
+    const msg = "براہ کرم دوبارہ لاگ اِن کریں — سیشن / ٹوکن کی تجدید درکار ہے";
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+    return;
+  }
+
+  try {
+    const ready = await prepareAdminSaveForWrite(liveUser);
+    if (!ready && !isAuthorizedAdmin(getFirebase().auth?.currentUser || currentAdminUser)) {
+      const msg = "آپ کے اکاؤنٹ کے پاس سوپر ایڈمن کے حقوق نہیں ہیں";
+      if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+      showAdminToast(msg);
+      return;
+    }
+  } catch (error) {
+    const msg = adminSaveErrorMessage(error);
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+    return;
+  }
+
+  let payload;
+  try {
+    payload = readLocationReportingFormValues();
+  } catch (error) {
+    const msg = String(error?.message || "Invalid form");
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+    return;
+  }
+
+  setFinanceSaveBusy(els.locationReportingSaveBtn, true);
+  if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = "محفوظ ہو رہا ہے…";
+
+  try {
+    await ensureFreshAuthUser();
+    await saveAdminLocationReportingSettings(payload);
+    fillLocationReportingForm(payload);
+    showLocationReportingSuccess();
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent = `محفوظ: ${payload.uploadMode} · retention ${payload.retentionDays}d · settings/locationReporting`;
+    }
+  } catch (error) {
+    const msg = adminSaveErrorMessage(error);
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+  } finally {
+    setFinanceSaveBusy(els.locationReportingSaveBtn, false);
+    updateFinanceWriteUi();
+  }
+}
+
 async function loadPricingSettings() {
   const { db } = getFirebase();
   if (!db) {
@@ -2480,6 +2711,7 @@ function startLiveData() {
     .catch(() => {});
   loadPricingSettings().catch(() => {});
   loadDispatchSettings().catch(() => {});
+  loadLocationReportingSettings().catch(() => {});
   setStat(els.statTotalRides, null);
   setStat(els.statActiveDrivers, null);
   setRevenueStat(null);
@@ -2636,6 +2868,8 @@ function boot() {
   wirePromoTableActions();
   els.pricingForm?.addEventListener("submit", savePricingSettings);
   els.dispatchForm?.addEventListener("submit", saveDispatchSettings);
+  els.locationReportingForm?.addEventListener("submit", saveLocationReportingSettings);
+  els.locationReportingUploadMode?.addEventListener("change", updateLocationReportingFieldVisibility);
   els.idleReturnSafeDefaultsBtn?.addEventListener("click", returnIdleToSafeDefaults);
   els.idleLocationIntervalPreset?.addEventListener("change", () =>
     applyIdlePresetFromSelect(

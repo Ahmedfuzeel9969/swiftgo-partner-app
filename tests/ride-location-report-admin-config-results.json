@@ -1,0 +1,77 @@
+{
+  "generatedAt": "2026-08-09T19:31:52.470Z",
+  "pass": 14,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-callable-exported",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-callable-uses-super-admin-gate",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-admin-settings-client-export",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-admin-ui-form-present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-admin-app-load-save-wired",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-admin-config-module-present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-valid-payload-normalized",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-disabled-mode-forces-enabled-false",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-periodic-mode-requires-interval",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-rejects-string-retention",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-rejects-invalid-upload-mode",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "cjs-validation-parity",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-settings-doc-roundtrip",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-malformed-doc-uses-safe-defaults",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}
