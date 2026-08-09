@@ -72,6 +72,8 @@ import {
   normalizeIdlePublishConfig,
   getSafeIdlePublishConfig,
   parseFirestoreTimestampMs,
+  resolveIdleIntervalMsForPolicy,
+  resolveIdleMoveMetersForPolicy,
   validateIdleIntervalMsForCallable,
   validateIdleMoveMetersForCallable,
   isIdleMovementPublishEnabled,
@@ -86,6 +88,8 @@ export {
   normalizeIdlePublishConfig,
   getSafeIdlePublishConfig,
   parseFirestoreTimestampMs,
+  resolveIdleIntervalMsForPolicy,
+  resolveIdleMoveMetersForPolicy,
   validateIdleIntervalMsForCallable,
   validateIdleMoveMetersForCallable,
   isIdleMovementPublishEnabled,
@@ -169,13 +173,9 @@ export function resolveViewerLeaseState(input = {}) {
  */
 export function resolveCheckpointPolicy(input = {}) {
   if (!input.hasActiveRide) {
-    const idleMs =
-      Number.isFinite(Number(input.idleIntervalMs)) && Number(input.idleIntervalMs) > 0
-        ? Math.round(Number(input.idleIntervalMs))
-        : IDLE_LOCATION_INTERVAL_MS;
     return {
       policy: CHECKPOINT_POLICY.NO_ACTIVE_RIDE,
-      intervalMs: idleMs,
+      intervalMs: resolveIdleIntervalMsForPolicy(input.idleIntervalMs),
       hardInterval: false,
       diag: CHECKPOINT_DIAG.POLICY_RESPONSIVE,
     };

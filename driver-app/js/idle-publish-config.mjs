@@ -171,6 +171,34 @@ export function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}
   return base;
 }
 
+/** Runtime policy resolver: strict idle interval only — no Number() coercion. */
+export function resolveIdleIntervalMsForPolicy(value) {
+  if (
+    isStrictIntegerInRange(
+      value,
+      IDLE_PUBLISH_BOUNDS.intervalMsMin,
+      IDLE_PUBLISH_BOUNDS.intervalMsMax
+    )
+  ) {
+    return value;
+  }
+  return IDLE_PUBLISH_DEFAULTS.idleLocationIntervalMs;
+}
+
+/** Runtime policy resolver: strict idle move threshold only — no Number() coercion. */
+export function resolveIdleMoveMetersForPolicy(value) {
+  if (
+    isStrictIntegerInRange(
+      value,
+      IDLE_PUBLISH_BOUNDS.moveMetersMin,
+      IDLE_PUBLISH_BOUNDS.moveMetersMax
+    )
+  ) {
+    return value;
+  }
+  return IDLE_PUBLISH_DEFAULTS.idleLocationMoveMeters;
+}
+
 /** Callable validation when idleLocationIntervalMs is explicitly provided. */
 export function validateIdleIntervalMsForCallable(value) {
   return isStrictIntegerInRange(

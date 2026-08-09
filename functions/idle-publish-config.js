@@ -140,6 +140,32 @@ function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}) {
   return base;
 }
 
+function resolveIdleIntervalMsForPolicy(value) {
+  if (
+    isStrictIntegerInRange(
+      value,
+      IDLE_PUBLISH_BOUNDS.intervalMsMin,
+      IDLE_PUBLISH_BOUNDS.intervalMsMax
+    )
+  ) {
+    return value;
+  }
+  return IDLE_PUBLISH_DEFAULTS.idleLocationIntervalMs;
+}
+
+function resolveIdleMoveMetersForPolicy(value) {
+  if (
+    isStrictIntegerInRange(
+      value,
+      IDLE_PUBLISH_BOUNDS.moveMetersMin,
+      IDLE_PUBLISH_BOUNDS.moveMetersMax
+    )
+  ) {
+    return value;
+  }
+  return IDLE_PUBLISH_DEFAULTS.idleLocationMoveMeters;
+}
+
 function validateIdleIntervalMsForCallable(value) {
   return isStrictIntegerInRange(
     value,
@@ -187,6 +213,8 @@ module.exports = {
   IDLE_DIAGNOSTIC_MAX_DURATION_MS,
   normalizeIdlePublishConfig,
   getSafeIdlePublishConfig,
+  resolveIdleIntervalMsForPolicy,
+  resolveIdleMoveMetersForPolicy,
   validateIdleIntervalMsForCallable,
   validateIdleMoveMetersForCallable,
   validateIdleMovementTriggerDisabledForCallable,

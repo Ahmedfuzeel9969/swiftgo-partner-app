@@ -35,6 +35,8 @@ import {
   validateIdleIntervalMsForCallable,
   validateIdleMoveMetersForCallable,
   getSafeIdlePublishConfig,
+  resolveIdleIntervalMsForPolicy,
+  resolveIdleMoveMetersForPolicy,
 } from "../driver-app/js/idle-publish-config.mjs";
 
 const require = createRequire(import.meta.url);
@@ -417,6 +419,68 @@ record(
   })()
 );
 
+// ─── Unit: resolveCheckpointPolicy strict idle interval (no Number coercion) ───
+
+record(
+  unitResults,
+  "resolve-policy-valid-idle-interval",
+  resolveCheckpointPolicy({ hasActiveRide: false, idleIntervalMs: 60_000 }).intervalMs === 60_000
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  unitResults,
+  "resolve-policy-string-idle-interval-defaults",
+  resolveCheckpointPolicy({ hasActiveRide: false, idleIntervalMs: "60000" }).intervalMs === 4_000
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  unitResults,
+  "resolve-policy-fractional-idle-interval-defaults",
+  resolveCheckpointPolicy({ hasActiveRide: false, idleIntervalMs: 4000.5 }).intervalMs === 4_000
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  unitResults,
+  "resolve-policy-infinity-idle-interval-defaults",
+  resolveCheckpointPolicy({ hasActiveRide: false, idleIntervalMs: Infinity }).intervalMs === 4_000
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  unitResults,
+  "resolve-policy-below-min-idle-interval-defaults",
+  resolveCheckpointPolicy({ hasActiveRide: false, idleIntervalMs: 1_000 }).intervalMs === 4_000
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  unitResults,
+  "resolve-policy-above-max-idle-interval-defaults",
+  resolveCheckpointPolicy({ hasActiveRide: false, idleIntervalMs: 400_000 }).intervalMs === 4_000
+    ? "PASS"
+    : "FAIL"
+);
+
+record(
+  unitResults,
+  "resolve-policy-move-resolver-rejects-string",
+  resolveIdleMoveMetersForPolicy("50") === 10 ? "PASS" : "FAIL"
+);
+
+record(
+  unitResults,
+  "resolve-policy-move-resolver-accepts-valid",
+  resolveIdleMoveMetersForPolicy(50) === 50 ? "PASS" : "FAIL"
+);
+
 // ─── Unit: idle vs active ride policy (unchanged) ───
 
 const idlePolicy = resolveCheckpointPolicy({ hasActiveRide: false, idleIntervalMs: 60_000 });
@@ -533,6 +597,15 @@ record(
 // ─── Static wiring ───
 
 const driverApp = read("driver-app/js/driver-app.js");
+const policySrc = read("driver-app/js/location-checkpoint-policy.mjs");
+record(
+  staticResults,
+  "resolve-policy-no-number-coercion",
+  !policySrc.match(/Number\(input\.idleIntervalMs\)/) &&
+    policySrc.includes("resolveIdleIntervalMsForPolicy(input.idleIntervalMs)")
+    ? "PASS"
+    : "FAIL"
+);
 record(
   staticResults,
   "one-dispatch-listener-fn",
