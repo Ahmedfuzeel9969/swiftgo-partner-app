@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-09T07:56:40.005Z",
-  "commit": "875844bd0a73b6c0d11f7803f6366ede9b162fdd",
+  "generatedAt": "2026-08-09T08:20:47.311Z",
+  "commit": "742be889a4f6113d27b7468b55bc9ba03cd51aaa",
   "suite": "idle-location-cost-controls",
   "categories": {
     "unit": {
@@ -10,20 +10,20 @@
       "blocked": 0
     },
     "static": {
-      "total": 17,
-      "pass": 17,
+      "total": 18,
+      "pass": 18,
       "fail": 0,
       "blocked": 0
     },
     "emulator": {
-      "total": 29,
-      "pass": 29,
+      "total": 35,
+      "pass": 35,
       "fail": 0,
       "blocked": 0
     }
   },
-  "total": 94,
-  "pass": 94,
+  "total": 101,
+  "pass": 101,
   "fail": 0,
   "blocked": 0,
   "results": [
@@ -418,6 +418,12 @@
       "category": "static"
     },
     {
+      "name": "server-diagnostic-super-admin-only",
+      "status": "PASS",
+      "detail": "",
+      "category": "static"
+    },
+    {
       "name": "admin-save-valid-60s-50m",
       "status": "PASS",
       "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":50,\"idleMovementTriggerDisabled\":null,\"idleDiagnosticExpiresAt\":null}",
@@ -534,7 +540,7 @@
     {
       "name": "non-admin-cannot-enable-diagnostic",
       "status": "PASS",
-      "detail": "functions/permission-denied | ADMIN_ONLY",
+      "detail": "functions/permission-denied | SUPER_ADMIN_DIAGNOSTIC_ONLY",
       "category": "emulator"
     },
     {
@@ -550,9 +556,45 @@
       "category": "emulator"
     },
     {
+      "name": "claim-admin-denied-diagnostic-mode",
+      "status": "PASS",
+      "detail": "functions/permission-denied | SUPER_ADMIN_DIAGNOSTIC_ONLY",
+      "category": "emulator"
+    },
+    {
+      "name": "diagnostic-denial-no-partial-write",
+      "status": "PASS",
+      "detail": "{\"before\":{\"candidateDriverLimit\":15,\"idleLocationIntervalMs\":60000},\"after\":{\"candidateDriverLimit\":15,\"idleLocationIntervalMs\":60000}}",
+      "category": "emulator"
+    },
+    {
+      "name": "claim-admin-can-save-normal-dispatch",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":45000,\"idleLocationMoveMeters\":40,\"idleMovementTriggerDisabled\":null,\"idleDiagnosticExpiresAt\":null}",
+      "category": "emulator"
+    },
+    {
+      "name": "anonymous-denied-diagnostic-mode",
+      "status": "PASS",
+      "detail": "functions/permission-denied | ADMIN_ONLY",
+      "category": "emulator"
+    },
+    {
+      "name": "bootstrap-super-admin-role-present",
+      "status": "PASS",
+      "detail": "{\"role\":\"super_admin\"}",
+      "category": "emulator"
+    },
+    {
       "name": "admin-enable-diagnostic-movement-disabled",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":null,\"idleMovementTriggerDisabled\":true,\"idleDiagnosticExpiresAt\":{\"_seconds\":1786262799,\"_nanoseconds\":470000000}}",
+      "detail": "{\"ok\":true,\"candidateDriverLimit\":15,\"maxSearchRadiusKm\":null,\"maxSearchRadiusMeters\":null,\"searchRingsKm\":[1,2,3,5],\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":null,\"idleMovementTriggerDisabled\":true,\"idleDiagnosticExpiresAt\":{\"_seconds\":1786264246,\"_nanoseconds\":993000000}}",
+      "category": "emulator"
+    },
+    {
+      "name": "super-admin-allowed-diagnostic-mode",
+      "status": "PASS",
+      "detail": "bootstrap super_admin path",
       "category": "emulator"
     },
     {

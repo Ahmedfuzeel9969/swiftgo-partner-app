@@ -44,6 +44,8 @@ const {
   setAdminEmailBootstrap,
   isAdminAuth,
   ensureCallerCanAdminWrite,
+  requestTouchesDiagnosticControls,
+  isCallerAuthorizedForDiagnostic,
 } = require("./admin-claims");
 const { linkVehicleByPin } = require("./pin-link");
 const {
@@ -616,7 +618,15 @@ exports.acceptCustomerInitialFare = onCall({ region: "us-central1" }, async (req
 
 /** Super Admin: dispatch settings (candidate limit + search radius). */
 exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (request) => {
-  if (!request.auth?.uid || !(await ensureCallerCanAdminWrite(db, request.auth))) {
+  if (!request.auth?.uid) {
+    throw new HttpsError("permission-denied", "ADMIN_ONLY");
+  }
+  if (requestTouchesDiagnosticControls(request.data)) {
+    if (!(await isCallerAuthorizedForDiagnostic(db, request.auth))) {
+      throw new HttpsError("permission-denied", "SUPER_ADMIN_DIAGNOSTIC_ONLY");
+    }
+  }
+  if (!(await ensureCallerCanAdminWrite(db, request.auth))) {
     throw new HttpsError("permission-denied", "ADMIN_ONLY");
   }
   try {

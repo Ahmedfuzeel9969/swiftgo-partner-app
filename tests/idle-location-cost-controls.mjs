@@ -742,6 +742,17 @@ record(
   "no-offer-timeout-in-this-pr",
   !fnIndex.includes("offerTimeoutSeconds") ? "PASS" : "FAIL"
 );
+record(
+  staticResults,
+  "server-diagnostic-super-admin-only",
+  fnIndex.includes("requestTouchesDiagnosticControls") &&
+    fnIndex.includes("isCallerAuthorizedForDiagnostic") &&
+    fnIndex.includes("SUPER_ADMIN_DIAGNOSTIC_ONLY") &&
+    read("functions/admin-claims.js").includes("isCallerAuthorizedForDiagnostic") &&
+    read("functions/admin-claims.js").includes("requestTouchesDiagnosticControls")
+    ? "PASS"
+    : "FAIL"
+);
 
 // ─── Emulator: Admin-save → Firestore → Driver-read ───
 
@@ -798,13 +809,19 @@ async function runEmulatorTests() {
     return [e?.code, e?.message, e?.details].filter(Boolean).join(" | ");
   }
 
-  async function expectCallableReject(functions, name, data, label) {
+  async function expectCallableReject(functions, name, data, label, opts = {}) {
     try {
       await callAs(functions, name, data);
       record(emulatorResults, label, "FAIL", "expected rejection");
       return false;
     } catch (e) {
-      const ok = String(e?.code || "").includes("invalid-argument") || String(e?.code || "").includes("permission-denied");
+      const codeOk =
+        String(e?.code || "").includes("invalid-argument") ||
+        String(e?.code || "").includes("permission-denied");
+      const msgOk = opts.messageIncludes
+        ? String(e?.message || "").includes(opts.messageIncludes)
+        : true;
+      const ok = codeOk && msgOk;
       record(emulatorResults, label, ok ? "PASS" : "FAIL", errText(e));
       return ok;
     }
@@ -822,14 +839,25 @@ async function runEmulatorTests() {
   await ensureUser(BOOTSTRAP_ADMIN_EMAIL, "IdleCost-test!", "idle-admin");
   await ensureUser("idle-driver@example.com", "IdleCost-test!", "idle-driver");
   await ensureUser("idle-user@example.com", "IdleCost-test!", "idle-user");
+  await ensureUser("idle-claim-admin@example.com", "IdleCost-test!", "idle-claim-admin");
 
   const boot = clientApp("idle-boot");
   const driver = clientApp("idle-driver");
   const ordinary = clientApp("idle-user");
+  const claimAdmin = clientApp("idle-claim-admin");
+  const anon = clientApp("idle-anon");
 
   await signInWithEmailAndPassword(boot.auth, BOOTSTRAP_ADMIN_EMAIL, "IdleCost-test!");
   await signInWithEmailAndPassword(driver.auth, "idle-driver@example.com", "IdleCost-test!");
   await signInWithEmailAndPassword(ordinary.auth, "idle-user@example.com", "IdleCost-test!");
+  await signInWithEmailAndPassword(claimAdmin.auth, "idle-claim-admin@example.com", "IdleCost-test!");
+
+  await admin.auth().setCustomUserClaims("idle-claim-admin", { admin: true });
+  await db.doc("users/idle-claim-admin").set(
+    { role: "admin", email: "idle-claim-admin@example.com" },
+    { merge: true }
+  );
+  await claimAdmin.auth.currentUser.getIdToken(true);
 
   await callAs(boot.functions, "bootstrapAdminClaim", {});
   await boot.auth.currentUser.getIdToken(true);
@@ -1025,6 +1053,82 @@ async function runEmulatorTests() {
     "reject-diagnostic-flag-string"
   );
 
+  const preDenialSnap = await db.doc("settings/dispatch").get();
+  const preDenialData = preDenialSnap.data() || {};
+
+  await expectCallableReject(
+    claimAdmin.functions,
+    "setCandidateDriverLimit",
+    {
+      candidateDriverLimit: 99,
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticDurationMinutes: 5,
+      idleDiagnosticReason: "should-not-apply",
+    },
+    "claim-admin-denied-diagnostic-mode",
+    { messageIncludes: "SUPER_ADMIN_DIAGNOSTIC_ONLY" }
+  );
+
+  const afterDenialSnap = await db.doc("settings/dispatch").get();
+  const afterDenialData = afterDenialSnap.data() || {};
+  record(
+    emulatorResults,
+    "diagnostic-denial-no-partial-write",
+    afterDenialData.candidateDriverLimit === preDenialData.candidateDriverLimit &&
+      afterDenialData.idleLocationIntervalMs === preDenialData.idleLocationIntervalMs &&
+      afterDenialData.idleLocationMoveMeters === preDenialData.idleLocationMoveMeters &&
+      afterDenialData.idleMovementTriggerDisabled !== true &&
+      afterDenialData.idleDiagnosticReason !== "should-not-apply"
+      ? "PASS"
+      : "FAIL",
+    JSON.stringify({
+      before: {
+        candidateDriverLimit: preDenialData.candidateDriverLimit,
+        idleLocationIntervalMs: preDenialData.idleLocationIntervalMs,
+        idleMovementTriggerDisabled: preDenialData.idleMovementTriggerDisabled,
+      },
+      after: {
+        candidateDriverLimit: afterDenialData.candidateDriverLimit,
+        idleLocationIntervalMs: afterDenialData.idleLocationIntervalMs,
+        idleMovementTriggerDisabled: afterDenialData.idleMovementTriggerDisabled,
+        idleDiagnosticReason: afterDenialData.idleDiagnosticReason,
+      },
+    })
+  );
+
+  const claimNormalRes = await callAs(claimAdmin.functions, "setCandidateDriverLimit", {
+    candidateDriverLimit: 15,
+    idleLocationIntervalMs: 45_000,
+    idleLocationMoveMeters: 40,
+  });
+  record(
+    emulatorResults,
+    "claim-admin-can-save-normal-dispatch",
+    claimNormalRes?.idleLocationIntervalMs === 45_000 && claimNormalRes?.idleLocationMoveMeters === 40
+      ? "PASS"
+      : "FAIL",
+    JSON.stringify(claimNormalRes)
+  );
+
+  await expectCallableReject(
+    anon.functions,
+    "setCandidateDriverLimit",
+    {
+      candidateDriverLimit: 15,
+      idleMovementTriggerDisabled: true,
+      idleDiagnosticDurationMinutes: 5,
+    },
+    "anonymous-denied-diagnostic-mode"
+  );
+
+  const superAdminRoleSnap = await db.doc("users/idle-admin").get();
+  record(
+    emulatorResults,
+    "bootstrap-super-admin-role-present",
+    superAdminRoleSnap.exists && superAdminRoleSnap.data()?.role === "super_admin" ? "PASS" : "FAIL",
+    JSON.stringify({ role: superAdminRoleSnap.data()?.role })
+  );
+
   const diagRes = await callAs(boot.functions, "setCandidateDriverLimit", {
     candidateDriverLimit: 15,
     idleLocationIntervalMs: 60_000,
@@ -1037,6 +1141,12 @@ async function runEmulatorTests() {
     "admin-enable-diagnostic-movement-disabled",
     diagRes?.idleMovementTriggerDisabled === true ? "PASS" : "FAIL",
     JSON.stringify(diagRes)
+  );
+  record(
+    emulatorResults,
+    "super-admin-allowed-diagnostic-mode",
+    diagRes?.idleMovementTriggerDisabled === true ? "PASS" : "FAIL",
+    "bootstrap super_admin path"
   );
 
   const diagDoc = (await db.doc("settings/dispatch").get()).data() || {};
@@ -1120,7 +1230,7 @@ async function runEmulatorTests() {
     })
   );
 
-  for (const c of [boot, driver, ordinary]) {
+  for (const c of [boot, driver, ordinary, claimAdmin, anon]) {
     try {
       await deleteApp(c.app);
     } catch {

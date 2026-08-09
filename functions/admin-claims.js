@@ -196,6 +196,22 @@ async function initSuperAdminAccess(db, auth) {
   return { ok: true, admin: true, role: "super_admin", adminBootstrapEnabled: true };
 }
 
+function requestTouchesDiagnosticControls(data) {
+  if (!data || typeof data !== "object") return false;
+  if (data.idleMovementTriggerDisabled != null) return true;
+  if (data.idleDiagnosticDurationMinutes != null) return true;
+  if (data.idleDiagnosticReason != null) return true;
+  return false;
+}
+
+/** Diagnostic idle controls: persisted super_admin role or approved bootstrap email — not admin:true claim alone. */
+async function isCallerAuthorizedForDiagnostic(db, auth) {
+  if (!auth?.uid) return false;
+  if (await hasSuperAdminUserRole(db, auth.uid)) return true;
+  if (!(await isEmailBootstrapEnabled(db))) return false;
+  return isBootstrapEmailAuth(auth);
+}
+
 /** Callable admin writes: grant owner on first use, or verify existing admin. */
 async function ensureCallerCanAdminWrite(db, auth) {
   if (!auth?.uid) return false;
@@ -220,6 +236,8 @@ module.exports = {
   hasSuperAdminUserRole,
   ensureSuperAdminUserDoc,
   ensureCallerCanAdminWrite,
+  requestTouchesDiagnosticControls,
+  isCallerAuthorizedForDiagnostic,
   bootstrapAdminClaim,
   initSuperAdminAccess,
   grantAdminClaim,
