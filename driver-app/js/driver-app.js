@@ -963,7 +963,7 @@ function markDriverAppSurface() {
   }
 }
 
-/** On /partner/: stay here — do not rewrite role or open Owner app. */
+/** On /partner/: stay here — never auto-open Owner app; do not rewrite role. */
 function stayOnDriverSurface(partner) {
   return partner || { role: "driver" };
 }

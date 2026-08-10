@@ -272,6 +272,11 @@ function hideAuthOverlay() {
   }, 340);
 }
 
+/** Legacy role picker removed from HTML — keep calls safe for admin-driver paths. */
+function hideRoleSelection() {
+  if (els.roleOverlay) els.roleOverlay.hidden = true;
+}
+
 async function ensureDevDriverProfile(user) {
   const { db } = getFirebase();
   const driverRef = doc(db, "drivers", user.uid);

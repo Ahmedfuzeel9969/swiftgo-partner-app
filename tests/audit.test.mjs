@@ -781,8 +781,9 @@ assert(
     !driverHtml.includes("مالک موڈ میں واپس جائیں") &&
     driverAppJs.includes("if (!partnerSnapshot.exists() || !partnerSnapshot.data().role)") &&
     driverAppJs.includes('role: "driver"') &&
-    driverAppJs.includes('partner.role === "owner"') &&
-    driverAppJs.includes('window.location.replace("/owner/")') &&
+    driverAppJs.includes('partner.role === "driver" || partner.role === "owner"') &&
+    driverAppJs.includes("stayOnDriverSurface") &&
+    !driverAppJs.includes('window.location.replace("/owner/")') &&
     driverAppJs.includes("await signOut(auth)") &&
     driverAppJs.includes("hideProtectedUi()")
 );

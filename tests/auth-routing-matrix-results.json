@@ -1,0 +1,380 @@
+{
+  "generatedAt": "2026-08-10T05:49:29.250Z",
+  "emulator": true,
+  "pass": 62,
+  "fail": 0,
+  "results": [
+    {
+      "name": "policy:signed-out-customer",
+      "status": "PASS",
+      "detail": "login_ui (signed_out)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:signed-out-customer",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:signed-out-partner",
+      "status": "PASS",
+      "detail": "login_ui (signed_out)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:signed-out-partner",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:signed-out-owner",
+      "status": "PASS",
+      "detail": "login_ui (signed_out)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:signed-out-owner",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:customer-signed-in",
+      "status": "PASS",
+      "detail": "app_shell (customer_no_role_gate)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:customer-signed-in",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:partner-driver",
+      "status": "PASS",
+      "detail": "app_shell (partner_role_allowed)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:partner-driver",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:partner-owner-stays",
+      "status": "PASS",
+      "detail": "app_shell (partner_role_allowed)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:partner-owner-stays",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:partner-invalid-role",
+      "status": "PASS",
+      "detail": "login_error (invalid_partner_role)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:partner-invalid-role",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:partner-missing-role",
+      "status": "PASS",
+      "detail": "provision_driver (missing_partner_role)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:partner-missing-role",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:partner-blocked",
+      "status": "PASS",
+      "detail": "blocked_overlay (account_blocked)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:partner-blocked",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:partner-admin-driver-normalized",
+      "status": "PASS",
+      "detail": "app_shell (partner_role_normalized)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:partner-admin-driver-normalized",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:owner-driver-record-stays",
+      "status": "PASS",
+      "detail": "app_shell (owner_surface_stay)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:owner-driver-record-stays",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:owner-missing-role",
+      "status": "PASS",
+      "detail": "provision_owner (missing_partner_role)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:owner-missing-role",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:owner-blocked",
+      "status": "PASS",
+      "detail": "blocked_overlay (account_blocked)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:owner-blocked",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "admin-policy:signed-out",
+      "status": "PASS",
+      "detail": "signed_out",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "admin-policy:admin-claim",
+      "status": "PASS",
+      "detail": "admin_claim",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "admin-policy:bootstrap-email",
+      "status": "PASS",
+      "detail": "bootstrap_email",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "admin-policy:ordinary-driver-email",
+      "status": "PASS",
+      "detail": "not_super_admin",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "admin-deny-at-most-one-hop:ordinary-driver-email",
+      "status": "PASS",
+      "detail": "/partner/",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "admin-policy:bootstrap-unverified",
+      "status": "PASS",
+      "detail": "not_super_admin",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "admin-deny-at-most-one-hop:bootstrap-unverified",
+      "status": "PASS",
+      "detail": "/partner/",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "claim-doc-disagreement-partner-uses-partner-role",
+      "status": "PASS",
+      "detail": "admin claim does not override partner surface routing",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "claim-doc-disagreement-admin-not-promoted-by-users-role",
+      "status": "PASS",
+      "detail": "not_super_admin",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "redirect-edge-allowed:allowed_edge",
+      "status": "PASS",
+      "detail": "allowed_edge",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "redirect-edge-allowed:allowed_edge",
+      "status": "PASS",
+      "detail": "allowed_edge",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "redirect-edge-allowed:allowed_edge",
+      "status": "PASS",
+      "detail": "allowed_edge",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "redirect-edge-forbidden:/partner/->/owner/",
+      "status": "PASS",
+      "detail": "self_redirect",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "redirect-edge-forbidden:/partner/->/partner/",
+      "status": "PASS",
+      "detail": "self_redirect",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "self-redirect-blocked:/partner/",
+      "status": "PASS",
+      "detail": "self_redirect",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "redirect-edge-forbidden:/owner/->/owner/",
+      "status": "PASS",
+      "detail": "self_redirect",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "self-redirect-blocked:/owner/",
+      "status": "PASS",
+      "detail": "self_redirect",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "redirect-edge-forbidden:/admin/->/admin/",
+      "status": "PASS",
+      "detail": "self_redirect",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "self-redirect-blocked:/admin/",
+      "status": "PASS",
+      "detail": "self_redirect",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "redirect-edge-forbidden:/customer/->/partner/",
+      "status": "PASS",
+      "detail": "self_redirect",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "admin-deny-chain-terminates",
+      "status": "PASS",
+      "detail": "terminates",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "partner-owner-bounce-chain-blocked",
+      "status": "PASS",
+      "detail": "hop_limit_exceeded",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "partner-strict-role-gate",
+      "status": "PASS",
+      "detail": "saved partners.role gates partner entry; invalid roles stay on login overlay",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "partner-no-owner-auto-redirect",
+      "status": "PASS",
+      "detail": "owners may use /partner/ without forced bounce",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "owner-no-partner-auto-redirect",
+      "status": "PASS",
+      "detail": "owner surface stays on /owner/",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "admin-deny-single-hop",
+      "status": "PASS",
+      "detail": "unauthorized admin signOut then one redirect",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "customer-no-cross-surface-redirect",
+      "status": "PASS",
+      "detail": "customer auth stays on /",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "partner-logout-clears-state",
+      "status": "PASS",
+      "detail": "signed-out partner shows login and clears session state",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "owner-hide-role-selection-defined",
+      "status": "PASS",
+      "detail": "legacy role overlay helper must exist when referenced",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-partner-driver",
+      "status": "PASS",
+      "detail": "driver@example.com",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-partner-owner-on-partner-surface",
+      "status": "PASS",
+      "detail": "owner role allowed on /partner/",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-partner-invalid-role",
+      "status": "PASS",
+      "detail": "invalid saved role rejected",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-partner-blocked",
+      "status": "PASS",
+      "detail": "blocked accountStatus stops entry",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-admin-bootstrap-email",
+      "status": "PASS",
+      "detail": "fuzail1158@gmail.com",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-admin-custom-claim",
+      "status": "PASS",
+      "detail": "claimed-admin@example.com",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-users-role-not-admin-gate",
+      "status": "PASS",
+      "detail": "users/{uid}.role alone does not authorize /admin/",
+      "suite": "auth-routing-matrix"
+    }
+  ]
+}
