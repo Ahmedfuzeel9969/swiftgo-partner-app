@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-10T06:13:03.042Z",
+  "generatedAt": "2026-08-10T06:28:48.400Z",
   "pass": 35,
   "fail": 0,
   "results": [
@@ -46,17 +46,17 @@
     {
       "name": "two-builds-equivalent-output",
       "status": "PASS",
-      "detail": "hash=17f1dd4215a1defb…"
+      "detail": "hash=e1681d462a2ab609…"
     },
     {
       "name": "build-stamp-head-sha",
       "status": "PASS",
-      "detail": "bf8be8f48525b115a1e7f3a886440f8384cd7ff4"
+      "detail": "bb7082872031f4fa6113a0ea1946fd20155d81e7"
     },
     {
       "name": "build-stamp-stable-across-rebuild",
       "status": "PASS",
-      "detail": "bf8be8f48525b115a1e7f3a886440f8384cd7ff4"
+      "detail": "bb7082872031f4fa6113a0ea1946fd20155d81e7"
     },
     {
       "name": "admin-canonical:geometry-quality.mjs",

@@ -25,8 +25,13 @@ const PROJECT = "demo-swiftgo-owner-onboard";
 const {
   requestOwnerAccess,
   approveOwnerAccess,
+  rejectOwnerAccess,
 } = require("../functions/owner-onboarding.js");
-const { ensureSuperAdminUserDocForUid } = require("../functions/admin-claims.js");
+const {
+  ensureSuperAdminUserDocForUid,
+  ensureAdminUserDocForUid,
+  BOOTSTRAP_ADMIN_EMAIL,
+} = require("../functions/admin-claims.js");
 
 const results = [];
 
@@ -51,13 +56,26 @@ function auth(uid, email = `${uid}@example.com`, extra = {}) {
   };
 }
 
-async function initAdmin(db, uid = "admin-1") {
+async function initSuperAdmin(db, uid = "super-1", email = "super@example.com") {
   process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
   await ensureSuperAdminUserDocForUid(db, uid, {
-    email: "admin@example.com",
-    displayName: "Admin One",
+    email,
+    displayName: "Super Admin",
   });
-  return auth(uid, "admin@example.com", { admin: true });
+  return auth(uid, email, { admin: true });
+}
+
+async function initOrdinaryAdmin(db, uid = "ord-admin-1") {
+  await ensureAdminUserDocForUid(db, uid, {
+    email: "ord-admin@example.com",
+    displayName: "Ordinary Admin",
+  });
+  return auth(uid, "ord-admin@example.com", { admin: true });
+}
+
+async function initBootstrapSuperAdmin(db, uid = "bootstrap-super") {
+  await db.collection("settings").doc("security").set({ adminBootstrapEnabled: true });
+  return auth(uid, BOOTSTRAP_ADMIN_EMAIL, { admin: false });
 }
 
 function runStaticProofs() {
@@ -68,8 +86,16 @@ function runStaticProofs() {
   record(
     "static-callables-exported",
     indexJs.includes("exports.requestOwnerAccess") &&
-      indexJs.includes("exports.approveOwnerAccess"),
+      indexJs.includes("exports.approveOwnerAccess") &&
+      indexJs.includes("exports.rejectOwnerAccess"),
     "Cloud Functions exported"
+  );
+  record(
+    "static-approve-super-admin-only",
+    read("functions/owner-onboarding.js").includes("isCallerAuthorizedForDiagnostic") &&
+      read("functions/owner-onboarding.js").includes("SUPER_ADMIN_ONLY") &&
+      !read("functions/owner-onboarding.js").includes("ensureCallerCanAdminWrite"),
+    "approve/reject use persisted super_admin authorization"
   );
   record(
     "static-owner-app-uses-request-callable",
@@ -86,11 +112,20 @@ function runStaticProofs() {
   );
 }
 
-async function ensureAuthUser(authAdmin, uid, email, displayName) {
+async function ensureAuthUser(authAdmin, uid, email, displayName, extra = {}) {
   try {
-    await authAdmin.createUser({ uid, email, emailVerified: true, displayName });
+    await authAdmin.createUser({
+      uid,
+      email,
+      emailVerified: true,
+      displayName,
+      disabled: Boolean(extra.disabled),
+    });
   } catch (e) {
     if (e.code !== "auth/uid-already-exists") throw e;
+    if (extra.disabled) {
+      await authAdmin.updateUser(uid, { disabled: true });
+    }
   }
 }
 
@@ -110,8 +145,8 @@ async function runCallableProofs() {
   const db = admin.firestore(app);
   const authAdmin = admin.auth(app);
 
-  const adminAuth = await initAdmin(db);
-  await ensureAuthUser(authAdmin, "admin-1", "admin@example.com", "Admin One");
+  const superAuth = await initSuperAdmin(db);
+  await ensureAuthUser(authAdmin, "super-1", "super@example.com", "Super Admin");
 
   // Legitimate new-owner onboarding
   const applicant = auth("new-owner-1", "newowner@example.com");
@@ -135,11 +170,11 @@ async function runCallableProofs() {
     "partners doc not created on request alone"
   );
 
-  const grant = await approveOwnerAccess(db, adminAuth, { targetUid: "new-owner-1" });
+  const grant = await approveOwnerAccess(db, superAuth, { targetUid: "new-owner-1" });
   record(
-    "callable-admin-grants-owner",
+    "callable-super-admin-grants-owner",
     grant.ok === true && grant.status === "granted",
-    "admin approval provisions owner"
+    "super_admin approval provisions owner"
   );
 
   const partnerSnap = await db.collection("partners").doc("new-owner-1").get();
@@ -173,7 +208,7 @@ async function runCallableProofs() {
   );
 
   // Idempotent approve
-  const grant2 = await approveOwnerAccess(db, adminAuth, { targetUid: "new-owner-1" });
+  const grant2 = await approveOwnerAccess(db, superAuth, { targetUid: "new-owner-1" });
   record(
     "callable-idempotent-approve",
     grant2.idempotent === true && grant2.status === "already_owner",
@@ -265,6 +300,51 @@ async function runCallableProofs() {
   }
   record("callable-other-uid-denied", otherUidDenied, "cannot request for another uid");
 
+  // Ordinary admin (admin claim + users.role admin) must be denied
+  await ensureAuthUser(authAdmin, "ord-admin-1", "ord-admin@example.com", "Ord Admin");
+  const ordinaryAdmin = await initOrdinaryAdmin(db);
+  let ordinaryAdminDenied = false;
+  try {
+    await approveOwnerAccess(db, ordinaryAdmin, { targetUid: "customer-1" });
+  } catch (e) {
+    ordinaryAdminDenied = e.code === "permission-denied" && e.message === "SUPER_ADMIN_ONLY";
+  }
+  record(
+    "callable-ordinary-admin-denied",
+    ordinaryAdminDenied,
+    "admin:true without super_admin cannot approve"
+  );
+
+  // Forged admin claim without persisted super_admin role
+  await ensureAuthUser(authAdmin, "forged-admin-1", "forged-admin@example.com", "Forged Admin");
+  let forgedAdminDenied = false;
+  try {
+    await approveOwnerAccess(db, auth("forged-admin-1", "forged-admin@example.com", { admin: true }), {
+      targetUid: "customer-1",
+    });
+  } catch (e) {
+    forgedAdminDenied = e.code === "permission-denied";
+  }
+  record(
+    "callable-forged-admin-claim-denied",
+    forgedAdminDenied,
+    "claim/document mismatch cannot approve"
+  );
+
+  // Bootstrap super-admin may approve when bootstrap enabled
+  await ensureAuthUser(authAdmin, "bootstrap-super", BOOTSTRAP_ADMIN_EMAIL, "Bootstrap Super");
+  const bootstrapAuth = await initBootstrapSuperAdmin(db, "bootstrap-super");
+  await ensureAuthUser(authAdmin, "bootstrap-target", "bootstrap-target@example.com", "Bootstrap Target");
+  await requestOwnerAccess(db, auth("bootstrap-target", "bootstrap-target@example.com"), {
+    fullName: "Bootstrap Target",
+  });
+  const bootstrapGrant = await approveOwnerAccess(db, bootstrapAuth, { targetUid: "bootstrap-target" });
+  record(
+    "callable-bootstrap-super-admin-approves",
+    bootstrapGrant.status === "granted",
+    "approved bootstrap owner may approve"
+  );
+
   // Non-admin cannot approve
   let nonAdminDenied = false;
   try {
@@ -272,7 +352,7 @@ async function runCallableProofs() {
   } catch (e) {
     nonAdminDenied = e.code === "permission-denied";
   }
-  record("callable-non-admin-approve-denied", nonAdminDenied, "approve is admin-only");
+  record("callable-non-admin-approve-denied", nonAdminDenied, "unauthenticated/random denied");
 
   // Denial leaves no partial partner doc for failed approve of blocked target
   await db.collection("partners").doc("blocked-owner-target").set({
@@ -281,16 +361,142 @@ async function runCallableProofs() {
   });
   let approveBlockedDenied = false;
   try {
-    await approveOwnerAccess(db, adminAuth, { targetUid: "blocked-owner-target" });
+    await approveOwnerAccess(db, superAuth, { targetUid: "blocked-owner-target" });
   } catch (e) {
     approveBlockedDenied = e.code === "permission-denied";
   }
   const blockedTarget = await db.collection("partners").doc("blocked-owner-target").get();
+  const blockedApp = await db.collection("owner_applications").doc("blocked-owner-target").get();
   record(
     "callable-denied-approve-no-role-flip",
-    approveBlockedDenied && blockedTarget.data()?.role === "driver",
+    approveBlockedDenied &&
+      blockedTarget.data()?.role === "driver" &&
+      (!blockedApp.exists || blockedApp.data()?.status !== "approved"),
     "denied approve does not promote blocked user"
   );
+
+  // Suspended target denied on approve
+  await ensureAuthUser(authAdmin, "suspended-target", "suspended-target@example.com", "Suspended Target");
+  await db.collection("partners").doc("suspended-target").set({
+    role: "driver",
+    accountStatus: "suspended",
+  });
+  await db.collection("owner_applications").doc("suspended-target").set({
+    uid: "suspended-target",
+    fullName: "Suspended Target",
+    status: "pending",
+    createdAt: new Date(),
+  });
+  let suspendedDenied = false;
+  try {
+    await approveOwnerAccess(db, superAuth, { targetUid: "suspended-target" });
+  } catch (e) {
+    suspendedDenied = e.code === "permission-denied";
+  }
+  record("callable-suspended-target-denied", suspendedDenied, "suspended partner cannot be approved");
+  record(
+    "callable-suspended-no-partial-write",
+    (await db.collection("partners").doc("suspended-target").get()).data()?.role === "driver" &&
+      (await db.collection("owner_applications").doc("suspended-target").get()).data()?.status === "pending",
+    "suspended denial leaves partner/application unchanged"
+  );
+
+  // Disabled auth user denied
+  await ensureAuthUser(authAdmin, "disabled-target", "disabled-target@example.com", "Disabled Target", {
+    disabled: true,
+  });
+  await db.collection("owner_applications").doc("disabled-target").set({
+    uid: "disabled-target",
+    fullName: "Disabled Target",
+    status: "pending",
+    createdAt: new Date(),
+  });
+  let disabledDenied = false;
+  try {
+    await approveOwnerAccess(db, superAuth, { targetUid: "disabled-target" });
+  } catch (e) {
+    disabledDenied = e.code === "permission-denied";
+  }
+  record("callable-disabled-auth-user-denied", disabledDenied, "disabled auth user cannot be approved");
+
+  // Financial fields preserved when promoting existing driver
+  await db.collection("partners").doc("driver-1").set({
+    role: "driver",
+    accountStatus: "active",
+    walletBalance: 512,
+    totalEarnings: 900,
+    totalRidesCompleted: 17,
+  });
+  await approveOwnerAccess(db, superAuth, { targetUid: "driver-1" });
+  const promotedDriver = await db.collection("partners").doc("driver-1").get();
+  record(
+    "callable-promote-driver-preserves-financials",
+    promotedDriver.data()?.role === "owner" &&
+      promotedDriver.data()?.walletBalance === 512 &&
+      promotedDriver.data()?.totalEarnings === 900 &&
+      promotedDriver.data()?.totalRidesCompleted === 17,
+    "approval does not reset wallet/earnings"
+  );
+
+  // Rejection flow
+  await ensureAuthUser(authAdmin, "reject-me", "reject-me@example.com", "Reject Me");
+  await db.collection("partners").doc("reject-me").delete().catch(() => {});
+  await db.collection("owner_applications").doc("reject-me").delete().catch(() => {});
+  await requestOwnerAccess(db, auth("reject-me", "reject-me@example.com"), { fullName: "Reject Me" });
+  const rejected = await rejectOwnerAccess(db, superAuth, {
+    targetUid: "reject-me",
+    reason: "Incomplete fleet documents",
+  });
+  record("callable-reject-pending", rejected.status === "rejected", "super admin rejects pending application");
+  const rejectedSnap = await db.collection("owner_applications").doc("reject-me").get();
+  record(
+    "callable-reject-no-partner-write",
+    !((await db.collection("partners").doc("reject-me").get()).exists) &&
+      rejectedSnap.data()?.status === "rejected",
+    "reject never writes partners.role"
+  );
+  const rejectAgain = await rejectOwnerAccess(db, superAuth, {
+    targetUid: "reject-me",
+    reason: "duplicate",
+  });
+  record("callable-reject-idempotent", rejectAgain.idempotent === true, "repeat reject idempotent");
+
+  let approveAfterRejectDenied = false;
+  try {
+    await approveOwnerAccess(db, superAuth, { targetUid: "reject-me" });
+  } catch (e) {
+    approveAfterRejectDenied = e.code === "failed-precondition";
+  }
+  record(
+    "callable-approve-after-reject-denied",
+    approveAfterRejectDenied,
+    "cannot approve rejected application without new request"
+  );
+
+  const reRequest = await requestOwnerAccess(db, auth("reject-me", "reject-me@example.com"), {
+    fullName: "Reject Me",
+  });
+  record("callable-rerequest-after-reject", reRequest.status === "pending", "explicit new request after reject");
+  await approveOwnerAccess(db, superAuth, { targetUid: "reject-me" });
+  record(
+    "callable-rerequest-then-approve",
+    (await db.collection("partners").doc("reject-me").get()).data()?.role === "owner",
+    "new request enables approval again"
+  );
+
+  // Concurrent double approval — one grant, one idempotent
+  await ensureAuthUser(authAdmin, "race-target", "race-target@example.com", "Race Target");
+  await db.collection("partners").doc("race-target").delete().catch(() => {});
+  await db.collection("owner_applications").doc("race-target").delete().catch(() => {});
+  await requestOwnerAccess(db, auth("race-target", "race-target@example.com"), { fullName: "Race Target" });
+  const [raceA, raceB] = await Promise.allSettled([
+    approveOwnerAccess(db, superAuth, { targetUid: "race-target" }),
+    approveOwnerAccess(db, superAuth, { targetUid: "race-target" }),
+  ]);
+  const raceOk =
+    [raceA, raceB].filter((r) => r.status === "fulfilled").length === 2 &&
+    (await db.collection("partners").doc("race-target").get()).data()?.role === "owner";
+  record("callable-concurrent-double-approval", raceOk, "concurrent approvals leave single owner role");
 
   // Existing owner login path unchanged
   await db.collection("partners").doc("legacy-owner-1").set({

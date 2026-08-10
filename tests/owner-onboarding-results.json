@@ -1,12 +1,17 @@
 {
-  "generatedAt": "2026-08-10T06:12:30.646Z",
-  "pass": 26,
+  "generatedAt": "2026-08-10T06:28:17.227Z",
+  "pass": 41,
   "fail": 0,
   "results": [
     {
       "name": "static-callables-exported",
       "status": "PASS",
       "detail": "Cloud Functions exported"
+    },
+    {
+      "name": "static-approve-super-admin-only",
+      "status": "PASS",
+      "detail": "approve/reject use persisted super_admin authorization"
     },
     {
       "name": "static-owner-app-uses-request-callable",
@@ -34,9 +39,9 @@
       "detail": "partners doc not created on request alone"
     },
     {
-      "name": "callable-admin-grants-owner",
+      "name": "callable-super-admin-grants-owner",
       "status": "PASS",
-      "detail": "admin approval provisions owner"
+      "detail": "super_admin approval provisions owner"
     },
     {
       "name": "callable-grant-writes-partner-owner-role",
@@ -104,14 +109,84 @@
       "detail": "cannot request for another uid"
     },
     {
+      "name": "callable-ordinary-admin-denied",
+      "status": "PASS",
+      "detail": "admin:true without super_admin cannot approve"
+    },
+    {
+      "name": "callable-forged-admin-claim-denied",
+      "status": "PASS",
+      "detail": "claim/document mismatch cannot approve"
+    },
+    {
+      "name": "callable-bootstrap-super-admin-approves",
+      "status": "PASS",
+      "detail": "approved bootstrap owner may approve"
+    },
+    {
       "name": "callable-non-admin-approve-denied",
       "status": "PASS",
-      "detail": "approve is admin-only"
+      "detail": "unauthenticated/random denied"
     },
     {
       "name": "callable-denied-approve-no-role-flip",
       "status": "PASS",
       "detail": "denied approve does not promote blocked user"
+    },
+    {
+      "name": "callable-suspended-target-denied",
+      "status": "PASS",
+      "detail": "suspended partner cannot be approved"
+    },
+    {
+      "name": "callable-suspended-no-partial-write",
+      "status": "PASS",
+      "detail": "suspended denial leaves partner/application unchanged"
+    },
+    {
+      "name": "callable-disabled-auth-user-denied",
+      "status": "PASS",
+      "detail": "disabled auth user cannot be approved"
+    },
+    {
+      "name": "callable-promote-driver-preserves-financials",
+      "status": "PASS",
+      "detail": "approval does not reset wallet/earnings"
+    },
+    {
+      "name": "callable-reject-pending",
+      "status": "PASS",
+      "detail": "super admin rejects pending application"
+    },
+    {
+      "name": "callable-reject-no-partner-write",
+      "status": "PASS",
+      "detail": "reject never writes partners.role"
+    },
+    {
+      "name": "callable-reject-idempotent",
+      "status": "PASS",
+      "detail": "repeat reject idempotent"
+    },
+    {
+      "name": "callable-approve-after-reject-denied",
+      "status": "PASS",
+      "detail": "cannot approve rejected application without new request"
+    },
+    {
+      "name": "callable-rerequest-after-reject",
+      "status": "PASS",
+      "detail": "explicit new request after reject"
+    },
+    {
+      "name": "callable-rerequest-then-approve",
+      "status": "PASS",
+      "detail": "new request enables approval again"
+    },
+    {
+      "name": "callable-concurrent-double-approval",
+      "status": "PASS",
+      "detail": "concurrent approvals leave single owner role"
     },
     {
       "name": "callable-existing-owner-login-compatible",

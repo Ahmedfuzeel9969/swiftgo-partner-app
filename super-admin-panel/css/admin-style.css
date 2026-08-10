@@ -1550,6 +1550,39 @@ body {
   font-family: var(--urdu);
 }
 
+.table-panel__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.owner-applications-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.owner-applications-table th,
+.owner-applications-table td {
+  padding: 0.95rem 1.1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  text-align: start;
+  vertical-align: middle;
+}
+
+.owner-applications-table__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.owner-applications-table__empty td {
+  color: var(--muted);
+  text-align: center;
+  padding: 2rem 1rem;
+  font-family: var(--urdu);
+}
+
 /* Phase 40: fleet vehicles table */
 .vehicles-table {
   width: 100%;

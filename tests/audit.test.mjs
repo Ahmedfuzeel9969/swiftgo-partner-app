@@ -814,11 +814,23 @@ assert(
   "Owner onboarding is server-authoritative via Cloud Functions",
   read("functions/index.js").includes("exports.requestOwnerAccess") &&
     read("functions/index.js").includes("exports.approveOwnerAccess") &&
+    read("functions/index.js").includes("exports.rejectOwnerAccess") &&
     read("functions/owner-onboarding.js").includes("requestOwnerAccess") &&
     read("functions/owner-onboarding.js").includes("approveOwnerAccess") &&
+    read("functions/owner-onboarding.js").includes("rejectOwnerAccess") &&
+    read("functions/owner-onboarding.js").includes("isCallerAuthorizedForDiagnostic") &&
     read("functions/owner-onboarding.js").includes("ROLE_NOT_ACCEPTED_FROM_CLIENT") &&
     rules.includes("match /owner_applications/{appId}") &&
     rules.includes("allow create, update, delete: if false")
+);
+assert(
+  "wiring",
+  "Super Admin panel lists owner applications on demand",
+  read("super-admin-panel/index.html").includes('data-view-panel="owner-applications"') &&
+    read("super-admin-panel/js/admin-app.js").includes("fetchOwnerApplicationsOnDemand") &&
+    read("super-admin-panel/js/admin-app.js").includes("approveOwnerAccessClient") &&
+    read("super-admin-panel/js/admin-app.js").includes("rejectOwnerAccessClient") &&
+    read("super-admin-panel/js/admin-app.js").includes("OWNER_APPLICATIONS_FETCH_LIMIT = 50")
 );
 assert(
   "wiring",

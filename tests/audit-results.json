@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-10T06:12:58.638Z",
+  "generatedAt": "2026-08-10T06:28:43.756Z",
   "baseUrl": "https://swiftgo-ride-app.web.app",
-  "total": 240,
-  "passed": 238,
+  "total": 241,
+  "passed": 239,
   "failed": 2,
   "passRate": 99.2,
   "bySuite": {
@@ -37,9 +37,9 @@
       "total": 17
     },
     "wiring": {
-      "passed": 47,
+      "passed": 48,
       "failed": 1,
-      "total": 48
+      "total": 49
     },
     "a11y": {
       "passed": 7,
@@ -1306,6 +1306,12 @@
     {
       "suite": "wiring",
       "name": "Owner onboarding is server-authoritative via Cloud Functions",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Super Admin panel lists owner applications on demand",
       "status": "PASS",
       "detail": ""
     },

@@ -56,6 +56,7 @@ const {
 const {
   requestOwnerAccess: performRequestOwnerAccess,
   approveOwnerAccess: performApproveOwnerAccess,
+  rejectOwnerAccess: performRejectOwnerAccess,
 } = require("./owner-onboarding");
 const {
   recordFunctionError,
@@ -969,6 +970,17 @@ exports.approveOwnerAccess = onCall({ region: "us-central1" }, async (request) =
     return await performApproveOwnerAccess(db, request.auth, request.data || {});
   } catch (err) {
     console.error("[approveOwnerAccess]", err?.message || err);
+    throw mapErr(err);
+  }
+});
+
+/** Task 3C — super-admin rejects pending owner application. */
+exports.rejectOwnerAccess = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await performRejectOwnerAccess(db, request.auth, request.data || {});
+  } catch (err) {
+    console.error("[rejectOwnerAccess]", err?.message || err);
     throw mapErr(err);
   }
 });

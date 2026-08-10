@@ -108,6 +108,10 @@
           ریچارج درخواستیں
           <span class="admin-nav-item__en">Recharge Requests</span>
         </button>
+        <button type="button" class="admin-nav-item" id="navOwnerApplications" data-view="owner-applications">
+          مالک درخواستیں
+          <span class="admin-nav-item__en">Owner Applications</span>
+        </button>
       </nav>
     </aside>
 
@@ -775,6 +779,43 @@
               </table>
             </div>
             <p class="admin-live-note" id="rechargeRequestsLiveNote" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <!-- Task 3C — Owner onboarding approvals -->
+        <div class="admin-view" id="ownerApplicationsSection" data-view-panel="owner-applications" hidden>
+          <div class="table-panel">
+            <div class="table-panel__head">
+              <div>
+                <h2>مالک درخواستیں</h2>
+                <p>Pending fleet-owner access requests · Super Admin approval only</p>
+              </div>
+              <div class="table-panel__head-actions">
+                <button type="button" class="account-action-btn btn-unblock" id="ownerApplicationsRefreshBtn">
+                  تازہ کریں
+                </button>
+                <span class="table-panel__count" id="ownerApplicationsCount">0 pending</span>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table class="owner-applications-table" aria-label="Pending owner applications">
+                <thead>
+                  <tr>
+                    <th>تاریخ</th>
+                    <th>نام</th>
+                    <th>کاروبار</th>
+                    <th>UID</th>
+                    <th>عمل</th>
+                  </tr>
+                </thead>
+                <tbody id="ownerApplicationsTableBody">
+                  <tr class="owner-applications-table__empty">
+                    <td colspan="5">لوڈ ہو رہا ہے...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="admin-live-note" id="ownerApplicationsLiveNote" role="status" aria-live="polite"></p>
           </div>
         </div>
       </section>

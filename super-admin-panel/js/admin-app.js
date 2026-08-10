@@ -60,6 +60,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
 import {
+  approveOwnerAccessClient,
+  rejectOwnerAccessClient,
+} from "./admin-owner-applications-client.js?v=owner_apps_1";
+import {
   bootstrapAdminClaim as bootstrapAdminClaimClient,
   ensureFreshAuthUser,
   initSuperAdminAccess,
@@ -132,6 +136,7 @@ const VIEW_TITLES = {
   users: "صارفین اور گاڑیاں",
   finance: "مالی کنٹرول",
   "recharge-requests": "ریچارج درخواستیں",
+  "owner-applications": "مالک درخواستیں",
   "live-map": "لائیو نقشہ",
 };
 
@@ -226,6 +231,11 @@ const els = {
   rechargeRequestsTableBody: document.getElementById("rechargeRequestsTableBody"),
   rechargeRequestsCount: document.getElementById("rechargeRequestsCount"),
   rechargeRequestsLiveNote: document.getElementById("rechargeRequestsLiveNote"),
+  ownerApplicationsSection: document.getElementById("ownerApplicationsSection"),
+  ownerApplicationsTableBody: document.getElementById("ownerApplicationsTableBody"),
+  ownerApplicationsCount: document.getElementById("ownerApplicationsCount"),
+  ownerApplicationsLiveNote: document.getElementById("ownerApplicationsLiveNote"),
+  ownerApplicationsRefreshBtn: document.getElementById("ownerApplicationsRefreshBtn"),
   adminToast: document.getElementById("adminToast"),
   vehiclesTableBody: document.getElementById("vehiclesTableBody"),
   vehiclesTableCount: document.getElementById("vehiclesTableCount"),
@@ -253,6 +263,10 @@ let partnerDriversCache = [];
 let allRidesCache = [];
 /** @type {Array<Record<string, unknown>>} */
 let pendingRechargeCache = [];
+/** @type {Array<Record<string, unknown>>} */
+let pendingOwnerApplicationsCache = [];
+let ownerApplicationsFetchInFlight = false;
+let ownerApplicationsLastReadCount = 0;
 let pricingLoaded = false;
 let pricingSuccessTimer = 0;
 let cachedWalletThreshold = DEFAULT_PRICING.walletThreshold;
@@ -690,6 +704,10 @@ function setActiveView(viewKey) {
     fetchAndRenderRechargeRequests();
   }
 
+  if (key === "owner-applications") {
+    fetchOwnerApplicationsOnDemand();
+  }
+
   if (key === "live-map") {
     // Defer so the panel is laid out (not 0×0) before Leaflet measures it.
     window.requestAnimationFrame(() => {
@@ -754,6 +772,206 @@ function wireRechargeTableActions() {
     const driverId = btn.getAttribute("data-recharge-driver");
     if (!requestId || !driverId) return;
     approveRechargeRequest(requestId, { driverId, amount }, btn);
+  });
+}
+
+const OWNER_APPLICATIONS_FETCH_LIMIT = 50;
+
+function renderOwnerApplicationsTable(applications = pendingOwnerApplicationsCache) {
+  if (!els.ownerApplicationsTableBody) return;
+
+  if (!applications.length) {
+    els.ownerApplicationsTableBody.innerHTML = `
+      <tr class="owner-applications-table__empty">
+        <td colspan="5">کوئی زیر التواء مالک درخواست نہیں۔</td>
+      </tr>`;
+  } else {
+    els.ownerApplicationsTableBody.innerHTML = applications
+      .map((application) => {
+        const date = escapeHtml(formatAdminRideDate(application.createdAt));
+        const fullName = escapeHtml(application.fullName || "—");
+        const businessName = escapeHtml(application.businessName || "—");
+        const uid = escapeHtml(String(application.uid || application.id || "").slice(0, 12));
+        const appId = escapeHtml(application.id || application.uid || "");
+        return `
+          <tr data-owner-app-id="${appId}">
+            <td><time class="rides-table__date">${date}</time></td>
+            <td>${fullName}</td>
+            <td>${businessName}</td>
+            <td><code class="rides-table__id">${uid}…</code></td>
+            <td class="owner-applications-table__actions">
+              <button
+                type="button"
+                class="account-action-btn btn-unblock"
+                data-owner-approve="${appId}"
+              >منظور کریں</button>
+              <button
+                type="button"
+                class="account-action-btn btn-block"
+                data-owner-reject="${appId}"
+              >مسترد کریں</button>
+            </td>
+          </tr>`;
+      })
+      .join("");
+  }
+
+  if (els.ownerApplicationsCount) {
+    els.ownerApplicationsCount.textContent = `${applications.length} pending`;
+  }
+}
+
+async function fetchOwnerApplicationsOnDemand() {
+  const { db } = getFirebase();
+  if (!db) return;
+
+  if (ownerApplicationsFetchInFlight) return;
+  ownerApplicationsFetchInFlight = true;
+
+  if (els.ownerApplicationsLiveNote) {
+    els.ownerApplicationsLiveNote.textContent = "لوڈ ہو رہا ہے…";
+  }
+  if (!pendingOwnerApplicationsCache.length && els.ownerApplicationsTableBody) {
+    els.ownerApplicationsTableBody.innerHTML = `
+      <tr class="owner-applications-table__empty">
+        <td colspan="5">لوڈ ہو رہا ہے...</td>
+      </tr>`;
+  }
+
+  try {
+    const pendingQuery = query(
+      collection(db, "owner_applications"),
+      where("status", "==", "pending"),
+      limit(OWNER_APPLICATIONS_FETCH_LIMIT)
+    );
+    const snapshot = await getDocs(pendingQuery);
+    ownerApplicationsLastReadCount = snapshot.size;
+
+    pendingOwnerApplicationsCache = snapshot.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }))
+      .sort((a, b) => parseFirestoreTimestampMs(b.createdAt) - parseFirestoreTimestampMs(a.createdAt));
+
+    renderOwnerApplicationsTable(pendingOwnerApplicationsCache);
+    if (els.ownerApplicationsLiveNote) {
+      els.ownerApplicationsLiveNote.textContent = `${pendingOwnerApplicationsCache.length} زیر التواء · ${ownerApplicationsLastReadCount} دستاویزات پڑھی گئیں`;
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] owner applications fetch failed");
+    pendingOwnerApplicationsCache = [];
+    renderOwnerApplicationsTable([]);
+    if (els.ownerApplicationsLiveNote) {
+      els.ownerApplicationsLiveNote.textContent = permissionHint(error);
+    }
+    showAdminToast("مالک درخواستیں لوڈ نہیں ہو سکیں۔");
+  } finally {
+    ownerApplicationsFetchInFlight = false;
+  }
+}
+
+async function approveOwnerApplication(targetUid, button) {
+  const uid = String(targetUid || "").trim();
+  if (!uid) return;
+
+  const application = pendingOwnerApplicationsCache.find(
+    (item) => item.id === uid || item.uid === uid
+  );
+  const label = application?.fullName || uid.slice(0, 8);
+  const confirmed = window.confirm(
+    `کیا آپ واقعی "${label}" کو مالک کے طور پر منظور کرنا چاہتے ہیں؟\nApprove fleet owner access?`
+  );
+  if (!confirmed) return;
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "منظوری…";
+  }
+
+  try {
+    await approveOwnerAccessClient({ targetUid: uid });
+    pendingOwnerApplicationsCache = pendingOwnerApplicationsCache.filter(
+      (item) => item.id !== uid && item.uid !== uid
+    );
+    renderOwnerApplicationsTable(pendingOwnerApplicationsCache);
+    showAdminToast("مالک درخواست منظور ہو گئی۔");
+    if (els.ownerApplicationsLiveNote) {
+      els.ownerApplicationsLiveNote.textContent = "درخواست منظور · فہرست تازہ";
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] approve owner application failed");
+    if (button) {
+      button.disabled = false;
+      button.textContent = "منظور کریں";
+    }
+    showAdminToast(
+      error?.code === "permission-denied" || error?.message === "SUPER_ADMIN_ONLY"
+        ? "صرف سپر ایڈمن منظور کر سکتا ہے۔"
+        : "مالک منظوری ناکام۔ دوبارہ کوشش کریں۔"
+    );
+  }
+}
+
+async function rejectOwnerApplication(targetUid, button) {
+  const uid = String(targetUid || "").trim();
+  if (!uid) return;
+
+  const reason = window.prompt(
+    "مسترد کرنے کی وجہ (مختصر) · Rejection reason:",
+    "درخواست مکمل نہیں"
+  );
+  if (reason == null) return;
+  const trimmed = String(reason).trim();
+  if (!trimmed) {
+    showAdminToast("مسترد کرنے کی وجہ درکار ہے۔");
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "مسترد…";
+  }
+
+  try {
+    await rejectOwnerAccessClient({ targetUid: uid, reason: trimmed });
+    pendingOwnerApplicationsCache = pendingOwnerApplicationsCache.filter(
+      (item) => item.id !== uid && item.uid !== uid
+    );
+    renderOwnerApplicationsTable(pendingOwnerApplicationsCache);
+    showAdminToast("مالک درخواست مسترد ہو گئی۔");
+    if (els.ownerApplicationsLiveNote) {
+      els.ownerApplicationsLiveNote.textContent = "درخواست مسترد · فہرست تازہ";
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] reject owner application failed");
+    if (button) {
+      button.disabled = false;
+      button.textContent = "مسترد کریں";
+    }
+    showAdminToast(
+      error?.code === "permission-denied" || error?.message === "SUPER_ADMIN_ONLY"
+        ? "صرف سپر ایڈمن مسترد کر سکتا ہے۔"
+        : "مالک مستردی ناکام۔ دوبارہ کوشش کریں۔"
+    );
+  }
+}
+
+function wireOwnerApplicationsActions() {
+  els.ownerApplicationsTableBody?.addEventListener("click", (event) => {
+    const approveBtn = event.target.closest("[data-owner-approve]");
+    if (approveBtn) {
+      approveOwnerApplication(approveBtn.getAttribute("data-owner-approve"), approveBtn);
+      return;
+    }
+    const rejectBtn = event.target.closest("[data-owner-reject]");
+    if (rejectBtn) {
+      rejectOwnerApplication(rejectBtn.getAttribute("data-owner-reject"), rejectBtn);
+    }
+  });
+
+  els.ownerApplicationsRefreshBtn?.addEventListener("click", () => {
+    fetchOwnerApplicationsOnDemand();
   });
 }
 
@@ -2971,6 +3189,7 @@ function boot() {
   els.accessDeniedDismiss?.addEventListener("click", hideAccessDenied);
   wireDriversTableActions();
   wireRechargeTableActions();
+  wireOwnerApplicationsActions();
   wireVehiclesTableActions();
   wireGlobalTakeControl();
   wirePromoTableActions();

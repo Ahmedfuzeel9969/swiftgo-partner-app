@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-10T06:13:35.476Z",
-  "emulator": true,
-  "pass": 75,
+  "generatedAt": "2026-08-10T06:28:39.467Z",
+  "emulator": false,
+  "pass": 61,
   "fail": 0,
   "results": [
     {
@@ -365,93 +365,9 @@
       "suite": "auth-routing-matrix"
     },
     {
-      "name": "emulator-partner-driver",
+      "name": "emulator-scenarios",
       "status": "PASS",
-      "detail": "driver@example.com",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-partner-owner-on-partner-surface",
-      "status": "PASS",
-      "detail": "owner role allowed on /partner/",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-partner-invalid-role",
-      "status": "PASS",
-      "detail": "invalid saved role rejected",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-partner-blocked",
-      "status": "PASS",
-      "detail": "blocked accountStatus stops entry",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-admin-bootstrap-email",
-      "status": "PASS",
-      "detail": "fuzail1158@gmail.com",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-admin-custom-claim",
-      "status": "PASS",
-      "detail": "claimed-admin@example.com",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-users-role-not-admin-gate",
-      "status": "PASS",
-      "detail": "users/{uid}.role alone does not authorize /admin/",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-owner-driver-denied",
-      "status": "PASS",
-      "detail": "driver on /owner/ denied without role write",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-owner-missing-role-denied",
-      "status": "PASS",
-      "detail": "missing partners doc denied on /owner/",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-owner-legitimate",
-      "status": "PASS",
-      "detail": "saved owner role enters dashboard",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-owner-blocked",
-      "status": "PASS",
-      "detail": "blocked owner stops at overlay",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-owner-suspended",
-      "status": "PASS",
-      "detail": "suspended owner stops at overlay",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-claim-doc-disagreement-owner",
-      "status": "PASS",
-      "detail": "admin claim does not bypass owner surface role gate",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-owner-denial-no-role-mutation",
-      "status": "PASS",
-      "detail": "denial path never provisions owner role",
-      "suite": "auth-routing-matrix"
-    },
-    {
-      "name": "emulator-owner-no-self-redirect",
-      "status": "PASS",
-      "detail": "owner denial stays on surface without redirect loop",
+      "detail": "skipped (pass --emulator or npm run test:auth-routing:emulator)",
       "suite": "auth-routing-matrix"
     }
   ]
