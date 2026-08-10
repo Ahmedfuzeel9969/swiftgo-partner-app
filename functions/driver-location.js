@@ -255,6 +255,7 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
   }
 
   if (!opts.silent && result?.reason) {
+    // Log once after successful commit (never inside the transaction).
     logLocationDiag(result.reason);
   }
   return result || { mirrored: false, reason: "unknown" };
