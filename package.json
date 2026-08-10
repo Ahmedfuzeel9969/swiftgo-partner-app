@@ -37,6 +37,8 @@
     "test:hosting-deploy-integrity": "node tools/hosting-deploy-integrity.mjs && npm run build:hosting && node tools/hosting-deploy-integrity.mjs --verify-build",
     "sync:vehicle-catalog": "node tools/sync-vehicle-catalog.mjs",
     "sync:shared-js-wrappers": "node tools/sync-shared-js-wrappers.mjs",
+    "sync:shared-js-wrappers:check": "node tools/sync-shared-js-wrappers.mjs --check",
+    "test:hosting-build-order": "node tests/hosting-build-order.mjs",
     "test:vehicle-catalog": "node tools/sync-vehicle-catalog.mjs && node tests/vehicle-catalog-canonical.mjs",
     "test:vehicle-catalog-booking": "node tools/sync-vehicle-catalog.mjs && firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/vehicle-catalog-booking-server.mjs\"",
     "test:audit": "node tests/audit.test.mjs",

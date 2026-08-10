@@ -1,0 +1,177 @@
+{
+  "generatedAt": "2026-08-10T05:27:58.012Z",
+  "pass": 34,
+  "fail": 0,
+  "results": [
+    {
+      "name": "build-hosting-does-not-sync-wrappers-into-source",
+      "status": "PASS",
+      "detail": "wrapper generation removed from Hosting packaging"
+    },
+    {
+      "name": "build-order-apps-before-shared-overlay",
+      "status": "PASS",
+      "detail": "all copyApp calls precede HOSTING_DIST_JS_TARGETS overlay loop"
+    },
+    {
+      "name": "build-order-deterministic-target-list",
+      "status": "PASS",
+      "detail": "6 dist js targets"
+    },
+    {
+      "name": "admin-css-absolute-path",
+      "status": "PASS",
+      "detail": "/admin/css/admin-style.css"
+    },
+    {
+      "name": "admin-entry-script-absolute-path",
+      "status": "PASS",
+      "detail": "/admin/js/admin-app.js"
+    },
+    {
+      "name": "admin-legal-links-absolute",
+      "status": "PASS",
+      "detail": "legal links rooted at site root"
+    },
+    {
+      "name": "build-no-wrapper-diff-drift",
+      "status": "PASS",
+      "detail": "wrapper git diff unchanged"
+    },
+    {
+      "name": "build-no-wrapper-status-drift",
+      "status": "PASS",
+      "detail": "wrapper git status unchanged"
+    },
+    {
+      "name": "two-builds-equivalent-output",
+      "status": "PASS",
+      "detail": "hash=741b06652a8d29c1…"
+    },
+    {
+      "name": "build-stamp-head-sha",
+      "status": "PASS",
+      "detail": "8d88e119ec720a7aca8b748d2d16202211a948f1"
+    },
+    {
+      "name": "build-stamp-stable-across-rebuild",
+      "status": "PASS",
+      "detail": "8d88e119ec720a7aca8b748d2d16202211a948f1"
+    },
+    {
+      "name": "admin-canonical:geometry-quality.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:marker-heading.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:route-geometry.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:road-route-provider.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:two-leg-route-controller.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:two-leg-route-layers.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:route-projection.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:route-progress.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:route-motion-controller.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:off-route-detector.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:display-location-pipeline.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:breadcrumb-schema.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:vehicle-catalog.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:idle-publish-config.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:location-reporting-config.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:location-reporting-config-cache.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:ride-location-report-schema.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:ride-location-local-counter-store.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:ride-location-report-client.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:ride-location-report-pending-queue.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-built-location-reporting-export",
+      "status": "PASS",
+      "detail": "canonical export present in built admin bundle"
+    },
+    {
+      "name": "regression-stale-admin-source-lacks-export",
+      "status": "PASS",
+      "detail": "proves overlay fixes stale super-admin-panel copy"
+    },
+    {
+      "name": "admin-import-graph-resolves",
+      "status": "PASS",
+      "detail": "4 modules"
+    }
+  ]
+}

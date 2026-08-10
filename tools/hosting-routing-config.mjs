@@ -32,6 +32,7 @@ export const HOSTING_DEPLOY_SOURCE_PATHS = [
   "firebase.json",
   ".firebaserc",
   "tools/build-hosting.mjs",
+  "tools/hosting-build-config.mjs",
   "tools/hosting-deploy-integrity.mjs",
   "tools/hosting-routing-config.mjs",
   "tools/sync-shared-js-wrappers.mjs",
