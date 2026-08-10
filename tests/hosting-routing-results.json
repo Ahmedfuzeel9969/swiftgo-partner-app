@@ -1,0 +1,183 @@
+{
+  "generatedAt": "2026-08-10T05:12:40.397Z",
+  "liveBase": "http://127.0.0.1:5000",
+  "pass": 35,
+  "fail": 0,
+  "results": [
+    {
+      "name": "regression-incident-config-rejected",
+      "status": "PASS",
+      "detail": "8 self-redirect(s), 4 protected redirect rule(s)"
+    },
+    {
+      "name": "hosting-config-loaded",
+      "status": "PASS",
+      "detail": "firebase.json hosting section"
+    },
+    {
+      "name": "no-protected-self-redirects",
+      "status": "PASS",
+      "detail": "none detected"
+    },
+    {
+      "name": "protected-surfaces-rewrite-only",
+      "status": "PASS",
+      "detail": "no protected-surface redirects"
+    },
+    {
+      "name": "redirect-chains-terminate",
+      "status": "PASS",
+      "detail": "bounded at 5 hops"
+    },
+    {
+      "name": "required-rewrites-present",
+      "status": "PASS",
+      "detail": "d504309 rewrite set intact"
+    },
+    {
+      "name": "static-chain:/partner",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/partner/",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/owner",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/owner/",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/admin",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/admin/",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/customer",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/customer/",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-customer:/",
+      "status": "PASS",
+      "detail": "no redirect loop"
+    },
+    {
+      "name": "static-customer:/index.html",
+      "status": "PASS",
+      "detail": "no redirect loop"
+    },
+    {
+      "name": "live:/",
+      "status": "PASS",
+      "detail": "200"
+    },
+    {
+      "name": "live-no-self-redirect:/",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/partner",
+      "status": "PASS",
+      "detail": "1 redirect(s) → 200"
+    },
+    {
+      "name": "live-no-self-redirect:/partner",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/partner/",
+      "status": "PASS",
+      "detail": "200"
+    },
+    {
+      "name": "live-no-self-redirect:/partner/",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/owner",
+      "status": "PASS",
+      "detail": "1 redirect(s) → 200"
+    },
+    {
+      "name": "live-no-self-redirect:/owner",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/owner/",
+      "status": "PASS",
+      "detail": "200"
+    },
+    {
+      "name": "live-no-self-redirect:/owner/",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/admin",
+      "status": "PASS",
+      "detail": "1 redirect(s) → 200"
+    },
+    {
+      "name": "live-no-self-redirect:/admin",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/admin/",
+      "status": "PASS",
+      "detail": "200"
+    },
+    {
+      "name": "live-no-self-redirect:/admin/",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/customer",
+      "status": "PASS",
+      "detail": "1 redirect(s) → 200"
+    },
+    {
+      "name": "live-no-self-redirect:/customer",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/customer/",
+      "status": "PASS",
+      "detail": "200"
+    },
+    {
+      "name": "live-no-self-redirect:/customer/",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live-customer-root-available",
+      "status": "PASS",
+      "detail": "status=200"
+    }
+  ]
+}

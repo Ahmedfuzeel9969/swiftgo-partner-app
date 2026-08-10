@@ -2,6 +2,7 @@
 node_modules/
 .firebase/
 hosting-dist/
+.hosting-deploy-lock.json
 *-debug.log
 .firebaserc.local
 NUL

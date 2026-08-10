@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
+import { spawnSync, execSync } from "node:child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -133,3 +133,24 @@ console.info("  /admin/        <- super-admin-panel");
 console.info("  /legal/        <- privacy, terms, data-use drafts");
 console.info("  /.well-known/  <- assetlinks draft (if present)");
 console.info("  shared/js      <- canonical road modules (also inlined into app js/)");
+
+// Stamp build provenance for predeploy integrity verification.
+let headSha = "unknown";
+try {
+  headSha = execSync("git rev-parse HEAD", { cwd: ROOT, encoding: "utf8" }).trim();
+} catch {
+  console.warn("[build-hosting] warning: could not resolve git HEAD for hosting source stamp");
+}
+fs.writeFileSync(
+  path.join(DIST, ".hosting-source.json"),
+  JSON.stringify(
+    {
+      headSha,
+      builtAt: new Date().toISOString(),
+      builder: "tools/build-hosting.mjs",
+    },
+    null,
+    2
+  ) + "\n"
+);
+console.info(`[build-hosting] source stamp HEAD ${headSha}`);
