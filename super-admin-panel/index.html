@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Nastaliq+Urdu:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="css/admin-style.css?v=dispatch_dynamic_1" />
+  <link rel="stylesheet" href="/admin/css/admin-style.css?v=dispatch_dynamic_1" />
 </head>
 <body>
   <!-- Login gate -->
@@ -107,6 +107,10 @@
         <button type="button" class="admin-nav-item" id="navRechargeRequests" data-view="recharge-requests">
           ریچارج درخواستیں
           <span class="admin-nav-item__en">Recharge Requests</span>
+        </button>
+        <button type="button" class="admin-nav-item" id="navOwnerApplications" data-view="owner-applications">
+          مالک درخواستیں
+          <span class="admin-nav-item__en">Owner Applications</span>
         </button>
       </nav>
     </aside>
@@ -777,6 +781,43 @@
             <p class="admin-live-note" id="rechargeRequestsLiveNote" role="status" aria-live="polite"></p>
           </div>
         </div>
+
+        <!-- Task 3C — Owner onboarding approvals -->
+        <div class="admin-view" id="ownerApplicationsSection" data-view-panel="owner-applications" hidden>
+          <div class="table-panel">
+            <div class="table-panel__head">
+              <div>
+                <h2>مالک درخواستیں</h2>
+                <p>Pending fleet-owner access requests · Super Admin approval only</p>
+              </div>
+              <div class="table-panel__head-actions">
+                <button type="button" class="account-action-btn btn-unblock" id="ownerApplicationsRefreshBtn">
+                  تازہ کریں
+                </button>
+                <span class="table-panel__count" id="ownerApplicationsCount">0 pending</span>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table class="owner-applications-table" aria-label="Pending owner applications">
+                <thead>
+                  <tr>
+                    <th>تاریخ</th>
+                    <th>نام</th>
+                    <th>کاروبار</th>
+                    <th>UID</th>
+                    <th>عمل</th>
+                  </tr>
+                </thead>
+                <tbody id="ownerApplicationsTableBody">
+                  <tr class="owner-applications-table__empty">
+                    <td colspan="5">لوڈ ہو رہا ہے...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="admin-live-note" id="ownerApplicationsLiveNote" role="status" aria-live="polite"></p>
+          </div>
+        </div>
       </section>
     </div>
   </div>
@@ -847,6 +888,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script type="module" src="js/admin-app.js?v=dispatch_dynamic_1"></script>
+  <script type="module" src="/admin/js/admin-app.js?v=dispatch_dynamic_1"></script>
 </body>
 </html>

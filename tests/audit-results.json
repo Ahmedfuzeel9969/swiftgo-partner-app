@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-07-31T09:25:07.701Z",
+  "generatedAt": "2026-08-10T06:28:43.756Z",
   "baseUrl": "https://swiftgo-ride-app.web.app",
-  "total": 238,
-  "passed": 235,
-  "failed": 3,
-  "passRate": 98.7,
+  "total": 241,
+  "passed": 239,
+  "failed": 2,
+  "passRate": 99.2,
   "bySuite": {
     "structure": {
       "passed": 39,
@@ -37,9 +37,9 @@
       "total": 17
     },
     "wiring": {
-      "passed": 44,
-      "failed": 2,
-      "total": 46
+      "passed": 48,
+      "failed": 1,
+      "total": 49
     },
     "a11y": {
       "passed": 7,
@@ -773,13 +773,13 @@
       "suite": "i18n",
       "name": "i18n EN keys > 60",
       "status": "PASS",
-      "detail": "count=369"
+      "detail": "count=377"
     },
     {
       "suite": "i18n",
       "name": "i18n UR keys > 60",
       "status": "PASS",
-      "detail": "count=369"
+      "detail": "count=377"
     },
     {
       "suite": "i18n",
@@ -1227,7 +1227,7 @@
     },
     {
       "suite": "wiring",
-      "name": "Phase 15 dynamic fare matrix and route listener",
+      "name": "Phase 15 canonical catalog-driven fare matrix and route listener",
       "status": "PASS",
       "detail": ""
     },
@@ -1294,8 +1294,26 @@
     {
       "suite": "wiring",
       "name": "Partner auth routes strictly by saved role",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Owner app gates dashboard by saved owner role only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Owner onboarding is server-authoritative via Cloud Functions",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Super Admin panel lists owner applications on demand",
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",

@@ -1603,6 +1603,26 @@ button {
   opacity: 0.62;
 }
 
+.owner-request-access-btn {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.75rem;
+  border: 1px solid rgba(6, 90, 54, 0.35);
+  border-radius: 14px;
+  background: rgba(6, 90, 54, 0.08);
+  color: #065a36;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.owner-request-access-btn:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .google-login-btn svg {
   flex: 0 0 23px;
   width: 23px;

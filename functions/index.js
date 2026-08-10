@@ -54,6 +54,11 @@ const {
   submitSupportReport: performSupportReport,
 } = require("./account-deletion");
 const {
+  requestOwnerAccess: performRequestOwnerAccess,
+  approveOwnerAccess: performApproveOwnerAccess,
+  rejectOwnerAccess: performRejectOwnerAccess,
+} = require("./owner-onboarding");
+const {
   recordFunctionError,
   recordSettlementFailure,
   recordMatchingFailure,
@@ -943,6 +948,39 @@ exports.requestAccountDeletion = onCall({ region: "us-central1" }, async (reques
     });
   } catch (err) {
     console.error("[requestAccountDeletion]", err?.message || err);
+    throw mapErr(err);
+  }
+});
+
+/** Task 3B — authenticated user requests fleet-owner approval (pending state only). */
+exports.requestOwnerAccess = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await performRequestOwnerAccess(db, request.auth, request.data || {});
+  } catch (err) {
+    console.error("[requestOwnerAccess]", err?.message || err);
+    throw mapErr(err);
+  }
+});
+
+/** Task 3B — super-admin grants partners.role = owner (Admin SDK only). */
+exports.approveOwnerAccess = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await performApproveOwnerAccess(db, request.auth, request.data || {});
+  } catch (err) {
+    console.error("[approveOwnerAccess]", err?.message || err);
+    throw mapErr(err);
+  }
+});
+
+/** Task 3C — super-admin rejects pending owner application. */
+exports.rejectOwnerAccess = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await performRejectOwnerAccess(db, request.auth, request.data || {});
+  } catch (err) {
+    console.error("[rejectOwnerAccess]", err?.message || err);
     throw mapErr(err);
   }
 });

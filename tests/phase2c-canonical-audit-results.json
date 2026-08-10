@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T09:58:04.504Z",
+  "generatedAt": "2026-08-10T06:28:44.372Z",
   "results": [
     {
       "name": "A01-no-client-plaintext-pin-query",
@@ -44,8 +44,8 @@
     {
       "name": "A06-customer-creates-rides",
       "expected": "createRideRequest writes rides collection",
-      "actual": "rides",
-      "status": "PASS",
+      "actual": "missing",
+      "status": "FAIL",
       "detail": "",
       "suite": "phase2c-audit"
     },
@@ -98,8 +98,8 @@
       "suite": "phase2c-audit"
     }
   ],
-  "passed": 12,
-  "failed": 0,
+  "passed": 11,
+  "failed": 1,
   "blocked": 0,
   "total": 12
 }

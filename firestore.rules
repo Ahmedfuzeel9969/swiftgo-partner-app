@@ -616,7 +616,7 @@ service cloud.firestore {
         )
         && (
           !request.resource.data.keys().hasAny(['role'])
-          || request.resource.data.role in ['owner', 'driver']
+          || request.resource.data.role == 'driver'
         )
         && (
           !('walletBalance' in request.resource.data)
@@ -747,6 +747,16 @@ service cloud.firestore {
         && isValidDriverApplication(request.resource.data);
 
       allow update, delete: if false;
+    }
+
+    // ── owner_applications/{uid} ── (Task 3B: fleet-owner approval queue; Admin SDK writes only)
+    match /owner_applications/{appId} {
+      allow read: if isSignedIn() && (
+        isSuperAdmin()
+        || (request.auth.uid == appId && resource.data.uid == request.auth.uid)
+      );
+
+      allow create, update, delete: if false;
     }
 
     // ── rechargeRequests/{requestId} ── (Phase 37: wallet top-up approvals)

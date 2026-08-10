@@ -1,0 +1,62 @@
+{
+  "generatedAt": "2026-08-10T06:26:45.197Z",
+  "pass": 11,
+  "fail": 0,
+  "results": [
+    {
+      "name": "ui-section-present",
+      "status": "PASS",
+      "detail": "owner applications panel exists"
+    },
+    {
+      "name": "ui-nav-entry",
+      "status": "PASS",
+      "detail": "sidebar navigation wired"
+    },
+    {
+      "name": "ui-approve-reject-actions",
+      "status": "PASS",
+      "detail": "approve and reject controls defined"
+    },
+    {
+      "name": "ui-confirmation-before-approve",
+      "status": "PASS",
+      "detail": "approval requires explicit confirmation"
+    },
+    {
+      "name": "ui-on-demand-fetch-not-live-listener",
+      "status": "PASS",
+      "detail": "pending list loaded on demand"
+    },
+    {
+      "name": "ui-bounded-firestore-reads",
+      "status": "PASS",
+      "detail": "fetch capped at 50 documents"
+    },
+    {
+      "name": "ui-safe-fields-only",
+      "status": "PASS",
+      "detail": "table avoids email logging"
+    },
+    {
+      "name": "ui-refresh-after-action",
+      "status": "PASS",
+      "detail": "list refresh + Urdu toast feedback"
+    },
+    {
+      "name": "ui-loading-empty-error-states",
+      "status": "PASS",
+      "detail": "loading, empty, and error copy present"
+    },
+    {
+      "name": "ui-callable-clients-wired",
+      "status": "PASS",
+      "detail": "super admin uses trusted callables"
+    },
+    {
+      "name": "ui-view-switch-loads-on-demand",
+      "status": "PASS",
+      "detail": "opening view triggers bounded fetch"
+    }
+  ]
+}

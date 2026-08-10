@@ -1,0 +1,212 @@
+{
+  "generatedAt": "2026-08-10T06:28:17.227Z",
+  "pass": 41,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-callables-exported",
+      "status": "PASS",
+      "detail": "Cloud Functions exported"
+    },
+    {
+      "name": "static-approve-super-admin-only",
+      "status": "PASS",
+      "detail": "approve/reject use persisted super_admin authorization"
+    },
+    {
+      "name": "static-owner-app-uses-request-callable",
+      "status": "PASS",
+      "detail": "owner app requests access via callable only"
+    },
+    {
+      "name": "static-owner-applications-rules",
+      "status": "PASS",
+      "detail": "owner_applications client writes blocked"
+    },
+    {
+      "name": "callable-legitimate-request-pending",
+      "status": "PASS",
+      "detail": "request creates pending application"
+    },
+    {
+      "name": "callable-request-writes-pending-doc",
+      "status": "PASS",
+      "detail": "owner_applications pending persisted"
+    },
+    {
+      "name": "callable-request-does-not-write-partner-role",
+      "status": "PASS",
+      "detail": "partners doc not created on request alone"
+    },
+    {
+      "name": "callable-super-admin-grants-owner",
+      "status": "PASS",
+      "detail": "super_admin approval provisions owner"
+    },
+    {
+      "name": "callable-grant-writes-partner-owner-role",
+      "status": "PASS",
+      "detail": "partners.role owner after approval"
+    },
+    {
+      "name": "callable-grant-zero-wallet",
+      "status": "PASS",
+      "detail": "no financial privilege from client payload"
+    },
+    {
+      "name": "policy-provisioned-owner-enters-dashboard",
+      "status": "PASS",
+      "detail": "routing allows provisioned owner"
+    },
+    {
+      "name": "callable-idempotent-request-existing-owner",
+      "status": "PASS",
+      "detail": "repeat request after grant is idempotent"
+    },
+    {
+      "name": "callable-idempotent-approve",
+      "status": "PASS",
+      "detail": "repeat approve is idempotent"
+    },
+    {
+      "name": "callable-driver-may-request-not-elevate",
+      "status": "PASS",
+      "detail": "driver may request but stays driver until approval"
+    },
+    {
+      "name": "callable-driver-still-driver-after-request",
+      "status": "PASS",
+      "detail": "no silent elevation on request"
+    },
+    {
+      "name": "policy-driver-still-denied-owner-surface",
+      "status": "PASS",
+      "detail": "driver still denied /owner/ until approved"
+    },
+    {
+      "name": "policy-missing-role-denied",
+      "status": "PASS",
+      "detail": "visit alone does not authorize owner surface"
+    },
+    {
+      "name": "callable-customer-request-no-partner-yet",
+      "status": "PASS",
+      "detail": "customer request does not create partners doc"
+    },
+    {
+      "name": "callable-blocked-user-denied",
+      "status": "PASS",
+      "detail": "blocked user cannot request"
+    },
+    {
+      "name": "callable-forged-role-rejected",
+      "status": "PASS",
+      "detail": "client role field rejected"
+    },
+    {
+      "name": "callable-other-uid-denied",
+      "status": "PASS",
+      "detail": "cannot request for another uid"
+    },
+    {
+      "name": "callable-ordinary-admin-denied",
+      "status": "PASS",
+      "detail": "admin:true without super_admin cannot approve"
+    },
+    {
+      "name": "callable-forged-admin-claim-denied",
+      "status": "PASS",
+      "detail": "claim/document mismatch cannot approve"
+    },
+    {
+      "name": "callable-bootstrap-super-admin-approves",
+      "status": "PASS",
+      "detail": "approved bootstrap owner may approve"
+    },
+    {
+      "name": "callable-non-admin-approve-denied",
+      "status": "PASS",
+      "detail": "unauthenticated/random denied"
+    },
+    {
+      "name": "callable-denied-approve-no-role-flip",
+      "status": "PASS",
+      "detail": "denied approve does not promote blocked user"
+    },
+    {
+      "name": "callable-suspended-target-denied",
+      "status": "PASS",
+      "detail": "suspended partner cannot be approved"
+    },
+    {
+      "name": "callable-suspended-no-partial-write",
+      "status": "PASS",
+      "detail": "suspended denial leaves partner/application unchanged"
+    },
+    {
+      "name": "callable-disabled-auth-user-denied",
+      "status": "PASS",
+      "detail": "disabled auth user cannot be approved"
+    },
+    {
+      "name": "callable-promote-driver-preserves-financials",
+      "status": "PASS",
+      "detail": "approval does not reset wallet/earnings"
+    },
+    {
+      "name": "callable-reject-pending",
+      "status": "PASS",
+      "detail": "super admin rejects pending application"
+    },
+    {
+      "name": "callable-reject-no-partner-write",
+      "status": "PASS",
+      "detail": "reject never writes partners.role"
+    },
+    {
+      "name": "callable-reject-idempotent",
+      "status": "PASS",
+      "detail": "repeat reject idempotent"
+    },
+    {
+      "name": "callable-approve-after-reject-denied",
+      "status": "PASS",
+      "detail": "cannot approve rejected application without new request"
+    },
+    {
+      "name": "callable-rerequest-after-reject",
+      "status": "PASS",
+      "detail": "explicit new request after reject"
+    },
+    {
+      "name": "callable-rerequest-then-approve",
+      "status": "PASS",
+      "detail": "new request enables approval again"
+    },
+    {
+      "name": "callable-concurrent-double-approval",
+      "status": "PASS",
+      "detail": "concurrent approvals leave single owner role"
+    },
+    {
+      "name": "callable-existing-owner-login-compatible",
+      "status": "PASS",
+      "detail": "legacy owner documents still enter dashboard"
+    },
+    {
+      "name": "rules-applicant-reads-own-application",
+      "status": "PASS",
+      "detail": "pending application readable"
+    },
+    {
+      "name": "rules-client-cannot-write-owner-applications",
+      "status": "PASS",
+      "detail": "writes blocked"
+    },
+    {
+      "name": "rules-cannot-forge-other-application",
+      "status": "PASS",
+      "detail": "uid/doc mismatch blocked"
+    }
+  ]
+}
