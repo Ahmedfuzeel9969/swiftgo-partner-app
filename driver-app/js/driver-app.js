@@ -63,6 +63,7 @@ import {
   evaluateFixAgainstPrevious,
   LOCATION_DIAG,
   normalizeLocationFix,
+  resolveObservedAtMs,
   toVehicleLocationField,
 } from "./location-envelope.mjs";
 import { createLocationWriteSerializer } from "./location-write-queue.mjs";
@@ -267,6 +268,8 @@ void MIN_LOCATION_MOVE_M;
 /** Phase 1 tracking session — new id on each ONLINE_READY / watch start. */
 let locationTrackingSessionId = "";
 let locationTrackingSequence = 0;
+/** Last bound assignmentSessionToken — rotation triggers fresh tracking session. */
+let lastAssignmentSessionToken = "";
 /** When true, next vehicle write stamps server-controlled trackingSessionStartedAt. */
 let locationTrackingSessionStartPending = false;
 /** Generation token — late GPS callbacks after stop are ignored. */
@@ -515,6 +518,15 @@ function beginLocationTrackingSession() {
   syncLocationReportForActiveRide();
 }
 
+/** New assignment token → reset client ordering baseline and request a fresh trusted write. */
+function onActiveRideAssignmentBaseline(ride) {
+  const token = String(ride?.assignmentSessionToken || "").trim();
+  if (!token || token === lastAssignmentSessionToken) return;
+  lastAssignmentSessionToken = token;
+  beginLocationTrackingSession();
+  checkpointPolicy.requestImmediate("assignment_baseline");
+}
+
 function endLocationTrackingSession() {
   locationTrackingSessionId = "";
   locationTrackingSequence = 0;
@@ -528,6 +540,10 @@ function endLocationTrackingSession() {
 function nextLocationSequence() {
   locationTrackingSequence += 1;
   return locationTrackingSequence;
+}
+
+function peekNextLocationSequence() {
+  return locationTrackingSequence + 1;
 }
 /** Last successful browser GPS fix (ms) — diagnostic only, never shown as exact coords. */
 let lastGpsFixAtMs = 0;
@@ -2590,24 +2606,42 @@ async function syncVehicleLocationToFirestore(
   if (!locationTrackingSessionId) beginLocationTrackingSession();
   const trackingGen = locationTrackingGeneration;
   const sessionIdAtEnqueue = locationTrackingSessionId;
+  const now = Date.now();
   locationDiagCounters.gpsFixesReceived += 1;
+  checkpointPolicy.noteRawGps();
 
-  const normalized = normalizeLocationFix(
-    {
-      lat,
-      lng,
-      headingDeg: heading,
-      accuracyM: accuracy,
-      speedMps: speed,
-      observedAt: observedAt || Date.now(),
-      source: "gps",
-    },
-    {
-      sessionId: sessionIdAtEnqueue,
-      sequence: nextLocationSequence(),
-      nowMs: Date.now(),
+  const gpsProvided = observedAt != null && observedAt !== "";
+  const gpsObs = gpsProvided ? Number(observedAt) : NaN;
+  if (gpsProvided && Number.isFinite(gpsObs) && gpsObs > 0 && lastAcceptedLocationEnvelope) {
+    const prevObs = Number(lastAcceptedLocationEnvelope.observedAt) || 0;
+    if (gpsObs <= prevObs) {
+      checkpointPolicy.noteRejectedCachedGps();
+      locationDiagCounters.fixesRejected += 1;
+      if (gpsObs === prevObs) {
+        locationDiagCounters.duplicateRideWritesPrevented += 1;
+      }
+      return;
     }
-  );
+  }
+
+  const fixRaw = {
+    lat,
+    lng,
+    headingDeg: heading,
+    accuracyM: accuracy,
+    speedMps: speed,
+    source: "gps",
+  };
+  if (gpsProvided && Number.isFinite(gpsObs) && gpsObs > 0) {
+    fixRaw.observedAt = gpsObs;
+  }
+
+  const candidateSeq = peekNextLocationSequence();
+  const normalized = normalizeLocationFix(fixRaw, {
+    sessionId: sessionIdAtEnqueue,
+    sequence: candidateSeq,
+    nowMs: now,
+  });
   if (!normalized.ok || !normalized.envelope) {
     locationDiagCounters.fixesRejected += 1;
     try {
@@ -2645,6 +2679,8 @@ async function syncVehicleLocationToFirestore(
     return;
   }
 
+  locationTrackingSequence = candidateSeq;
+
   // Phase 3: feed validated GPS to P2P data channel (independent of Firebase write gate).
   if (activeExecutionRide?.id) {
     driverP2p.onLocationFix({
@@ -2666,12 +2702,10 @@ async function syncVehicleLocationToFirestore(
     });
   }
 
-  const now = Date.now();
   const cell = `${Math.floor(Number(lat) / LOCATION_GRID_DEG)}_${Math.floor(Number(lng) / LOCATION_GRID_DEG)}`;
   const geoCell = matchGeoCellId(lat, lng);
   const zoneChanged = cell !== lastLocationGridCell;
   const matchCellChanged = geoCell !== lastMatchGeoCell;
-  checkpointPolicy.noteRawGps();
   driverLocationReport.noteGpsFix(now);
   const idleWaiting = !activeExecutionRide?.id;
   let movedEnough = true;
@@ -2784,10 +2818,14 @@ function buildOnlineReadyVehiclePayload(lat, lng) {
   const hotspotId = matchHotspotId(lat, lng);
   if (!geoCell) throw new Error("INVALID_GEO_CELL");
   if (!locationTrackingSessionId) beginLocationTrackingSession();
+  const candidateSeq = peekNextLocationSequence();
   const envelope = normalizeLocationFix(
     { lat, lng, observedAt: Date.now(), source: "gps" },
-    { sessionId: locationTrackingSessionId, sequence: nextLocationSequence(), nowMs: Date.now() }
+    { sessionId: locationTrackingSessionId, sequence: candidateSeq, nowMs: Date.now() }
   );
+  if (envelope.ok) {
+    locationTrackingSequence = candidateSeq;
+  }
   const location = envelope.ok
     ? toVehicleLocationField(envelope.envelope)
     : { lat, lng };
@@ -3655,6 +3693,7 @@ function startActiveRideWatch(rideId, collectionName = "rides") {
       }
       activeExecutionRide = { id: snapshot.id, ...snapshot.data(), sourceCollection: collectionName };
       if (ACTIVE_EXECUTION_STATUSES.has(String(activeExecutionRide.status || ""))) {
+        onActiveRideAssignmentBaseline(activeExecutionRide);
         persistActiveRideCache(snapshot.id, collectionName);
         syncCheckpointPresenceForActiveRide();
         syncBreadcrumbCollectionForActiveRide();

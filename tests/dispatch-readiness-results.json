@@ -1,0 +1,137 @@
+{
+  "generatedAt": "2026-08-10T13:18:12.857Z",
+  "summary": {
+    "pass": 21,
+    "fail": 0,
+    "blocked": 0,
+    "total": 21
+  },
+  "results": [
+    {
+      "name": "geo-grid-deg",
+      "status": "PASS",
+      "detail": "grid=0.0036",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "CASE-A-first-match-zero",
+      "status": "PASS",
+      "detail": "count=0 source=geo_scoped_plus_capped_probe",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "CASE-A-first-source-probe-or-empty",
+      "status": "PASS",
+      "detail": "geo_scoped_plus_capped_probe",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "CASE-A-recovery-rematch-one",
+      "status": "PASS",
+      "detail": "count=1 source=geo_scoped",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "CASE-A-recovery-source-geo-scoped",
+      "status": "PASS",
+      "detail": "geo_scoped",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "CASE-B-first-match-ready",
+      "status": "PASS",
+      "detail": "candidates_ready",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "CASE-B-first-count-one",
+      "status": "PASS",
+      "detail": "count=1",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "CASE-B-source-geo-scoped",
+      "status": "PASS",
+      "detail": "geo_scoped",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "CASE-B-candidate-invited",
+      "status": "PASS",
+      "detail": "bciLuP6ICEnjd0xDOgLV_rdymsn9b79y-b-drv",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "CASE-B-driver-candidate-query",
+      "status": "PASS",
+      "detail": "docs=1",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "CASE-B-driver-ride-read",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "CASE-B-non-invited-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "fail-missing-geo",
+      "status": "PASS",
+      "detail": "invited=false total=0",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "fail-offline",
+      "status": "PASS",
+      "detail": "invited=false total=0",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "fail-stale-location",
+      "status": "PASS",
+      "detail": "invited=false total=0",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "fail-blocked-partner",
+      "status": "PASS",
+      "detail": "invited=false total=0",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "fail-suspended-partner",
+      "status": "PASS",
+      "detail": "invited=false total=0",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "fail-busy-driver",
+      "status": "PASS",
+      "detail": "invited=false total=0",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "fail-wrong-driverId",
+      "status": "PASS",
+      "detail": "invited=false total=1",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "fail-outside-radius",
+      "status": "PASS",
+      "detail": "total=1",
+      "suite": "dispatch-readiness"
+    },
+    {
+      "name": "rematch-count-nonzero",
+      "status": "PASS",
+      "detail": "first=1 second=1",
+      "suite": "dispatch-readiness"
+    }
+  ]
+}

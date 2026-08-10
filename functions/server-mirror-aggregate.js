@@ -4,6 +4,7 @@
  */
 "use strict";
 
+const { FieldValue } = require("firebase-admin/firestore");
 const { createEmptyServerCounters } = require("./ride-location-report-schema.js");
 
 function timestampToMs(value) {
@@ -77,10 +78,25 @@ function assignmentServerMirrorAggregateResetPatch() {
   };
 }
 
+/**
+ * Reset assignment-scoped ride location ordering baseline atomically with a fresh token.
+ * Clears prior-assignment driverLocation so seed/mirror never compares against stale state.
+ */
+function assignmentLocationBaselineResetPatch() {
+  return {
+    ...assignmentServerMirrorAggregateResetPatch(),
+    driverLocation: FieldValue.delete(),
+    driverLocationUpdatedAt: FieldValue.delete(),
+    driverTrackingSessionId: FieldValue.delete(),
+    driverTrackingSessionStartedAt: FieldValue.delete(),
+  };
+}
+
 module.exports = {
   buildAcceptedMirrorAggregatePatch,
   serverSectionFromRideAggregate,
   hasRideServerMirrorAggregate,
   assignmentServerMirrorAggregateResetPatch,
+  assignmentLocationBaselineResetPatch,
   timestampToMs,
 };

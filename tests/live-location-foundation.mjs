@@ -1215,6 +1215,17 @@ async function emulatorTests() {
   }
   const db = admin.firestore(app);
   const Ts = admin.firestore.Timestamp;
+  const AdminFieldValue = admin.firestore.FieldValue;
+
+  /** Align vehicles.locationUpdatedAt with fix observedAt (trust-anchor recency model). */
+  function withTrustedVehicleLoc(vehicleBase, location) {
+    const obs = Number(location?.observedAt) || Date.now();
+    return {
+      ...vehicleBase,
+      location,
+      locationUpdatedAt: Ts.fromMillis(obs),
+    };
+  }
 
   const vehicleId = "llf-veh-1";
   const rideId = "llf-ride-1";
@@ -1237,7 +1248,7 @@ async function emulatorTests() {
       headingDeg: 90,
       source: "gps",
     },
-    locationUpdatedAt: Ts.now(),
+    locationUpdatedAt: Ts.fromMillis(1_000_100),
   });
   await db.doc(`rides/${rideId}`).set({
     userId: customerId,
@@ -1263,32 +1274,22 @@ async function emulatorTests() {
   );
 
   const vehicleBase = (await db.doc(`vehicles/${vehicleId}`).get()).data();
-  const fixNew = {
-    ...vehicleBase,
-    trackingSessionId: "sess-1",
-    trackingSessionStartedAt: Ts.fromMillis(1_000_000),
-    location: {
-      lat: 24.862,
-      lng: 67.003,
-      observedAt: 1_000_500,
-      sequence: 3,
-      sessionId: "sess-1",
-      source: "gps",
-    },
-  };
-  const fixOld = {
-    ...vehicleBase,
-    trackingSessionId: "sess-1",
-    trackingSessionStartedAt: Ts.fromMillis(1_000_000),
-    location: {
-      lat: 24.85,
-      lng: 67.0,
-      observedAt: 1_000_200,
-      sequence: 2,
-      sessionId: "sess-1",
-      source: "gps",
-    },
-  };
+  const fixNew = withTrustedVehicleLoc(vehicleBase, {
+    lat: 24.862,
+    lng: 67.003,
+    observedAt: 1_000_500,
+    sequence: 3,
+    sessionId: "sess-1",
+    source: "gps",
+  });
+  const fixOld = withTrustedVehicleLoc(vehicleBase, {
+    lat: 24.85,
+    lng: 67.0,
+    observedAt: 1_000_200,
+    sequence: 2,
+    sessionId: "sess-1",
+    source: "gps",
+  });
   await Promise.all([
     mirrorDriverLocationToRide(db, vehicleId, fixOld),
     mirrorDriverLocationToRide(db, vehicleId, fixNew),
@@ -1325,28 +1326,30 @@ async function emulatorTests() {
     },
     { merge: true }
   );
-  await mirrorDriverLocationToRide(db, vehicleId, {
-    ...fixNew,
-    location: {
+  await mirrorDriverLocationToRide(
+    db,
+    vehicleId,
+    withTrustedVehicleLoc(fixNew, {
       lat: 24.863,
       lng: 67.004,
       observedAt: 1_001_000,
       sequence: 4,
       sessionId: "sess-1",
       source: "gps",
-    },
-  });
-  await mirrorDriverLocationToRide(db, vehicleId, {
-    ...fixNew,
-    location: {
+    })
+  );
+  await mirrorDriverLocationToRide(
+    db,
+    vehicleId,
+    withTrustedVehicleLoc(fixNew, {
       lat: 24.864,
       lng: 67.005,
       observedAt: 1_001_500,
       sequence: 5,
       sessionId: "sess-1",
       source: "gps",
-    },
-  });
+    })
+  );
   const afterTravel = (await db.doc(`rides/${rideId}`).get()).data();
   record(
     "22-active-ride-distance-accumulation",
@@ -1370,28 +1373,30 @@ async function emulatorTests() {
     { merge: true }
   );
   await Promise.all([
-    mirrorDriverLocationToRide(db, vehicleId, {
-      ...fixNew,
-      location: {
+    mirrorDriverLocationToRide(
+      db,
+      vehicleId,
+      withTrustedVehicleLoc(fixNew, {
         lat: 24.8642,
         lng: 67.0052,
         observedAt: 1_002_000,
         sequence: 6,
         sessionId: "sess-1",
         source: "gps",
-      },
-    }),
-    mirrorDriverLocationToRide(db, vehicleId, {
-      ...fixNew,
-      location: {
+      })
+    ),
+    mirrorDriverLocationToRide(
+      db,
+      vehicleId,
+      withTrustedVehicleLoc(fixNew, {
         lat: 24.8645,
         lng: 67.0055,
         observedAt: 1_006_000,
         sequence: 7,
         sessionId: "sess-1",
         source: "gps",
-      },
-    }),
+      })
+    ),
   ]);
   const afterOrdered = (await db.doc(`rides/${rideId}`).get()).data();
   record(
@@ -1420,28 +1425,22 @@ async function emulatorTests() {
       },
       { merge: true }
     );
-    const older = {
-      ...fixNew,
-      location: {
-        lat: 24.863,
-        lng: 67.004,
-        observedAt: 2_000_100,
-        sequence: 11,
-        sessionId: "sess-1",
-        source: "gps",
-      },
-    };
-    const newer = {
-      ...fixNew,
-      location: {
-        lat: 24.865,
-        lng: 67.006,
-        observedAt: 2_010_000,
-        sequence: 12,
-        sessionId: "sess-1",
-        source: "gps",
-      },
-    };
+    const older = withTrustedVehicleLoc(fixNew, {
+      lat: 24.863,
+      lng: 67.004,
+      observedAt: 2_000_100,
+      sequence: 11,
+      sessionId: "sess-1",
+      source: "gps",
+    });
+    const newer = withTrustedVehicleLoc(fixNew, {
+      lat: 24.865,
+      lng: 67.006,
+      observedAt: 2_010_000,
+      sequence: 12,
+      sessionId: "sess-1",
+      source: "gps",
+    });
     const pair = i % 2 === 0 ? [older, newer] : [newer, older];
     await Promise.all(pair.map((v) => mirrorDriverLocationToRide(db, vehicleId, v)));
     const d = (await db.doc(`rides/${rideId}`).get()).data();
@@ -1455,17 +1454,18 @@ async function emulatorTests() {
   );
 
   await db.doc(`rides/${rideId}`).set({ status: "completed" }, { merge: true });
-  const term = await mirrorDriverLocationToRide(db, vehicleId, {
-    ...fixNew,
-    location: {
+  const term = await mirrorDriverLocationToRide(
+    db,
+    vehicleId,
+    withTrustedVehicleLoc(fixNew, {
       lat: 24.9,
       lng: 67.1,
       observedAt: 1_003_000,
       sequence: 8,
       sessionId: "sess-1",
       source: "gps",
-    },
-  });
+    })
+  );
   record(
     "emu-terminal-no-update",
     !term.mirrored ? "PASS" : "FAIL",
@@ -1516,15 +1516,12 @@ async function emulatorTests() {
   });
   // Trigger may race-mirror first — clear ride location so seed is the authority under test.
   await sleep(400);
-  await db.doc(`rides/${seedRide}`).set(
-    {
-      driverLocation: admin.firestore.FieldValue.delete(),
-      driverTrackingSessionId: admin.firestore.FieldValue.delete(),
-      driverTrackingSessionStartedAt: admin.firestore.FieldValue.delete(),
-      driverLocationUpdatedAt: admin.firestore.FieldValue.delete(),
-    },
-    { merge: true }
-  );
+  await db.doc(`rides/${seedRide}`).update({
+    driverLocation: AdminFieldValue.delete(),
+    driverTrackingSessionId: AdminFieldValue.delete(),
+    driverTrackingSessionStartedAt: AdminFieldValue.delete(),
+    driverLocationUpdatedAt: AdminFieldValue.delete(),
+  });
   const seedRes = await seedDriverLocationFromVehicle(db, seedRide, seedVeh);
   const seeded = (await db.doc(`rides/${seedRide}`).get()).data();
   record(
@@ -1550,6 +1547,7 @@ async function emulatorTests() {
         sessionId: "seed-sess-STALE",
         source: "gps",
       },
+      locationUpdatedAt: Ts.now(),
     },
     { merge: true }
   );
@@ -1622,6 +1620,7 @@ async function emulatorTests() {
   const mirroredBefore = diag.filter((r) => r === CF_DIAG.MIRRORED).length;
 
   // Identical vehicle write (same envelope) — should no-op on ride
+  const identicalObs = Number(beforeIdentical.driverLocation?.observedAt) || Date.now();
   await db.doc(`vehicles/${vehTrig}`).set(
     {
       trackingSessionId: "trig-sess",
@@ -1633,7 +1632,7 @@ async function emulatorTests() {
         sessionId: "trig-sess",
         source: "gps",
       },
-      locationUpdatedAt: Ts.now(),
+      locationUpdatedAt: Ts.fromMillis(identicalObs),
     },
     { merge: true }
   );

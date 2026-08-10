@@ -7,6 +7,9 @@
  * - First ride fix is NOT accepted merely because no previous ride location exists
  *   when session IDs mismatch or location.sessionId is missing.
  * - Same sessionId: next.sequence AND next.observedAt must both be strictly greater.
+ * - First ride fix for an established vehicle session uses trusted-fix recency
+ *   (vehicles.locationUpdatedAt anchor), NOT the new-session start window.
+ * - New tracking session transitions on the ride still use session-start freshness.
  * - Exact same sessionId/sequence/observedAt/coords → duplicate.
  * - Different sessionId alone is NOT enough to accept.
  * - A new session is accepted only when vehicle.trackingSessionStartedAt (server time)
@@ -213,6 +216,87 @@ function validateNewSessionFirstObservedAt(observedAt, vehicleSessionStartedMs) 
 }
 
 /**
+ * Validate observedAt against a trusted server anchor (e.g. vehicles.locationUpdatedAt).
+ * Used when mirroring the first fix of an already-established tracking session.
+ * @returns {{ ok: true } | { ok: false, reason: string }}
+ */
+function validateTrustedFixRecency(
+  observedAt,
+  trustAnchorMs,
+  maxAgeMs = SESSION_FIRST_FIX_MAX_AGE_MS,
+  maxFutureMs = SESSION_FIRST_FIX_MAX_FUTURE_MS
+) {
+  const obs = Number(observedAt);
+  const anchor = Number(trustAnchorMs);
+  if (!Number.isFinite(obs) || obs <= 0) {
+    return { ok: false, reason: LOCATION_DIAG.INVALID };
+  }
+  if (!Number.isFinite(anchor) || anchor <= 0) {
+    return { ok: false, reason: LOCATION_DIAG.INVALID };
+  }
+  if (obs < anchor - maxAgeMs) {
+    return { ok: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+  }
+  if (obs > anchor + maxFutureMs) {
+    return { ok: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+  }
+  return { ok: true };
+}
+
+/**
+ * Read vehicles.locationUpdatedAt only — committed Firestore Timestamp shapes only.
+ * Plain numbers and strings are rejected (rules enforce timestamp type on write).
+ * @returns {number|null}
+ */
+function resolveCommittedTrustAnchorMs(vehicle) {
+  const raw = vehicle?.locationUpdatedAt;
+  if (raw == null || raw === "") return null;
+  if (typeof raw === "number" || typeof raw === "string") return null;
+  const ms = timestampToMs(raw);
+  return Number.isFinite(ms) && ms > 0 ? ms : null;
+}
+
+/**
+ * Reject committed anchors that are missing, malformed, or far-future vs server clock.
+ * @returns {{ ok: true } | { ok: false, reason: string }}
+ */
+function validateTrustAnchorBounds(anchorMs, serverNowMs = Date.now()) {
+  const anchor = Number(anchorMs);
+  const now = Number(serverNowMs);
+  if (!Number.isFinite(anchor) || anchor <= 0) {
+    return { ok: false, reason: LOCATION_DIAG.INVALID };
+  }
+  if (!Number.isFinite(now) || now <= 0) {
+    return { ok: false, reason: LOCATION_DIAG.INVALID };
+  }
+  if (anchor > now + SESSION_FIRST_FIX_MAX_FUTURE_MS) {
+    return { ok: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+  }
+  return { ok: true };
+}
+
+/** First ride fix freshness: committed trust anchor when present; else session-start window. */
+function resolveFirstRideFixFreshness(next, sessionCtx) {
+  const hasCommittedTrustAnchor = Boolean(sessionCtx.hasCommittedTrustAnchor);
+  const trustAnchorMs = Number(sessionCtx.trustAnchorMs) || 0;
+  const vehicleSessionStartedMs = Number(sessionCtx.vehicleSessionStartedMs) || 0;
+  const serverNowMs = Number(sessionCtx.serverNowMs) || Date.now();
+
+  if (hasCommittedTrustAnchor) {
+    if (trustAnchorMs <= 0) {
+      return { ok: false, reason: LOCATION_DIAG.INVALID };
+    }
+    const anchorBounds = validateTrustAnchorBounds(trustAnchorMs, serverNowMs);
+    if (!anchorBounds.ok) return anchorBounds;
+    return validateTrustedFixRecency(next.observedAt, trustAnchorMs);
+  }
+  if (vehicleSessionStartedMs > 0) {
+    return validateNewSessionFirstObservedAt(next.observedAt, vehicleSessionStartedMs);
+  }
+  return { ok: true };
+}
+
+/**
  * When sessionCtx.enforceSessionConsistency is true (CF mirror path), require
  * next.sessionId === vehicleSessionId even for the first ride fix.
  * Calls without that flag keep legacy evaluate behaviour for read-side tooling.
@@ -228,6 +312,9 @@ function validateNewSessionFirstObservedAt(observedAt, vehicleSessionStartedMs) 
  *   vehicleSessionId?: string,
  *   vehicleSessionStartedMs?: number|null,
  *   previousSessionStartedMs?: number|null,
+ *   trustAnchorMs?: number|null,
+ *   hasCommittedTrustAnchor?: boolean,
+ *   serverNowMs?: number|null,
  *   enforceSessionConsistency?: boolean,
  * }} [sessionCtx]
  */
@@ -252,11 +339,8 @@ function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
   }
 
   if (!previous || !isValidLatLng(previous.lat, previous.lng)) {
-    // First ride fix: when server session start is known, apply the same freshness window.
-    if (vehicleSessionStartedMs) {
-      const fresh = validateNewSessionFirstObservedAt(next.observedAt, vehicleSessionStartedMs);
-      if (!fresh.ok) return { accept: false, reason: fresh.reason };
-    }
+    const fresh = resolveFirstRideFixFreshness(next, sessionCtx);
+    if (!fresh.ok) return { accept: false, reason: fresh.reason };
     return { accept: true, reason: LOCATION_DIAG.ACCEPTED };
   }
 
@@ -425,6 +509,10 @@ module.exports = {
   timestampToMs,
   normalizeLocationFix,
   validateNewSessionFirstObservedAt,
+  validateTrustedFixRecency,
+  resolveCommittedTrustAnchorMs,
+  validateTrustAnchorBounds,
+  resolveFirstRideFixFreshness,
   evaluateFixAgainstPrevious,
   derivedDisplayBearingDeg,
   toVehicleLocationField,

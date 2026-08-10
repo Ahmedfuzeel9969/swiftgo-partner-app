@@ -1,6 +1,6 @@
 {
   "suite": "p2p-webrtc",
-  "generatedAt": "2026-08-01T19:15:59.190Z",
+  "generatedAt": "2026-08-10T11:41:47.998Z",
   "totals": {
     "pass": 82,
     "fail": 0,
@@ -319,7 +319,7 @@
     {
       "name": "01-assigned-driver-create-session",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1785612655772,\"protocolVersion\":1}",
+      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1786363005006,\"protocolVersion\":1}",
       "suite": "p2p-webrtc",
       "category": "unit"
     },
