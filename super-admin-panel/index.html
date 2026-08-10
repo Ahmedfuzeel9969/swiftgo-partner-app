@@ -204,11 +204,12 @@
                     <th>کل کرایہ</th>
                     <th>کمیشن</th>
                     <th>ریٹنگ</th>
+                    <th>لوکیشن رپورٹ</th>
                   </tr>
                 </thead>
                 <tbody id="allRidesTableBody">
                   <tr class="rides-table__empty">
-                    <td colspan="7">لوڈ ہو رہا ہے...</td>
+                    <td colspan="8">لوڈ ہو رہا ہے...</td>
                   </tr>
                 </tbody>
               </table>
@@ -602,6 +603,95 @@
               </button>
               <p class="admin-live-note" id="dispatchStatusNote" role="status" aria-live="polite"></p>
             </form>
+
+            <div class="finance-panel__head" style="margin-top:1.5rem">
+              <h2>لوکیشن رپورٹنگ · تشخیصی</h2>
+              <p>فی سواری location counters · <code>settings/locationReporting</code> · کرایہ/سیٹلمنٹ/Dispatch متاثر نہیں</p>
+            </div>
+            <form class="finance-form" id="locationReportingSettingsForm" novalidate>
+              <label class="finance-field finance-field--checkbox" for="locationReportingEnabled">
+                <input type="checkbox" id="locationReportingEnabled" name="enabled" checked />
+                <span>لوکیشن رپورٹنگ فعال / Enable location reporting</span>
+              </label>
+              <label class="finance-field" for="locationReportingUploadMode">
+                <span class="finance-field__label" id="locationReportingUploadModeLabel">اپ لوڈ موڈ / Upload mode</span>
+                <select id="locationReportingUploadMode" name="uploadMode" aria-labelledby="locationReportingUploadModeLabel">
+                  <option value="ride_end">سواری ختم پر (ride_end)</option>
+                  <option value="periodic_and_ride_end" disabled>وقفے + سواری ختم — جلد (not implemented)</option>
+                  <option value="anomaly_and_ride_end" disabled>غیر معمول + سواری ختم — جلد (not implemented)</option>
+                  <option value="disabled">بند (disabled)</option>
+                </select>
+                <p class="finance-field__hint" id="locationReportingModeHint">
+                  ride_end: terminal flush only. periodic/anomaly modes are disabled until implemented. expiresAt is a retention marker only — Firestore TTL not active.
+                </p>
+              </label>
+              <label class="finance-field" for="locationReportingPeriodicInterval" id="locationReportingPeriodicField">
+                <span class="finance-field__label" id="locationReportingPeriodicLabel">وقفہ (منٹ) / Periodic interval (minutes)</span>
+                <input
+                  type="number"
+                  id="locationReportingPeriodicInterval"
+                  name="periodicIntervalMinutes"
+                  min="5"
+                  max="60"
+                  step="1"
+                  value="10"
+                  aria-labelledby="locationReportingPeriodicLabel"
+                />
+              </label>
+              <label class="finance-field finance-field--checkbox" for="locationReportingUploadOnAnomaly">
+                <input type="checkbox" id="locationReportingUploadOnAnomaly" name="uploadOnAnomaly" />
+                <span>غیر معمولی واقعہ پر اپ لوڈ / Upload on anomaly</span>
+              </label>
+              <label class="finance-field finance-field--checkbox" for="locationReportingFinalRequired">
+                <input type="checkbox" id="locationReportingFinalRequired" name="finalUploadRequired" checked />
+                <span>سواری ختم پر final upload ضروری / Final upload required at ride end</span>
+              </label>
+              <fieldset class="finance-field finance-diagnostic-panel">
+                <legend>جمع کرنے والے میٹرکس / Metrics collected</legend>
+                <label class="finance-field finance-field--checkbox" for="locationReportingCollectDriver">
+                  <input type="checkbox" id="locationReportingCollectDriver" name="collectDriverMetrics" checked />
+                  <span>ڈرائیور counters</span>
+                </label>
+                <label class="finance-field finance-field--checkbox" for="locationReportingCollectCustomer">
+                  <input type="checkbox" id="locationReportingCollectCustomer" name="collectCustomerMetrics" checked />
+                  <span>کسٹمر counters</span>
+                </label>
+                <label class="finance-field finance-field--checkbox" for="locationReportingCollectFirebase">
+                  <input type="checkbox" id="locationReportingCollectFirebase" name="collectFirebaseMetrics" checked />
+                  <span>Firebase mirror counters</span>
+                </label>
+                <label class="finance-field finance-field--checkbox" for="locationReportingCollectP2p">
+                  <input type="checkbox" id="locationReportingCollectP2p" name="collectP2pMetrics" checked />
+                  <span>P2P counters</span>
+                </label>
+              </fieldset>
+              <label class="finance-field" for="locationReportingRetentionDays">
+                <span class="finance-field__label" id="locationReportingRetentionLabel">رپورٹ retention (دن) / Retention (days)</span>
+                <input
+                  type="number"
+                  id="locationReportingRetentionDays"
+                  name="retentionDays"
+                  min="7"
+                  max="90"
+                  step="1"
+                  value="30"
+                  required
+                  aria-labelledby="locationReportingRetentionLabel"
+                />
+              </label>
+              <p class="admin-live-note admin-cost-warning" role="note">
+                <strong>نوٹ:</strong> یہ صرف تشخیصی رپورٹس کے لیے ہے۔ live tracking، fare، wallet، commission، settlement یا ride status بدل نہیں ہوتا۔
+                <code>ride_end</code> موڈ production default ہے؛ periodic/anomaly modes مستقبل میں cost-bounded idempotent uploads کے لیے محفوظ ہیں۔
+              </p>
+              <button type="submit" class="finance-save-btn" id="locationReportingSaveBtn">
+                لوکیشن رپورٹنگ محفوظ کریں
+                <span class="finance-save-btn__en">Save Location Reporting</span>
+              </button>
+              <p class="finance-success" id="locationReportingSuccessMessage" hidden role="status" aria-live="polite">
+                لوکیشن رپورٹنگ سیٹنگز محفوظ ہو گئیں!
+              </p>
+              <p class="admin-live-note" id="locationReportingStatusNote" role="status" aria-live="polite"></p>
+            </form>
           </div>
 
           <!-- Phase 42: Promo codes -->
@@ -692,6 +782,30 @@
   </div>
 
   <div class="admin-toast" id="adminToast" role="status" aria-live="polite"></div>
+
+  <!-- Per-ride location delivery report (Super Admin read-only) -->
+  <div class="location-report-modal" id="locationReportModal" aria-hidden="true" hidden>
+    <button class="location-report-modal__backdrop" id="locationReportModalBackdrop" type="button" aria-label="بند کریں"></button>
+    <section
+      class="location-report-modal__panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="locationReportModalTitle"
+      aria-describedby="locationReportModalBody"
+    >
+      <div class="location-report-modal__heading">
+        <div>
+          <p>Diagnostic</p>
+          <h2 id="locationReportModalTitle">لوکیشن ڈیلیوری رپورٹ</h2>
+        </div>
+        <button type="button" class="location-report-modal__close" id="locationReportModalCloseBtn" aria-label="بند کریں">×</button>
+      </div>
+      <p class="location-report-modal__ride-id" id="locationReportModalRideId" aria-live="polite"></p>
+      <div class="location-report-modal__body" id="locationReportModalBody" tabindex="-1">
+        <p class="location-report-loading">لوڈ ہو رہا ہے…</p>
+      </div>
+    </section>
+  </div>
 
   <!-- Phase 39: notification settings -->
   <div class="notify-settings-modal" id="notificationSettingsModal" aria-hidden="true" hidden>

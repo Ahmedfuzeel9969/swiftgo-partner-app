@@ -16,6 +16,19 @@ import {
   IDLE_PUBLISH_DEFAULTS,
   IDLE_PUBLISH_PRESETS,
 } from "./idle-publish-config.mjs";
+import {
+  normalizeLocationReportingConfig,
+  LOCATION_REPORTING_DEFAULTS,
+  LOCATION_REPORTING_BOUNDS,
+  LOCATION_REPORTING_UPLOAD_MODES,
+  LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED,
+  requiresPeriodicInterval,
+} from "./location-reporting-config.mjs";
+import {
+  buildRideLocationReportViewModel,
+  renderRideLocationReportPanelHtml,
+  RIDE_LOCATION_REPORT_COLLECTION,
+} from "./ride-location-report-view.mjs";
 import { firebaseConfig } from "./firebase-config.js";
 import { getFirebase, isFirebaseConfigured } from "./firebase.js?v=dispatch_dynamic_1";
 import {
@@ -51,6 +64,7 @@ import {
   ensureFreshAuthUser,
   initSuperAdminAccess,
   saveAdminDispatchSettings,
+  saveAdminLocationReportingSettings,
   saveAdminPricingSettings as saveAdminPricingSettingsClient,
 } from "./admin-settings-client.js?v=dispatch_dynamic_1";
 import {
@@ -175,6 +189,21 @@ const els = {
   dispatchRadiusPreview: document.getElementById("dispatchRadiusPreview"),
   dispatchSaveBtn: document.getElementById("dispatchSaveBtn"),
   dispatchStatusNote: document.getElementById("dispatchStatusNote"),
+  locationReportingForm: document.getElementById("locationReportingSettingsForm"),
+  locationReportingEnabled: document.getElementById("locationReportingEnabled"),
+  locationReportingUploadMode: document.getElementById("locationReportingUploadMode"),
+  locationReportingPeriodicField: document.getElementById("locationReportingPeriodicField"),
+  locationReportingPeriodicInterval: document.getElementById("locationReportingPeriodicInterval"),
+  locationReportingUploadOnAnomaly: document.getElementById("locationReportingUploadOnAnomaly"),
+  locationReportingFinalRequired: document.getElementById("locationReportingFinalRequired"),
+  locationReportingCollectDriver: document.getElementById("locationReportingCollectDriver"),
+  locationReportingCollectCustomer: document.getElementById("locationReportingCollectCustomer"),
+  locationReportingCollectFirebase: document.getElementById("locationReportingCollectFirebase"),
+  locationReportingCollectP2p: document.getElementById("locationReportingCollectP2p"),
+  locationReportingRetentionDays: document.getElementById("locationReportingRetentionDays"),
+  locationReportingSaveBtn: document.getElementById("locationReportingSaveBtn"),
+  locationReportingSuccessMessage: document.getElementById("locationReportingSuccessMessage"),
+  locationReportingStatusNote: document.getElementById("locationReportingStatusNote"),
   promoCodeForm: document.getElementById("promoCodeForm"),
   promoCodeInput: document.getElementById("promoCodeInput"),
   promoTypeInput: document.getElementById("promoTypeInput"),
@@ -187,6 +216,12 @@ const els = {
   allRidesTableBody: document.getElementById("allRidesTableBody"),
   allRidesTableCount: document.getElementById("allRidesTableCount"),
   allRidesLiveNote: document.getElementById("allRidesLiveNote"),
+  locationReportModal: document.getElementById("locationReportModal"),
+  locationReportModalBackdrop: document.getElementById("locationReportModalBackdrop"),
+  locationReportModalCloseBtn: document.getElementById("locationReportModalCloseBtn"),
+  locationReportModalTitle: document.getElementById("locationReportModalTitle"),
+  locationReportModalRideId: document.getElementById("locationReportModalRideId"),
+  locationReportModalBody: document.getElementById("locationReportModalBody"),
   rechargeRequestsSection: document.getElementById("rechargeRequestsSection"),
   rechargeRequestsTableBody: document.getElementById("rechargeRequestsTableBody"),
   rechargeRequestsCount: document.getElementById("rechargeRequestsCount"),
@@ -225,6 +260,8 @@ let cachedWalletThreshold = DEFAULT_PRICING.walletThreshold;
 let adminCanWriteSettings = null;
 let rechargeListenerPrimed = false;
 let allRidesListenerPrimed = false;
+let releaseLocationReportModalTrap = null;
+let locationReportModalReturnFocus = null;
 /** @type {Array<Record<string, unknown>>} */
 let promoCodesCache = [];
 let promoCodesListenerPrimed = false;
@@ -543,7 +580,7 @@ async function persistPricingSettings(values) {
 function updateFinanceWriteUi() {
   // Save buttons stay clickable — errors show on submit. Avoid disabled+wait cursor (Windows spinning circle on hover).
   const blocked = adminCanWriteSettings === false;
-  for (const btn of [els.pricingSaveBtn, els.dispatchSaveBtn]) {
+  for (const btn of [els.pricingSaveBtn, els.dispatchSaveBtn, els.locationReportingSaveBtn]) {
     if (!btn || btn.classList.contains("is-saving")) continue;
     btn.disabled = false;
     btn.classList.toggle("finance-save-btn--blocked", blocked);
@@ -641,6 +678,7 @@ function setActiveView(viewKey) {
   if (key === "finance") {
     loadPricingSettings();
     loadDispatchSettings();
+    loadLocationReportingSettings();
     fetchAndRenderPromoCodes();
   }
 
@@ -1379,13 +1417,93 @@ function statusPillClass(status) {
   return "pill--blocked";
 }
 
+function closeRideLocationReportModal() {
+  if (!els.locationReportModal) return;
+  els.locationReportModal.hidden = true;
+  els.locationReportModal.setAttribute("aria-hidden", "true");
+  if (typeof releaseLocationReportModalTrap === "function") {
+    releaseLocationReportModalTrap();
+    releaseLocationReportModalTrap = null;
+  }
+  if (locationReportModalReturnFocus instanceof HTMLElement) {
+    locationReportModalReturnFocus.focus();
+    locationReportModalReturnFocus = null;
+  }
+}
+
+async function openRideLocationReportModal(rideId, rideMeta = null) {
+  if (!els.locationReportModal || !els.locationReportModalBody || !rideId) return;
+
+  const ride =
+    rideMeta ||
+    allRidesCache.find((row) => String(row.id || "") === String(rideId)) ||
+    null;
+
+  locationReportModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  els.locationReportModal.hidden = false;
+  els.locationReportModal.setAttribute("aria-hidden", "false");
+  if (els.locationReportModalRideId) {
+    els.locationReportModalRideId.textContent = `Ride ID: ${rideId}`;
+  }
+  els.locationReportModalBody.innerHTML = `<p class="location-report-loading">لوڈ ہو رہا ہے…</p>`;
+  releaseLocationReportModalTrap = trapFocus(els.locationReportModal, {
+    initialFocus: els.locationReportModalCloseBtn || els.locationReportModalBody,
+  });
+  els.locationReportModalBody.focus();
+
+  const { db } = getFirebase();
+  if (!db) {
+    els.locationReportModalBody.innerHTML = `<p class="location-report-empty">Firestore is not configured.</p>`;
+    return;
+  }
+
+  try {
+    const snapshot = await getDoc(doc(db, RIDE_LOCATION_REPORT_COLLECTION, rideId));
+    const report = snapshot.exists() ? snapshot.data() : null;
+    const viewModel = buildRideLocationReportViewModel(report, {
+      rideId,
+      ride,
+      rideStatus: ride?.status,
+    });
+    els.locationReportModalBody.innerHTML = renderRideLocationReportPanelHtml(viewModel);
+  } catch (error) {
+    console.warn("[SwiftGo Admin] location report modal", error);
+    const msg =
+      error?.code === "permission-denied"
+        ? "Permission denied reading rideLocationReports."
+        : `Could not load report: ${error?.message || "unknown error"}`;
+    els.locationReportModalBody.innerHTML = `<p class="location-report-empty">${escapeHtml(msg)}</p>`;
+  }
+}
+
+function wireAllRidesReportActions() {
+  els.allRidesTableBody?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-open-location-report]");
+    if (!btn) return;
+    const rideId = btn.getAttribute("data-open-location-report");
+    if (!rideId) return;
+    openRideLocationReportModal(rideId);
+  });
+}
+
+function wireLocationReportModal() {
+  els.locationReportModalBackdrop?.addEventListener("click", closeRideLocationReportModal);
+  els.locationReportModalCloseBtn?.addEventListener("click", closeRideLocationReportModal);
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (els.locationReportModal && !els.locationReportModal.hidden) {
+      closeRideLocationReportModal();
+    }
+  });
+}
+
 function renderAllRidesTable(rides = allRidesCache) {
   if (!els.allRidesTableBody) return;
 
   if (!rides.length) {
     els.allRidesTableBody.innerHTML = `
       <tr class="rides-table__empty">
-        <td colspan="7">ابھی کوئی سواری نہیں ملی۔</td>
+        <td colspan="8">ابھی کوئی سواری نہیں ملی۔</td>
       </tr>`;
   } else {
     els.allRidesTableBody.innerHTML = rides
@@ -1415,6 +1533,14 @@ function renderAllRidesTable(rides = allRidesCache) {
             <td><strong class="rides-table__money">${fare}</strong></td>
             <td><strong class="rides-table__money rides-table__money--cut">${commission}</strong></td>
             <td>${rating}</td>
+            <td>
+              <button
+                type="button"
+                class="rides-table__report-btn"
+                data-open-location-report="${rideId}"
+                aria-label="لوکیشن رپورٹ دیکھیں ${rideId}"
+              >رپورٹ</button>
+            </td>
           </tr>`;
       })
       .join("");
@@ -1451,7 +1577,7 @@ function fetchAndRenderAllRides() {
   if (!allRidesCache.length && els.allRidesTableBody) {
     els.allRidesTableBody.innerHTML = `
       <tr class="rides-table__empty">
-        <td colspan="7">لوڈ ہو رہا ہے...</td>
+        <td colspan="8">لوڈ ہو رہا ہے...</td>
       </tr>`;
   }
 
@@ -1503,7 +1629,7 @@ function startAllRidesMonitor() {
         if (els.allRidesTableBody) {
           els.allRidesTableBody.innerHTML = `
             <tr class="rides-table__empty">
-              <td colspan="7">${escapeHtml(permissionHint(error))}</td>
+              <td colspan="8">${escapeHtml(permissionHint(error))}</td>
             </tr>`;
         }
         if (els.allRidesLiveNote) {
@@ -2163,6 +2289,219 @@ async function saveDispatchSettings(event) {
   }
 }
 
+let locationReportingSuccessTimer = 0;
+
+function hideLocationReportingSuccess() {
+  window.clearTimeout(locationReportingSuccessTimer);
+  if (els.locationReportingSuccessMessage) els.locationReportingSuccessMessage.hidden = true;
+}
+
+function showLocationReportingSuccess() {
+  hideLocationReportingSuccess();
+  if (!els.locationReportingSuccessMessage) return;
+  els.locationReportingSuccessMessage.hidden = false;
+  locationReportingSuccessTimer = window.setTimeout(() => {
+    if (els.locationReportingSuccessMessage) els.locationReportingSuccessMessage.hidden = true;
+  }, 3000);
+}
+
+function updateLocationReportingFieldVisibility() {
+  const mode = String(els.locationReportingUploadMode?.value || "ride_end");
+  const showPeriodic = requiresPeriodicInterval(mode);
+  if (els.locationReportingPeriodicField) {
+    els.locationReportingPeriodicField.hidden = !showPeriodic;
+  }
+  if (mode === "disabled" && els.locationReportingEnabled) {
+    els.locationReportingEnabled.checked = false;
+    els.locationReportingEnabled.disabled = true;
+  } else if (els.locationReportingEnabled) {
+    els.locationReportingEnabled.disabled = false;
+  }
+}
+
+function fillLocationReportingForm(config = {}) {
+  const normalized = normalizeLocationReportingConfig(config);
+  if (els.locationReportingEnabled) {
+    els.locationReportingEnabled.checked = normalized.enabled === true;
+  }
+  if (els.locationReportingUploadMode) {
+    const mode = LOCATION_REPORTING_UPLOAD_MODES.includes(normalized.uploadMode)
+      ? normalized.uploadMode
+      : LOCATION_REPORTING_DEFAULTS.uploadMode;
+    els.locationReportingUploadMode.value = LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED.includes(mode)
+      ? mode
+      : "ride_end";
+  }
+  if (els.locationReportingPeriodicInterval) {
+    els.locationReportingPeriodicInterval.value = String(normalized.periodicIntervalMinutes);
+  }
+  if (els.locationReportingUploadOnAnomaly) {
+    els.locationReportingUploadOnAnomaly.checked = normalized.uploadOnAnomaly === true;
+  }
+  if (els.locationReportingFinalRequired) {
+    els.locationReportingFinalRequired.checked = normalized.finalUploadRequired === true;
+  }
+  if (els.locationReportingCollectDriver) {
+    els.locationReportingCollectDriver.checked = normalized.collectDriverMetrics === true;
+  }
+  if (els.locationReportingCollectCustomer) {
+    els.locationReportingCollectCustomer.checked = normalized.collectCustomerMetrics === true;
+  }
+  if (els.locationReportingCollectFirebase) {
+    els.locationReportingCollectFirebase.checked = normalized.collectFirebaseMetrics === true;
+  }
+  if (els.locationReportingCollectP2p) {
+    els.locationReportingCollectP2p.checked = normalized.collectP2pMetrics === true;
+  }
+  if (els.locationReportingRetentionDays) {
+    els.locationReportingRetentionDays.value = String(normalized.retentionDays);
+  }
+  updateLocationReportingFieldVisibility();
+}
+
+function readLocationReportingFormValues() {
+  const uploadMode = String(els.locationReportingUploadMode?.value || "").trim();
+  if (!LOCATION_REPORTING_UPLOAD_MODES.includes(uploadMode)) {
+    throw new Error("اپ لوڈ موڈ درست نہیں۔");
+  }
+  if (!LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED.includes(uploadMode)) {
+    throw new Error("یہ اپ لوڈ موڈ ابھی لاگو نہیں — ride_end یا disabled منتخب کریں۔");
+  }
+  const retentionDays = Math.round(Number(els.locationReportingRetentionDays?.value));
+  if (
+    !Number.isInteger(retentionDays) ||
+    retentionDays < LOCATION_REPORTING_BOUNDS.retentionDaysMin ||
+    retentionDays > LOCATION_REPORTING_BOUNDS.retentionDaysMax
+  ) {
+    throw new Error(
+      `Retention ${LOCATION_REPORTING_BOUNDS.retentionDaysMin}–${LOCATION_REPORTING_BOUNDS.retentionDaysMax} دن کے درمیان ہونی چاہیے۔`
+    );
+  }
+  let periodicIntervalMinutes = Math.round(Number(els.locationReportingPeriodicInterval?.value));
+  if (requiresPeriodicInterval(uploadMode)) {
+    if (
+      !Number.isInteger(periodicIntervalMinutes) ||
+      periodicIntervalMinutes < LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMin ||
+      periodicIntervalMinutes > LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMax
+    ) {
+      throw new Error(
+        `وقفہ ${LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMin}–${LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMax} منٹ کے درمیان ہونا چاہیے۔`
+      );
+    }
+  } else {
+    periodicIntervalMinutes = LOCATION_REPORTING_DEFAULTS.periodicIntervalMinutes;
+  }
+
+  const enabled =
+    uploadMode === "disabled" ? false : Boolean(els.locationReportingEnabled?.checked);
+
+  return {
+    enabled,
+    uploadMode,
+    periodicIntervalMinutes,
+    uploadOnAnomaly: Boolean(els.locationReportingUploadOnAnomaly?.checked),
+    finalUploadRequired: Boolean(els.locationReportingFinalRequired?.checked),
+    collectDriverMetrics: Boolean(els.locationReportingCollectDriver?.checked),
+    collectCustomerMetrics: Boolean(els.locationReportingCollectCustomer?.checked),
+    collectFirebaseMetrics: Boolean(els.locationReportingCollectFirebase?.checked),
+    collectP2pMetrics: Boolean(els.locationReportingCollectP2p?.checked),
+    retentionDays,
+  };
+}
+
+async function loadLocationReportingSettings() {
+  const { db } = getFirebase();
+  if (!db) {
+    fillLocationReportingForm(LOCATION_REPORTING_DEFAULTS);
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent = "Firestore is not configured.";
+    }
+    return;
+  }
+
+  if (els.locationReportingStatusNote) {
+    els.locationReportingStatusNote.textContent = "لوکیشن رپورٹنگ سیٹنگز لوڈ ہو رہی ہیں…";
+  }
+
+  try {
+    const snapshot = await getDoc(doc(db, "settings", "locationReporting"));
+    const data = snapshot.exists() ? snapshot.data() : null;
+    fillLocationReportingForm(data || {});
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent = snapshot.exists()
+        ? `موجودہ: ${els.locationReportingUploadMode?.value || "ride_end"} · retention ${els.locationReportingRetentionDays?.value || 30}d · settings/locationReporting`
+        : "Defaults loaded — document not found yet.";
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] loadLocationReportingSettings", error);
+    fillLocationReportingForm(LOCATION_REPORTING_DEFAULTS);
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent =
+        error?.code === "permission-denied"
+          ? "Permission denied reading settings/locationReporting."
+          : `Could not load location reporting: ${error?.message || "unknown error"}`;
+    }
+  }
+}
+
+async function saveLocationReportingSettings(event) {
+  event.preventDefault();
+  hideLocationReportingSuccess();
+
+  const liveUser = getFirebase().auth?.currentUser || currentAdminUser;
+  if (!liveUser) {
+    const msg = "براہ کرم دوبارہ لاگ اِن کریں — سیشن / ٹوکن کی تجدید درکار ہے";
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+    return;
+  }
+
+  try {
+    const ready = await prepareAdminSaveForWrite(liveUser);
+    if (!ready && !isAuthorizedAdmin(getFirebase().auth?.currentUser || currentAdminUser)) {
+      const msg = "آپ کے اکاؤنٹ کے پاس سوپر ایڈمن کے حقوق نہیں ہیں";
+      if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+      showAdminToast(msg);
+      return;
+    }
+  } catch (error) {
+    const msg = adminSaveErrorMessage(error);
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+    return;
+  }
+
+  let payload;
+  try {
+    payload = readLocationReportingFormValues();
+  } catch (error) {
+    const msg = String(error?.message || "Invalid form");
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+    return;
+  }
+
+  setFinanceSaveBusy(els.locationReportingSaveBtn, true);
+  if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = "محفوظ ہو رہا ہے…";
+
+  try {
+    await ensureFreshAuthUser();
+    await saveAdminLocationReportingSettings(payload);
+    fillLocationReportingForm(payload);
+    showLocationReportingSuccess();
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent = `محفوظ: ${payload.uploadMode} · retention ${payload.retentionDays}d · settings/locationReporting`;
+    }
+  } catch (error) {
+    const msg = adminSaveErrorMessage(error);
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+  } finally {
+    setFinanceSaveBusy(els.locationReportingSaveBtn, false);
+    updateFinanceWriteUi();
+  }
+}
+
 async function loadPricingSettings() {
   const { db } = getFirebase();
   if (!db) {
@@ -2480,6 +2819,7 @@ function startLiveData() {
     .catch(() => {});
   loadPricingSettings().catch(() => {});
   loadDispatchSettings().catch(() => {});
+  loadLocationReportingSettings().catch(() => {});
   setStat(els.statTotalRides, null);
   setStat(els.statActiveDrivers, null);
   setRevenueStat(null);
@@ -2500,7 +2840,7 @@ function startLiveData() {
   if (els.allRidesTableBody) {
     els.allRidesTableBody.innerHTML = `
       <tr class="rides-table__empty">
-        <td colspan="7">لوڈ ہو رہا ہے...</td>
+        <td colspan="8">لوڈ ہو رہا ہے...</td>
       </tr>`;
   }
   if (els.allRidesLiveNote) els.allRidesLiveNote.textContent = "";
@@ -2634,8 +2974,12 @@ function boot() {
   wireVehiclesTableActions();
   wireGlobalTakeControl();
   wirePromoTableActions();
+  wireAllRidesReportActions();
+  wireLocationReportModal();
   els.pricingForm?.addEventListener("submit", savePricingSettings);
   els.dispatchForm?.addEventListener("submit", saveDispatchSettings);
+  els.locationReportingForm?.addEventListener("submit", saveLocationReportingSettings);
+  els.locationReportingUploadMode?.addEventListener("change", updateLocationReportingFieldVisibility);
   els.idleReturnSafeDefaultsBtn?.addEventListener("click", returnIdleToSafeDefaults);
   els.idleLocationIntervalPreset?.addEventListener("change", () =>
     applyIdlePresetFromSelect(

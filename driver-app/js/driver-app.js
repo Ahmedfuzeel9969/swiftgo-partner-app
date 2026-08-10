@@ -78,6 +78,7 @@ import { createDriverP2pController } from "./p2p-ride-controller.mjs";
 import { createDriverActiveRouteController } from "./driver-active-route.mjs";
 import { createBreadcrumbCollector } from "./breadcrumb-collector.mjs";
 import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
+import { createRideLocationReportClient } from "./ride-location-report-client.mjs";
 import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { cancelAssignedRideByDriverClient } from "./ride-radar-actions.js";
@@ -336,20 +337,32 @@ const breadcrumbCollector = createBreadcrumbCollector({
   },
 });
 
+const driverLocationReport = createRideLocationReportClient({
+  role: "driver",
+  getFirebase,
+  getRuntimeCounters: () => ({
+    checkpoint: checkpointPolicy.getCounters(),
+    p2p: driverP2p.getCounters(),
+  }),
+});
+
 if (typeof window !== "undefined") {
   window.__SWIFTGO_CHECKPOINT_COUNTERS__ = () => checkpointPolicy.getCounters();
   window.__SWIFTGO_P2P_COUNTERS__ = () => driverP2p.getCounters();
   window.__SWIFTGO_BREADCRUMB_COUNTERS__ = () => breadcrumbCollector.getCounters();
+  window.__SWIFTGO_LOCATION_REPORT_COUNTERS__ = () => driverLocationReport.snapshotSection();
   window.addEventListener("online", () => {
     if (activeExecutionRide?.id && isOnlineReady()) {
       checkpointPolicy.requestImmediate("network_online");
       maybeFlushImmediateCheckpoint();
     }
     void breadcrumbCollector.onNetworkResume();
+    void driverLocationReport.retryPendingReports();
   });
   window.addEventListener("visibilitychange", () => {
     if (typeof document !== "undefined" && document.visibilityState === "visible") {
       void breadcrumbCollector.onAppResume();
+      void driverLocationReport.retryPendingReports();
     }
   });
 }
@@ -383,6 +396,32 @@ function syncBreadcrumbCollectionForActiveRide() {
     status,
     assignedDriverId: ride.driverId,
   });
+}
+
+function syncLocationReportForActiveRide() {
+  const ride = activeExecutionRide;
+  const status = String(ride?.status || "");
+  const assignmentSessionToken = String(ride?.assignmentSessionToken || "").trim();
+  if (
+    !ride?.id ||
+    !ACTIVE_EXECUTION_STATUSES.has(status) ||
+    !assignmentSessionToken ||
+    String(ride.driverId || "") !== String(currentDriver?.uid || "")
+  ) {
+    return;
+  }
+  void driverLocationReport.bindForRide({
+    rideId: ride.id,
+    assignmentSessionToken,
+  });
+}
+
+async function flushLocationReportBeforeSettlement() {
+  try {
+    await driverLocationReport.flushFinal({ finalSubmit: true });
+  } catch {
+    /* diagnostic upload must never block settlement */
+  }
 }
 
 function syncDriverP2pForActiveRide() {
@@ -472,6 +511,7 @@ function beginLocationTrackingSession() {
   }
   syncDriverP2pForActiveRide();
   syncBreadcrumbCollectionForActiveRide();
+  syncLocationReportForActiveRide();
 }
 
 function endLocationTrackingSession() {
@@ -935,6 +975,7 @@ async function activateAuthenticatedDriver(user) {
   currentDriver = user;
   hideAccountBlockedOverlay();
   showAuthOverlay("ڈرائیور پروفائل لوڈ کیا جا رہا ہے...");
+  void driverLocationReport.retryPendingReports();
 
   try {
     const { db } = getFirebase();
@@ -2496,6 +2537,7 @@ async function commitVehicleLocationJob(job) {
   if (payload.status) lastVehicleStatusWritten = payload.status;
   lastLocationSyncError = "";
   checkpointPolicy.noteWriteCommitted();
+  driverLocationReport.noteVehicleWriteAcknowledged();
   locationDiagCounters.vehicleWritesCompleted += 1;
   // Intentionally no client ride.driverLocation write — CF mirror is authoritative.
   locationDiagCounters.duplicateRideWritesPrevented += 1;
@@ -2604,6 +2646,7 @@ async function syncVehicleLocationToFirestore(
   const zoneChanged = cell !== lastLocationGridCell;
   const matchCellChanged = geoCell !== lastMatchGeoCell;
   checkpointPolicy.noteRawGps();
+  driverLocationReport.noteGpsFix(now);
   const idleWaiting = !activeExecutionRide?.id;
   let movedEnough = true;
   if (lastVehicleLocationLatLng && Number.isFinite(lat) && Number.isFinite(lng)) {
@@ -2643,6 +2686,7 @@ async function syncVehicleLocationToFirestore(
     checkpointPolicy.consumeImmediate();
   }
   checkpointPolicy.noteWriteAttempted();
+  driverLocationReport.noteVehicleWriteAttempted();
 
   const hotspotId = matchHotspotId(lat, lng);
   const location = toVehicleLocationField(normalized.envelope);
@@ -3297,6 +3341,7 @@ async function finalizeSuccessfulRideCompletion(ride, settlementResult) {
   } catch {
     /* purge must not block settlement UI */
   }
+  driverLocationReport.clearBinding({ flushFirst: false });
 
   activeExecutionRide = null;
   activeRideRecoveryPending = false;
@@ -3587,6 +3632,7 @@ function startActiveRideWatch(rideId, collectionName = "rides") {
         persistActiveRideCache(snapshot.id, collectionName);
         syncCheckpointPresenceForActiveRide();
         syncBreadcrumbCollectionForActiveRide();
+        syncLocationReportForActiveRide();
       } else {
         clearActiveRideCache();
         // Terminal: never attempt a server upload that is guaranteed to fail.
@@ -3685,6 +3731,7 @@ async function cancelAssignedActiveRideByDriver() {
     });
     stopActiveRideWatch();
     detachCheckpointPresence("driver_cancelled");
+    await driverLocationReport.clearBinding({ flushFirst: true });
     clearDriverActiveRoute();
     activeExecutionRide = null;
     clearActiveRideCache();
@@ -3750,6 +3797,11 @@ async function advanceActiveRideStatus() {
         await breadcrumbCollector.flushBeforeSettlement();
       } catch {
         /* flush timeout/failure must not prevent settlement */
+      }
+      try {
+        await flushLocationReportBeforeSettlement();
+      } catch {
+        /* location report flush must not prevent settlement */
       }
       const settlementResult = await completeRideWithEarnings({ ...ride, ...live });
       await finalizeSuccessfulRideCompletion(
@@ -4090,6 +4142,7 @@ function boot() {
         clearActiveRideCache();
         void breadcrumbCollector.stop({ purge: true, flush: false, reason: "sign_out" });
         detachCheckpointPresence("sign_out");
+        void driverLocationReport.clearBinding({ flushFirst: true });
         earningsUi?.deactivate();
         dashboardUi?.deactivate();
         homeUi?.deactivate();

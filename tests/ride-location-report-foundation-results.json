@@ -1,0 +1,162 @@
+{
+  "generatedAt": "2026-08-09T22:08:02.397Z",
+  "pass": 31,
+  "fail": 0,
+  "results": [
+    {
+      "name": "config-safe-defaults",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "config-rejects-string-retention",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "config-rejects-invalid-upload-mode",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "config-disabled-mode-forces-enabled-false",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "config-callable-validators-strict-integers",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "config-callable-build-validated-settings",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "driver-submit-rejects-forbidden-lat",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "driver-submit-rejects-string-counter",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer-submit-accepts-valid-section",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "derived-average-null-when-count-lt-2",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "derived-average-computed-when-count-ge_2",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "derived-safe-ratio-null-on-zero-denominator",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "compute-derived-all-null-with-empty-sections",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "compute-derived-populated-sample",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "lifecycle-duration-derived",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "health-insufficient-data-empty",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "health-warning-on-long-gap",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "submit-sequence-monotonic",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "build-local-report-summary-driver",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "counter-store-bind-and-increment",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "counter-store-persists-across-instance",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "counter-store-isolated-by-token-hash",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "counter-store-isolated-by-ride-id",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "counter-store-gap-tracking",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "counter-store-customer-visible-duration",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "counter-store-clear-removes-binding",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "counter-store-apply-counter-snapshot",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-forbidden-keys-documented",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-functions-cjs-mirrors-exist",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "cjs-config-parity",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hash-assignment-token-async",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

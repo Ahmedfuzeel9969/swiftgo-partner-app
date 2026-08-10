@@ -63,6 +63,11 @@ export function saveAdminDispatchSettings(payload) {
   return callAdmin("setCandidateDriverLimit", payload);
 }
 
+/** Location reporting config — settings/locationReporting (diagnostic only). */
+export function saveAdminLocationReportingSettings(payload) {
+  return callAdmin("saveAdminLocationReportingSettings", payload);
+}
+
 /** @deprecated Use saveAdminDispatchSettings */
 export function saveAdminDispatchLimit(candidateDriverLimit) {
   return saveAdminDispatchSettings({ candidateDriverLimit: Number(candidateDriverLimit) });

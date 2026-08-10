@@ -58,6 +58,7 @@ const LOCATION_DIAG = Object.freeze({
   SESSION_MISMATCH: "location_fix_session_mismatch",
   MIRRORED: "ride_location_mirrored",
   NOOP_UNCHANGED: "ride_location_noop_unchanged",
+  REPORTING_CONFIG_UNAVAILABLE: "location_reporting_config_unavailable",
 });
 
 function isValidTrackingSessionId(id) {

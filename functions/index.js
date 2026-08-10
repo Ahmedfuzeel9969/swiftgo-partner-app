@@ -7,7 +7,7 @@
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { logger } = require("firebase-functions");
-const { onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onDocumentWritten, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { initializeApp, getApps } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { createDispatchTimer, withDispatchTimeout } = require("./dispatch-latency");
@@ -63,6 +63,7 @@ const {
 } = require("./ops-monitor");
 const { reportGeoCellCoverage } = require("./geo-coverage");
 const { mirrorDriverLocationToRide } = require("./driver-location");
+const { applyRideLifecycleTimestampStamp } = require("./ride-lifecycle-timestamps");
 const { settleRide } = require("./settlement");
 const { refreshRideViewerPresence } = require("./ride-viewer-presence");
 const {
@@ -71,6 +72,7 @@ const {
   closeRidePeerSession,
 } = require("./ride-peer-session");
 const { submitRideBreadcrumbBatch } = require("./breadcrumb-batch");
+const { submitRideLocationReportSection } = require("./ride-location-report");
 
 if (!getApps().length) {
   initializeApp();
@@ -886,6 +888,43 @@ exports.saveAdminPricingSettings = onCall({ region: "us-central1" }, async (requ
   }
 });
 
+/** Super Admin: persist location reporting config (settings/locationReporting). Diagnostic only. */
+exports.saveAdminLocationReportingSettings = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("permission-denied", "ADMIN_ONLY");
+  }
+  if (!(await isCallerAuthorizedForDiagnostic(db, request.auth))) {
+    throw new HttpsError("permission-denied", "SUPER_ADMIN_REPORTING_CONFIG_ONLY");
+  }
+  try {
+    const {
+      LOCATION_REPORTING_SCHEMA_VERSION,
+      LOCATION_REPORTING_CONFIG_DOC_PATH,
+      buildValidatedLocationReportingSettings,
+    } = require("./location-reporting-config");
+    const config = buildValidatedLocationReportingSettings(request.data || {});
+    await db.doc(LOCATION_REPORTING_CONFIG_DOC_PATH).set(
+      {
+        schemaVersion: LOCATION_REPORTING_SCHEMA_VERSION,
+        ...config,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: request.auth.uid,
+      },
+      { merge: true }
+    );
+    const { invalidateLocationReportingConfigCache } = require("./location-reporting-config-cache");
+    invalidateLocationReportingConfigCache();
+    return { ok: true, config };
+  } catch (err) {
+    const msg = String(err?.message || err || "");
+    if (msg.startsWith("INVALID_")) {
+      throw new HttpsError("invalid-argument", msg);
+    }
+    console.error("[saveAdminLocationReportingSettings]", err?.code || err?.message || err);
+    throw mapErr(err);
+  }
+});
+
 exports.getDispatchSettings = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   return readDispatchSettings(db);
@@ -925,6 +964,26 @@ exports.submitSupportReport = onCall({ region: "us-central1" }, async (request) 
     throw mapErr(err);
   }
 });
+
+/** Server-authoritative driverArrivedAt / tripStartedAt for location reporting lifecycle. */
+exports.stampRideLifecycleTimestamps = onDocumentUpdated(
+  { document: "rides/{rideId}", region: "us-central1" },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!after) return;
+    try {
+      await applyRideLifecycleTimestampStamp(
+        db,
+        event.params.rideId,
+        before || {},
+        after
+      );
+    } catch (err) {
+      console.warn("[stampRideLifecycleTimestamps]", err?.message || err);
+    }
+  }
+);
 
 /** Mirror assigned driver GPS onto rides; rematch when driver becomes matchable. */
 exports.mirrorDriverLocationOnVehicleUpdate = onDocumentWritten(
@@ -1072,6 +1131,22 @@ exports.submitRideBreadcrumbBatch = onCall({ region: "us-central1" }, async (req
     submitRideBreadcrumbBatch(db, {
       driverUid: request.auth.uid,
       batch: request.data?.batch,
+    })
+  );
+});
+
+/** Per-ride location delivery report — driver/customer diagnostic section submit. */
+exports.submitRideLocationReportSection = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("submitRideLocationReportSection", request, () =>
+    submitRideLocationReportSection(db, {
+      callerUid: request.auth.uid,
+      rideId: request.data?.rideId,
+      role: request.data?.role,
+      assignmentSessionTokenHash: request.data?.assignmentSessionTokenHash,
+      section: request.data?.section,
+      submitSequence: request.data?.submitSequence,
+      finalSubmit: request.data?.finalSubmit,
     })
   );
 });

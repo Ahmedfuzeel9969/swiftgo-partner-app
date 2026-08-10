@@ -7,6 +7,8 @@
 
 const { FieldValue } = require("firebase-admin/firestore");
 const { accumulateTraveledSegment } = require("./partial-fare");
+const locationReportingConfigCache = require("./location-reporting-config-cache.js");
+const { buildAcceptedMirrorAggregatePatch } = require("./server-mirror-aggregate.js");
 const {
   LOCATION_DIAG,
   evaluateFixAgainstPrevious,
@@ -94,7 +96,6 @@ function buildDriverLocationPatch(vehicle, ride) {
   if (!incoming) return { skip: true, reason: LOCATION_DIAG.INVALID };
 
   const vehicleSessionId = String(vehicle?.trackingSessionId || "");
-  // Non-legacy path: every mirrored write requires matching session IDs.
   if (
     !incoming.sessionId ||
     !isValidTrackingSessionId(incoming.sessionId) ||
@@ -136,7 +137,6 @@ function buildDriverLocationPatch(vehicle, ride) {
     lat: incoming.lat,
     lng: incoming.lng,
   };
-  // Server-controlled receive time (nested under driverLocation).
   driverLocation.receivedAt = FieldValue.serverTimestamp();
 
   const patch = {
@@ -147,7 +147,6 @@ function buildDriverLocationPatch(vehicle, ride) {
   if (incoming.sessionId) {
     patch.driverTrackingSessionId = incoming.sessionId;
   }
-  // Persist authoritative session start onto the ride for future transitions.
   if (vehicle?.trackingSessionStartedAt) {
     patch.driverTrackingSessionStartedAt = vehicle.trackingSessionStartedAt;
   }
@@ -174,18 +173,8 @@ function buildDriverLocationPatch(vehicle, ride) {
 }
 
 /**
- * Shared transactional mirror. All reads precede any write.
- * Logging happens ONLY after runTransaction resolves (avoids retry duplicate logs).
- *
- * @param {FirebaseFirestore.Firestore} db
- * @param {string} vehicleId
- * @param {object|null} vehicleAfter committed vehicle snapshot (trigger path); ignored when readVehicleInTxn
- * @param {{
- *   rideId?: string,
- *   readVehicleInTxn?: boolean,
- *   runTransaction?: Function,
- *   silent?: boolean,
- * }} [opts]
+ * Shared transactional mirror. Accepted mirrors may add compact server aggregate fields
+ * to the same rides/{rideId} write — never touches rideLocationReports.
  */
 async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts = {}) {
   if (!vehicleId) return { mirrored: false, reason: LOCATION_DIAG.INVALID };
@@ -193,6 +182,22 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
   const rideRefHint = String(opts.rideId || vehicleAfter?.activeRideId || "").trim();
   if (!rideRefHint && !opts.readVehicleInTxn) {
     return { mirrored: false, reason: "no_active_ride" };
+  }
+
+  let trackServerAggregate = false;
+  if (opts.reportingConfig != null) {
+    trackServerAggregate = locationReportingConfigCache.shouldAggregateServerMirror(opts.reportingConfig);
+  } else {
+    try {
+      const reportingConfig = await locationReportingConfigCache.getCachedLocationReportingConfig(db);
+      trackServerAggregate = locationReportingConfigCache.shouldAggregateServerMirror(reportingConfig);
+    } catch (configErr) {
+      if (!opts.silent) {
+        logLocationDiag(LOCATION_DIAG.REPORTING_CONFIG_UNAVAILABLE, {
+          code: String(configErr?.code || configErr?.message || "config_error").slice(0, 80),
+        });
+      }
+    }
   }
 
   const vehicleRef = db.collection("vehicles").doc(vehicleId);
@@ -204,7 +209,6 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
   let result;
   try {
     result = await runTx(async (tx) => {
-      // --- reads only (vehicle first when needed so rideId can come from live vehicle) ---
       let vehicle = vehicleAfter || {};
       if (opts.readVehicleInTxn) {
         const vehicleSnap = await tx.get(vehicleRef);
@@ -234,9 +238,12 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
         return { mirrored: false, reason: decision.reason };
       }
 
-      // --- writes after all reads ---
-      tx.update(rideRef, decision.patch);
-      return { mirrored: true, reason: LOCATION_DIAG.MIRRORED };
+      const patch = { ...decision.patch };
+      if (trackServerAggregate) {
+        Object.assign(patch, buildAcceptedMirrorAggregatePatch(ride, Date.now()));
+      }
+      tx.update(rideRef, patch);
+      return { mirrored: true, reason: decision.reason };
     });
   } catch (err) {
     if (!opts.silent) {
@@ -247,8 +254,8 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
     throw err;
   }
 
-  // Log once after successful commit / definitive skip — never inside the txn callback.
   if (!opts.silent && result?.reason) {
+    // Log once after successful commit (never inside the transaction).
     logLocationDiag(result.reason);
   }
   return result || { mirrored: false, reason: "unknown" };
@@ -256,8 +263,6 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
 
 async function seedDriverLocationFromVehicle(db, rideId, vehicleId) {
   if (!rideId || !vehicleId) return { mirrored: false, reason: "missing_ids" };
-  // Read current vehicle + ride inside one transaction so a stale outer snapshot
-  // cannot seed a retired/mismatched session as the first ride fix.
   return mirrorRideLocationTransactional(db, vehicleId, null, {
     rideId,
     readVehicleInTxn: true,
@@ -265,7 +270,6 @@ async function seedDriverLocationFromVehicle(db, rideId, vehicleId) {
 }
 
 async function mirrorDriverLocationToRide(db, vehicleId, vehicle) {
-  // Trigger path: use immutable event snapshot for vehicle fields.
   return mirrorRideLocationTransactional(db, vehicleId, vehicle || {}, {});
 }
 

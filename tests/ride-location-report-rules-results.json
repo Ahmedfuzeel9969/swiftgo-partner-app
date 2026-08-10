@@ -1,0 +1,40 @@
+{
+  "suite": "ride-location-report-rules",
+  "generatedAt": "2026-08-09T22:08:48.245Z",
+  "total": 6,
+  "pass": 6,
+  "fail": 0,
+  "blocked": 0,
+  "results": [
+    {
+      "name": "static-rules-block-present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-super-admin-read",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-driver-read-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-client-create-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-admin-client-write-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-anon-read-denied",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}
