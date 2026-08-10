@@ -66,26 +66,23 @@ function assertHostingSourcesCommitted() {
   }
 }
 
-function assertFirebaseJsonMatchesHead() {
-  const headFirebase = git("show HEAD:firebase.json");
-  const workFirebase = fs.readFileSync(path.join(ROOT, "firebase.json"), "utf8");
-  if (headFirebase !== workFirebase) {
+function assertPathMatchesHead(relPath) {
+  try {
+    execSync(`git diff --exit-code HEAD -- ${relPath}`, { cwd: ROOT, stdio: "pipe" });
+  } catch {
     fail(
-      "firebase.json does not exactly match committed HEAD version.\n" +
+      `${relPath} does not exactly match committed HEAD version.\n` +
         "Deploy aborted to prevent uncommitted Hosting configuration from reaching production."
     );
   }
 }
 
+function assertFirebaseJsonMatchesHead() {
+  assertPathMatchesHead("firebase.json");
+}
+
 function assertFirebasercMatchesHead() {
-  const headRc = git("show HEAD:.firebaserc");
-  const workRc = fs.readFileSync(path.join(ROOT, ".firebaserc"), "utf8");
-  if (headRc !== workRc) {
-    fail(
-      ".firebaserc does not exactly match committed HEAD version.\n" +
-        "Deploy aborted to prevent uncommitted project/target changes."
-    );
-  }
+  assertPathMatchesHead(".firebaserc");
 }
 
 function assertRoutingPolicy() {
