@@ -1,0 +1,134 @@
+{
+  "generatedAt": "2026-08-10T11:40:02.935Z",
+  "suite": "live-location-ordering-seed",
+  "pass": 18,
+  "fail": 0,
+  "results": [
+    {
+      "name": "unit-established-session-first-ride-fix-uses-trust-anchor",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-established-session-rejects-session-start-only-window",
+      "status": "PASS",
+      "detail": "observedAt beyond sessionStart+60s must not use session-start window alone",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-sequence-alone-cannot-authorize-older-observedAt",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-same-coords-require-monotonic-observedAt",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-moving-monotonic-fixes-accepted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-gps-observedAt-not-fabricated",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-missing-gps-observedAt-uses-nowMs-fallback",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-stale-trusted-fix-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-assignment-baseline-clears-driver-location",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "static-bargaining-uses-assignment-location-baseline-reset",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "emu-assignment-baseline-clears-stale-ride-location",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "emu-established-session-seed-reaches-ride-once",
+      "status": "PASS",
+      "detail": "ride_location_mirrored",
+      "suite": "live-location-ordering-seed",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-seed-writes-driver-location-document",
+      "status": "PASS",
+      "detail": "order_seed_sess",
+      "suite": "live-location-ordering-seed",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-cached-repeat-timestamp-rejected-without-rollback",
+      "status": "PASS",
+      "detail": "location_fix_out_of_order",
+      "suite": "live-location-ordering-seed",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-fresh-monotonic-heartbeat-accepted",
+      "status": "PASS",
+      "detail": "ride_location_mirrored",
+      "suite": "live-location-ordering-seed",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-delayed-old-callback-rejected",
+      "status": "PASS",
+      "detail": "location_fix_out_of_order",
+      "suite": "live-location-ordering-seed",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-retired-tracking-session-rejected",
+      "status": "PASS",
+      "detail": "location_fix_session_mismatch",
+      "suite": "live-location-ordering-seed",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-no-fare-fields-touched-by-mirror-patch",
+      "status": "PASS",
+      "detail": "settlement fields unchanged",
+      "suite": "live-location-ordering-seed",
+      "category": "emulator"
+    }
+  ]
+}

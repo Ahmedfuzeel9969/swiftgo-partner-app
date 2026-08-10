@@ -9,6 +9,9 @@
  * - First ride fix is NOT accepted merely because no previous ride location exists
  *   when session IDs mismatch or location.sessionId is missing.
  * - Same sessionId: next.sequence AND next.observedAt must both be strictly greater.
+ * - First ride fix for an established vehicle session uses trusted-fix recency
+ *   (vehicles.locationUpdatedAt anchor on server; client uses session-start estimate).
+ * - New tracking session transitions still use session-start freshness.
  * - Exact same sessionId/sequence/observedAt/coords → duplicate.
  * - Different sessionId alone is NOT enough to accept.
  * - A new session is accepted only when vehicle.trackingSessionStartedAt (server time)
@@ -142,11 +145,8 @@ function normalizeLocationFix(raw, ctx) {
     return { ok: false, reason: LOCATION_DIAG.POOR_ACCURACY, envelope: null };
   }
 
-  const observedAt =
-    Number(raw?.observedAt) ||
-    Number(raw?.timestamp) ||
-    Number(ctx?.nowMs) ||
-    Date.now();
+  const observedAtResolved = resolveObservedAtMs(raw, ctx);
+  const observedAt = observedAtResolved.observedAt;
   if (!Number.isFinite(observedAt) || observedAt <= 0) {
     return { ok: false, reason: LOCATION_DIAG.INVALID, envelope: null };
   }
@@ -187,6 +187,23 @@ function normalizeLocationFix(raw, ctx) {
   return { ok: true, reason: LOCATION_DIAG.ACCEPTED, envelope };
 }
 
+/** Resolve observedAt: use GPS-provided stamp when present; never fabricate over explicit GPS. */
+function resolveObservedAtMs(raw, ctx) {
+  if (raw?.observedAt != null && raw?.observedAt !== "") {
+    const n = Number(raw.observedAt);
+    if (Number.isFinite(n) && n > 0) return { observedAt: n, fromGps: true };
+  }
+  if (raw?.timestamp != null && raw?.timestamp !== "") {
+    const n = Number(raw.timestamp);
+    if (Number.isFinite(n) && n > 0) return { observedAt: n, fromGps: true };
+  }
+  const fallback = Number(ctx?.nowMs);
+  if (Number.isFinite(fallback) && fallback > 0) {
+    return { observedAt: fallback, fromGps: false };
+  }
+  return { observedAt: Date.now(), fromGps: false };
+}
+
 /**
  * Validate first-fix observedAt against authoritative server session start.
  * @returns {{ ok: true } | { ok: false, reason: string }}
@@ -209,6 +226,41 @@ function validateNewSessionFirstObservedAt(observedAt, vehicleSessionStartedMs) 
   return { ok: true };
 }
 
+function validateTrustedFixRecency(
+  observedAt,
+  trustAnchorMs,
+  maxAgeMs = SESSION_FIRST_FIX_MAX_AGE_MS,
+  maxFutureMs = SESSION_FIRST_FIX_MAX_FUTURE_MS
+) {
+  const obs = Number(observedAt);
+  const anchor = Number(trustAnchorMs);
+  if (!Number.isFinite(obs) || obs <= 0) {
+    return { ok: false, reason: LOCATION_DIAG.INVALID };
+  }
+  if (!Number.isFinite(anchor) || anchor <= 0) {
+    return { ok: false, reason: LOCATION_DIAG.INVALID };
+  }
+  if (obs < anchor - maxAgeMs) {
+    return { ok: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+  }
+  if (obs > anchor + maxFutureMs) {
+    return { ok: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+  }
+  return { ok: true };
+}
+
+function resolveFirstRideFixFreshness(next, sessionCtx) {
+  const trustAnchorMs = Number(sessionCtx.trustAnchorMs) || 0;
+  const vehicleSessionStartedMs = Number(sessionCtx.vehicleSessionStartedMs) || 0;
+  if (trustAnchorMs > 0) {
+    return validateTrustedFixRecency(next.observedAt, trustAnchorMs);
+  }
+  if (vehicleSessionStartedMs > 0) {
+    return validateNewSessionFirstObservedAt(next.observedAt, vehicleSessionStartedMs);
+  }
+  return { ok: true };
+}
+
 /**
  * When sessionCtx.enforceSessionConsistency is true (CF mirror path), require
  * next.sessionId === vehicleSessionId even for the first ride fix.
@@ -225,6 +277,7 @@ function validateNewSessionFirstObservedAt(observedAt, vehicleSessionStartedMs) 
  *   vehicleSessionId?: string,
  *   vehicleSessionStartedMs?: number|null,
  *   previousSessionStartedMs?: number|null,
+ *   trustAnchorMs?: number|null,
  *   enforceSessionConsistency?: boolean,
  * }} [sessionCtx]
  */
@@ -249,11 +302,8 @@ function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
   }
 
   if (!previous || !isValidLatLng(previous.lat, previous.lng)) {
-    // First ride fix: when server session start is known, apply the same freshness window.
-    if (vehicleSessionStartedMs) {
-      const fresh = validateNewSessionFirstObservedAt(next.observedAt, vehicleSessionStartedMs);
-      if (!fresh.ok) return { accept: false, reason: fresh.reason };
-    }
+    const fresh = resolveFirstRideFixFreshness(next, sessionCtx);
+    if (!fresh.ok) return { accept: false, reason: fresh.reason };
     return { accept: true, reason: LOCATION_DIAG.ACCEPTED };
   }
 
@@ -462,7 +512,10 @@ export {
   coerceCoordNumber,
   timestampToMs,
   normalizeLocationFix,
+  resolveObservedAtMs,
   validateNewSessionFirstObservedAt,
+  validateTrustedFixRecency,
+  resolveFirstRideFixFreshness,
   evaluateFixAgainstPrevious,
   derivedDisplayBearingDeg,
   toVehicleLocationField,

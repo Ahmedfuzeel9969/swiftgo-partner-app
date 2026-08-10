@@ -329,6 +329,7 @@ export function createCheckpointPolicyController(opts = {}) {
     rawGpsFixes: 0,
     rejectedInterval: 0,
     rejectedMovementNoop: 0,
+    rejectedCachedGps: 0,
     writesAttempted: 0,
     writesCommitted: 0,
     presenceEvents: 0,
@@ -544,6 +545,10 @@ export function createCheckpointPolicyController(opts = {}) {
     counters.rejectedMovementNoop += 1;
   }
 
+  function noteRejectedCachedGps() {
+    counters.rejectedCachedGps += 1;
+  }
+
   function noteWriteAttempted() {
     counters.writesAttempted += 1;
   }
@@ -614,6 +619,7 @@ export function createCheckpointPolicyController(opts = {}) {
     noteRawGps,
     noteRejectedInterval,
     noteRejectedMovementNoop,
+    noteRejectedCachedGps,
     noteWriteAttempted,
     noteWriteCommitted,
     evaluateWriteGate,

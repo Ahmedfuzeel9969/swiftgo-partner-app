@@ -1,0 +1,149 @@
+{
+  "generatedAt": "2026-08-10T11:47:04.583Z",
+  "summary": {
+    "pass": 23,
+    "fail": 0,
+    "blocked": 0,
+    "total": 23
+  },
+  "results": [
+    {
+      "name": "index-ride_candidates-driver-status",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "rules-candidates-driver-list-only",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "rules-candidates-no-client-write",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "geo-grid-deg",
+      "status": "PASS",
+      "detail": "grid=0.0036",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T0-createCustomerBooking-callable",
+      "status": "PASS",
+      "detail": "rideId=2uTjTRIbzsc9puwq3K0a",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T0-ride-id-nonempty",
+      "status": "PASS",
+      "detail": "2uTjTRIbzsc9puwq3K0a",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T1-ride-document-shape",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T2-matching-status",
+      "status": "PASS",
+      "detail": "status=candidates_ready count=2",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T2-candidates-ready",
+      "status": "PASS",
+      "detail": "candidateCount=2",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T4-candidate-doc",
+      "status": "PASS",
+      "detail": "2uTjTRIbzsc9puwq3K0a_de2emsn6243f-drv",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T5-driver-candidate-query",
+      "status": "PASS",
+      "detail": "docs=1",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T6-driver-ride-get",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T6-non-invited-ride-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T7-offer-created",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T7-not-assigned-on-offer-only",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T7-single-assignment",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-offline",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-missing-geo",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-stale-location",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-blocked-partner",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-busy-driver",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-outside-radius",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "rematch-candidate-count-preserved",
+      "status": "PASS",
+      "detail": "first=1 second=1 toInvite2=1",
+      "suite": "dispatch-e2e"
+    }
+  ]
+}

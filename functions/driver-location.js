@@ -111,12 +111,15 @@ function buildDriverLocationPatch(vehicle, ride) {
     timestampToMs(ride?.driverTrackingSessionStartedAt) ||
     timestampToMs(previous?.sessionStartedAt) ||
     0;
+  const trustAnchorMs =
+    timestampToMs(vehicle?.locationUpdatedAt) || timestampToMs(vehicle?.updatedAt) || 0;
 
   const gate = evaluateFixAgainstPrevious(previous, incoming, {
     enforceSessionConsistency: true,
     vehicleSessionId,
     vehicleSessionStartedMs,
     previousSessionStartedMs,
+    trustAnchorMs: trustAnchorMs > 0 ? trustAnchorMs : null,
   });
   if (!gate.accept) {
     return { skip: true, reason: gate.reason };

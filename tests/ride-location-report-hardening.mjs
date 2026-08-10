@@ -328,7 +328,7 @@ const {
   getCachedLocationReportingConfig,
 } = require("../functions/location-reporting-config-cache.js");
 const {
-  assignmentServerMirrorAggregateResetPatch,
+  assignmentLocationBaselineResetPatch,
 } = require("../functions/server-mirror-aggregate.js");
 const { createEmptyDriverCounters, createEmptyCustomerCounters } = require("../functions/ride-location-report-schema.js");
 
@@ -488,7 +488,7 @@ record(
   (() => {
     const src = fs.readFileSync(path.join(ROOT, "functions/bargaining.js"), "utf8");
     const mintMatches = [...src.matchAll(/assignmentSessionToken:\s*mintAssignmentSessionToken\(\)/g)];
-    const resetMatches = [...src.matchAll(/\.\.\.assignmentServerMirrorAggregateResetPatch\(\)/g)];
+    const resetMatches = [...src.matchAll(/\.\.\.assignmentLocationBaselineResetPatch\(\)/g)];
     return mintMatches.length === 2 && resetMatches.length === 2 ? "PASS" : "FAIL";
   })()
 );
@@ -738,10 +738,11 @@ await db.doc(`vehicles/${VEH_AGG_D1}`).set({
   trackingSessionId: "ts_agg_d1",
   trackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
   location: { lat: 24.86001, lng: 67.00001, sequence: 1, sessionId: "ts_agg_d1", observedAt: 10_000 },
-  locationUpdatedAt: admin.firestore.Timestamp.now(),
+  locationUpdatedAt: admin.firestore.Timestamp.fromMillis(10_000),
 });
 let vehAggSnap = (await db.doc(`vehicles/${VEH_AGG_D1}`).get()).data();
 for (const seq of [2, 3]) {
+  const observedAt = seq * 10_000;
   vehAggSnap = {
     ...vehAggSnap,
     location: {
@@ -749,8 +750,9 @@ for (const seq of [2, 3]) {
       lng: 67.0 + seq * 0.00001,
       sequence: seq,
       sessionId: "ts_agg_d1",
-      observedAt: seq * 10_000,
+      observedAt,
     },
+    locationUpdatedAt: admin.firestore.Timestamp.fromMillis(observedAt),
   };
   await mirrorRideLocationTransactional(db, VEH_AGG_D1, vehAggSnap, {
     reportingConfig: { enabled: true, uploadMode: "ride_end", collectFirebaseMetrics: true },
@@ -761,17 +763,14 @@ await db.doc(`rides/${RIDE_AGG_RESET}`).update({
   driverId: DRIVER2,
   vehicleId: VEH_AGG_D2,
   assignmentSessionToken: TOKEN_AGG_D2,
-  driverLocation: { lat: 24.87001, lng: 67.01001, sequence: 1, sessionId: "ts_agg_d2", observedAt: 10_000 },
-  driverTrackingSessionId: "ts_agg_d2",
-  driverTrackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
-  ...assignmentServerMirrorAggregateResetPatch(),
+  ...assignmentLocationBaselineResetPatch(),
 });
 await db.doc(`vehicles/${VEH_AGG_D2}`).set({
   activeRideId: RIDE_AGG_RESET,
   trackingSessionId: "ts_agg_d2",
   trackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
   location: { lat: 24.87002, lng: 67.01002, sequence: 2, sessionId: "ts_agg_d2", observedAt: 20_000 },
-  locationUpdatedAt: admin.firestore.Timestamp.now(),
+  locationUpdatedAt: admin.firestore.Timestamp.fromMillis(20_000),
 });
 const rideAfterRematch = (await db.doc(`rides/${RIDE_AGG_RESET}`).get()).data();
 const vehAggD2 = (await db.doc(`vehicles/${VEH_AGG_D2}`).get()).data();
