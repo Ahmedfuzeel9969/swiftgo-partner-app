@@ -749,6 +749,16 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── owner_applications/{uid} ── (Task 3B: fleet-owner approval queue; Admin SDK writes only)
+    match /owner_applications/{appId} {
+      allow read: if isSignedIn() && (
+        isSuperAdmin()
+        || (request.auth.uid == appId && resource.data.uid == request.auth.uid)
+      );
+
+      allow create, update, delete: if false;
+    }
+
     // ── rechargeRequests/{requestId} ── (Phase 37: wallet top-up approvals)
     match /rechargeRequests/{requestId} {
       allow get: if isSignedIn() && (

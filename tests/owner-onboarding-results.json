@@ -1,0 +1,137 @@
+{
+  "generatedAt": "2026-08-10T06:12:30.646Z",
+  "pass": 26,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-callables-exported",
+      "status": "PASS",
+      "detail": "Cloud Functions exported"
+    },
+    {
+      "name": "static-owner-app-uses-request-callable",
+      "status": "PASS",
+      "detail": "owner app requests access via callable only"
+    },
+    {
+      "name": "static-owner-applications-rules",
+      "status": "PASS",
+      "detail": "owner_applications client writes blocked"
+    },
+    {
+      "name": "callable-legitimate-request-pending",
+      "status": "PASS",
+      "detail": "request creates pending application"
+    },
+    {
+      "name": "callable-request-writes-pending-doc",
+      "status": "PASS",
+      "detail": "owner_applications pending persisted"
+    },
+    {
+      "name": "callable-request-does-not-write-partner-role",
+      "status": "PASS",
+      "detail": "partners doc not created on request alone"
+    },
+    {
+      "name": "callable-admin-grants-owner",
+      "status": "PASS",
+      "detail": "admin approval provisions owner"
+    },
+    {
+      "name": "callable-grant-writes-partner-owner-role",
+      "status": "PASS",
+      "detail": "partners.role owner after approval"
+    },
+    {
+      "name": "callable-grant-zero-wallet",
+      "status": "PASS",
+      "detail": "no financial privilege from client payload"
+    },
+    {
+      "name": "policy-provisioned-owner-enters-dashboard",
+      "status": "PASS",
+      "detail": "routing allows provisioned owner"
+    },
+    {
+      "name": "callable-idempotent-request-existing-owner",
+      "status": "PASS",
+      "detail": "repeat request after grant is idempotent"
+    },
+    {
+      "name": "callable-idempotent-approve",
+      "status": "PASS",
+      "detail": "repeat approve is idempotent"
+    },
+    {
+      "name": "callable-driver-may-request-not-elevate",
+      "status": "PASS",
+      "detail": "driver may request but stays driver until approval"
+    },
+    {
+      "name": "callable-driver-still-driver-after-request",
+      "status": "PASS",
+      "detail": "no silent elevation on request"
+    },
+    {
+      "name": "policy-driver-still-denied-owner-surface",
+      "status": "PASS",
+      "detail": "driver still denied /owner/ until approved"
+    },
+    {
+      "name": "policy-missing-role-denied",
+      "status": "PASS",
+      "detail": "visit alone does not authorize owner surface"
+    },
+    {
+      "name": "callable-customer-request-no-partner-yet",
+      "status": "PASS",
+      "detail": "customer request does not create partners doc"
+    },
+    {
+      "name": "callable-blocked-user-denied",
+      "status": "PASS",
+      "detail": "blocked user cannot request"
+    },
+    {
+      "name": "callable-forged-role-rejected",
+      "status": "PASS",
+      "detail": "client role field rejected"
+    },
+    {
+      "name": "callable-other-uid-denied",
+      "status": "PASS",
+      "detail": "cannot request for another uid"
+    },
+    {
+      "name": "callable-non-admin-approve-denied",
+      "status": "PASS",
+      "detail": "approve is admin-only"
+    },
+    {
+      "name": "callable-denied-approve-no-role-flip",
+      "status": "PASS",
+      "detail": "denied approve does not promote blocked user"
+    },
+    {
+      "name": "callable-existing-owner-login-compatible",
+      "status": "PASS",
+      "detail": "legacy owner documents still enter dashboard"
+    },
+    {
+      "name": "rules-applicant-reads-own-application",
+      "status": "PASS",
+      "detail": "pending application readable"
+    },
+    {
+      "name": "rules-client-cannot-write-owner-applications",
+      "status": "PASS",
+      "detail": "writes blocked"
+    },
+    {
+      "name": "rules-cannot-forge-other-application",
+      "status": "PASS",
+      "detail": "uid/doc mismatch blocked"
+    }
+  ]
+}

@@ -33,6 +33,7 @@ import {
   isSuperAdminBootstrapEmail,
   resolveSurfaceEntry,
 } from "./auth-surface-routing.mjs";
+import { requestOwnerAccessClient } from "./owner-onboarding-client.js";
 import { requestRideSettlement } from "./settlement-client.js";
 import { hashVehiclePin } from "./pin-hash.js";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
@@ -92,6 +93,7 @@ const els = {
   btnReturnToOwner: document.getElementById("btnReturnToOwner"),
   authOverlay: document.getElementById("driverAuthOverlay"),
   googleLoginBtn: document.getElementById("driverGoogleLoginBtn"),
+  ownerRequestAccessBtn: document.getElementById("ownerRequestAccessBtn"),
   authStatus: document.getElementById("driverAuthStatus"),
   header: document.getElementById("partnerHeader"),
   mapElement: document.getElementById("driverMap"),
@@ -299,6 +301,40 @@ async function ensureDevDriverProfile(user) {
   return profile;
 }
 
+function setOwnerAccessRequestVisible(visible) {
+  if (els.ownerRequestAccessBtn) els.ownerRequestAccessBtn.hidden = !visible;
+}
+
+async function submitOwnerAccessRequest() {
+  const user = currentDriver;
+  if (!user) return;
+  setOwnerAccessRequestVisible(false);
+  setLoginBusy(true);
+  setAuthStatus("مالک رسائی کی درخواست بھیجی جا رہی ہے...");
+  try {
+    const result = await requestOwnerAccessClient({
+      fullName: user.displayName || "",
+    });
+    if (result?.status === "pending") {
+      setAuthStatus("درخواست موصول ہو گئی۔ سپر ایڈمن کی منظوری کا انتظار کریں۔");
+      showAuthOverlay("درخواست موصول ہو گئی۔ سپر ایڈمن کی منظوری کا انتظار کریں۔");
+      return;
+    }
+    if (result?.status === "already_owner") {
+      await activateAuthenticatedDriver(user);
+      return;
+    }
+    setAuthStatus("درخواست نہیں بھیجی جا سکی، دوبارہ کوشش کریں۔");
+    setOwnerAccessRequestVisible(true);
+  } catch (error) {
+    console.warn("[SwiftGo Owner] request access", error);
+    setAuthStatus("درخواست نہیں بھیجی جا سکی، دوبارہ کوشش کریں۔");
+    setOwnerAccessRequestVisible(true);
+  } finally {
+    setLoginBusy(false);
+  }
+}
+
 async function activateAuthenticatedDriver(user) {
   const sequence = ++authSequence;
   setLoginBusy(true);
@@ -335,17 +371,22 @@ async function activateAuthenticatedDriver(user) {
     }
 
     if (entry.outcome === "app_shell") {
+      setOwnerAccessRequestVisible(false);
       showOwnerDashboard();
       return;
     }
 
     if (entry.outcome === "admin_driver_mode") {
+      setOwnerAccessRequestVisible(false);
       await hideAllAuthScreensAndShowDashboard(existing, sequence);
       return;
     }
 
     if (entry.outcome === "login_denied") {
       hideProtectedUi();
+      const canRequest =
+        entry.reason === "missing_owner_role" || entry.reason === "driver_not_owner_surface";
+      setOwnerAccessRequestVisible(canRequest);
       setAuthStatus(
         entry.reason === "missing_owner_role"
           ? "یہ اکاؤنٹ مالک ایپ کے لیے مجاز نہیں ہے۔"
@@ -360,6 +401,7 @@ async function activateAuthenticatedDriver(user) {
     }
 
     hideProtectedUi();
+    setOwnerAccessRequestVisible(false);
     setAuthStatus(
       entry.reason === "missing_owner_role"
         ? "یہ اکاؤنٹ مالک ایپ کے لیے مجاز نہیں ہے۔"
@@ -2190,6 +2232,7 @@ function boot() {
   hideProtectedUi();
   showAuthOverlay();
   els.googleLoginBtn?.addEventListener("click", signInDriverWithGoogle);
+  els.ownerRequestAccessBtn?.addEventListener("click", submitOwnerAccessRequest);
   els.blockedLogoutBtn?.addEventListener("click", logoutPartner);
   els.addVehicleBtn?.addEventListener("click", openVehicleModal);
   els.vehicleModalBackdrop?.addEventListener("click", closeVehicleModal);

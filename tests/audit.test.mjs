@@ -801,11 +801,24 @@ assert(
     ownerAppJs.includes('entry.outcome === "app_shell"') &&
     ownerAppJs.includes('entry.outcome === "login_denied"') &&
     !ownerAppJs.match(/setDoc\([\s\S]{0,400}role:\s*"owner"/) &&
+    ownerAppJs.includes("requestOwnerAccessClient") &&
     ownerAppJs.includes("showOwnerDashboard()") &&
     !ownerAppJs.includes('window.location.replace("/partner/")') &&
     ownerCss.includes(".owner-ride-history") &&
     rules.includes("resource.data.ownerId == request.auth.uid") &&
-    rules.includes("request.resource.data.role == 'driver'")
+    rules.includes("request.resource.data.role == 'driver'") &&
+    rules.includes("match /owner_applications/{appId}")
+);
+assert(
+  "wiring",
+  "Owner onboarding is server-authoritative via Cloud Functions",
+  read("functions/index.js").includes("exports.requestOwnerAccess") &&
+    read("functions/index.js").includes("exports.approveOwnerAccess") &&
+    read("functions/owner-onboarding.js").includes("requestOwnerAccess") &&
+    read("functions/owner-onboarding.js").includes("approveOwnerAccess") &&
+    read("functions/owner-onboarding.js").includes("ROLE_NOT_ACCEPTED_FROM_CLIENT") &&
+    rules.includes("match /owner_applications/{appId}") &&
+    rules.includes("allow create, update, delete: if false")
 );
 assert(
   "wiring",
