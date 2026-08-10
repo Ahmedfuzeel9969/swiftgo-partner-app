@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-10T11:47:04.583Z",
+  "generatedAt": "2026-08-10T13:19:13.857Z",
   "summary": {
     "pass": 23,
     "fail": 0,
@@ -34,13 +34,13 @@
     {
       "name": "T0-createCustomerBooking-callable",
       "status": "PASS",
-      "detail": "rideId=2uTjTRIbzsc9puwq3K0a",
+      "detail": "rideId=wPPtxepT5yEP3DMuXntg",
       "suite": "dispatch-e2e"
     },
     {
       "name": "T0-ride-id-nonempty",
       "status": "PASS",
-      "detail": "2uTjTRIbzsc9puwq3K0a",
+      "detail": "wPPtxepT5yEP3DMuXntg",
       "suite": "dispatch-e2e"
     },
     {
@@ -64,7 +64,7 @@
     {
       "name": "T4-candidate-doc",
       "status": "PASS",
-      "detail": "2uTjTRIbzsc9puwq3K0a_de2emsn6243f-drv",
+      "detail": "wPPtxepT5yEP3DMuXntg_de2emsn9ckmh-drv",
       "suite": "dispatch-e2e"
     },
     {

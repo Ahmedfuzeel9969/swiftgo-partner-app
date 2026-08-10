@@ -411,7 +411,7 @@
     {
       "name": "fresh-receivedAt-wins-over-future-observedAt",
       "status": "PASS",
-      "detail": "2185",
+      "detail": "2763",
       "suite": "live-location-foundation",
       "category": "unit"
     },
@@ -432,7 +432,7 @@
     {
       "name": "fresh-server-updatedAt-when-no-receivedAt",
       "status": "PASS",
-      "detail": "600185",
+      "detail": "600763",
       "suite": "live-location-foundation",
       "category": "unit"
     },

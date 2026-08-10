@@ -249,10 +249,41 @@ function validateTrustedFixRecency(
   return { ok: true };
 }
 
+function resolveCommittedTrustAnchorMs(vehicle) {
+  const raw = vehicle?.locationUpdatedAt;
+  if (raw == null || raw === "") return null;
+  if (typeof raw === "number" || typeof raw === "string") return null;
+  const ms = timestampToMs(raw);
+  return Number.isFinite(ms) && ms > 0 ? ms : null;
+}
+
+function validateTrustAnchorBounds(anchorMs, serverNowMs = Date.now()) {
+  const anchor = Number(anchorMs);
+  const now = Number(serverNowMs);
+  if (!Number.isFinite(anchor) || anchor <= 0) {
+    return { ok: false, reason: LOCATION_DIAG.INVALID };
+  }
+  if (!Number.isFinite(now) || now <= 0) {
+    return { ok: false, reason: LOCATION_DIAG.INVALID };
+  }
+  if (anchor > now + SESSION_FIRST_FIX_MAX_FUTURE_MS) {
+    return { ok: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
+  }
+  return { ok: true };
+}
+
 function resolveFirstRideFixFreshness(next, sessionCtx) {
+  const hasCommittedTrustAnchor = Boolean(sessionCtx.hasCommittedTrustAnchor);
   const trustAnchorMs = Number(sessionCtx.trustAnchorMs) || 0;
   const vehicleSessionStartedMs = Number(sessionCtx.vehicleSessionStartedMs) || 0;
-  if (trustAnchorMs > 0) {
+  const serverNowMs = Number(sessionCtx.serverNowMs) || Date.now();
+
+  if (hasCommittedTrustAnchor) {
+    if (trustAnchorMs <= 0) {
+      return { ok: false, reason: LOCATION_DIAG.INVALID };
+    }
+    const anchorBounds = validateTrustAnchorBounds(trustAnchorMs, serverNowMs);
+    if (!anchorBounds.ok) return anchorBounds;
     return validateTrustedFixRecency(next.observedAt, trustAnchorMs);
   }
   if (vehicleSessionStartedMs > 0) {
@@ -278,6 +309,8 @@ function resolveFirstRideFixFreshness(next, sessionCtx) {
  *   vehicleSessionStartedMs?: number|null,
  *   previousSessionStartedMs?: number|null,
  *   trustAnchorMs?: number|null,
+ *   hasCommittedTrustAnchor?: boolean,
+ *   serverNowMs?: number|null,
  *   enforceSessionConsistency?: boolean,
  * }} [sessionCtx]
  */
@@ -515,6 +548,8 @@ export {
   resolveObservedAtMs,
   validateNewSessionFirstObservedAt,
   validateTrustedFixRecency,
+  resolveCommittedTrustAnchorMs,
+  validateTrustAnchorBounds,
   resolveFirstRideFixFreshness,
   evaluateFixAgainstPrevious,
   derivedDisplayBearingDeg,

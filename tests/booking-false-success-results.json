@@ -1,11 +1,11 @@
 {
   "suite": "booking-false-success",
-  "generatedAt": "2026-08-10T11:48:05.447Z",
+  "generatedAt": "2026-08-10T13:12:28.060Z",
   "summary": {
-    "pass": 13,
+    "pass": 23,
     "fail": 0,
-    "blocked": 1,
-    "total": 14
+    "blocked": 0,
+    "total": 23
   },
   "results": [
     {
@@ -100,9 +100,72 @@
       "actual": ""
     },
     {
-      "name": "E00-firestore-emulator",
-      "status": "BLOCKED",
-      "detail": "Firestore emulator not reachable at 127.0.0.1:8080 — behavioural E-tests skipped",
+      "name": "E01-zero-active-no-warning",
+      "status": "PASS",
+      "detail": "{\"allowed\":true,\"count\":0}",
+      "expected": "allowed=true count=0",
+      "actual": "allowed=true count=0"
+    },
+    {
+      "name": "E02-inflated-slots-reconciled-to-live",
+      "status": "PASS",
+      "detail": "slot count=0",
+      "expected": "0",
+      "actual": "0"
+    },
+    {
+      "name": "E03-first-booking-returns-ride-id",
+      "status": "PASS",
+      "detail": "ZU5olASpCKE7IZEvEkd9",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "E04-canonical-rides-doc-created",
+      "status": "PASS",
+      "detail": "",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "E05-exactly-one-searching-ride",
+      "status": "PASS",
+      "detail": "size=1",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "E06-matching-creates-candidate-for-eligible-driver",
+      "status": "PASS",
+      "detail": "{\"candidates\":1,\"candExists\":true,\"matchingStatus\":\"candidates_ready\"}",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "E07-four-active-blocks-fifth-at-gate",
+      "status": "PASS",
+      "detail": "{\"allowed\":false,\"reason\":\"MAX_ACTIVE_BOOKINGS\",\"count\":4,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"DdetExpa1xnIPNVA1fHX\",\"status\":\"searching_driver\"},{\"id\":\"KtBoJfgFKIOx30BoajOS\",\"status\":\"searching_driver\"},{\"id\":\"SFSdgHIqEAlp2BmP6oLS\",\"status\":\"searching_driver\"},{\"id\":\"ZU5olASpCKE7IZEvEkd9\",\"status\":\"searching_driver\"}]}",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "E08-fifth-create-rejected-no-partial",
+      "status": "PASS",
+      "detail": "MAX_ACTIVE_BOOKINGS",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "E09-still-exactly-four-non-terminal",
+      "status": "PASS",
+      "detail": "size=4",
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "name": "E10-cancel-frees-slot",
+      "status": "PASS",
+      "detail": "{\"allowed\":true,\"count\":3}",
       "expected": "",
       "actual": ""
     }

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-10T11:40:02.935Z",
+  "generatedAt": "2026-08-10T13:11:55.356Z",
   "suite": "live-location-ordering-seed",
-  "pass": 18,
+  "pass": 33,
   "fail": 0,
   "results": [
     {
@@ -75,6 +75,41 @@
       "category": "unit"
     },
     {
+      "name": "static-rules-enforce-locationUpdatedAt-request-time",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-trust-anchor-future-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-trust-anchor-malformed-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-committed-anchor-required-when-present",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
+      "name": "unit-updatedAt-not-trust-anchor",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "unit"
+    },
+    {
       "name": "emu-assignment-baseline-clears-stale-ride-location",
       "status": "PASS",
       "detail": "",
@@ -129,6 +164,76 @@
       "detail": "settlement fields unchanged",
       "suite": "live-location-ordering-seed",
       "category": "emulator"
+    },
+    {
+      "name": "emu-future-trust-anchor-rejected",
+      "status": "PASS",
+      "detail": "location_fix_out_of_order",
+      "suite": "live-location-ordering-seed",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-old-gps-with-fresh-anchor-rejected",
+      "status": "PASS",
+      "detail": "location_fix_out_of_order",
+      "suite": "live-location-ordering-seed",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-rematch-no-prior-driver-location-before-seed",
+      "status": "PASS",
+      "detail": "cleared",
+      "suite": "live-location-ordering-seed",
+      "category": "emulator"
+    },
+    {
+      "name": "rules-valid-serverTimestamp-anchor",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "rules"
+    },
+    {
+      "name": "rules-forged-past-timestamp-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "rules"
+    },
+    {
+      "name": "rules-forged-future-timestamp-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "rules"
+    },
+    {
+      "name": "rules-numeric-timestamp-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "rules"
+    },
+    {
+      "name": "rules-string-timestamp-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "rules"
+    },
+    {
+      "name": "rules-missing-anchor-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "rules"
+    },
+    {
+      "name": "rules-wrong-driver-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-ordering-seed",
+      "category": "rules"
     }
   ]
 }

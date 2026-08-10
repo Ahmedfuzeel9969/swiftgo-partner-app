@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-10T11:46:11.756Z",
+  "generatedAt": "2026-08-10T13:18:12.857Z",
   "summary": {
     "pass": 21,
     "fail": 0,
@@ -58,7 +58,7 @@
     {
       "name": "CASE-B-candidate-invited",
       "status": "PASS",
-      "detail": "phbPtHX3I1TpD7umS6Wd_rdymsn60zbb-b-drv",
+      "detail": "bciLuP6ICEnjd0xDOgLV_rdymsn9b79y-b-drv",
       "suite": "dispatch-readiness"
     },
     {

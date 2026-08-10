@@ -7,16 +7,25 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import {
+  assertFails,
+  assertSucceeds,
+  initializeTestEnvironment,
+} from "@firebase/rules-unit-testing";
+import { doc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
+import {
   evaluateFixAgainstPrevious,
   LOCATION_DIAG,
   normalizeLocationFix,
+  resolveCommittedTrustAnchorMs,
   resolveObservedAtMs,
+  validateTrustAnchorBounds,
   validateTrustedFixRecency,
 } from "../driver-app/js/location-envelope.mjs";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "tests", "live-location-ordering-seed-results.json");
+const RULES = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
 const PROJECT = "demo-swiftgo-phase1";
 
 process.env.FIRESTORE_EMULATOR_HOST ||= "127.0.0.1:8080";
@@ -71,6 +80,8 @@ function unitTests() {
       vehicleSessionId: "sess_established",
       vehicleSessionStartedMs: sessionStart,
       trustAnchorMs: trustAnchor,
+      hasCommittedTrustAnchor: true,
+      serverNowMs: now,
     }).accept
       ? "PASS"
       : "FAIL"
@@ -98,6 +109,8 @@ function unitTests() {
         vehicleSessionId: "sess_established",
         vehicleSessionStartedMs: sessionStart,
         trustAnchorMs: trustAnchor,
+        hasCommittedTrustAnchor: true,
+        serverNowMs: now,
       }
     ).accept
       ? "PASS"
@@ -114,6 +127,8 @@ function unitTests() {
         vehicleSessionId: "sess_established",
         vehicleSessionStartedMs: sessionStart,
         trustAnchorMs: trustAnchor,
+        hasCommittedTrustAnchor: true,
+        serverNowMs: now,
       }
     ).accept
       ? "PASS"
@@ -123,13 +138,15 @@ function unitTests() {
   record(
     "unit-moving-monotonic-fixes-accepted",
     evaluateFixAgainstPrevious(
-      { ...fix, sequence: 1, observedAt: 1000 },
-      { ...fix, lat: 24.861, sequence: 2, observedAt: 2000 },
+      { ...fix, sequence: 1, observedAt: trustAnchor - 2_000 },
+      { ...fix, lat: 24.861, sequence: 2, observedAt: trustAnchor - 1_000 },
       {
         enforceSessionConsistency: true,
         vehicleSessionId: "sess_established",
         vehicleSessionStartedMs: sessionStart,
         trustAnchorMs: trustAnchor,
+        hasCommittedTrustAnchor: true,
+        serverNowMs: now,
       }
     ).accept
       ? "PASS"
@@ -180,6 +197,70 @@ function unitTests() {
       const mint = [...src.matchAll(/assignmentSessionToken:\s*mintAssignmentSessionToken\(\)/g)];
       const reset = [...src.matchAll(/\.\.\.assignmentLocationBaselineResetPatch\(\)/g)];
       return mint.length === 2 && reset.length === 2 ? "PASS" : "FAIL";
+    })()
+  );
+
+  record(
+    "static-rules-enforce-locationUpdatedAt-request-time",
+    RULES.includes("vehicleLocationUpdatedAtOk()") &&
+      RULES.includes("locationUpdatedAt == request.time")
+      ? "PASS"
+      : "FAIL"
+  );
+
+  record(
+    "unit-trust-anchor-future-rejected",
+    !validateTrustAnchorBounds(now + 120_000, now).ok ? "PASS" : "FAIL"
+  );
+
+  record(
+    "unit-trust-anchor-malformed-rejected",
+    resolveCommittedTrustAnchorMs({ locationUpdatedAt: "not-a-timestamp" }) == null &&
+      resolveCommittedTrustAnchorMs({ locationUpdatedAt: 1_700_000_000_000 }) == null &&
+      resolveCommittedTrustAnchorMs({ locationUpdatedAt: { seconds: 1, nanoseconds: 0 } }) === 1000
+      ? "PASS"
+      : "FAIL"
+  );
+
+  record(
+    "unit-committed-anchor-required-when-present",
+    !evaluateFixAgainstPrevious(null, fix, {
+      enforceSessionConsistency: true,
+      vehicleSessionId: "sess_established",
+      vehicleSessionStartedMs: sessionStart,
+      hasCommittedTrustAnchor: true,
+      trustAnchorMs: 0,
+      serverNowMs: now,
+    }).accept
+      ? "PASS"
+      : "FAIL"
+  );
+
+  record(
+    "unit-updatedAt-not-trust-anchor",
+    (() => {
+      const vehicle = {
+        trackingSessionId: "sess_established",
+        trackingSessionStartedAt: Ts.fromMillis(sessionStart),
+        updatedAt: Ts.fromMillis(trustAnchor),
+        location: {
+          lat: fix.lat,
+          lng: fix.lng,
+          observedAt: fix.observedAt,
+          sequence: fix.sequence,
+          sessionId: fix.sessionId,
+          source: "gps",
+        },
+      };
+      const ride = {
+        status: "accepted",
+        vehicleId: "veh-no-anchor",
+        pickupLocation: { lat: 24.87, lng: 67.01 },
+      };
+      return buildDriverLocationPatch(vehicle, ride).reason !== LOCATION_DIAG.ACCEPTED &&
+        buildDriverLocationPatch(vehicle, ride).skip
+        ? "PASS"
+        : "FAIL";
     })()
   );
 }
@@ -382,11 +463,252 @@ async function emulatorTests() {
     "settlement fields unchanged",
     "emulator"
   );
+
+  const futureAnchor = buildDriverLocationPatch(
+    {
+      trackingSessionId: sessionId,
+      trackingSessionStartedAt: Ts.fromMillis(now - 600_000),
+      locationUpdatedAt: Ts.fromMillis(now + 120_000),
+      location: {
+        lat: 24.8607,
+        lng: 67.0011,
+        observedAt: now,
+        sequence: 20,
+        sessionId,
+        source: "gps",
+      },
+    },
+    { status: "accepted", vehicleId: vehId, pickupLocation: { lat: 24.87, lng: 67.01 } }
+  );
+  record(
+    "emu-future-trust-anchor-rejected",
+    futureAnchor.skip &&
+      (futureAnchor.reason === LOCATION_DIAG.OUT_OF_ORDER ||
+        futureAnchor.reason === LOCATION_DIAG.INVALID)
+      ? "PASS"
+      : "FAIL",
+    futureAnchor.reason,
+    "emulator"
+  );
+
+  const oldGpsFreshAnchor = buildDriverLocationPatch(
+    {
+      trackingSessionId: sessionId,
+      trackingSessionStartedAt: Ts.fromMillis(now - 600_000),
+      locationUpdatedAt: Ts.fromMillis(now),
+      location: {
+        lat: 24.8607,
+        lng: 67.0011,
+        observedAt: now - 300_000,
+        sequence: 21,
+        sessionId,
+        source: "gps",
+      },
+    },
+    { status: "accepted", vehicleId: vehId, pickupLocation: { lat: 24.87, lng: 67.01 } }
+  );
+  record(
+    "emu-old-gps-with-fresh-anchor-rejected",
+    oldGpsFreshAnchor.skip && oldGpsFreshAnchor.reason === LOCATION_DIAG.OUT_OF_ORDER
+      ? "PASS"
+      : "FAIL",
+    oldGpsFreshAnchor.reason,
+    "emulator"
+  );
+
+  const rematchRide = "llf-rematch-privacy";
+  await db.doc(`rides/${rematchRide}`).set({
+    userId: "cust_rematch",
+    driverId: "driver_order_seed",
+    vehicleId: vehId,
+    status: "accepted",
+    assignmentSessionToken: "as_old_token",
+    pickupLocation: { lat: 24.87, lng: 67.01 },
+    dropoffLocation: { lat: 24.9, lng: 67.05 },
+    driverLocation: {
+      lat: 99,
+      lng: 99,
+      observedAt: now - 120_000,
+      sequence: 50,
+      sessionId: "prior_driver_sess",
+    },
+    driverTrackingSessionId: "prior_driver_sess",
+  });
+  await db.doc(`rides/${rematchRide}`).update({
+    driverId: "driver_rematch_new",
+    vehicleId: "veh_rematch_new",
+    assignmentSessionToken: "as_new_token",
+    driverLocation: FieldValue.delete(),
+    driverLocationUpdatedAt: FieldValue.delete(),
+    driverTrackingSessionId: FieldValue.delete(),
+    driverTrackingSessionStartedAt: FieldValue.delete(),
+    serverMirrorAccepted: 0,
+    serverMirrorAttempts: 0,
+    firstServerMirrorAt: FieldValue.delete(),
+    lastServerMirrorAt: FieldValue.delete(),
+    maximumMirrorGapMs: FieldValue.delete(),
+  });
+  const betweenRematch = (await db.doc(`rides/${rematchRide}`).get()).data();
+  record(
+    "emu-rematch-no-prior-driver-location-before-seed",
+    !betweenRematch?.driverLocation && !betweenRematch?.driverTrackingSessionId ? "PASS" : "FAIL",
+    betweenRematch?.driverLocation?.sessionId || "cleared",
+    "emulator"
+  );
+}
+
+async function rulesTests() {
+  const emuHost = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
+  const [host, portStr] = emuHost.split(":");
+  const port = Number(portStr) || 8080;
+
+  let testEnv;
+  try {
+    testEnv = await initializeTestEnvironment({
+      projectId: PROJECT,
+      firestore: { rules: RULES, host, port },
+    });
+  } catch (err) {
+    record("rules-suite-bootstrap", "BLOCKED", String(err.message || err).slice(0, 160), "rules");
+    return;
+  }
+
+  await testEnv.clearFirestore();
+
+  const driverA = "anchor-driver-a";
+  const driverB = "anchor-driver-b";
+  const vehId = "anchor-veh-1";
+  const sessionId = "anchor_rules_sess";
+
+  await db.doc(`partners/${driverA}`).set({
+    uid: driverA,
+    role: "driver",
+    accountStatus: "active",
+    currentVehicleId: vehId,
+    walletBalance: 0,
+  });
+  await db.doc(`partners/${driverB}`).set({
+    uid: driverB,
+    role: "driver",
+    accountStatus: "active",
+    walletBalance: 0,
+  });
+  await db.doc(`vehicles/${vehId}`).set({
+    ownerId: "anchor-owner",
+    driverId: driverA,
+    status: "online",
+    trackingSessionId: sessionId,
+    trackingSessionStartedAt: Ts.fromMillis(Date.now() - 60_000),
+    location: {
+      lat: 24.871,
+      lng: 67.012,
+      observedAt: Date.now(),
+      sequence: 1,
+      sessionId,
+      source: "gps",
+    },
+    locationUpdatedAt: Ts.now(),
+  });
+
+  const drvA = testEnv.authenticatedContext(driverA, { email: "a@anchor.test" }).firestore();
+  const drvB = testEnv.authenticatedContext(driverB, { email: "b@anchor.test" }).firestore();
+
+  const baseLocWrite = (seq = 2, extra = {}) => ({
+    location: {
+      lat: 24.872,
+      lng: 67.013,
+      observedAt: Date.now(),
+      sequence: seq,
+      sessionId,
+      source: "gps",
+    },
+    locationUpdatedAt: serverTimestamp(),
+    trackingSessionId: sessionId,
+    status: "online",
+    ...extra,
+  });
+
+  async function tryPass(name, fn) {
+    try {
+      await fn();
+      record(name, "PASS", "", "rules");
+    } catch (e) {
+      record(name, "FAIL", String(e.message || e).slice(0, 160), "rules");
+    }
+  }
+
+  await tryPass("rules-valid-serverTimestamp-anchor", async () => {
+    await assertSucceeds(updateDoc(doc(drvA, "vehicles", vehId), baseLocWrite(2)));
+  });
+
+  await tryPass("rules-forged-past-timestamp-denied", async () => {
+    await assertFails(
+      updateDoc(
+        doc(drvA, "vehicles", vehId),
+        baseLocWrite(3, {
+          locationUpdatedAt: Timestamp.fromMillis(Date.now() - 120_000),
+        })
+      )
+    );
+  });
+
+  await tryPass("rules-forged-future-timestamp-denied", async () => {
+    await assertFails(
+      updateDoc(
+        doc(drvA, "vehicles", vehId),
+        baseLocWrite(4, {
+          locationUpdatedAt: Timestamp.fromMillis(Date.now() + 120_000),
+        })
+      )
+    );
+  });
+
+  await tryPass("rules-numeric-timestamp-denied", async () => {
+    await assertFails(
+      updateDoc(
+        doc(drvA, "vehicles", vehId),
+        baseLocWrite(5, { locationUpdatedAt: Date.now() })
+      )
+    );
+  });
+
+  await tryPass("rules-string-timestamp-denied", async () => {
+    await assertFails(
+      updateDoc(
+        doc(drvA, "vehicles", vehId),
+        baseLocWrite(6, { locationUpdatedAt: "2026-08-10T00:00:00.000Z" })
+      )
+    );
+  });
+
+  await tryPass("rules-missing-anchor-denied", async () => {
+    await assertFails(
+      updateDoc(doc(drvA, "vehicles", vehId), {
+        location: {
+          lat: 24.873,
+          lng: 67.014,
+          observedAt: Date.now(),
+          sequence: 7,
+          sessionId,
+          source: "gps",
+        },
+        trackingSessionId: sessionId,
+        status: "online",
+      })
+    );
+  });
+
+  await tryPass("rules-wrong-driver-denied", async () => {
+    await assertFails(updateDoc(doc(drvB, "vehicles", vehId), baseLocWrite(8)));
+  });
+
+  await testEnv.cleanup();
 }
 
 async function main() {
   unitTests();
   await emulatorTests();
+  await rulesTests();
 
   const failed = results.filter((r) => r.status === "FAIL").length;
   fs.writeFileSync(

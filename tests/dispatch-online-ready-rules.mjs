@@ -66,7 +66,7 @@ function buildOnlineReadyPayload(driverUid, lat = LAT, lng = LNG, { activeRideId
       sessionId,
       source: "gps",
     },
-    locationUpdatedAt: Timestamp.now(),
+    locationUpdatedAt: serverTimestamp(),
     locationGridCell: cell,
     geoCell: matchGeoCellId(lat, lng),
     hotspotId: null,
