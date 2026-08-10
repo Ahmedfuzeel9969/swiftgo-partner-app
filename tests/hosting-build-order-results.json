@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-10T05:27:58.012Z",
-  "pass": 34,
+  "generatedAt": "2026-08-10T05:59:31.135Z",
+  "pass": 35,
   "fail": 0,
   "results": [
     {
@@ -46,17 +46,17 @@
     {
       "name": "two-builds-equivalent-output",
       "status": "PASS",
-      "detail": "hash=741b06652a8d29c1…"
+      "detail": "hash=8755879870d80b80…"
     },
     {
       "name": "build-stamp-head-sha",
       "status": "PASS",
-      "detail": "8d88e119ec720a7aca8b748d2d16202211a948f1"
+      "detail": "1ced13fea8052dcadc81630ff55cf9ea319d058b"
     },
     {
       "name": "build-stamp-stable-across-rebuild",
       "status": "PASS",
-      "detail": "8d88e119ec720a7aca8b748d2d16202211a948f1"
+      "detail": "1ced13fea8052dcadc81630ff55cf9ea319d058b"
     },
     {
       "name": "admin-canonical:geometry-quality.mjs",
@@ -155,6 +155,11 @@
     },
     {
       "name": "admin-canonical:ride-location-report-pending-queue.mjs",
+      "status": "PASS",
+      "detail": "matches shared/js"
+    },
+    {
+      "name": "admin-canonical:auth-surface-routing.mjs",
       "status": "PASS",
       "detail": "matches shared/js"
     },

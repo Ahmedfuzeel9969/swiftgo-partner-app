@@ -21,6 +21,7 @@ export const SHARED_JS_MODULES = [
   "ride-location-local-counter-store.mjs",
   "ride-location-report-client.mjs",
   "ride-location-report-pending-queue.mjs",
+  "auth-surface-routing.mjs",
 ];
 
 export const HOSTING_DIST_JS_TARGETS = [

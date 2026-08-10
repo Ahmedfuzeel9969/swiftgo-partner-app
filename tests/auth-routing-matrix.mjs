@@ -52,12 +52,14 @@ function runPolicyMatrix() {
     ["partner-driver", { surface: "partner", signedIn: true, partnerRole: "driver" }, "app_shell"],
     ["partner-owner-stays", { surface: "partner", signedIn: true, partnerRole: "owner" }, "app_shell"],
     ["partner-invalid-role", { surface: "partner", signedIn: true, partnerRole: "customer" }, "login_error"],
-    ["partner-missing-role", { surface: "partner", signedIn: true, partnerRole: "" }, "provision_driver"],
+    ["partner-missing-role", { surface: "partner", signedIn: true, partnerRole: "", partnerDocExists: false }, "provision_driver"],
     ["partner-blocked", { surface: "partner", signedIn: true, partnerRole: "driver", accountStatus: "blocked" }, "blocked_overlay"],
-    ["partner-admin-driver-normalized", { surface: "partner", signedIn: true, partnerRole: "admin_driver" }, "app_shell"],
-    ["owner-driver-record-stays", { surface: "owner", signedIn: true, partnerRole: "driver" }, "app_shell"],
-    ["owner-missing-role", { surface: "owner", signedIn: true, partnerRole: "" }, "provision_owner"],
-    ["owner-blocked", { surface: "owner", signedIn: true, partnerRole: "owner", accountStatus: "blocked" }, "blocked_overlay"],
+    ["partner-admin-driver-normalized", { surface: "partner", signedIn: true, partnerRole: "admin_driver", partnerDocExists: true }, "app_shell"],
+    ["owner-driver-denied", { surface: "owner", signedIn: true, partnerRole: "driver", partnerDocExists: true }, "login_denied"],
+    ["owner-missing-role-denied", { surface: "owner", signedIn: true, partnerRole: "", partnerDocExists: false }, "login_denied"],
+    ["owner-legitimate", { surface: "owner", signedIn: true, partnerRole: "owner", partnerDocExists: true }, "app_shell"],
+    ["owner-blocked", { surface: "owner", signedIn: true, partnerRole: "owner", accountStatus: "blocked", partnerDocExists: true }, "blocked_overlay"],
+    ["owner-suspended", { surface: "owner", signedIn: true, partnerRole: "owner", accountStatus: "suspended", partnerDocExists: true }, "blocked_overlay"],
   ];
 
   for (const [name, input, expectedOutcome] of cases) {
@@ -183,10 +185,12 @@ function runStaticWiringChecks() {
 
   record(
     "partner-strict-role-gate",
-    driverJs.includes('partner.role === "driver" || partner.role === "owner"') &&
-      driverJs.includes("hideProtectedUi()") &&
-      driverJs.includes("stayOnDriverSurface"),
-    "saved partners.role gates partner entry; invalid roles stay on login overlay"
+    driverJs.includes('from "./auth-surface-routing.mjs"') &&
+      driverJs.includes('resolveSurfaceEntry({') &&
+      driverJs.includes('surface: "partner"') &&
+      driverJs.includes("entry.outcome === \"app_shell\"") &&
+      driverJs.includes("hideProtectedUi()"),
+    "saved partners.role gates partner entry via canonical policy"
   );
   record(
     "partner-no-owner-auto-redirect",
@@ -196,8 +200,13 @@ function runStaticWiringChecks() {
   record(
     "owner-no-partner-auto-redirect",
     !ownerJs.includes('window.location.replace("/partner/")') &&
-      ownerJs.includes("showOwnerDashboard()"),
-    "owner surface stays on /owner/"
+      ownerJs.includes('entry.outcome === "login_denied"'),
+    "owner surface denies non-owner roles without auto-bounce"
+  );
+  record(
+    "owner-no-client-role-promotion",
+    !ownerJs.match(/setDoc\([\s\S]{0,500}role:\s*"owner"/),
+    "owner-app never writes role:owner client-side"
   );
   record(
     "admin-deny-single-hop",
@@ -328,6 +337,115 @@ async function runEmulatorScenarios() {
       emailVerified: true,
     }).authorized === false,
     "users/{uid}.role alone does not authorize /admin/"
+  );
+
+  record(
+    "emulator-owner-driver-denied",
+    resolveSurfaceEntry({
+      surface: "owner",
+      signedIn: true,
+      partnerRole: "driver",
+      partnerDocExists: true,
+    }).outcome === "login_denied" &&
+      resolveSurfaceEntry({
+        surface: "owner",
+        signedIn: true,
+        partnerRole: "driver",
+        partnerDocExists: true,
+      }).allowRoleWrite === false,
+    "driver on /owner/ denied without role write"
+  );
+
+  record(
+    "emulator-owner-missing-role-denied",
+    resolveSurfaceEntry({
+      surface: "owner",
+      signedIn: true,
+      partnerRole: "",
+      partnerDocExists: false,
+    }).outcome === "login_denied",
+    "missing partners doc denied on /owner/"
+  );
+
+  record(
+    "emulator-owner-legitimate",
+    resolveSurfaceEntry({
+      surface: "owner",
+      signedIn: true,
+      partnerRole: "owner",
+      partnerDocExists: true,
+    }).outcome === "app_shell",
+    "saved owner role enters dashboard"
+  );
+
+  await db.doc("partners/rt-owner-blocked").set({
+    uid: "rt-owner-blocked",
+    role: "owner",
+    accountStatus: "blocked",
+  });
+  record(
+    "emulator-owner-blocked",
+    resolveSurfaceEntry({
+      surface: "owner",
+      signedIn: true,
+      partnerRole: "owner",
+      accountStatus: "blocked",
+      partnerDocExists: true,
+    }).outcome === "blocked_overlay",
+    "blocked owner stops at overlay"
+  );
+
+  await db.doc("partners/rt-owner-suspended").set({
+    uid: "rt-owner-suspended",
+    role: "owner",
+    accountStatus: "suspended",
+  });
+  record(
+    "emulator-owner-suspended",
+    resolveSurfaceEntry({
+      surface: "owner",
+      signedIn: true,
+      partnerRole: "owner",
+      accountStatus: "suspended",
+      partnerDocExists: true,
+    }).outcome === "blocked_overlay",
+    "suspended owner stops at overlay"
+  );
+
+  record(
+    "emulator-claim-doc-disagreement-owner",
+    resolveClaimDocumentDisagreement({
+      surface: "owner",
+      adminClaim: true,
+      partnerRole: "driver",
+      usersRole: "super_admin",
+      email: "driver@example.com",
+      emailVerified: true,
+      partnerDocExists: true,
+    }).outcome === "login_denied",
+    "admin claim does not bypass owner surface role gate"
+  );
+
+  const ownerDenial = resolveSurfaceEntry({
+    surface: "owner",
+    signedIn: true,
+    partnerRole: "driver",
+    partnerDocExists: true,
+  });
+  record(
+    "emulator-owner-denial-no-role-mutation",
+    ownerDenial.allowRoleWrite === false && ownerDenial.outcome === "login_denied",
+    "denial path never provisions owner role"
+  );
+
+  const bounded = analyzeRedirectChain(
+    [{ from: "/owner/", to: "/owner/" }],
+    MAX_AUTH_REDIRECT_HOPS
+  );
+  record(
+    "emulator-owner-no-self-redirect",
+    !bounded.ok && bounded.reason === "self_redirect",
+    "owner denial stays on surface without redirect loop"
   );
 }
 

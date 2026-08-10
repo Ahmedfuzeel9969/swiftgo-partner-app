@@ -779,13 +779,33 @@ assert(
     !driverHtml.includes('id="roleSelectionOverlay"') &&
     !driverHtml.includes('id="btnReturnToOwner"') &&
     !driverHtml.includes("مالک موڈ میں واپس جائیں") &&
-    driverAppJs.includes("if (!partnerSnapshot.exists() || !partnerSnapshot.data().role)") &&
-    driverAppJs.includes('role: "driver"') &&
-    driverAppJs.includes('partner.role === "driver" || partner.role === "owner"') &&
+    driverAppJs.includes('from "./auth-surface-routing.mjs"') &&
+    driverAppJs.includes('resolveSurfaceEntry({') &&
+    driverAppJs.includes('surface: "partner"') &&
     driverAppJs.includes("stayOnDriverSurface") &&
+    driverAppJs.includes('role: "driver"') &&
+    driverAppJs.includes("entry.outcome === \"app_shell\"") &&
+    driverAppJs.includes("entry.outcome === \"provision_driver\"") &&
     !driverAppJs.includes('window.location.replace("/owner/")') &&
     driverAppJs.includes("await signOut(auth)") &&
     driverAppJs.includes("hideProtectedUi()")
+);
+assert(
+  "wiring",
+  "Owner app gates dashboard by saved owner role only",
+  ownerHtml.includes("سوئفٹ گو مالک") &&
+    ownerHtml.includes('id="ownerRideList"') &&
+    ownerHtml.includes('id="ownerVehicleGrid"') &&
+    ownerAppJs.includes('from "./auth-surface-routing.mjs"') &&
+    ownerAppJs.includes('surface: "owner"') &&
+    ownerAppJs.includes('entry.outcome === "app_shell"') &&
+    ownerAppJs.includes('entry.outcome === "login_denied"') &&
+    !ownerAppJs.match(/setDoc\([\s\S]{0,400}role:\s*"owner"/) &&
+    ownerAppJs.includes("showOwnerDashboard()") &&
+    !ownerAppJs.includes('window.location.replace("/partner/")') &&
+    ownerCss.includes(".owner-ride-history") &&
+    rules.includes("resource.data.ownerId == request.auth.uid") &&
+    rules.includes("request.resource.data.role == 'driver'")
 );
 assert(
   "wiring",
@@ -798,7 +818,6 @@ assert(
     !ownerHtml.includes('id="roleSelectionOverlay"') &&
     ownerAppJs.includes('where("ownerId", "==", currentDriver.uid)') &&
     ownerAppJs.includes("startOwnerRidesListener()") &&
-    ownerAppJs.includes('role: "owner"') &&
     ownerAppJs.includes("showOwnerDashboard()") &&
     !ownerAppJs.includes('window.location.replace("/partner/")') &&
     ownerCss.includes(".owner-ride-history") &&

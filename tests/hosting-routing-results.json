@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-10T05:12:40.397Z",
-  "liveBase": "http://127.0.0.1:5000",
-  "pass": 35,
+  "generatedAt": "2026-08-10T05:59:25.520Z",
+  "liveBase": null,
+  "pass": 17,
   "fail": 0,
   "results": [
     {
@@ -85,99 +85,9 @@
       "detail": "no redirect loop"
     },
     {
-      "name": "live:/",
+      "name": "live-probes",
       "status": "PASS",
-      "detail": "200"
-    },
-    {
-      "name": "live-no-self-redirect:/",
-      "status": "PASS",
-      "detail": "no self-redirect"
-    },
-    {
-      "name": "live:/partner",
-      "status": "PASS",
-      "detail": "1 redirect(s) → 200"
-    },
-    {
-      "name": "live-no-self-redirect:/partner",
-      "status": "PASS",
-      "detail": "no self-redirect"
-    },
-    {
-      "name": "live:/partner/",
-      "status": "PASS",
-      "detail": "200"
-    },
-    {
-      "name": "live-no-self-redirect:/partner/",
-      "status": "PASS",
-      "detail": "no self-redirect"
-    },
-    {
-      "name": "live:/owner",
-      "status": "PASS",
-      "detail": "1 redirect(s) → 200"
-    },
-    {
-      "name": "live-no-self-redirect:/owner",
-      "status": "PASS",
-      "detail": "no self-redirect"
-    },
-    {
-      "name": "live:/owner/",
-      "status": "PASS",
-      "detail": "200"
-    },
-    {
-      "name": "live-no-self-redirect:/owner/",
-      "status": "PASS",
-      "detail": "no self-redirect"
-    },
-    {
-      "name": "live:/admin",
-      "status": "PASS",
-      "detail": "1 redirect(s) → 200"
-    },
-    {
-      "name": "live-no-self-redirect:/admin",
-      "status": "PASS",
-      "detail": "no self-redirect"
-    },
-    {
-      "name": "live:/admin/",
-      "status": "PASS",
-      "detail": "200"
-    },
-    {
-      "name": "live-no-self-redirect:/admin/",
-      "status": "PASS",
-      "detail": "no self-redirect"
-    },
-    {
-      "name": "live:/customer",
-      "status": "PASS",
-      "detail": "1 redirect(s) → 200"
-    },
-    {
-      "name": "live-no-self-redirect:/customer",
-      "status": "PASS",
-      "detail": "no self-redirect"
-    },
-    {
-      "name": "live:/customer/",
-      "status": "PASS",
-      "detail": "200"
-    },
-    {
-      "name": "live-no-self-redirect:/customer/",
-      "status": "PASS",
-      "detail": "no self-redirect"
-    },
-    {
-      "name": "live-customer-root-available",
-      "status": "PASS",
-      "detail": "status=200"
+      "detail": "skipped (pass --live URL or npm run test:hosting-routing:emulator)"
     }
   ]
 }

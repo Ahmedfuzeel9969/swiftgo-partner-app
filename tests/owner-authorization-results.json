@@ -1,0 +1,97 @@
+{
+  "generatedAt": "2026-08-10T05:59:06.197Z",
+  "pass": 18,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-owner-uses-canonical-policy",
+      "status": "PASS",
+      "detail": "owner-app imports shared policy"
+    },
+    {
+      "name": "static-no-client-owner-promotion-write",
+      "status": "PASS",
+      "detail": "no setDoc role:owner in owner-app"
+    },
+    {
+      "name": "static-owner-dashboard-gated",
+      "status": "PASS",
+      "detail": "dashboard only after policy app_shell"
+    },
+    {
+      "name": "static-rules-self-create-owner-blocked",
+      "status": "PASS",
+      "detail": "partners self-create cannot choose owner role"
+    },
+    {
+      "name": "static-rules-owner-vehicles-scoped",
+      "status": "PASS",
+      "detail": "vehicles remain ownerId scoped"
+    },
+    {
+      "name": "policy-driver-denied-owner-surface",
+      "status": "PASS",
+      "detail": "driver cannot enter owner dashboard"
+    },
+    {
+      "name": "policy-missing-role-denied-owner-surface",
+      "status": "PASS",
+      "detail": "missing role denied with no promotion"
+    },
+    {
+      "name": "policy-legitimate-owner-allowed",
+      "status": "PASS",
+      "detail": "saved owner role enters dashboard"
+    },
+    {
+      "name": "policy-blocked-owner",
+      "status": "PASS",
+      "detail": "blocked owner stops at overlay"
+    },
+    {
+      "name": "policy-suspended-owner",
+      "status": "PASS",
+      "detail": "suspended owner stops at overlay"
+    },
+    {
+      "name": "policy-owner-on-partner-allowed",
+      "status": "PASS",
+      "detail": "owner-as-driver intentionally allowed on /partner/"
+    },
+    {
+      "name": "policy-customer-no-partner-denied-owner",
+      "status": "PASS",
+      "detail": "customer without partners doc denied"
+    },
+    {
+      "name": "rules-driver-cannot-self-create-owner",
+      "status": "PASS",
+      "detail": "create role owner denied"
+    },
+    {
+      "name": "rules-stranger-can-self-create-driver-only",
+      "status": "PASS",
+      "detail": "driver onboarding still allowed"
+    },
+    {
+      "name": "rules-stranger-cannot-self-create-owner",
+      "status": "PASS",
+      "detail": "visit /owner/ cannot forge owner create"
+    },
+    {
+      "name": "rules-driver-cannot-update-role-to-owner",
+      "status": "PASS",
+      "detail": "role flip denied"
+    },
+    {
+      "name": "rules-owner-can-read-owned-vehicle",
+      "status": "PASS",
+      "detail": "ownerId scoped read"
+    },
+    {
+      "name": "rules-driver-cannot-read-owner-vehicle",
+      "status": "PASS",
+      "detail": "cross-owner vehicle read denied"
+    }
+  ]
+}

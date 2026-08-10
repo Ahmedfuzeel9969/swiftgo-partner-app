@@ -41,6 +41,7 @@
     "test:hosting-build-order": "node tests/hosting-build-order.mjs",
     "test:auth-routing": "node tests/auth-routing-matrix.mjs",
     "test:auth-routing:emulator": "firebase emulators:exec --only auth,firestore --project demo-swiftgo-phase1 \"node tests/auth-routing-matrix.mjs --emulator\"",
+    "test:owner-authorization": "firebase emulators:exec --only firestore --project demo-swiftgo-owner-auth \"node tests/owner-authorization.mjs\"",
     "test:vehicle-catalog": "node tools/sync-vehicle-catalog.mjs && node tests/vehicle-catalog-canonical.mjs",
     "test:vehicle-catalog-booking": "node tools/sync-vehicle-catalog.mjs && firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/vehicle-catalog-booking-server.mjs\"",
     "test:audit": "node tests/audit.test.mjs",

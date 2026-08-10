@@ -616,7 +616,7 @@ service cloud.firestore {
         )
         && (
           !request.resource.data.keys().hasAny(['role'])
-          || request.resource.data.role in ['owner', 'driver']
+          || request.resource.data.role == 'driver'
         )
         && (
           !('walletBalance' in request.resource.data)

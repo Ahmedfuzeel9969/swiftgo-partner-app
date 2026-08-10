@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-10T05:49:29.250Z",
+  "generatedAt": "2026-08-10T06:00:31.921Z",
   "emulator": true,
-  "pass": 62,
+  "pass": 75,
   "fail": 0,
   "results": [
     {
@@ -125,25 +125,37 @@
       "suite": "auth-routing-matrix"
     },
     {
-      "name": "policy:owner-driver-record-stays",
+      "name": "policy:owner-driver-denied",
       "status": "PASS",
-      "detail": "app_shell (owner_surface_stay)",
+      "detail": "login_denied (driver_not_owner_surface)",
       "suite": "auth-routing-matrix"
     },
     {
-      "name": "policy-no-self-redirect:owner-driver-record-stays",
+      "name": "policy-no-self-redirect:owner-driver-denied",
       "status": "PASS",
       "detail": "none",
       "suite": "auth-routing-matrix"
     },
     {
-      "name": "policy:owner-missing-role",
+      "name": "policy:owner-missing-role-denied",
       "status": "PASS",
-      "detail": "provision_owner (missing_partner_role)",
+      "detail": "login_denied (missing_owner_role)",
       "suite": "auth-routing-matrix"
     },
     {
-      "name": "policy-no-self-redirect:owner-missing-role",
+      "name": "policy-no-self-redirect:owner-missing-role-denied",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:owner-legitimate",
+      "status": "PASS",
+      "detail": "app_shell (owner_role_allowed)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:owner-legitimate",
       "status": "PASS",
       "detail": "none",
       "suite": "auth-routing-matrix"
@@ -156,6 +168,18 @@
     },
     {
       "name": "policy-no-self-redirect:owner-blocked",
+      "status": "PASS",
+      "detail": "none",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy:owner-suspended",
+      "status": "PASS",
+      "detail": "blocked_overlay (account_suspended)",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "policy-no-self-redirect:owner-suspended",
       "status": "PASS",
       "detail": "none",
       "suite": "auth-routing-matrix"
@@ -295,7 +319,7 @@
     {
       "name": "partner-strict-role-gate",
       "status": "PASS",
-      "detail": "saved partners.role gates partner entry; invalid roles stay on login overlay",
+      "detail": "saved partners.role gates partner entry via canonical policy",
       "suite": "auth-routing-matrix"
     },
     {
@@ -307,7 +331,13 @@
     {
       "name": "owner-no-partner-auto-redirect",
       "status": "PASS",
-      "detail": "owner surface stays on /owner/",
+      "detail": "owner surface denies non-owner roles without auto-bounce",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "owner-no-client-role-promotion",
+      "status": "PASS",
+      "detail": "owner-app never writes role:owner client-side",
       "suite": "auth-routing-matrix"
     },
     {
@@ -374,6 +404,54 @@
       "name": "emulator-users-role-not-admin-gate",
       "status": "PASS",
       "detail": "users/{uid}.role alone does not authorize /admin/",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-owner-driver-denied",
+      "status": "PASS",
+      "detail": "driver on /owner/ denied without role write",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-owner-missing-role-denied",
+      "status": "PASS",
+      "detail": "missing partners doc denied on /owner/",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-owner-legitimate",
+      "status": "PASS",
+      "detail": "saved owner role enters dashboard",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-owner-blocked",
+      "status": "PASS",
+      "detail": "blocked owner stops at overlay",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-owner-suspended",
+      "status": "PASS",
+      "detail": "suspended owner stops at overlay",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-claim-doc-disagreement-owner",
+      "status": "PASS",
+      "detail": "admin claim does not bypass owner surface role gate",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-owner-denial-no-role-mutation",
+      "status": "PASS",
+      "detail": "denial path never provisions owner role",
+      "suite": "auth-routing-matrix"
+    },
+    {
+      "name": "emulator-owner-no-self-redirect",
+      "status": "PASS",
+      "detail": "owner denial stays on surface without redirect loop",
       "suite": "auth-routing-matrix"
     }
   ]

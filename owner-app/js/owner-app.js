@@ -29,6 +29,10 @@ import {
   writeBatch,
   deleteField,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {
+  isSuperAdminBootstrapEmail,
+  resolveSurfaceEntry,
+} from "./auth-surface-routing.mjs";
 import { requestRideSettlement } from "./settlement-client.js";
 import { hashVehiclePin } from "./pin-hash.js";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
@@ -307,44 +311,65 @@ async function activateAuthenticatedDriver(user) {
     const { db } = getFirebase();
     startPartnerDocListener(user.uid, sequence);
 
-    let partnerSnapshot = await getDoc(doc(db, "partners", user.uid));
+    const partnerSnapshot = await getDoc(doc(db, "partners", user.uid));
     if (sequence !== authSequence) return;
+
+    const existing = partnerSnapshot.exists() ? partnerSnapshot.data() : {};
+    const entry = resolveSurfaceEntry({
+      surface: "owner",
+      signedIn: true,
+      partnerRole: existing.role,
+      accountStatus: existing.accountStatus,
+      partnerDocExists: partnerSnapshot.exists(),
+      superAdminBootstrap: isSuperAdminBootstrapEmail(user.email),
+    });
 
     hideAuthOverlay();
     setLoginBusy(false);
     setAuthStatus("");
 
-    if (partnerAccountBlocked || partnerSnapshot.data()?.accountStatus === "blocked") {
+    if (entry.outcome === "blocked_overlay") {
       partnerAccountBlocked = true;
       showAccountBlockedOverlay();
       return;
     }
 
-    // Stay on Owner URL for any signed-in partner — never bounce to Driver app.
-    // Same Gmail may use /partner/, /owner/, and customer independently.
-    const existing = partnerSnapshot.exists() ? partnerSnapshot.data() : {};
-
-    if (!partnerSnapshot.exists() || !existing.role) {
-      await setDoc(
-        doc(db, "partners", user.uid),
-        {
-          uid: user.uid,
-          role: "owner",
-          email: user.email || existing.email || "",
-          name: user.displayName || existing.name || "Owner",
-          walletBalance: Number.isFinite(Number(existing.walletBalance))
-            ? Number(existing.walletBalance)
-            : 0,
-          currentVehicleId: null,
-          updatedAt: serverTimestamp(),
-          ...(partnerSnapshot.exists() ? {} : { createdAt: serverTimestamp() }),
-        },
-        { merge: true }
-      );
+    if (entry.outcome === "app_shell") {
+      showOwnerDashboard();
+      return;
     }
 
-    if (sequence !== authSequence) return;
-    showOwnerDashboard();
+    if (entry.outcome === "admin_driver_mode") {
+      await hideAllAuthScreensAndShowDashboard(existing, sequence);
+      return;
+    }
+
+    if (entry.outcome === "login_denied") {
+      hideProtectedUi();
+      setAuthStatus(
+        entry.reason === "missing_owner_role"
+          ? "یہ اکاؤنٹ مالک ایپ کے لیے مجاز نہیں ہے۔"
+          : "یہ اکاؤنٹ مالک ایپ کے لیے نہیں ہے۔"
+      );
+      showAuthOverlay(
+        entry.reason === "missing_owner_role"
+          ? "یہ اکاؤنٹ مالک ایپ کے لیے مجاز نہیں ہے۔"
+          : "یہ اکاؤنٹ مالک ایپ کے لیے نہیں ہے۔"
+      );
+      return;
+    }
+
+    hideProtectedUi();
+    setAuthStatus(
+      entry.reason === "missing_owner_role"
+        ? "یہ اکاؤنٹ مالک ایپ کے لیے مجاز نہیں ہے۔"
+        : "یہ اکاؤنٹ مالک ایپ کے لیے نہیں ہے۔"
+    );
+    showAuthOverlay(
+      entry.reason === "missing_owner_role"
+        ? "یہ اکاؤنٹ مالک ایپ کے لیے مجاز نہیں ہے۔"
+        : "یہ اکاؤنٹ مالک ایپ کے لیے نہیں ہے۔"
+    );
   } catch (error) {
     console.warn("[SwiftGo Owner] auth routing", error);
     if (sequence !== authSequence) return;
@@ -814,30 +839,14 @@ async function routeDriver(vehicleId, sequence = authSequence, partner = null) {
 
 async function selectPartnerRole(role) {
   const user = currentDriver;
-  if (!user || !["owner", "driver"].includes(role)) return;
+  if (!user || role !== "driver") return;
 
   setRoleMessage("");
   if (els.selectDriverRoleBtn) els.selectDriverRoleBtn.disabled = true;
   if (els.selectOwnerRoleBtn) els.selectOwnerRoleBtn.disabled = true;
   try {
-    const { db } = getFirebase();
-    await setDoc(
-      doc(db, "partners", user.uid),
-      {
-        uid: user.uid,
-        role,
-        currentVehicleId: null,
-        walletBalance: 0,
-        createdAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
     hideRoleSelection();
-    if (role === "driver") {
-      window.location.assign("/partner/");
-      return;
-    }
-    showOwnerDashboard();
+    window.location.assign("/partner/");
   } catch (error) {
     console.warn("[SwiftGo Owner] save role", error);
     setRoleMessage("کردار محفوظ نہیں ہو سکا، دوبارہ کوشش کریں۔");

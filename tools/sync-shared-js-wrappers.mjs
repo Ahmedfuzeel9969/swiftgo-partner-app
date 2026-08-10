@@ -27,6 +27,7 @@ export const WRAPPER_MODULE_NAMES = [
   "display-location-pipeline.mjs",
   "breadcrumb-schema.mjs",
   "vehicle-catalog.mjs",
+  "auth-surface-routing.mjs",
 ];
 
 export const WRAPPER_APP_JS_DIRS = [
@@ -37,8 +38,10 @@ export const WRAPPER_APP_JS_DIRS = [
 ];
 
 const body = (name) =>
-  `/** Auto-wrapper: canonical implementation in shared/js. Do not edit algorithms here. */\n` +
-  `export * from "../../shared/js/${name}";\n`;
+  name === "auth-surface-routing.mjs"
+    ? fs.readFileSync(path.join(ROOT, "shared", "js", name), "utf8")
+    : `/** Auto-wrapper: canonical implementation in shared/js. Do not edit algorithms here. */\n` +
+      `export * from "../../shared/js/${name}";\n`;
 
 function wrapperPath(appJsDir, name) {
   return path.join(ROOT, appJsDir, name);
