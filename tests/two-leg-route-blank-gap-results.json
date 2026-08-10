@@ -1,0 +1,112 @@
+{
+  "pass": 15,
+  "fail": 0,
+  "blocked": 0,
+  "results": [
+    {
+      "name": "01-idle-approach-trip-fallback-secondary",
+      "status": "PASS",
+      "detail": "polylines=1 color=#93c5fd",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "02-idle-approach-legacy-not-suppressed",
+      "status": "PASS",
+      "detail": "trip-only fallback must not suppress legacy approach line",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "03-approach-fallback-visible",
+      "status": "PASS",
+      "detail": "dash=8 10",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "03b-approach-fallback-suppresses-legacy",
+      "status": "PASS",
+      "detail": "",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "04-approach-ready-visible",
+      "status": "PASS",
+      "detail": "color=#0b7a4b",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "04b-approach-ready-suppresses-legacy",
+      "status": "PASS",
+      "detail": "",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "05-idle-to-ready-never-blank",
+      "status": "PASS",
+      "detail": "idle=true ready=true suppressIdle=false suppressReady=true",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "06-arrived-keeps-line",
+      "status": "PASS",
+      "detail": "polylines=1",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "07-in-progress-trip-fallback-visible",
+      "status": "PASS",
+      "detail": "polylines=1",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "08-missing-driver-trip-fallback-visible",
+      "status": "PASS",
+      "detail": "trip=fallback polylines=1",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "08b-missing-driver-no-throw",
+      "status": "PASS",
+      "detail": "controller emitted model",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "09-disabled-provider-drawable-fallback",
+      "status": "PASS",
+      "detail": "provider=disabled",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "10-stale-layers-cleared",
+      "status": "PASS",
+      "detail": "drawn=1 removed=1",
+      "suite": "two-leg-route-blank-gap",
+      "category": "unit"
+    },
+    {
+      "name": "static-ride-flow-suppression-helper",
+      "status": "PASS",
+      "detail": "",
+      "suite": "two-leg-route-blank-gap",
+      "category": "static"
+    },
+    {
+      "name": "static-trip-fallback-secondary-branch",
+      "status": "PASS",
+      "detail": "",
+      "suite": "two-leg-route-blank-gap",
+      "category": "static"
+    }
+  ]
+}
