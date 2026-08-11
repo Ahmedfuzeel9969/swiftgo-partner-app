@@ -79,6 +79,13 @@ const RIDE = {
   assignmentSessionToken: "tok_v3",
 };
 
+const RIDE_B = {
+  id: "ride_startup02",
+  status: "accepted",
+  vehicleId: "veh1",
+  assignmentSessionToken: "tok_v3",
+};
+
 const TRACKING = "trk_startup01";
 const ASSIGNMENT_V = 42;
 
@@ -491,6 +498,219 @@ async function test22RepeatedSnapshotsOneOfferCurrentAssignment() {
   return ctrl.getOfferRequestCount() === 1 && (ctrl.getCounters().sessionsStarted || 0) === 1;
 }
 
+function rideCaptureCustomerHarness({ deferAnswer = false } = {}) {
+  let answerCalls = 0;
+  const publishedRideIds = [];
+  let releaseAnswer = () => {};
+  const answerGate = deferAnswer
+    ? new Promise((resolve) => {
+        releaseAnswer = () => resolve(undefined);
+      })
+    : null;
+  let watchCb = null;
+  const ctrl = trackController(createCustomerP2pController({
+    RTCPeerConnection: MockRTCPeerConnection,
+    publishRidePeerAnswerClient: async ({ rideId }) => {
+      if (answerGate) await answerGate;
+      publishedRideIds.push(String(rideId || ""));
+      answerCalls += 1;
+    },
+    watchRidePeerSession: (_rid, onData) => {
+      watchCb = onData;
+      return () => {
+        watchCb = null;
+      };
+    },
+  }));
+  return {
+    ctrl,
+    getAnswerCalls: () => answerCalls,
+    getPublishedRideIds: () => [...publishedRideIds],
+    releaseAnswer,
+    emitOffer: (doc) => watchCb?.(doc),
+  };
+}
+
+function deferredWatchCustomerHarness() {
+  let answerCalls = 0;
+  const publishedRideIds = [];
+  /** @type {Array<{ rid: string, onData: Function, complete: Function, unsubbed: boolean }>} */
+  const pendingWatches = [];
+  const ctrl = trackController(createCustomerP2pController({
+    RTCPeerConnection: MockRTCPeerConnection,
+    publishRidePeerAnswerClient: async ({ rideId }) => {
+      publishedRideIds.push(String(rideId || ""));
+      answerCalls += 1;
+    },
+    watchRidePeerSession: async (rid, onData) => {
+      await new Promise((resolve) => {
+        pendingWatches.push({
+          rid: String(rid || ""),
+          onData,
+          complete: resolve,
+          unsubbed: false,
+        });
+      });
+      return () => {
+        const entry = pendingWatches.find((w) => w.onData === onData);
+        if (entry) entry.unsubbed = true;
+      };
+    },
+  }));
+
+  function resolveWatch(index) {
+    const entry = pendingWatches[index];
+    if (!entry) return false;
+    entry.complete(undefined);
+    return true;
+  }
+
+  return {
+    ctrl,
+    pendingWatches,
+    resolveWatch,
+    getAnswerCalls: () => answerCalls,
+    getPublishedRideIds: () => [...publishedRideIds],
+    emitCurrentOffer: (doc) => {
+      const last = pendingWatches[pendingWatches.length - 1];
+      last?.onData?.(doc);
+    },
+    staleEmit: (index, doc) => pendingWatches[index]?.onData?.(doc),
+  };
+}
+
+function multiCallbackCustomerHarness() {
+  let answerCalls = 0;
+  /** @type {Array<{ rid: string, onData: Function }>} */
+  const watchCallbacks = [];
+  const ctrl = trackController(createCustomerP2pController({
+    RTCPeerConnection: MockRTCPeerConnection,
+    publishRidePeerAnswerClient: async () => {
+      answerCalls += 1;
+    },
+    watchRidePeerSession: (rid, onData) => {
+      watchCallbacks.push({ rid: String(rid || ""), onData });
+      return () => {};
+    },
+  }));
+  return {
+    ctrl,
+    watchCallbacks,
+    getAnswerCalls: () => answerCalls,
+    emitOnWatch: (index, doc) => watchCallbacks[index]?.onData?.(doc),
+  };
+}
+
+async function waitUntil(fn, timeoutMs = 500) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (fn()) return true;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  return fn();
+}
+
+/** Ride switch during in-flight answer creation with same assignmentVersion invalidates publish. */
+async function test23RideSwitchDuringAnswerSameAssignment() {
+  const { ctrl, releaseAnswer, emitOffer, getPublishedRideIds, getAnswerCalls } =
+    rideCaptureCustomerHarness({ deferAnswer: true });
+  ctrl.syncForRide(RIDE, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  emitOffer(OFFER_DOC);
+  const answering = await waitUntil(() => ctrl._isAnswering());
+  if (!answering) return false;
+  ctrl.syncForRide(RIDE_B, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  releaseAnswer();
+  await new Promise((r) => setTimeout(r, 40));
+  return (
+    ctrl._getRideId() === RIDE_B.id &&
+    getAnswerCalls() === 0 &&
+    getPublishedRideIds().every((id) => id !== RIDE_B.id)
+  );
+}
+
+/** Captured rideId ensures stale answer never targets the new ride during publish await. */
+async function test24OldAnswerNeverPublishesToNewRide() {
+  const { ctrl, releaseAnswer, emitOffer, getPublishedRideIds } =
+    rideCaptureCustomerHarness({ deferAnswer: true });
+  ctrl.syncForRide(RIDE, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  emitOffer(OFFER_DOC);
+  await waitUntil(() => ctrl._isAnswering());
+  ctrl.syncForRide(RIDE_B, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  releaseAnswer();
+  await new Promise((r) => setTimeout(r, 40));
+  const ids = getPublishedRideIds();
+  return !ids.includes(RIDE_B.id) && ids.every((id) => id === RIDE.id || id === "");
+}
+
+/** Delayed watcher from old ride must not install after new ride binding. */
+async function test25DelayedOldWatcherAfterRideSwitch() {
+  const h = deferredWatchCustomerHarness();
+  h.ctrl.syncForRide(RIDE, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  await new Promise((r) => setTimeout(r, 10));
+  if (h.pendingWatches.length !== 1) return false;
+  h.ctrl.syncForRide(RIDE_B, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  await new Promise((r) => setTimeout(r, 10));
+  if (h.pendingWatches.length !== 2) return false;
+  h.resolveWatch(0);
+  await new Promise((r) => setTimeout(r, 15));
+  const staleUnsubbed = h.pendingWatches[0]?.unsubbed === true;
+  h.resolveWatch(1);
+  await new Promise((r) => setTimeout(r, 15));
+  return (
+    staleUnsubbed &&
+    h.ctrl._getRideId() === RIDE_B.id &&
+    h.ctrl._isWatching() === true
+  );
+}
+
+/** Delayed watcher resolving after stop must invoke stale unsubscribe immediately. */
+async function test26DelayedWatcherAfterStop() {
+  const h = deferredWatchCustomerHarness();
+  h.ctrl.syncForRide(RIDE, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  await new Promise((r) => setTimeout(r, 10));
+  await h.ctrl.stop({ closeRemote: false });
+  h.resolveWatch(0);
+  await new Promise((r) => setTimeout(r, 15));
+  return h.pendingWatches[0]?.unsubbed === true && h.ctrl._isWatching() === false;
+}
+
+/** Stale watcher callback after ride switch must not start answers. */
+async function test27StaleWatcherCallbackAfterRideSwitch() {
+  const h = multiCallbackCustomerHarness();
+  h.ctrl.syncForRide(RIDE, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  await new Promise((r) => setTimeout(r, 10));
+  const staleCb = h.watchCallbacks[0]?.onData;
+  if (!staleCb) return false;
+  h.ctrl.syncForRide(RIDE_B, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  await new Promise((r) => setTimeout(r, 10));
+  staleCb(OFFER_DOC);
+  await new Promise((r) => setTimeout(r, 20));
+  h.emitOnWatch(h.watchCallbacks.length - 1, {
+    ...OFFER_DOC,
+    sessionId: "ps_ride_b",
+  });
+  await new Promise((r) => setTimeout(r, 30));
+  return h.getAnswerCalls() === 1 && (h.ctrl.getCounters().sessionsStarted || 0) === 1;
+}
+
+/** Current ride retains exactly one active watcher and one answer. */
+async function test28OneWatcherOneAnswerForCurrentRide() {
+  const h = multiCallbackCustomerHarness();
+  h.ctrl.syncForRide(RIDE, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  await new Promise((r) => setTimeout(r, 10));
+  h.ctrl.syncForRide(RIDE_B, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  await new Promise((r) => setTimeout(r, 10));
+  if (h.watchCallbacks.length !== 2) return false;
+  h.emitOnWatch(1, { ...OFFER_DOC, sessionId: "ps_current_ride" });
+  await new Promise((r) => setTimeout(r, 30));
+  return (
+    h.ctrl._getRideId() === RIDE_B.id &&
+    h.ctrl._isWatching() === true &&
+    h.getAnswerCalls() === 1 &&
+    (h.ctrl.getCounters().sessionsStarted || 0) === 1
+  );
+}
+
 async function main() {
   try {
     record("1-unknown-lease-starts-offer", (await test1UnknownLeaseStarts()) ? "PASS" : "FAIL");
@@ -515,6 +735,12 @@ async function main() {
     record("20-assignment-version-change-during-start", (await test20AssignmentVersionChangeDuringStart()) ? "PASS" : "FAIL");
     record("21-stale-offer-after-newer-assignment", (await test21StaleOfferCallbackAfterNewerAssignment()) ? "PASS" : "FAIL");
     record("22-repeated-snapshots-one-offer", (await test22RepeatedSnapshotsOneOfferCurrentAssignment()) ? "PASS" : "FAIL");
+    record("23-ride-switch-during-answer-same-av", (await test23RideSwitchDuringAnswerSameAssignment()) ? "PASS" : "FAIL");
+    record("24-old-answer-not-new-ride", (await test24OldAnswerNeverPublishesToNewRide()) ? "PASS" : "FAIL");
+    record("25-delayed-old-watcher-ride-switch", (await test25DelayedOldWatcherAfterRideSwitch()) ? "PASS" : "FAIL");
+    record("26-delayed-watcher-after-stop", (await test26DelayedWatcherAfterStop()) ? "PASS" : "FAIL");
+    record("27-stale-watcher-callback-ride-switch", (await test27StaleWatcherCallbackAfterRideSwitch()) ? "PASS" : "FAIL");
+    record("28-one-watcher-one-answer-current-ride", (await test28OneWatcherOneAnswerForCurrentRide()) ? "PASS" : "FAIL");
     record(
       "manual-two-device-p2p",
       "BLOCKED",

@@ -10,9 +10,12 @@ async function loadSignalingClient() {
   return import("./p2p-signaling-client.mjs");
 }
 
-function offerAssignmentKey(rideId, docData, fallbackVersion = 0) {
+function answerIdentity(rideId, docData, fallbackVersion = 0) {
+  const rid = String(rideId || "").trim();
+  const sid = String(docData?.sessionId || "").trim();
+  const tid = String(docData?.trackingSessionId || "").trim();
   const av = Number(docData?.assignmentVersion) || Math.max(1, Math.floor(Number(fallbackVersion) || 0));
-  return `${String(rideId || "").trim()}|${String(docData?.trackingSessionId || "").trim()}|${av}`;
+  return `${rid}|${sid}|${tid}|${av}`;
 }
 
 /**
@@ -64,14 +67,32 @@ export function createCustomerP2pController(opts = {}) {
   let pendingOfferDoc = null;
   let expectedAssignmentVersion = 0;
   let answerGeneration = 0;
+  let watchGeneration = 0;
   let answerRequestCount = 0;
   /** @type {object | null} */
   let queuedAnswerDoc = null;
 
-  function destroySession() {
-    unwatch();
+  function invokeUnwatch(fn) {
+    if (typeof fn !== "function") return;
+    try {
+      fn();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function detachWatch() {
+    invokeUnwatch(unwatch);
     unwatch = () => {};
     watching = false;
+  }
+
+  function invalidateWatch() {
+    watchGeneration += 1;
+    detachWatch();
+  }
+
+  function destroySession() {
     const s = session;
     session = null;
     boundSessionId = "";
@@ -79,8 +100,14 @@ export function createCustomerP2pController(opts = {}) {
     arbiter.noteP2pUnhealthy();
   }
 
-  async function closeSignaling() {
-    const id = rideId;
+  function invalidateAnswerState() {
+    answerGeneration += 1;
+    queuedAnswerDoc = null;
+    pendingOfferDoc = null;
+  }
+
+  async function closeSignaling(forRideId = rideId) {
+    const id = String(forRideId || "").trim();
     if (!id) return;
     try {
       await closeSignalingClient({ rideId: id });
@@ -89,8 +116,10 @@ export function createCustomerP2pController(opts = {}) {
     }
   }
 
-  function isOfferCurrent(docData) {
+  function isOfferCurrent(docData, forRideId = rideId) {
     if (!docData) return false;
+    const contextRideId = String(forRideId || "").trim();
+    if (!contextRideId || contextRideId !== String(rideId || "").trim()) return false;
     const sid = String(docData?.sessionId || "");
     const offer = String(docData?.offer || "");
     if (!sid || !offer) return false;
@@ -102,9 +131,15 @@ export function createCustomerP2pController(opts = {}) {
     return true;
   }
 
-  function isAnswerStillValid(gen, docData) {
+  function isWatchCurrent(gen, watchRideId) {
+    return !closed && gen === watchGeneration && String(watchRideId || "").trim() === String(rideId || "").trim();
+  }
+
+  function isAnswerStillValid(gen, capturedRideId, docData) {
     if (closed || !visible || gen !== answerGeneration) return false;
-    return isOfferCurrent(docData);
+    const rid = String(capturedRideId || "").trim();
+    if (!rid || rid !== String(rideId || "").trim()) return false;
+    return isOfferCurrent(docData, capturedRideId);
   }
 
   function abortStaleAnswer(localSession) {
@@ -118,8 +153,18 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function invalidateAnswer() {
-    answerGeneration += 1;
-    queuedAnswerDoc = null;
+    invalidateAnswerState();
+  }
+
+  function resetRideContext({ closeRemote = false } = {}) {
+    invalidateAnswerState();
+    invalidateWatch();
+    pendingOfferDoc = null;
+    if (closeRemote) void closeSignaling();
+    destroySession();
+    expectedAssignmentVersion = 0;
+    rideId = "";
+    arbiter.reset();
   }
 
   function queueAnswer(docData) {
@@ -128,9 +173,9 @@ export function createCustomerP2pController(opts = {}) {
     if (boundSessionId === sid && session) return;
 
     const prevKey = queuedAnswerDoc
-      ? offerAssignmentKey(rideId, queuedAnswerDoc, expectedAssignmentVersion)
+      ? answerIdentity(rideId, queuedAnswerDoc, expectedAssignmentVersion)
       : "";
-    const newKey = offerAssignmentKey(rideId, docData, expectedAssignmentVersion);
+    const newKey = answerIdentity(rideId, docData, expectedAssignmentVersion);
     queuedAnswerDoc = docData;
     pendingOfferDoc = docData;
 
@@ -149,7 +194,8 @@ export function createCustomerP2pController(opts = {}) {
       while (queuedAnswerDoc && visible && !closed) {
         const docData = queuedAnswerDoc;
         queuedAnswerDoc = null;
-        if (!isOfferCurrent(docData)) continue;
+        const capturedRideId = String(rideId || "").trim();
+        if (!isOfferCurrent(docData, capturedRideId)) continue;
 
         answerGeneration += 1;
         const gen = answerGeneration;
@@ -176,13 +222,13 @@ export function createCustomerP2pController(opts = {}) {
           },
           onLocalDescription: async (kind, sdp, meta) => {
             if (kind !== "answer") return;
-            if (!isAnswerStillValid(gen, docData) || localSession !== session) return;
+            if (!isAnswerStillValid(gen, capturedRideId, docData) || localSession !== session) return;
             await publishAnswerClient({
-              rideId,
+              rideId: capturedRideId,
               answerSdp: sdp,
               peerSessionId: meta.peerSessionId,
             });
-            if (!isAnswerStillValid(gen, docData) || localSession !== session) return;
+            if (!isAnswerStillValid(gen, capturedRideId, docData) || localSession !== session) return;
             answerRequestCount += 1;
           },
         });
@@ -196,7 +242,7 @@ export function createCustomerP2pController(opts = {}) {
           offerSdp: offer,
         });
 
-        if (!isAnswerStillValid(gen, docData)) {
+        if (!isAnswerStillValid(gen, capturedRideId, docData)) {
           abortStaleAnswer(localSession);
           if (session === localSession) session = null;
           continue;
@@ -219,33 +265,52 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function attachWatch(rid) {
-    unwatch();
+    invalidateWatch();
+
+    watchGeneration += 1;
+    const gen = watchGeneration;
+    const watchRideId = String(rid || "").trim();
     watching = true;
+
     void (async () => {
-      const localUnwatch = await watchSession(
-        rid,
-        (docData) => {
-          if (!docData) {
-            pendingOfferDoc = null;
-            return;
+      let localUnwatch = () => {};
+      try {
+        localUnwatch = await watchSession(
+          watchRideId,
+          (docData) => {
+            if (!isWatchCurrent(gen, watchRideId)) return;
+            if (!docData) {
+              if (isWatchCurrent(gen, watchRideId)) pendingOfferDoc = null;
+              return;
+            }
+            if (isOfferCurrent(docData, watchRideId)) {
+              pendingOfferDoc = docData;
+            } else if (
+              expectedAssignmentVersion > 0 &&
+              Number(docData.assignmentVersion) > 0 &&
+              Number(docData.assignmentVersion) !== expectedAssignmentVersion
+            ) {
+              pendingOfferDoc = null;
+              return;
+            }
+            if (!visible) return;
+            queueAnswer(docData);
+          },
+          () => {
+            if (!isWatchCurrent(gen, watchRideId)) return;
+            arbiter.noteP2pUnhealthy();
           }
-          if (isOfferCurrent(docData)) {
-            pendingOfferDoc = docData;
-          } else if (
-            expectedAssignmentVersion > 0 &&
-            Number(docData.assignmentVersion) > 0 &&
-            Number(docData.assignmentVersion) !== expectedAssignmentVersion
-          ) {
-            pendingOfferDoc = null;
-            return;
-          }
-          if (!visible) return;
-          queueAnswer(docData);
-        },
-        () => {
-          arbiter.noteP2pUnhealthy();
-        }
-      );
+        );
+      } catch {
+        if (isWatchCurrent(gen, watchRideId)) watching = false;
+        return;
+      }
+
+      if (!isWatchCurrent(gen, watchRideId)) {
+        invokeUnwatch(localUnwatch);
+        return;
+      }
+
       unwatch = localUnwatch;
     })();
   }
@@ -258,6 +323,14 @@ export function createCustomerP2pController(opts = {}) {
       return;
     }
     if (rideId === rid && watching) return;
+
+    const switching = Boolean(rideId && rideId !== rid);
+    if (switching) {
+      invalidateAnswerState();
+      pendingOfferDoc = null;
+      destroySession();
+    }
+
     rideId = rid;
     arbiter.reset();
     attachWatch(rid);
@@ -297,7 +370,7 @@ export function createCustomerP2pController(opts = {}) {
     if (!watching) {
       attachWatch(rideId);
     }
-    if (pendingOfferDoc) {
+    if (pendingOfferDoc && isOfferCurrent(pendingOfferDoc)) {
       queueAnswer(pendingOfferDoc);
     }
   }
@@ -307,34 +380,49 @@ export function createCustomerP2pController(opts = {}) {
     const status = String(ride?.status || "");
     const rid = String(ride?.id || "").trim();
     const nextAv = Math.max(0, Math.floor(Number(assignmentVersion) || 0));
-    if (nextAv > 0 && nextAv !== expectedAssignmentVersion && (answering || session)) {
+    const rideChanged = Boolean(rid && rideId && rid !== rideId);
+
+    if (rideChanged) {
+      invalidateAnswerState();
+      invalidateWatch();
+      pendingOfferDoc = null;
+      destroySession();
+    } else if (nextAv > 0 && nextAv !== expectedAssignmentVersion && (answering || session)) {
       invalidateAnswer();
     }
+
     expectedAssignmentVersion = nextAv;
-    setVisible(isVisible);
+
     if (!rid || !P2P_EXECUTION_STATUSES.includes(status)) {
+      setVisible(isVisible);
       void stop({ closeRemote: true });
       return;
     }
+
     bindRide(rid);
+    setVisible(isVisible);
+
     if (ride?.driverLocation) {
       ingestFirebaseLocation(ride.driverLocation, ride);
     }
   }
 
   async function stop({ closeRemote = true } = {}) {
-    invalidateAnswer();
-    if (closeRemote) await closeSignaling();
+    const closingRideId = rideId;
+    invalidateAnswerState();
+    invalidateWatch();
+    if (closeRemote) await closeSignaling(closingRideId);
     destroySession();
-    rideId = "";
     pendingOfferDoc = null;
     expectedAssignmentVersion = 0;
+    rideId = "";
     arbiter.reset();
   }
 
   function destroy() {
     closed = true;
-    invalidateAnswer();
+    invalidateAnswerState();
+    invalidateWatch();
     void stop({ closeRemote: true });
     arbiter.destroy();
   }
@@ -355,6 +443,9 @@ export function createCustomerP2pController(opts = {}) {
     getAnswerRequestCount: () => answerRequestCount,
     /** Test helpers */
     _getAnswerGeneration: () => answerGeneration,
+    _getWatchGeneration: () => watchGeneration,
     _isAnswering: () => answering,
+    _isWatching: () => watching,
+    _getRideId: () => rideId,
   };
 }
