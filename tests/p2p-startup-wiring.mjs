@@ -338,6 +338,146 @@ async function test16VisibleViewerPathStillWorks() {
   );
 }
 
+function deferredDriverHarness() {
+  let offerCalls = 0;
+  let releaseOffer = () => {};
+  const offerGate = new Promise((resolve) => {
+    releaseOffer = () => resolve(undefined);
+  });
+  const ctrl = createDriverP2pController({
+    RTCPeerConnection: MockRTCPeerConnection,
+    createRidePeerOfferClient: async () => {
+      await offerGate;
+      offerCalls += 1;
+      return { assignmentVersion: ASSIGNMENT_V };
+    },
+    watchRidePeerSession: async () => () => {},
+  });
+  return { ctrl, getOfferCalls: () => offerCalls, releaseOffer };
+}
+
+async function test17StopDuringStart() {
+  const { ctrl, getOfferCalls, releaseOffer } = deferredDriverHarness();
+  ctrl.syncForRide({
+    ride: RIDE,
+    trackingSessionId: TRACKING,
+    assignmentVersion: ASSIGNMENT_V,
+  });
+  await new Promise((r) => setTimeout(r, 15));
+  await ctrl.stop({ closeRemote: false });
+  releaseOffer();
+  await new Promise((r) => setTimeout(r, 30));
+  const st = ctrl.getState().state;
+  return ctrl.getOfferRequestCount() === 0 && (st === P2P_STATE.DISABLED || st === P2P_STATE.CLOSED);
+}
+
+async function test18TerminalDuringStart() {
+  const { ctrl, getOfferCalls, releaseOffer } = deferredDriverHarness();
+  ctrl.syncForRide({
+    ride: RIDE,
+    trackingSessionId: TRACKING,
+    assignmentVersion: ASSIGNMENT_V,
+  });
+  await new Promise((r) => setTimeout(r, 15));
+  ctrl.syncForRide({
+    ride: { ...RIDE, status: "completed" },
+    trackingSessionId: TRACKING,
+    assignmentVersion: ASSIGNMENT_V,
+  });
+  releaseOffer();
+  await new Promise((r) => setTimeout(r, 30));
+  return ctrl.getOfferRequestCount() === 0 && ctrl.getState().state === P2P_STATE.DISABLED;
+}
+
+async function test19RematchDuringStart() {
+  const { ctrl, getOfferCalls, releaseOffer } = deferredDriverHarness();
+  ctrl.syncForRide({
+    ride: RIDE,
+    trackingSessionId: TRACKING,
+    assignmentVersion: ASSIGNMENT_V,
+  });
+  await new Promise((r) => setTimeout(r, 15));
+  ctrl.syncForRide({
+    ride: RIDE,
+    trackingSessionId: "trk_rematch_async",
+    assignmentVersion: ASSIGNMENT_V + 1,
+  });
+  releaseOffer();
+  await new Promise((r) => setTimeout(r, 40));
+  return ctrl.getOfferRequestCount() === 1 && (ctrl.getCounters().sessionsStarted || 0) === 1;
+}
+
+async function test20AssignmentVersionChangeDuringStart() {
+  const { ctrl, getOfferCalls, releaseOffer } = deferredDriverHarness();
+  ctrl.syncForRide({
+    ride: RIDE,
+    trackingSessionId: TRACKING,
+    assignmentVersion: ASSIGNMENT_V,
+  });
+  await new Promise((r) => setTimeout(r, 15));
+  ctrl.syncForRide({
+    ride: RIDE,
+    trackingSessionId: TRACKING,
+    assignmentVersion: ASSIGNMENT_V + 5,
+  });
+  releaseOffer();
+  await new Promise((r) => setTimeout(r, 40));
+  return ctrl.getOfferRequestCount() === 1;
+}
+
+function deferredCustomerHarness() {
+  let answerCalls = 0;
+  let releaseAnswer = () => {};
+  const answerGate = new Promise((resolve) => {
+    releaseAnswer = () => resolve(undefined);
+  });
+  let watchCb = null;
+  const ctrl = createCustomerP2pController({
+    RTCPeerConnection: MockRTCPeerConnection,
+    publishRidePeerAnswerClient: async () => {
+      await answerGate;
+      answerCalls += 1;
+    },
+    watchRidePeerSession: (_rid, onData) => {
+      watchCb = onData;
+      return () => {
+        watchCb = null;
+      };
+    },
+  });
+  return { ctrl, getAnswerCalls: () => answerCalls, releaseAnswer, emitOffer: (doc) => watchCb?.(doc) };
+}
+
+async function test21StaleOfferCallbackAfterNewerAssignment() {
+  const { ctrl, getAnswerCalls, releaseAnswer, emitOffer } = deferredCustomerHarness();
+  ctrl.syncForRide(RIDE, { isVisible: true, assignmentVersion: ASSIGNMENT_V });
+  emitOffer(OFFER_DOC);
+  await new Promise((r) => setTimeout(r, 20));
+  ctrl.syncForRide(RIDE, { isVisible: true, assignmentVersion: ASSIGNMENT_V + 9 });
+  emitOffer({
+    ...OFFER_DOC,
+    sessionId: "ps_new_assignment",
+    assignmentVersion: ASSIGNMENT_V + 9,
+  });
+  releaseAnswer();
+  await new Promise((r) => setTimeout(r, 50));
+  return ctrl.getAnswerRequestCount() === 1 && (ctrl.getCounters().sessionsStarted || 0) === 1;
+}
+
+async function test22RepeatedSnapshotsOneOfferCurrentAssignment() {
+  const { ctrl, getOfferCalls, releaseOffer } = deferredDriverHarness();
+  for (let i = 0; i < 4; i += 1) {
+    ctrl.syncForRide({
+      ride: { ...RIDE, status: i % 2 === 0 ? "accepted" : "arrived" },
+      trackingSessionId: TRACKING,
+      assignmentVersion: ASSIGNMENT_V,
+    });
+  }
+  releaseOffer();
+  await new Promise((r) => setTimeout(r, 40));
+  return ctrl.getOfferRequestCount() === 1 && (ctrl.getCounters().sessionsStarted || 0) === 1;
+}
+
 async function main() {
   record("1-unknown-lease-starts-offer", (await test1UnknownLeaseStarts()) ? "PASS" : "FAIL");
   record("2-expired-lease-starts-once", (await test2ExpiredLeaseStillStartsOnce()) ? "PASS" : "FAIL");
@@ -355,6 +495,12 @@ async function main() {
   record("14-offer-alone-not-healthy", (await test14OfferAloneNotHealthy()) ? "PASS" : "FAIL");
   record("15-lifecycle-one-driver-session", (await test15LifecycleOneDriverSession()) ? "PASS" : "FAIL");
   record("16-visible-viewer-path", (await test16VisibleViewerPathStillWorks()) ? "PASS" : "FAIL");
+  record("17-stop-during-start", (await test17StopDuringStart()) ? "PASS" : "FAIL");
+  record("18-terminal-during-start", (await test18TerminalDuringStart()) ? "PASS" : "FAIL");
+  record("19-rematch-during-start", (await test19RematchDuringStart()) ? "PASS" : "FAIL");
+  record("20-assignment-version-change-during-start", (await test20AssignmentVersionChangeDuringStart()) ? "PASS" : "FAIL");
+  record("21-stale-offer-after-newer-assignment", (await test21StaleOfferCallbackAfterNewerAssignment()) ? "PASS" : "FAIL");
+  record("22-repeated-snapshots-one-offer", (await test22RepeatedSnapshotsOneOfferCurrentAssignment()) ? "PASS" : "FAIL");
   record(
     "manual-two-device-p2p",
     "BLOCKED",
