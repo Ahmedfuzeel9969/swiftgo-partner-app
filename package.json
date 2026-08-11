@@ -69,6 +69,7 @@
     "test:ride-location-report-admin-ui": "node tests/ride-location-report-admin-ui.mjs",
     "test:ride-location-report-hardening": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/ride-location-report-hardening.mjs\"",
     "test:p2p-webrtc": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/p2p-webrtc.mjs\"",
+    "test:p2p-lifecycle-metrics": "node tests/p2p-lifecycle-metrics.mjs",
     "test:road-routing": "node tests/road-routing.mjs",
     "test:road-snapping": "node tests/road-snapping.mjs",
     "test:two-leg-route-blank-gap": "node tests/two-leg-route-blank-gap.mjs",

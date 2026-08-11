@@ -51,10 +51,13 @@ export const DRIVER_COUNTER_KEYS = Object.freeze([
   "vehicleWritesAttempted",
   "vehicleWritesAcknowledged",
   "vehicleWritesFailed",
+  "p2pSessionsStarted",
+  "p2pChannelsOpened",
   "p2pFramesAttempted",
   "p2pFramesSent",
   "p2pFramesAcknowledged",
   "p2pFramesRejected",
+  "p2pSendFailures",
   "p2pHealthySessionCount",
   "p2pDegradedOrFallbackTransitions",
 ]);
@@ -74,6 +77,9 @@ export const SERVER_COUNTER_KEYS = Object.freeze([
 export const CUSTOMER_COUNTER_KEYS = Object.freeze([
   "firebaseSnapshotsReceived",
   "firebaseValidRendered",
+  "p2pSessionsStarted",
+  "p2pChannelsOpened",
+  "p2pHealthySessionCount",
   "p2pFramesReceived",
   "p2pValidRendered",
   "staleRejected",

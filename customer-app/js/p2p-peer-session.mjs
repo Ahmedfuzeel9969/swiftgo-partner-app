@@ -69,31 +69,59 @@ export function createP2pPeerSession(deps) {
   let sendTimer = 0;
   let closed = false;
   let firstValidEmitted = false;
+  let channelEverOpened = false;
+  let healthySessionCounted = false;
+  let fallbackTransitionCounted = false;
 
   const counters = {
     sessionsStarted: 0,
+    channelsOpened: 0,
+    healthySessions: 0,
+    fixesAttempted: 0,
+    fixesSent: 0,
+    fixesReceived: 0,
+    acknowledgementsReceived: 0,
+    acksSent: 0,
+    sendFailures: 0,
     offers: 0,
     answers: 0,
-    channelsOpened: 0,
     channelsClosed: 0,
     validMessages: 0,
     invalidMessages: 0,
-    fixesSent: 0,
-    fixesReceived: 0,
-    acks: 0,
     fallbackTransitions: 0,
     reconnectAttempts: 0,
     backpressureCoalesces: 0,
   };
 
+  function resetSessionLifecycleFlags() {
+    channelEverOpened = false;
+    healthySessionCounted = false;
+    fallbackTransitionCounted = false;
+  }
+
+  function maybeMarkHealthySession() {
+    if (healthySessionCounted || !channelEverOpened) return;
+    if (role === "driver") {
+      if (lastAckAt == null) return;
+    } else if (!firstValidEmitted) {
+      return;
+    }
+    healthySessionCounted = true;
+    counters.healthySessions += 1;
+  }
+
   function setState(next) {
     if (state === next) return;
+    const prev = state;
     state = next;
     onState(next);
     if (next === P2P_STATE.P2P_HEALTHY) diag(P2P_DIAG.HEALTHY);
     if (next === P2P_STATE.P2P_DEGRADED) diag(P2P_DIAG.DEGRADED);
-    if (next === P2P_STATE.FIREBASE_FALLBACK) {
-      counters.fallbackTransitions += 1;
+    if (next === P2P_STATE.FIREBASE_FALLBACK && prev !== P2P_STATE.FIREBASE_FALLBACK) {
+      if (!fallbackTransitionCounted) {
+        counters.fallbackTransitions += 1;
+        fallbackTransitionCounted = true;
+      }
       diag(P2P_DIAG.FIREBASE_FALLBACK);
     }
     if (next === P2P_STATE.CLOSED) diag(P2P_DIAG.SESSION_CLOSED);
@@ -182,6 +210,18 @@ export function createP2pPeerSession(deps) {
     }, 2_000);
   }
 
+  function onChannelOpen(gen) {
+    if (!isCurrent(gen)) return;
+    if (!channelEverOpened) {
+      channelEverOpened = true;
+      counters.channelsOpened += 1;
+    }
+    diag(P2P_DIAG.CHANNEL_OPEN);
+    setState(P2P_STATE.CONNECTING);
+    scheduleHealthPoll(gen);
+    evaluateHealth();
+  }
+
   function handleMessage(raw, gen) {
     if (!isCurrent(gen)) {
       diag(P2P_DIAG.STALE_GENERATION);
@@ -202,6 +242,7 @@ export function createP2pPeerSession(deps) {
         firstValidEmitted = true;
         diag(P2P_DIAG.FIRST_VALID_FIX);
       }
+      maybeMarkHealthySession();
       deps.onLocationFix?.(validated.fix);
       if (role === "customer") {
         const ack = buildP2pAckMessage({
@@ -210,13 +251,15 @@ export function createP2pPeerSession(deps) {
           assignmentVersion,
           sequence: validated.fix.sequence,
         });
-        trySend(ack.serialized);
-        counters.acks += 1;
+        if (trySend(ack.serialized)) {
+          counters.acksSent += 1;
+        }
       }
       evaluateHealth();
     } else if (validated.type === "ack") {
       lastAckAt = nowMs();
-      counters.acks += 1;
+      counters.acknowledgementsReceived += 1;
+      maybeMarkHealthySession();
       deps.onAck?.(validated.message);
       evaluateHealth();
     } else if (validated.type === "close") {
@@ -228,13 +271,7 @@ export function createP2pPeerSession(deps) {
     channel = ch;
     ch.binaryType = "blob";
     ch.onopen = () => {
-      if (!isCurrent(gen)) return;
-      counters.channelsOpened += 1;
-      diag(P2P_DIAG.CHANNEL_OPEN);
-      setState(P2P_STATE.CONNECTING);
-      // Channel open alone is NOT healthy — wait for fix/ack.
-      scheduleHealthPoll(gen);
-      evaluateHealth();
+      onChannelOpen(gen);
     };
     ch.onclose = () => {
       counters.channelsClosed += 1;
@@ -257,6 +294,7 @@ export function createP2pPeerSession(deps) {
       channel.send(serialized);
       return true;
     } catch {
+      counters.sendFailures += 1;
       return false;
     }
   }
@@ -271,7 +309,6 @@ export function createP2pPeerSession(deps) {
         }
       };
       peer.addEventListener("icegatheringstatechange", done);
-      // Safety timeout — still publish whatever we have.
       setT(() => {
         peer.removeEventListener("icegatheringstatechange", done);
         resolve();
@@ -290,9 +327,6 @@ export function createP2pPeerSession(deps) {
     return peer;
   }
 
-  /**
-   * Driver: create offer session.
-   */
   async function startAsDriver(meta = {}) {
     if (closed) return null;
     if (!Peer) {
@@ -302,6 +336,7 @@ export function createP2pPeerSession(deps) {
     generation += 1;
     const gen = generation;
     counters.sessionsStarted += 1;
+    resetSessionLifecycleFlags();
     tearDownPc();
     clearTimers();
     peerSessionId = isValidPeerSessionId(meta.peerSessionId)
@@ -350,9 +385,6 @@ export function createP2pPeerSession(deps) {
     return true;
   }
 
-  /**
-   * Customer: apply remote offer and publish answer.
-   */
   async function startAsCustomer(meta = {}) {
     if (closed) return null;
     if (!Peer) {
@@ -362,6 +394,7 @@ export function createP2pPeerSession(deps) {
     generation += 1;
     const gen = generation;
     counters.sessionsStarted += 1;
+    resetSessionLifecycleFlags();
     tearDownPc();
     clearTimers();
     peerSessionId = String(meta.peerSessionId || "");
@@ -414,6 +447,7 @@ export function createP2pPeerSession(deps) {
 
   function flushPendingLoc() {
     if (!pendingLoc || role !== "driver") return;
+    counters.fixesAttempted += 1;
     if (channel?.readyState !== "open") return;
     if (channel.bufferedAmount > P2P_BUFFERED_AMOUNT_HIGH) {
       counters.backpressureCoalesces += 1;
@@ -467,7 +501,6 @@ export function createP2pPeerSession(deps) {
   }
 
   function suspend() {
-    // Hidden customer: stop sending / treat as fallback without full destroy of ids.
     clearTimers();
     tearDownPc();
     setState(P2P_STATE.FIREBASE_FALLBACK);
@@ -500,7 +533,7 @@ export function createP2pPeerSession(deps) {
     evaluateHealth,
     /** Test helpers */
     _handleMessageForTest: handleMessage,
-    _setChannelOpenForTest: (open) => {
+    _setChannelOpenForTest: (open, gen = generation) => {
       if (open) {
         channel = {
           readyState: "open",
@@ -508,8 +541,11 @@ export function createP2pPeerSession(deps) {
           send: () => {},
           close: () => {},
         };
-        setState(P2P_STATE.CONNECTING);
+        onChannelOpen(gen);
       }
+    },
+    _setChannelForTest: (nextChannel) => {
+      channel = nextChannel;
     },
   };
 }
