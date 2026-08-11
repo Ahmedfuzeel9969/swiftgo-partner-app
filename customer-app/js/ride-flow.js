@@ -47,6 +47,8 @@ import {
 } from "./ride-view-lifecycle.mjs";
 import { createViewerPresenceClient } from "./viewer-presence-client.mjs";
 import { createCustomerP2pController } from "./p2p-ride-controller.mjs";
+import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
+import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
 import { createTwoLegRouteController } from "./two-leg-route-controller.mjs";
 import {
   createTwoLegRouteLayers,
@@ -104,8 +106,19 @@ let searchStartedAtMs = 0;
 let rideViewLifecycle = null;
 /** @type {ReturnType<typeof createViewerPresenceClient> | null} */
 let presenceClient = null;
-/** @type {ReturnType<typeof createCustomerP2pController> | null} */
+function customerP2pAssignmentVersion(ride) {
+  return assignmentVersionFromToken(String(ride?.assignmentSessionToken || ""));
+}
+
+function syncCustomerP2pForRide(ride, { isVisible = true } = {}) {
+  customerP2p?.syncForRide(ride, {
+    isVisible,
+    assignmentVersion: customerP2pAssignmentVersion(ride),
+  });
+}
+
 let customerP2p = null;
+/** @type {ReturnType<typeof createCustomerP2pController> | null} */
 /** @type {ReturnType<typeof createTwoLegRouteController> | null} */
 let twoLegRoutes = null;
 /** @type {ReturnType<typeof createTwoLegRouteLayers> | null} */
@@ -469,7 +482,7 @@ function ensureRideViewLifecycle() {
       presenceClient.start({ rideId, generation: gen });
       customerP2p?.setVisible(true);
       if (activeRide) {
-        customerP2p?.syncForRide(activeRide, { isVisible: true });
+        syncCustomerP2pForRide(activeRide, { isVisible: true });
         syncTwoLegForRide(activeRide, { isVisible: true });
       }
     },
@@ -1028,7 +1041,7 @@ function showActiveRideState(status = "accepted") {
   updateActiveRideStatusUi(status);
   const visible =
     typeof document === "undefined" || document.visibilityState !== "hidden";
-  customerP2p?.syncForRide(activeRide, { isVisible: visible });
+  syncCustomerP2pForRide(activeRide, { isVisible: visible });
   syncTwoLegForRide(activeRide, { isVisible: visible });
   if (!customerP2p && activeRide) updateDriverTrack(activeRide);
 
@@ -1174,7 +1187,7 @@ function handleRideSnapshot(rawRide) {
     maybeStartPresenceForActiveRide();
     const visible =
       typeof document === "undefined" || document.visibilityState !== "hidden";
-    customerP2p?.syncForRide(ride, { isVisible: visible });
+    syncCustomerP2pForRide(ride, { isVisible: visible });
     syncTwoLegForRide(ride, { isVisible: visible });
     if (ride?.driverLocation) {
       customerP2p?.ingestFirebaseLocation(ride.driverLocation, ride);

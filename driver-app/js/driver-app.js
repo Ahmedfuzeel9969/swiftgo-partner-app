@@ -436,12 +436,10 @@ function syncDriverP2pForActiveRide() {
     checkpointPolicy.setP2pHealthy(false);
     return;
   }
-  const lease = checkpointPolicy.getState?.()?.viewerLease;
-  const viewerVisible = lease === VIEWER_LEASE.VISIBLE;
   driverP2p.syncForRide({
     ride,
     trackingSessionId: locationTrackingSessionId,
-    viewerVisible,
+    assignmentVersion: assignmentVersionFromToken(String(ride?.assignmentSessionToken || "")),
   });
 }
 

@@ -5,11 +5,10 @@
 import { P2P_STATE, P2P_EXECUTION_STATUSES } from "./p2p-protocol.mjs";
 import { createP2pPeerSession } from "./p2p-peer-session.mjs";
 import { createLiveLocationSourceArbiter } from "./live-location-source-arbiter.mjs";
-import {
-  publishRidePeerAnswerClient,
-  closeRidePeerSessionClient,
-  watchRidePeerSession,
-} from "./p2p-signaling-client.mjs";
+
+async function loadSignalingClient() {
+  return import("./p2p-signaling-client.mjs");
+}
 
 /**
  * @param {{
@@ -20,6 +19,27 @@ import {
  */
 export function createCustomerP2pController(opts = {}) {
   const diag = opts.onDiag || (() => {});
+  const watchSession =
+    typeof opts.watchRidePeerSession === "function"
+      ? opts.watchRidePeerSession
+      : async (...args) => {
+          const { watchRidePeerSession } = await loadSignalingClient();
+          return watchRidePeerSession(...args);
+        };
+  const publishAnswerClient =
+    typeof opts.publishRidePeerAnswerClient === "function"
+      ? opts.publishRidePeerAnswerClient
+      : async (payload) => {
+          const { publishRidePeerAnswerClient } = await loadSignalingClient();
+          return publishRidePeerAnswerClient(payload);
+        };
+  const closeSignalingClient =
+    typeof opts.closeRidePeerSessionClient === "function"
+      ? opts.closeRidePeerSessionClient
+      : async (payload) => {
+          const { closeRidePeerSessionClient } = await loadSignalingClient();
+          return closeRidePeerSessionClient(payload);
+        };
   const arbiter = createLiveLocationSourceArbiter({
     onDiag: diag,
     onRender: (fix, meta) => opts.onRenderFix?.(fix, meta),
@@ -33,6 +53,8 @@ export function createCustomerP2pController(opts = {}) {
   let answering = false;
   let visible = true;
   let watching = false;
+  let pendingOfferDoc = null;
+  let expectedAssignmentVersion = 0;
 
   function destroySession() {
     unwatch();
@@ -49,18 +71,30 @@ export function createCustomerP2pController(opts = {}) {
     const id = rideId;
     if (!id) return;
     try {
-      await closeRidePeerSessionClient({ rideId: id });
+      await closeSignalingClient({ rideId: id });
     } catch {
       /* ignore */
     }
   }
 
-  async function answerOffer(docData) {
-    if (!visible || closed || answering) return;
+  function isOfferCurrent(docData) {
+    if (!docData) return false;
     const sid = String(docData?.sessionId || "");
     const offer = String(docData?.offer || "");
-    if (!sid || !offer) return;
-    if (String(docData.state || "") === "closed") return;
+    if (!sid || !offer) return false;
+    if (String(docData.state || "") === "closed") return false;
+    const docAv = Number(docData.assignmentVersion) || 0;
+    if (expectedAssignmentVersion > 0 && docAv > 0 && docAv !== expectedAssignmentVersion) {
+      return false;
+    }
+    return true;
+  }
+
+  async function answerOffer(docData) {
+    if (!visible || closed || answering) return;
+    if (!isOfferCurrent(docData)) return;
+    const sid = String(docData?.sessionId || "");
+    const offer = String(docData?.offer || "");
     if (boundSessionId === sid && session) return;
 
     answering = true;
@@ -81,7 +115,7 @@ export function createCustomerP2pController(opts = {}) {
         },
         onLocalDescription: async (kind, sdp, meta) => {
           if (kind !== "answer") return;
-          await publishRidePeerAnswerClient({
+          await publishAnswerClient({
             rideId,
             answerSdp: sdp,
             peerSessionId: meta.peerSessionId,
@@ -91,9 +125,10 @@ export function createCustomerP2pController(opts = {}) {
       await session.startAsCustomer({
         peerSessionId: sid,
         trackingSessionId: String(docData.trackingSessionId || ""),
-        assignmentVersion: Number(docData.assignmentVersion) || 1,
+        assignmentVersion: Number(docData.assignmentVersion) || expectedAssignmentVersion || 1,
         offerSdp: offer,
       });
+      pendingOfferDoc = null;
     } catch {
       destroySession();
     } finally {
@@ -104,16 +139,32 @@ export function createCustomerP2pController(opts = {}) {
   function attachWatch(rid) {
     unwatch();
     watching = true;
-    unwatch = watchRidePeerSession(
-      rid,
-      (docData) => {
-        if (!docData || !visible) return;
+    void (async () => {
+      unwatch = await watchSession(
+        rid,
+        (docData) => {
+        if (!docData) {
+          pendingOfferDoc = null;
+          return;
+        }
+        if (isOfferCurrent(docData)) {
+          pendingOfferDoc = docData;
+        } else if (
+          expectedAssignmentVersion > 0 &&
+          Number(docData.assignmentVersion) > 0 &&
+          Number(docData.assignmentVersion) !== expectedAssignmentVersion
+        ) {
+          pendingOfferDoc = null;
+          return;
+        }
+        if (!visible) return;
         void answerOffer(docData);
       },
       () => {
         arbiter.noteP2pUnhealthy();
       }
     );
+    })();
   }
 
   function bindRide(nextRideId) {
@@ -156,15 +207,22 @@ export function createCustomerP2pController(opts = {}) {
     if (!visible) {
       session?.suspend?.();
       arbiter.noteP2pUnhealthy();
-    } else if (rideId) {
+      return;
+    }
+    if (!rideId) return;
+    if (!watching) {
       attachWatch(rideId);
+    }
+    if (pendingOfferDoc) {
+      void answerOffer(pendingOfferDoc);
     }
   }
 
-  function syncForRide(ride, { isVisible = true } = {}) {
+  function syncForRide(ride, { isVisible = true, assignmentVersion = 0 } = {}) {
     if (closed) return;
     const status = String(ride?.status || "");
     const rid = String(ride?.id || "").trim();
+    expectedAssignmentVersion = Math.max(0, Math.floor(Number(assignmentVersion) || 0));
     setVisible(isVisible);
     if (!rid || !P2P_EXECUTION_STATUSES.includes(status)) {
       void stop({ closeRemote: true });
@@ -180,6 +238,8 @@ export function createCustomerP2pController(opts = {}) {
     if (closeRemote) await closeSignaling();
     destroySession();
     rideId = "";
+    pendingOfferDoc = null;
+    expectedAssignmentVersion = 0;
     arbiter.reset();
   }
 

@@ -5,11 +5,10 @@
 
 import { P2P_STATE, P2P_EXECUTION_STATUSES } from "./p2p-protocol.mjs";
 import { createP2pPeerSession } from "./p2p-peer-session.mjs";
-import {
-  createRidePeerOfferClient,
-  closeRidePeerSessionClient,
-  watchRidePeerSession,
-} from "./p2p-signaling-client.mjs";
+
+async function loadSignalingClient() {
+  return import("./p2p-signaling-client.mjs");
+}
 
 /**
  * @param {{
@@ -20,6 +19,27 @@ import {
  */
 export function createDriverP2pController(opts = {}) {
   const diag = opts.onDiag || (() => {});
+  const createOfferClient =
+    typeof opts.createRidePeerOfferClient === "function"
+      ? opts.createRidePeerOfferClient
+      : async (payload) => {
+          const { createRidePeerOfferClient } = await loadSignalingClient();
+          return createRidePeerOfferClient(payload);
+        };
+  const watchSession =
+    typeof opts.watchRidePeerSession === "function"
+      ? opts.watchRidePeerSession
+      : async (...args) => {
+          const { watchRidePeerSession } = await loadSignalingClient();
+          return watchRidePeerSession(...args);
+        };
+  const closeSignalingClient =
+    typeof opts.closeRidePeerSessionClient === "function"
+      ? opts.closeRidePeerSessionClient
+      : async (payload) => {
+          const { closeRidePeerSessionClient } = await loadSignalingClient();
+          return closeRidePeerSessionClient(payload);
+        };
   let session = null;
   let unwatch = () => {};
   let rideId = "";
@@ -29,6 +49,7 @@ export function createDriverP2pController(opts = {}) {
   let closed = false;
   let starting = false;
   let answeredSessionId = "";
+  let offerRequestCount = 0;
 
   function isHealthy() {
     return session?.getState?.()?.isHealthy === true;
@@ -52,7 +73,7 @@ export function createDriverP2pController(opts = {}) {
     const id = rideId;
     if (!id) return;
     try {
-      await closeRidePeerSessionClient({ rideId: id });
+      await closeSignalingClient({ rideId: id });
     } catch {
       /* ignore */
     }
@@ -62,13 +83,22 @@ export function createDriverP2pController(opts = {}) {
     rideId: nextRideId,
     trackingSessionId: nextTracking,
     vehicleId: nextVehicleId = "",
+    assignmentVersion: nextAssignmentVersion = 0,
   } = {}) {
     if (closed) return;
     const rid = String(nextRideId || "").trim();
     const tid = String(nextTracking || "").trim();
+    const nextAv = Math.max(1, Math.floor(Number(nextAssignmentVersion) || 0));
     if (!rid || !tid) return;
     if (starting) return;
-    if (session && rideId === rid && trackingSessionId === tid) return;
+    if (
+      session &&
+      rideId === rid &&
+      trackingSessionId === tid &&
+      assignmentVersion === nextAv
+    ) {
+      return;
+    }
 
     starting = true;
     try {
@@ -76,6 +106,7 @@ export function createDriverP2pController(opts = {}) {
       rideId = rid;
       trackingSessionId = tid;
       vehicleId = String(nextVehicleId || "");
+      assignmentVersion = nextAv;
 
       session = createP2pPeerSession({
         role: "driver",
@@ -85,7 +116,8 @@ export function createDriverP2pController(opts = {}) {
         onAck: () => notifyHealth(),
         onLocalDescription: async (kind, sdp, meta) => {
           if (kind !== "offer") return;
-          const res = await createRidePeerOfferClient({
+          offerRequestCount += 1;
+          const res = await createOfferClient({
             rideId,
             offerSdp: sdp,
             peerSessionId: meta.peerSessionId,
@@ -93,7 +125,7 @@ export function createDriverP2pController(opts = {}) {
             vehicleId: vehicleId || undefined,
             assignmentVersion: assignmentVersion || undefined,
           });
-          assignmentVersion = Number(res?.assignmentVersion) || meta.assignmentVersion || 1;
+          assignmentVersion = Number(res?.assignmentVersion) || meta.assignmentVersion || assignmentVersion || 1;
         },
       });
 
@@ -102,7 +134,7 @@ export function createDriverP2pController(opts = {}) {
         assignmentVersion: assignmentVersion || 1,
       });
 
-      unwatch = watchRidePeerSession(
+      unwatch = await watchSession(
         rid,
         (docData) => {
           if (!session || !docData) return;
@@ -147,7 +179,7 @@ export function createDriverP2pController(opts = {}) {
     assignmentVersion = 0;
   }
 
-  function syncForRide({ ride, trackingSessionId: tid, viewerVisible }) {
+  function syncForRide({ ride, trackingSessionId: tid, assignmentVersion: rideAssignmentVersion = 0 }) {
     if (closed) return;
     const status = String(ride?.status || "");
     const rid = String(ride?.id || "").trim();
@@ -155,14 +187,12 @@ export function createDriverP2pController(opts = {}) {
       void stop({ closeRemote: true });
       return;
     }
-    if (!viewerVisible) {
-      suspend();
-      return;
-    }
+    // P2P offer startup is independent of customer viewer lease; checkpoint cadence remains viewer-gated.
     void start({
       rideId: rid,
       trackingSessionId: tid,
       vehicleId: ride?.vehicleId,
+      assignmentVersion: rideAssignmentVersion,
     });
   }
 
@@ -181,5 +211,7 @@ export function createDriverP2pController(opts = {}) {
     isHealthy,
     getCounters: () => session?.getCounters?.() || {},
     getState: () => session?.getState?.() || { state: P2P_STATE.DISABLED },
+    /** Test / diagnostics — bounded offer requests for current assignment. */
+    getOfferRequestCount: () => offerRequestCount,
   };
 }
