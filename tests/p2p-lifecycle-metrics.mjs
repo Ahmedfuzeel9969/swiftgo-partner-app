@@ -111,7 +111,7 @@ function testChannelOpenedNoDeliveryProof() {
   return c.channelsOpened === 1 && c.healthySessions === 0;
 }
 
-async function testSendAttemptedWhileConnecting() {
+async function testPreOpenFrameCountsAsAttempted() {
   const session = createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
@@ -120,7 +120,7 @@ async function testSendAttemptedWhileConnecting() {
   await session.startAsDriver(PEER_CTX);
   session.enqueueLocationFix(sampleFix());
   const c = session.getCounters();
-  return c.fixesAttempted === 1 && c.fixesSent === 0;
+  return c.fixesAttempted === 1 && c.fixesSent === 0 && session._getPendingForTest() != null;
 }
 
 async function testSuccessfulOpenChannelSend() {
@@ -201,6 +201,7 @@ async function testAcknowledgementMakesSessionHealthyOnce() {
   });
   await session.startAsDriver(PEER_CTX);
   session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix());
   const ack = buildP2pAckMessage({ ...PEER_CTX, sequence: 1 });
   session._handleMessageForTest(ack.serialized, session.getState().generation);
   const c = session.getCounters();
@@ -215,11 +216,12 @@ async function testRepeatedAcksDoNotDoubleHealthy() {
   });
   await session.startAsDriver(PEER_CTX);
   session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix());
   const ack = buildP2pAckMessage({ ...PEER_CTX, sequence: 1 });
   session._handleMessageForTest(ack.serialized, session.getState().generation);
   session._handleMessageForTest(ack.serialized, session.getState().generation);
   const c = session.getCounters();
-  return c.acknowledgementsReceived === 2 && c.healthySessions === 1;
+  return c.acknowledgementsReceived === 1 && c.healthySessions === 1;
 }
 
 function testFallbackTransitionCountedOnce() {
@@ -239,6 +241,7 @@ async function testSessionRestartIndependentLifecycle() {
   });
   await session.startAsDriver(PEER_CTX);
   session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix());
   const ack = buildP2pAckMessage({ ...PEER_CTX, sequence: 1 });
   session._handleMessageForTest(ack.serialized, session.getState().generation);
   await session.startAsDriver({ ...PEER_CTX, peerSessionId: "ps_lifecycle02" });
@@ -309,7 +312,7 @@ function testCustomerMappingLifecycleCounters() {
 async function main() {
   record("1-setup-started-channel-never-opened", (await testSetupStartedChannelNeverOpened()) ? "PASS" : "FAIL");
   record("2-channel-opened-no-delivery-proof", testChannelOpenedNoDeliveryProof() ? "PASS" : "FAIL");
-  record("3-send-attempted-while-connecting", (await testSendAttemptedWhileConnecting()) ? "PASS" : "FAIL");
+  record("3-pre-open-frame-counts-as-attempted", (await testPreOpenFrameCountsAsAttempted()) ? "PASS" : "FAIL");
   record("4-successful-open-channel-send", (await testSuccessfulOpenChannelSend()) ? "PASS" : "FAIL");
   record("5-send-throws-not-counted-sent", (await testSendThrowsDoesNotIncrementSent()) ? "PASS" : "FAIL");
   record("6-invalid-frame-not-rendered", (await testInvalidFrameNotRendered()) ? "PASS" : "FAIL");
