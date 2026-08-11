@@ -89,8 +89,11 @@ export function createDriverP2pController(opts = {}) {
     } catch {
       /* ignore */
     }
-    if (localSession && localSession !== session) {
-      void localSession.close({ reason: "stale_start" });
+    if (!localSession) return;
+    void localSession.close({ reason: "stale_start" });
+    if (localSession === session) {
+      session = null;
+      answeredSessionId = "";
     }
   }
 
