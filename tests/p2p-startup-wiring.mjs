@@ -11,6 +11,9 @@ import {
 } from "../driver-app/js/location-checkpoint-policy.mjs";
 
 const results = [];
+/** @type {Array<{ stop: (opts?: object) => Promise<void> }>} */
+const openControllers = [];
+
 function record(name, status, detail = "") {
   results.push({ name, status, detail });
   const mark = status === "PASS" ? "✓" : status === "BLOCKED" ? "·" : "✗";
@@ -79,23 +82,33 @@ const RIDE = {
 const TRACKING = "trk_startup01";
 const ASSIGNMENT_V = 42;
 
+function trackController(ctrl) {
+  openControllers.push(ctrl);
+  return ctrl;
+}
+
+async function cleanupControllers() {
+  const stopping = openControllers.splice(0).map((ctrl) => ctrl.stop({ closeRemote: false }));
+  await Promise.all(stopping);
+}
+
 function driverHarness() {
   let offerCalls = 0;
-  const ctrl = createDriverP2pController({
+  const ctrl = trackController(createDriverP2pController({
     RTCPeerConnection: MockRTCPeerConnection,
     createRidePeerOfferClient: async () => {
       offerCalls += 1;
       return { assignmentVersion: ASSIGNMENT_V };
     },
     watchRidePeerSession: () => () => {},
-  });
+  }));
   return { ctrl, getOfferCalls: () => offerCalls };
 }
 
 function customerHarness() {
   let answerCalls = 0;
   let watchCb = null;
-  const ctrl = createCustomerP2pController({
+  const ctrl = trackController(createCustomerP2pController({
     RTCPeerConnection: MockRTCPeerConnection,
     publishRidePeerAnswerClient: async () => {
       answerCalls += 1;
@@ -106,7 +119,7 @@ function customerHarness() {
         watchCb = null;
       };
     },
-  });
+  }));
   return {
     ctrl,
     getAnswerCalls: () => answerCalls,
@@ -263,11 +276,11 @@ async function test11MissingTrackingNoStart() {
 }
 
 async function test12NoPeerGracefulFallback() {
-  const ctrl = createDriverP2pController({
+  const ctrl = trackController(createDriverP2pController({
     RTCPeerConnection: undefined,
     createRidePeerOfferClient: async () => ({ assignmentVersion: 1 }),
     watchRidePeerSession: () => () => {},
-  });
+  }));
   ctrl.syncForRide({
     ride: RIDE,
     trackingSessionId: TRACKING,
@@ -344,7 +357,7 @@ function deferredDriverHarness() {
   const offerGate = new Promise((resolve) => {
     releaseOffer = () => resolve(undefined);
   });
-  const ctrl = createDriverP2pController({
+  const ctrl = trackController(createDriverP2pController({
     RTCPeerConnection: MockRTCPeerConnection,
     createRidePeerOfferClient: async () => {
       await offerGate;
@@ -352,7 +365,7 @@ function deferredDriverHarness() {
       return { assignmentVersion: ASSIGNMENT_V };
     },
     watchRidePeerSession: async () => () => {},
-  });
+  }));
   return { ctrl, getOfferCalls: () => offerCalls, releaseOffer };
 }
 
@@ -432,7 +445,7 @@ function deferredCustomerHarness() {
     releaseAnswer = () => resolve(undefined);
   });
   let watchCb = null;
-  const ctrl = createCustomerP2pController({
+  const ctrl = trackController(createCustomerP2pController({
     RTCPeerConnection: MockRTCPeerConnection,
     publishRidePeerAnswerClient: async () => {
       await answerGate;
@@ -444,7 +457,7 @@ function deferredCustomerHarness() {
         watchCb = null;
       };
     },
-  });
+  }));
   return { ctrl, getAnswerCalls: () => answerCalls, releaseAnswer, emitOffer: (doc) => watchCb?.(doc) };
 }
 
@@ -479,33 +492,37 @@ async function test22RepeatedSnapshotsOneOfferCurrentAssignment() {
 }
 
 async function main() {
-  record("1-unknown-lease-starts-offer", (await test1UnknownLeaseStarts()) ? "PASS" : "FAIL");
-  record("2-expired-lease-starts-once", (await test2ExpiredLeaseStillStartsOnce()) ? "PASS" : "FAIL");
-  record("3-hidden-viewer-no-duplicate-offers", (await test3HiddenViewerNoDuplicateOffers()) ? "PASS" : "FAIL");
-  record("4-unknown-to-visible-same-session", (await test4UnknownToVisibleSameSession()) ? "PASS" : "FAIL");
-  record("5-customer-hidden-no-answer", (await test5CustomerHiddenNoAnswer()) ? "PASS" : "FAIL");
-  record("6-customer-later-visible-answers", (await test6CustomerLaterVisibleAnswers()) ? "PASS" : "FAIL");
-  record("7-repeated-visibility-no-duplicate-answer", (await test7RepeatedVisibilityNoDuplicateAnswer()) ? "PASS" : "FAIL");
-  record("8-rematch-new-session", (await test8RematchClosesOldSession()) ? "PASS" : "FAIL");
-  record("9-stale-offer-rejected", (await test9StaleOfferRejected()) ? "PASS" : "FAIL");
-  record("10-terminal-cleanup", (await test10TerminalStopsSession()) ? "PASS" : "FAIL");
-  record("11-missing-tracking-no-start", (await test11MissingTrackingNoStart()) ? "PASS" : "FAIL");
-  record("12-no-rtc-fallback", (await test12NoPeerGracefulFallback()) ? "PASS" : "FAIL");
-  record("13-offer-not-checkpoint-cadence", test13OfferDoesNotChangeCheckpointCadence() ? "PASS" : "FAIL");
-  record("14-offer-alone-not-healthy", (await test14OfferAloneNotHealthy()) ? "PASS" : "FAIL");
-  record("15-lifecycle-one-driver-session", (await test15LifecycleOneDriverSession()) ? "PASS" : "FAIL");
-  record("16-visible-viewer-path", (await test16VisibleViewerPathStillWorks()) ? "PASS" : "FAIL");
-  record("17-stop-during-start", (await test17StopDuringStart()) ? "PASS" : "FAIL");
-  record("18-terminal-during-start", (await test18TerminalDuringStart()) ? "PASS" : "FAIL");
-  record("19-rematch-during-start", (await test19RematchDuringStart()) ? "PASS" : "FAIL");
-  record("20-assignment-version-change-during-start", (await test20AssignmentVersionChangeDuringStart()) ? "PASS" : "FAIL");
-  record("21-stale-offer-after-newer-assignment", (await test21StaleOfferCallbackAfterNewerAssignment()) ? "PASS" : "FAIL");
-  record("22-repeated-snapshots-one-offer", (await test22RepeatedSnapshotsOneOfferCurrentAssignment()) ? "PASS" : "FAIL");
-  record(
-    "manual-two-device-p2p",
-    "BLOCKED",
-    "Requires physical two-browser validation"
-  );
+  try {
+    record("1-unknown-lease-starts-offer", (await test1UnknownLeaseStarts()) ? "PASS" : "FAIL");
+    record("2-expired-lease-starts-once", (await test2ExpiredLeaseStillStartsOnce()) ? "PASS" : "FAIL");
+    record("3-hidden-viewer-no-duplicate-offers", (await test3HiddenViewerNoDuplicateOffers()) ? "PASS" : "FAIL");
+    record("4-unknown-to-visible-same-session", (await test4UnknownToVisibleSameSession()) ? "PASS" : "FAIL");
+    record("5-customer-hidden-no-answer", (await test5CustomerHiddenNoAnswer()) ? "PASS" : "FAIL");
+    record("6-customer-later-visible-answers", (await test6CustomerLaterVisibleAnswers()) ? "PASS" : "FAIL");
+    record("7-repeated-visibility-no-duplicate-answer", (await test7RepeatedVisibilityNoDuplicateAnswer()) ? "PASS" : "FAIL");
+    record("8-rematch-new-session", (await test8RematchClosesOldSession()) ? "PASS" : "FAIL");
+    record("9-stale-offer-rejected", (await test9StaleOfferRejected()) ? "PASS" : "FAIL");
+    record("10-terminal-cleanup", (await test10TerminalStopsSession()) ? "PASS" : "FAIL");
+    record("11-missing-tracking-no-start", (await test11MissingTrackingNoStart()) ? "PASS" : "FAIL");
+    record("12-no-rtc-fallback", (await test12NoPeerGracefulFallback()) ? "PASS" : "FAIL");
+    record("13-offer-not-checkpoint-cadence", test13OfferDoesNotChangeCheckpointCadence() ? "PASS" : "FAIL");
+    record("14-offer-alone-not-healthy", (await test14OfferAloneNotHealthy()) ? "PASS" : "FAIL");
+    record("15-lifecycle-one-driver-session", (await test15LifecycleOneDriverSession()) ? "PASS" : "FAIL");
+    record("16-visible-viewer-path", (await test16VisibleViewerPathStillWorks()) ? "PASS" : "FAIL");
+    record("17-stop-during-start", (await test17StopDuringStart()) ? "PASS" : "FAIL");
+    record("18-terminal-during-start", (await test18TerminalDuringStart()) ? "PASS" : "FAIL");
+    record("19-rematch-during-start", (await test19RematchDuringStart()) ? "PASS" : "FAIL");
+    record("20-assignment-version-change-during-start", (await test20AssignmentVersionChangeDuringStart()) ? "PASS" : "FAIL");
+    record("21-stale-offer-after-newer-assignment", (await test21StaleOfferCallbackAfterNewerAssignment()) ? "PASS" : "FAIL");
+    record("22-repeated-snapshots-one-offer", (await test22RepeatedSnapshotsOneOfferCurrentAssignment()) ? "PASS" : "FAIL");
+    record(
+      "manual-two-device-p2p",
+      "BLOCKED",
+      "Requires physical two-browser validation"
+    );
+  } finally {
+    await cleanupControllers();
+  }
 
   const pass = results.filter((r) => r.status === "PASS").length;
   const fail = results.filter((r) => r.status === "FAIL").length;
