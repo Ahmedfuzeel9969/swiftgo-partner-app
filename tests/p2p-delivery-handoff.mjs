@@ -10,6 +10,7 @@ import {
 import {
   P2P_CHANNEL_OPEN_TIMEOUT_MS,
   P2P_FIRST_ACK_TIMEOUT_MS,
+  P2P_MAX_SENT_SEQUENCES_RETAINED,
   P2P_STATE,
 } from "../driver-app/js/p2p-protocol.mjs";
 import { createLiveLocationSourceArbiter } from "../customer-app/js/live-location-source-arbiter.mjs";
@@ -145,7 +146,7 @@ async function test1PreOpenFrameRetainedNotSent() {
   await session.startAsDriver(PEER_CTX);
   session.enqueueLocationFix(sampleFix());
   const c = session.getCounters();
-  return c.fixesSent === 0 && c.fixesAttempted === 0 && session._getPendingForTest() != null;
+  return c.fixesSent === 0 && c.fixesAttempted === 1 && session._getPendingForTest() != null;
 }
 
 async function test2MultiplePreOpenCoalesced() {
@@ -158,7 +159,7 @@ async function test2MultiplePreOpenCoalesced() {
   const pending = session._getPendingForTest();
   return (
     c.fixesSent === 0 &&
-    c.fixesAttempted === 0 &&
+    c.fixesAttempted === 3 &&
     c.pendingCoalesces === 2 &&
     pending?.lat === 3 &&
     pending?.lng === 3
@@ -169,10 +170,11 @@ async function test3OpenFlushesLatestOnce() {
   const session = await driverSession();
   await session.startAsDriver(PEER_CTX);
   session.enqueueLocationFix(sampleFix(1, 1));
+  session.enqueueLocationFix(sampleFix(2, 2));
   session.enqueueLocationFix(sampleFix(9, 9));
   session._setChannelOpenForTest(true);
   const c = session.getCounters();
-  return c.fixesAttempted === 1 && c.fixesSent === 1 && session._getPendingForTest() == null;
+  return c.fixesAttempted === 3 && c.fixesSent === 1 && session._getPendingForTest() == null;
 }
 
 async function test4AssignmentChangeDiscardsPending() {
@@ -182,7 +184,7 @@ async function test4AssignmentChangeDiscardsPending() {
   await session.startAsDriver({ ...PEER_CTX, peerSessionId: "ps_handoff02", assignmentVersion: 8 });
   session._setChannelOpenForTest(true);
   const c = session.getCounters();
-  return c.fixesSent === 0 && c.fixesAttempted === 0;
+  return c.fixesSent === 0 && c.fixesAttempted === 1;
 }
 
 async function test5NeverSendUnlessOpen() {
@@ -234,7 +236,7 @@ async function test7SendThrowFailureRecoverable() {
   });
   session.enqueueLocationFix(sampleFix());
   const c = session.getCounters();
-  return c.fixesSent === 0 && c.sendFailures === 1 && c.healthySessions === 0 && session._getPendingForTest() != null;
+  return c.fixesSent === 0 && c.sendFailures === 1 && c.fixesAttempted === 1 && c.healthySessions === 0 && session._getPendingForTest() != null;
 }
 
 async function test8BackpressureCoalesceAndFlush() {
@@ -264,8 +266,9 @@ async function test8BackpressureCoalesceAndFlush() {
   return (
     mid.fixesSent === 0 &&
     mid.backpressureCoalesces >= 1 &&
+    mid.fixesAttempted === 2 &&
     after.fixesSent === 1 &&
-    after.fixesAttempted === 1
+    after.fixesAttempted === 2
   );
 }
 
@@ -399,6 +402,69 @@ async function test18FirebaseOnlyRideUnaffected() {
   return session.getState().state === P2P_STATE.FIREBASE_FALLBACK && session.getCounters().fixesSent === 0;
 }
 
+async function test19RepeatedFlushDoesNotReattempt() {
+  const session = await driverSession();
+  await session.startAsDriver(PEER_CTX);
+  session.enqueueLocationFix(sampleFix());
+  session._setChannelOpenForTest(true);
+  const afterOpen = session.getCounters().fixesAttempted;
+  session._flushPendingForTest();
+  session._flushPendingForTest();
+  return afterOpen === 1 && session.getCounters().fixesAttempted === 1;
+}
+
+async function test20SentSequenceRetentionBound() {
+  let now = 10_000;
+  const session = await driverSession({ nowMs: () => now });
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  const limit = P2P_MAX_SENT_SEQUENCES_RETAINED;
+  for (let i = 0; i < limit + 20; i += 1) {
+    now += 4_000;
+    session.enqueueLocationFix(sampleFix(24.86 + i * 0.0001, 67.01, now));
+  }
+  return session._getSentSequenceCountForTest() <= limit;
+}
+
+async function test21ValidAckInsideRetentionWindow() {
+  const session = await driverSession();
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix());
+  const ack = buildP2pAckMessage({ ...PEER_CTX, sequence: 1 });
+  session._handleMessageForTest(ack.serialized, session.getState().generation);
+  const c = session.getCounters();
+  return c.acknowledgementsReceived === 1 && !session._getSentSequencesForTest().has(1);
+}
+
+async function test22PrunedAckRejectedDuplicateBlocked() {
+  let now = 20_000;
+  const session = await driverSession({ nowMs: () => now });
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  const limit = P2P_MAX_SENT_SEQUENCES_RETAINED;
+  for (let i = 0; i < limit + 5; i += 1) {
+    now += 4_000;
+    session.enqueueLocationFix(sampleFix(24.86 + i * 0.0001, 67.01, now));
+  }
+  const ackOld = buildP2pAckMessage({ ...PEER_CTX, sequence: 1 });
+  session._handleMessageForTest(ackOld.serialized, session.getState().generation);
+  const ackLatest = buildP2pAckMessage({ ...PEER_CTX, sequence: limit + 5 });
+  session._handleMessageForTest(ackLatest.serialized, session.getState().generation);
+  session._handleMessageForTest(ackLatest.serialized, session.getState().generation);
+  const c = session.getCounters();
+  return c.acknowledgementsReceived === 1 && c.invalidMessages >= 2;
+}
+
+async function test23CleanupClearsSentSequences() {
+  const session = await driverSession();
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix());
+  await session.close();
+  return session._getSentSequenceCountForTest() === 0;
+}
+
 async function main() {
   record("1-pre-open-retained-not-sent", (await test1PreOpenFrameRetainedNotSent()) ? "PASS" : "FAIL");
   record("2-multiple-pre-open-coalesced", (await test2MultiplePreOpenCoalesced()) ? "PASS" : "FAIL");
@@ -418,6 +484,11 @@ async function main() {
   record("16-close-complete-cleanup", (await test16CloseCleanup()) ? "PASS" : "FAIL");
   record("17-no-duplicate-reconnect-loop", (await test17NoDuplicateReconnectLoop()) ? "PASS" : "FAIL");
   record("18-firebase-only-ride-unaffected", (await test18FirebaseOnlyRideUnaffected()) ? "PASS" : "FAIL");
+  record("19-repeated-flush-no-reattempt", (await test19RepeatedFlushDoesNotReattempt()) ? "PASS" : "FAIL");
+  record("20-sent-sequence-retention-bound", (await test20SentSequenceRetentionBound()) ? "PASS" : "FAIL");
+  record("21-valid-ack-inside-retention-window", (await test21ValidAckInsideRetentionWindow()) ? "PASS" : "FAIL");
+  record("22-pruned-ack-rejected-duplicate-blocked", (await test22PrunedAckRejectedDuplicateBlocked()) ? "PASS" : "FAIL");
+  record("23-cleanup-clears-sent-sequences", (await test23CleanupClearsSentSequences()) ? "PASS" : "FAIL");
   record(
     "manual-two-device-p2p",
     "BLOCKED",

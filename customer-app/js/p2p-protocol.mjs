@@ -71,6 +71,8 @@ export const P2P_CHANNEL_OPEN_TIMEOUT_MS = 30_000;
 export const P2P_FIRST_ACK_TIMEOUT_MS = 15_000;
 /** Poll interval while send buffer is above high-water mark. */
 export const P2P_BACKPRESSURE_FLUSH_MS = 500;
+/** Max unacked sent sequences retained for delayed ACK validation. */
+export const P2P_MAX_SENT_SEQUENCES_RETAINED = 256;
 
 export const P2P_EXECUTION_STATUSES = Object.freeze([
   "accepted",

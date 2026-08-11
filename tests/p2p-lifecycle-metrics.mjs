@@ -111,7 +111,7 @@ function testChannelOpenedNoDeliveryProof() {
   return c.channelsOpened === 1 && c.healthySessions === 0;
 }
 
-async function testPreOpenFramePendingNotAttempted() {
+async function testPreOpenFrameCountsAsAttempted() {
   const session = createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
@@ -120,7 +120,7 @@ async function testPreOpenFramePendingNotAttempted() {
   await session.startAsDriver(PEER_CTX);
   session.enqueueLocationFix(sampleFix());
   const c = session.getCounters();
-  return c.fixesAttempted === 0 && c.fixesSent === 0 && session._getPendingForTest() != null;
+  return c.fixesAttempted === 1 && c.fixesSent === 0 && session._getPendingForTest() != null;
 }
 
 async function testSuccessfulOpenChannelSend() {
@@ -312,7 +312,7 @@ function testCustomerMappingLifecycleCounters() {
 async function main() {
   record("1-setup-started-channel-never-opened", (await testSetupStartedChannelNeverOpened()) ? "PASS" : "FAIL");
   record("2-channel-opened-no-delivery-proof", testChannelOpenedNoDeliveryProof() ? "PASS" : "FAIL");
-  record("3-pre-open-pending-not-attempted", (await testPreOpenFramePendingNotAttempted()) ? "PASS" : "FAIL");
+  record("3-pre-open-frame-counts-as-attempted", (await testPreOpenFrameCountsAsAttempted()) ? "PASS" : "FAIL");
   record("4-successful-open-channel-send", (await testSuccessfulOpenChannelSend()) ? "PASS" : "FAIL");
   record("5-send-throws-not-counted-sent", (await testSendThrowsDoesNotIncrementSent()) ? "PASS" : "FAIL");
   record("6-invalid-frame-not-rendered", (await testInvalidFrameNotRendered()) ? "PASS" : "FAIL");

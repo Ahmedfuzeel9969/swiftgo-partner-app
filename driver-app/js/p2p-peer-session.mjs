@@ -12,6 +12,7 @@ import {
   P2P_DEGRADED_AFTER_MS,
   P2P_FALLBACK_AFTER_MS,
   P2P_FIRST_ACK_TIMEOUT_MS,
+  P2P_MAX_SENT_SEQUENCES_RETAINED,
   P2P_MAX_SDP_CHARS,
   P2P_RECONNECT_MAX_ATTEMPTS,
   P2P_SEND_INTERVAL_MS,
@@ -208,6 +209,22 @@ export function createP2pPeerSession(deps) {
     return { ok: true, seq };
   }
 
+  function pruneSentSequences() {
+    while (sentSequences.size > P2P_MAX_SENT_SEQUENCES_RETAINED) {
+      const oldest = Math.min(...sentSequences);
+      sentSequences.delete(oldest);
+    }
+  }
+
+  function trackSentSequence(seq) {
+    sentSequences.add(seq);
+    pruneSentSequences();
+  }
+
+  function releaseSentSequence(seq) {
+    sentSequences.delete(seq);
+  }
+
   function evaluateHealth() {
     if (!isCurrent() || state === P2P_STATE.CLOSED || state === P2P_STATE.DISABLED) return;
     const now = nowMs();
@@ -274,14 +291,16 @@ export function createP2pPeerSession(deps) {
     }, P2P_BACKPRESSURE_FLUSH_MS);
   }
 
-  function storePendingFix(fix, gen) {
-    if (!isCurrent(gen)) return;
+  function offerLocationFix(fix, gen) {
+    if (!isCurrent(gen)) return false;
+    counters.fixesAttempted += 1;
     if (pendingLoc != null && pendingLocGen === gen) {
       counters.pendingCoalesces += 1;
       diag(P2P_DIAG.PENDING_COALESCED);
     }
     pendingLoc = fix;
     pendingLocGen = gen;
+    return true;
   }
 
   function onChannelOpen(gen) {
@@ -348,6 +367,7 @@ export function createP2pPeerSession(deps) {
       const seq = Math.floor(Number(validated.message.seq) || 0);
       lastAckSequence = seq;
       lastAckAt = nowMs();
+      releaseSentSequence(seq);
       counters.acknowledgementsReceived += 1;
       clearT(firstAckTimer);
       firstAckTimer = 0;
@@ -546,7 +566,7 @@ export function createP2pPeerSession(deps) {
     if (state === P2P_STATE.CLOSED || state === P2P_STATE.DISABLED) return;
     const gen = generation;
     if (!channel || channel.readyState !== "open") {
-      storePendingFix(fix, gen);
+      offerLocationFix(fix, gen);
       return;
     }
     if (channel.bufferedAmount > P2P_BUFFERED_AMOUNT_HIGH) {
@@ -554,11 +574,11 @@ export function createP2pPeerSession(deps) {
         counters.backpressureCoalesces += 1;
         diag(P2P_DIAG.BACKPRESSURE_COALESCED);
       }
-      storePendingFix(fix, gen);
+      offerLocationFix(fix, gen);
       scheduleBackpressureFlush(gen);
       return;
     }
-    storePendingFix(fix, gen);
+    offerLocationFix(fix, gen);
     flushPendingLoc(gen);
   }
 
@@ -586,7 +606,6 @@ export function createP2pPeerSession(deps) {
       return;
     }
 
-    counters.fixesAttempted += 1;
     const nextSeq = lastSequenceSent + 1;
     if (sentSequences.has(nextSeq)) return;
 
@@ -605,7 +624,7 @@ export function createP2pPeerSession(deps) {
 
     if (trySend(built.serialized, { countBackpressure: false })) {
       lastSequenceSent = nextSeq;
-      sentSequences.add(nextSeq);
+      trackSentSequence(nextSeq);
       counters.fixesSent += 1;
       lastValidFixAt = now;
       pendingLoc = null;
@@ -682,6 +701,8 @@ export function createP2pPeerSession(deps) {
     _flushPendingForTest: (gen = generation) => flushPendingLoc(gen),
     _getPendingForTest: () => pendingLoc,
     _getPendingGenForTest: () => pendingLocGen,
+    _getSentSequencesForTest: () => new Set(sentSequences),
+    _getSentSequenceCountForTest: () => sentSequences.size,
     _setChannelOpenForTest: (open, gen = generation) => {
       if (open) {
         channel = {
