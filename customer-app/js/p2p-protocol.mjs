@@ -38,6 +38,11 @@ export const P2P_DIAG = Object.freeze({
   INVALID_MESSAGE: "p2p_invalid_message",
   STALE_GENERATION: "p2p_stale_generation_ignored",
   BACKPRESSURE_COALESCED: "p2p_backpressure_coalesced",
+  PENDING_COALESCED: "p2p_pending_coalesced",
+  CHANNEL_OPEN_TIMEOUT: "p2p_channel_open_timeout",
+  ACK_TIMEOUT: "p2p_ack_timeout",
+  STALE_ACK_IGNORED: "p2p_stale_ack_ignored",
+  DUPLICATE_ACK_IGNORED: "p2p_duplicate_ack_ignored",
   SOURCE_P2P: "location_source_p2p",
   SOURCE_FIREBASE: "location_source_firebase",
 });
@@ -60,6 +65,12 @@ export const P2P_MAX_SDP_CHARS = 16_384;
 export const P2P_SESSION_TTL_MS = 15 * 60_000;
 export const P2P_DATA_CHANNEL_LABEL = "swiftgo-loc-v1";
 export const P2P_BUFFERED_AMOUNT_HIGH = 64 * 1024;
+/** Bounded wait for RTCDataChannel to reach OPEN before Firebase fallback. */
+export const P2P_CHANNEL_OPEN_TIMEOUT_MS = 30_000;
+/** Driver waits this long after first successful send for customer ACK. */
+export const P2P_FIRST_ACK_TIMEOUT_MS = 15_000;
+/** Poll interval while send buffer is above high-water mark. */
+export const P2P_BACKPRESSURE_FLUSH_MS = 500;
 
 export const P2P_EXECUTION_STATUSES = Object.freeze([
   "accepted",
