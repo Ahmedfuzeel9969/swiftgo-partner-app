@@ -36,8 +36,6 @@ export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}) {
     (Number(checkpoint.rejectedInterval) || 0) + (Number(checkpoint.rejectedMovementNoop) || 0);
   const attempted = Number(checkpoint.writesAttempted) || 0;
   const committed = Number(checkpoint.writesCommitted) || 0;
-  const fixesSent = Number(p2p.fixesSent) || 0;
-  const fixesAttempted = Number(p2p.fixesAttempted) || fixesSent + (Number(p2p.backpressureCoalesces) || 0);
   return {
     gpsFixesReceived: rawGps,
     validFixesAccepted: Math.max(0, rawGps - rejected),
@@ -45,11 +43,14 @@ export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}) {
     vehicleWritesAttempted: attempted,
     vehicleWritesAcknowledged: committed,
     vehicleWritesFailed: Math.max(0, attempted - committed),
-    p2pFramesAttempted: fixesAttempted,
-    p2pFramesSent: fixesSent,
-    p2pFramesAcknowledged: Number(p2p.acks) || 0,
+    p2pSessionsStarted: Number(p2p.sessionsStarted) || 0,
+    p2pChannelsOpened: Number(p2p.channelsOpened) || 0,
+    p2pFramesAttempted: Number(p2p.fixesAttempted) || 0,
+    p2pFramesSent: Number(p2p.fixesSent) || 0,
+    p2pFramesAcknowledged: Number(p2p.acknowledgementsReceived) || 0,
     p2pFramesRejected: Number(p2p.invalidMessages) || 0,
-    p2pHealthySessionCount: Number(p2p.sessionsStarted) || 0,
+    p2pSendFailures: Number(p2p.sendFailures) || 0,
+    p2pHealthySessionCount: Number(p2p.healthySessions) || 0,
     p2pDegradedOrFallbackTransitions: Number(p2p.fallbackTransitions) || 0,
   };
 }
@@ -58,17 +59,20 @@ export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}) {
  * @param {Record<string, unknown>} arbiter Counters from live-location-source-arbiter (+ optional p2p session)
  * @param {Record<string, unknown>} display display-location-pipeline counters (rejections only)
  */
-export function mapCustomerRuntimeCounters(arbiter = {}, display = {}) {
+export function mapCustomerRuntimeCounters(p2p = {}, display = {}) {
   return {
-    firebaseSnapshotsReceived: Number(arbiter.firebaseAccepted) || 0,
-    firebaseValidRendered: Number(arbiter.firebaseRendered) || 0,
-    p2pFramesReceived: Number(arbiter.p2pAccepted) || 0,
-    p2pValidRendered: Number(arbiter.p2pRendered) || 0,
-    staleRejected: Number(arbiter.staleRejected) || 0,
+    firebaseSnapshotsReceived: Number(p2p.firebaseAccepted) || 0,
+    firebaseValidRendered: Number(p2p.firebaseRendered) || 0,
+    p2pSessionsStarted: Number(p2p.sessionsStarted) || 0,
+    p2pChannelsOpened: Number(p2p.channelsOpened) || 0,
+    p2pHealthySessionCount: Number(p2p.healthySessions) || 0,
+    p2pFramesReceived: Number(p2p.p2pAccepted) || Number(p2p.fixesReceived) || 0,
+    p2pValidRendered: Number(p2p.p2pRendered) || 0,
+    staleRejected: Number(p2p.staleRejected) || 0,
     duplicateRejected: Number(display.backwardJitterRejects) || 0,
     rollbackRejected: Number(display.rejectedProjections) || 0,
-    sourceSwitchP2pToFirebase: Number(arbiter.sourceSwitchP2pToFirebase) || 0,
-    sourceSwitchFirebaseToP2p: Number(arbiter.sourceSwitchFirebaseToP2p) || 0,
+    sourceSwitchP2pToFirebase: Number(p2p.sourceSwitchP2pToFirebase) || 0,
+    sourceSwitchFirebaseToP2p: Number(p2p.sourceSwitchFirebaseToP2p) || 0,
   };
 }
 

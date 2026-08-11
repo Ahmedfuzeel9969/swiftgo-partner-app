@@ -139,8 +139,24 @@ record(
 record(
   "unit-driver-p2p-separate-counters",
   (() => {
-    const m = mapDriverRuntimeCounters({}, { fixesSent: 3, acks: 2, invalidMessages: 1, backpressureCoalesces: 2 });
-    return m.p2pFramesSent === 3 && m.p2pFramesAttempted === 5 && m.p2pFramesAcknowledged === 2 && m.p2pFramesRejected === 1
+    const m = mapDriverRuntimeCounters(
+      {},
+      {
+        fixesSent: 3,
+        fixesAttempted: 5,
+        acknowledgementsReceived: 2,
+        invalidMessages: 1,
+        sessionsStarted: 2,
+        channelsOpened: 1,
+        healthySessions: 1,
+      }
+    );
+    return m.p2pFramesSent === 3 &&
+      m.p2pFramesAttempted === 5 &&
+      m.p2pFramesAcknowledged === 2 &&
+      m.p2pFramesRejected === 1 &&
+      m.p2pSessionsStarted === 2 &&
+      m.p2pHealthySessionCount === 1
       ? "PASS"
       : "FAIL";
   })()

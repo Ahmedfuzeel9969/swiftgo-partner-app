@@ -36,11 +36,14 @@ const COUNTER_LABELS = Object.freeze({
   vehicleWritesAttempted: "Vehicle writes attempted",
   vehicleWritesAcknowledged: "Vehicle writes acknowledged",
   vehicleWritesFailed: "Vehicle writes failed",
+  p2pSessionsStarted: "P2P sessions started",
+  p2pChannelsOpened: "P2P channels opened",
   p2pFramesAttempted: "P2P frames attempted",
   p2pFramesSent: "P2P frames sent",
-  p2pFramesAcknowledged: "P2P frames acknowledged",
+  p2pFramesAcknowledged: "P2P acknowledgements received",
   p2pFramesRejected: "P2P frames rejected",
-  p2pHealthySessionCount: "P2P healthy sessions",
+  p2pSendFailures: "P2P send failures",
+  p2pHealthySessionCount: "P2P verified healthy sessions",
   p2pDegradedOrFallbackTransitions: "P2P degraded/fallback transitions",
   mirrorAttempts: "Mirror attempts",
   mirrorAccepted: "Mirror accepted",
@@ -53,6 +56,9 @@ const COUNTER_LABELS = Object.freeze({
   mirrorFailed: "Mirror failed",
   firebaseSnapshotsReceived: "Firebase snapshots received",
   firebaseValidRendered: "Firebase valid rendered",
+  p2pSessionsStarted: "P2P sessions started",
+  p2pChannelsOpened: "P2P channels opened",
+  p2pHealthySessionCount: "P2P verified healthy sessions",
   p2pFramesReceived: "P2P frames received",
   p2pValidRendered: "P2P valid rendered",
   staleRejected: "Stale rejected",
@@ -147,10 +153,10 @@ function formatRatio(value) {
   return `${Math.round(value * 1000) / 10}%`;
 }
 
-function counterRows(keys, counters = {}) {
+function counterRows(keys, counters = {}, legacyHints = {}) {
   return keys.map((key) => ({
     key,
-    label: COUNTER_LABELS[key] || key,
+    label: legacyHints[key] || COUNTER_LABELS[key] || key,
     value: Number.isInteger(counters[key]) ? counters[key] : 0,
   }));
 }
@@ -204,6 +210,18 @@ export function buildRideLocationReportViewModel(report, meta = {}) {
     server: report.server || {},
     customer: report.customer || {},
   };
+  const driverCounters = sections.driver.counters || {};
+  const customerCounters = sections.customer.counters || {};
+  const driverLegacy = {};
+  const customerLegacy = {};
+  if (driverCounters.p2pSessionsStarted == null && Number(driverCounters.p2pHealthySessionCount) > 0) {
+    driverLegacy.p2pHealthySessionCount =
+      "P2P sessions started (legacy field — unverified health)";
+  }
+  if (customerCounters.p2pSessionsStarted == null && Number(customerCounters.p2pHealthySessionCount) > 0) {
+    customerLegacy.p2pHealthySessionCount =
+      "P2P sessions started (legacy field — unverified health)";
+  }
   const derived = report.derived || computeDerivedMetrics(sections);
   const health = report.health || classifyReportHealth({ ...sections, derived });
   const completeness = report.completeness || computeReportCompleteness(report);
@@ -221,9 +239,9 @@ export function buildRideLocationReportViewModel(report, meta = {}) {
     health,
     healthLabel: HEALTH_LABELS[health.status] || health.status,
     lifecycle,
-    driver: counterRows(DRIVER_COUNTER_KEYS, sections.driver.counters),
+    driver: counterRows(DRIVER_COUNTER_KEYS, driverCounters, driverLegacy),
     server: counterRows(SERVER_COUNTER_KEYS, sections.server.counters),
-    customer: counterRows(CUSTOMER_COUNTER_KEYS, sections.customer.counters),
+    customer: counterRows(CUSTOMER_COUNTER_KEYS, customerCounters, customerLegacy),
     derived,
     configSnapshot: report.configSnapshot || null,
     docStatus: report.status || "open",

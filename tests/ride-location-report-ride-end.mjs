@@ -31,7 +31,7 @@ record(
   (() => {
     const mapped = mapDriverRuntimeCounters(
       { rawGpsFixes: 10, rejectedInterval: 2, writesAttempted: 5, writesCommitted: 4 },
-      { fixesSent: 3, sessionsStarted: 1, fallbackTransitions: 2 }
+      { fixesSent: 3, fixesAttempted: 3, sessionsStarted: 1, healthySessions: 0, fallbackTransitions: 2 }
     );
     return mapped.gpsFixesReceived === 10 &&
       mapped.validFixesAccepted === 8 &&
