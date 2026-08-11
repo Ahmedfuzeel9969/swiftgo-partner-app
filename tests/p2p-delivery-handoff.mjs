@@ -11,6 +11,7 @@ import {
   P2P_CHANNEL_OPEN_TIMEOUT_MS,
   P2P_FIRST_ACK_TIMEOUT_MS,
   P2P_MAX_SENT_SEQUENCES_RETAINED,
+  P2P_SEND_INTERVAL_MS,
   P2P_STATE,
 } from "../driver-app/js/p2p-protocol.mjs";
 import { createLiveLocationSourceArbiter } from "../customer-app/js/live-location-source-arbiter.mjs";
@@ -19,6 +20,33 @@ const results = [];
 function record(name, status, detail = "") {
   results.push({ name, status, detail });
   console.log(`${status === "PASS" ? "✓" : status === "BLOCKED" ? "·" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
+}
+
+function createClockTimers() {
+  let now = 0;
+  let nextId = 1;
+  /** @type {Map<number, { fn: Function, at: number }>} */
+  const scheduled = new Map();
+  return {
+    nowMs: () => now,
+    setTimeoutFn: (fn, ms) => {
+      const id = nextId++;
+      scheduled.set(id, { fn, at: now + ms });
+      return id;
+    },
+    clearTimeoutFn: (id) => {
+      scheduled.delete(id);
+    },
+    advance(ms) {
+      now += ms;
+      for (const [id, task] of [...scheduled.entries()]) {
+        if (task.at <= now) {
+          scheduled.delete(id);
+          task.fn();
+        }
+      }
+    },
+  };
 }
 
 function createFakeTimers() {
@@ -465,6 +493,135 @@ async function test23CleanupClearsSentSequences() {
   return session._getSentSequenceCountForTest() === 0;
 }
 
+async function test24CadenceTimerScheduledForPendingSecondFrame() {
+  const clock = createClockTimers();
+  const session = await driverSession(clock);
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix(1, 1));
+  clock.advance(100);
+  session.enqueueLocationFix(sampleFix(2, 2));
+  const c = session.getCounters();
+  return (
+    c.fixesAttempted === 2 &&
+    c.fixesSent === 1 &&
+    session._getPendingForTest()?.lat === 2 &&
+    session._isCadenceFlushScheduledForTest()
+  );
+}
+
+async function test25CadenceTimerAloneSendsPendingFrame() {
+  const clock = createClockTimers();
+  const session = await driverSession(clock);
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix(1, 1));
+  clock.advance(100);
+  session.enqueueLocationFix(sampleFix(2, 2));
+  const remaining = P2P_SEND_INTERVAL_MS * 0.5 - 100;
+  clock.advance(remaining);
+  const c = session.getCounters();
+  return c.fixesAttempted === 2 && c.fixesSent === 2 && session._getPendingForTest() == null;
+}
+
+async function test26CadenceWindowCoalescesToNewestOnce() {
+  const clock = createClockTimers();
+  const session = await driverSession(clock);
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix(1, 1));
+  clock.advance(200);
+  session.enqueueLocationFix(sampleFix(2, 2));
+  session.enqueueLocationFix(sampleFix(3, 3));
+  session.enqueueLocationFix(sampleFix(9, 9));
+  clock.advance(P2P_SEND_INTERVAL_MS * 0.5 - 200);
+  const c = session.getCounters();
+  return c.fixesAttempted === 4 && c.fixesSent === 2 && session._getPendingForTest() == null;
+}
+
+async function test27CadenceTimerFlushDoesNotReattempt() {
+  const clock = createClockTimers();
+  const session = await driverSession(clock);
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix(1, 1));
+  clock.advance(100);
+  session.enqueueLocationFix(sampleFix(2, 2));
+  clock.advance(P2P_SEND_INTERVAL_MS * 0.5 - 100);
+  const c = session.getCounters();
+  return c.fixesAttempted === 2 && c.fixesSent === 2;
+}
+
+async function test28SessionRestartBeforeCadenceTimer() {
+  const clock = createClockTimers();
+  const session = await driverSession(clock);
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix(1, 1));
+  clock.advance(100);
+  session.enqueueLocationFix(sampleFix(2, 2));
+  await session.startAsDriver({ ...PEER_CTX, peerSessionId: "ps_cadence01" });
+  clock.advance(P2P_SEND_INTERVAL_MS);
+  const c = session.getCounters();
+  return c.fixesSent === 1 && !session._isCadenceFlushScheduledForTest();
+}
+
+async function test29ChannelCloseBeforeCadenceTimer() {
+  const clock = createClockTimers();
+  const session = await driverSession(clock);
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix(1, 1));
+  clock.advance(100);
+  session.enqueueLocationFix(sampleFix(2, 2));
+  session.suspend();
+  clock.advance(P2P_SEND_INTERVAL_MS);
+  const c = session.getCounters();
+  return c.fixesSent === 1 && !session._isCadenceFlushScheduledForTest();
+}
+
+async function test30CadenceTimerDuringBackpressure() {
+  const clock = createClockTimers();
+  let buffered = 0;
+  const session = await driverSession(clock);
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  session._setChannelForTest({
+    readyState: "open",
+    get bufferedAmount() {
+      return buffered;
+    },
+    send: () => {},
+    close: () => {},
+  });
+  session.enqueueLocationFix(sampleFix(1, 1));
+  clock.advance(100);
+  session.enqueueLocationFix(sampleFix(2, 2));
+  buffered = 128 * 1024;
+  clock.advance(P2P_SEND_INTERVAL_MS * 0.5 - 100);
+  const mid = session.getCounters();
+  buffered = 0;
+  clock.advance(600);
+  const after = session.getCounters();
+  return mid.fixesSent === 1 && mid.fixesAttempted === 2 && after.fixesSent === 2;
+}
+
+async function test31RepeatedCadenceFlushNoDuplicateTimerOrSend() {
+  const clock = createClockTimers();
+  const session = await driverSession(clock);
+  await session.startAsDriver(PEER_CTX);
+  session._setChannelOpenForTest(true);
+  session.enqueueLocationFix(sampleFix(1, 1));
+  clock.advance(100);
+  session.enqueueLocationFix(sampleFix(2, 2));
+  session._flushPendingForTest();
+  session._flushPendingForTest();
+  const before = session.getCounters().fixesAttempted;
+  clock.advance(P2P_SEND_INTERVAL_MS * 0.5 - 100);
+  const c = session.getCounters();
+  return before === 2 && c.fixesAttempted === 2 && c.fixesSent === 2;
+}
+
 async function main() {
   record("1-pre-open-retained-not-sent", (await test1PreOpenFrameRetainedNotSent()) ? "PASS" : "FAIL");
   record("2-multiple-pre-open-coalesced", (await test2MultiplePreOpenCoalesced()) ? "PASS" : "FAIL");
@@ -489,6 +646,14 @@ async function main() {
   record("21-valid-ack-inside-retention-window", (await test21ValidAckInsideRetentionWindow()) ? "PASS" : "FAIL");
   record("22-pruned-ack-rejected-duplicate-blocked", (await test22PrunedAckRejectedDuplicateBlocked()) ? "PASS" : "FAIL");
   record("23-cleanup-clears-sent-sequences", (await test23CleanupClearsSentSequences()) ? "PASS" : "FAIL");
+  record("24-cadence-timer-scheduled", (await test24CadenceTimerScheduledForPendingSecondFrame()) ? "PASS" : "FAIL");
+  record("25-cadence-timer-sends-pending", (await test25CadenceTimerAloneSendsPendingFrame()) ? "PASS" : "FAIL");
+  record("26-cadence-window-newest-once", (await test26CadenceWindowCoalescesToNewestOnce()) ? "PASS" : "FAIL");
+  record("27-cadence-flush-no-reattempt", (await test27CadenceTimerFlushDoesNotReattempt()) ? "PASS" : "FAIL");
+  record("28-session-restart-before-cadence", (await test28SessionRestartBeforeCadenceTimer()) ? "PASS" : "FAIL");
+  record("29-channel-close-before-cadence", (await test29ChannelCloseBeforeCadenceTimer()) ? "PASS" : "FAIL");
+  record("30-cadence-timer-during-backpressure", (await test30CadenceTimerDuringBackpressure()) ? "PASS" : "FAIL");
+  record("31-repeated-cadence-no-duplicate", (await test31RepeatedCadenceFlushNoDuplicateTimerOrSend()) ? "PASS" : "FAIL");
   record(
     "manual-two-device-p2p",
     "BLOCKED",

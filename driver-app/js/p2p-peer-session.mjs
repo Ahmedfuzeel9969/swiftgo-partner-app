@@ -73,6 +73,7 @@ export function createP2pPeerSession(deps) {
   let channelOpenTimer = 0;
   let firstAckTimer = 0;
   let backpressureFlushTimer = 0;
+  let cadenceFlushTimer = 0;
   let pendingLoc = null;
   let pendingLocGen = 0;
   let closed = false;
@@ -126,6 +127,10 @@ export function createP2pPeerSession(deps) {
     if (firstAckTimer) {
       clearT(firstAckTimer);
       firstAckTimer = 0;
+    }
+    if (cadenceFlushTimer) {
+      clearT(cadenceFlushTimer);
+      cadenceFlushTimer = 0;
     }
   }
 
@@ -291,6 +296,16 @@ export function createP2pPeerSession(deps) {
     }, P2P_BACKPRESSURE_FLUSH_MS);
   }
 
+  function scheduleCadenceFlush(gen, delayMs) {
+    if (cadenceFlushTimer) return;
+    const delay = Math.max(1, Math.ceil(Number(delayMs) || 0));
+    cadenceFlushTimer = setT(() => {
+      cadenceFlushTimer = 0;
+      if (!isCurrent(gen)) return;
+      flushPendingLoc(gen);
+    }, delay);
+  }
+
   function offerLocationFix(fix, gen) {
     if (!isCurrent(gen)) return false;
     counters.fixesAttempted += 1;
@@ -387,6 +402,10 @@ export function createP2pPeerSession(deps) {
     };
     ch.onclose = () => {
       counters.channelsClosed += 1;
+      if (cadenceFlushTimer) {
+        clearT(cadenceFlushTimer);
+        cadenceFlushTimer = 0;
+      }
       if (!isCurrent(gen)) return;
       setState(P2P_STATE.FIREBASE_FALLBACK);
     };
@@ -601,8 +620,9 @@ export function createP2pPeerSession(deps) {
     }
 
     const now = nowMs();
-    if (lastValidFixAt != null && now - lastValidFixAt < P2P_SEND_INTERVAL_MS * 0.5 && lastSequenceSent > 0) {
-      // Coalesce bursts; keep newest pending until interval elapses.
+    const minGapMs = P2P_SEND_INTERVAL_MS * 0.5;
+    if (lastValidFixAt != null && now - lastValidFixAt < minGapMs && lastSequenceSent > 0) {
+      scheduleCadenceFlush(gen, minGapMs - (now - lastValidFixAt));
       return;
     }
 
@@ -623,6 +643,10 @@ export function createP2pPeerSession(deps) {
     }
 
     if (trySend(built.serialized, { countBackpressure: false })) {
+      if (cadenceFlushTimer) {
+        clearT(cadenceFlushTimer);
+        cadenceFlushTimer = 0;
+      }
       lastSequenceSent = nextSeq;
       trackSentSequence(nextSeq);
       counters.fixesSent += 1;
@@ -703,6 +727,7 @@ export function createP2pPeerSession(deps) {
     _getPendingGenForTest: () => pendingLocGen,
     _getSentSequencesForTest: () => new Set(sentSequences),
     _getSentSequenceCountForTest: () => sentSequences.size,
+    _isCadenceFlushScheduledForTest: () => cadenceFlushTimer !== 0,
     _setChannelOpenForTest: (open, gen = generation) => {
       if (open) {
         channel = {
