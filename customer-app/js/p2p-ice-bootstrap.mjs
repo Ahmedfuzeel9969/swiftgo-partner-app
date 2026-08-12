@@ -1,9 +1,12 @@
-/** Auto-wrapper: canonical implementation in shared/js. */
-export { createP2pIceBootstrap } from "../../shared/js/p2p-ice-bootstrap.mjs";
-
+/**
+ * App ICE bootstrap — Firebase callable + hosting-safe local core import.
+ * Hosting overlays ./p2p-ice-bootstrap-core.mjs from shared; this wrapper stays.
+ */
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
-import { createP2pIceBootstrap } from "../../shared/js/p2p-ice-bootstrap.mjs";
+import { createP2pIceBootstrap } from "./p2p-ice-bootstrap-core.mjs";
 import { getFirebase } from "./firebase.js";
+
+export { createP2pIceBootstrap } from "./p2p-ice-bootstrap-core.mjs";
 
 async function fetchTurnCredentials() {
   const { ready, functions, auth } = getFirebase();

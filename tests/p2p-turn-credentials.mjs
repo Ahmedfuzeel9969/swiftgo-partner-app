@@ -72,7 +72,7 @@ function testConfiguredWithEnv() {
 }
 
 async function testBootstrapInjection() {
-  const { createP2pIceBootstrap } = await import("../shared/js/p2p-ice-bootstrap.mjs");
+  const { createP2pIceBootstrap } = await import("../shared/js/p2p-ice-bootstrap-core.mjs");
   const g = {};
   const bootstrap = createP2pIceBootstrap({
     globalObj: g,
