@@ -205,10 +205,7 @@ function bindRangeLabel(rangeEl, labelEl) {
 }
 
 export function initNotificationSettingsUI(config = {}) {
-  const modal = document.getElementById(config.modalId || "notificationSettingsModal");
   const openBtn = document.getElementById(config.openBtnId || "openNotificationSettingsBtn");
-  const closeBtn = document.getElementById(config.closeBtnId || "notificationSettingsCloseBtn");
-  const backdrop = document.getElementById(config.backdropId || "notificationSettingsBackdrop");
   const muteToggle = document.getElementById(config.muteToggleId || "notificationMuteToggle");
   const toneSelect = document.getElementById(config.toneSelectId || "notificationToneSelect");
   const volumeRange = document.getElementById(config.volumeRangeId || "notificationVolumeRange");
@@ -238,11 +235,7 @@ export function initNotificationSettingsUI(config = {}) {
     }
   };
 
-  const openModal = () => {
-    if (!modal) return;
-    applySettingsToUi();
-    modal.hidden = false;
-    modal.setAttribute("aria-hidden", "false");
+  const refreshPermissionStatus = () => {
     requestBrowserNotificationPermission().then((state) => {
       if (state === "granted") setStatus("براؤزر نوٹیفکیشنز فعال ہیں۔");
       else if (state === "denied") setStatus("براؤزر نوٹیفکیشنز بلاک ہیں۔");
@@ -250,15 +243,7 @@ export function initNotificationSettingsUI(config = {}) {
     });
   };
 
-  const closeModal = () => {
-    if (!modal) return;
-    modal.hidden = true;
-    modal.setAttribute("aria-hidden", "true");
-  };
-
-  openBtn?.addEventListener("click", openModal);
-  closeBtn?.addEventListener("click", closeModal);
-  backdrop?.addEventListener("click", closeModal);
+  openBtn?.addEventListener("click", refreshPermissionStatus);
 
   muteToggle?.addEventListener("change", () => {
     const soundOn = Boolean(muteToggle.checked);
@@ -294,10 +279,6 @@ export function initNotificationSettingsUI(config = {}) {
     const state = await requestBrowserNotificationPermission();
     if (state === "granted") setStatus("براؤزر نوٹیفکیشنز فعال ہو گئیں۔");
     else setStatus("براؤزر نوٹیفکیشنز فعال نہیں ہو سکیں۔");
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && modal && !modal.hidden) closeModal();
   });
 
   applySettingsToUi();

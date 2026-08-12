@@ -56,6 +56,30 @@ export function initRateDetailsModal() {
  *   title?: string,
  * }} context
  */
+async function paintRateDetailsBody(targetEl, context = {}) {
+  if (!targetEl) return;
+
+  const mode = context.mode || (context.vehicleTypeKey ? "ride" : "all");
+  targetEl.innerHTML = `<p class="rate-details__loading">${t("fareLoading")}</p>`;
+
+  try {
+    const pricing = await loadCustomerPricing();
+    targetEl.innerHTML = buildCustomerRateDetailsHtml(pricing, { ...context, mode });
+  } catch (err) {
+    console.warn("[SwiftGo Customer] rate details", err);
+    targetEl.innerHTML = `<p class="rate-details__error">${t("fareLoadError")}</p>`;
+  }
+}
+
+export async function renderRateDetailsPage(context = {}) {
+  const pageBody = document.getElementById("rateDetailsPageBody");
+  if (!pageBody) return;
+  await paintRateDetailsBody(pageBody, {
+    mode: "all",
+    ...context,
+  });
+}
+
 export async function openRateDetails(context = {}) {
   initRateDetailsModal();
   if (!modalEl || !bodyEl) return;
@@ -68,14 +92,7 @@ export async function openRateDetails(context = {}) {
 
   bodyEl.innerHTML = `<p class="rate-details__loading">${t("fareLoading")}</p>`;
   setOpen(true);
-
-  try {
-    const pricing = await loadCustomerPricing();
-    bodyEl.innerHTML = buildCustomerRateDetailsHtml(pricing, { ...context, mode });
-  } catch (err) {
-    console.warn("[SwiftGo Customer] rate details", err);
-    bodyEl.innerHTML = `<p class="rate-details__error">${t("fareLoadError")}</p>`;
-  }
+  await paintRateDetailsBody(bodyEl, { ...context, mode });
 }
 
 export function closeRateDetails() {

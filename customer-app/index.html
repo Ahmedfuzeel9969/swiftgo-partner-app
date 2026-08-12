@@ -13,12 +13,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="css/styles.css?v=customer_fare_rates_1" />
+  <link rel="stylesheet" href="css/customer-easypaisa-ui.css?v=ep_ui_9" />
 </head>
 <body>
-  <div class="app" id="app">
+  <div class="app customer-app ep-shell" id="app">
     <div class="drawer-overlay" id="drawerOverlay" hidden></div>
 
-    <aside class="sidebar" id="sidebar" inert aria-label="Main menu" data-i18n-aria="mainMenuAria">
+    <aside class="sidebar ep-sidebar-hidden" id="sidebar" inert aria-label="Main menu" data-i18n-aria="mainMenuAria" aria-hidden="true" hidden>
       <div class="sidebar__inner glass">
         <header class="sidebar__profile" id="profileTap" role="button" tabindex="0">
           <div class="avatar" aria-hidden="true">
@@ -102,10 +103,33 @@
       </div>
     </aside>
 
-    <main class="shell on-home" id="shell">
-      <!-- Phase 45.2: menu FAB overlays map; search UI lives in #screen-home -->
-      <header class="topbar location-header" id="topbar" data-ui="idle">
-        <button type="button" class="map-menu-fab" id="menuBtn" aria-label="Open menu" data-i18n-aria="openMenu">
+    <main class="shell on-hub" id="shell">
+      <header class="topbar location-header ep-header" id="topbar" data-ui="idle">
+        <div class="ep-header__bar">
+          <div class="ep-header__start">
+            <button type="button" class="ep-header__back" id="epHeaderBackBtn" aria-label="واپس" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="ep-header__center">
+            <div class="ep-header__brand" id="epHeaderBrand">
+              <span class="ep-header__logo-mark">S</span>
+              <span class="ep-header__logo-text">SwiftGo</span>
+            </div>
+            <h1 class="ep-header__page-title" id="customerViewTitle" hidden></h1>
+          </div>
+          <div class="ep-header__end">
+            <button type="button" class="ep-header__icon" id="epHeaderSettingsBtn" aria-label="سیٹنگز" data-i18n-aria="navSettings">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <button type="button" class="map-menu-fab" id="menuBtn" aria-label="Open menu" data-i18n-aria="openMenu" hidden tabindex="-1">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
@@ -113,7 +137,11 @@
       </header>
 
       <section class="viewport" id="viewport">
-        <div class="screen is-active" data-screen="home" id="screen-home">
+        <div class="screen is-active" data-screen="hub" id="screen-hub">
+          <div id="customerHomeRoot"></div>
+        </div>
+
+        <div class="screen" data-screen="home" id="screen-home" hidden>
           <div id="map" class="map" role="application" aria-label="Map" data-i18n-aria="mapAria"></div>
 
           <!-- State 1: Where to? trigger pill -->
@@ -157,6 +185,21 @@
                   />
                   <button
                     type="button"
+                    class="route-search__map-btn"
+                    data-location-action="map"
+                    data-location-target="pickupInput"
+                    aria-label="Choose pickup on map"
+                    data-i18n-aria="choosePickupMap"
+                    title="نقشے سے مقام چنیں"
+                    data-i18n-title="chooseOnMap"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path d="M12 21s7-4.5 7-10a7 7 0 1 0-14 0c0 5.5 7 10 7 10Z"/>
+                      <circle cx="12" cy="11" r="2.5"/>
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
                     class="route-search__voice-btn"
                     data-location-action="voice"
                     data-location-target="pickupInput"
@@ -181,6 +224,21 @@
                   />
                   <button
                     type="button"
+                    class="route-search__map-btn"
+                    data-location-action="map"
+                    data-location-target="destInput"
+                    aria-label="Choose drop-off on map"
+                    data-i18n-aria="chooseDropoffMap"
+                    title="نقشے سے مقام چنیں"
+                    data-i18n-title="chooseOnMap"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path d="M12 21s7-4.5 7-10a7 7 0 1 0-14 0c0 5.5 7 10 7 10Z"/>
+                      <circle cx="12" cy="11" r="2.5"/>
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
                     class="route-search__voice-btn"
                     data-location-action="voice"
                     data-location-target="destInput"
@@ -192,6 +250,14 @@
                 </div>
               </div>
             </div>
+            <button
+              type="button"
+              class="route-search__pick-map"
+              id="routePickMapBtn"
+              data-i18n="chooseOnMap"
+            >
+              نقشے سے مقام چنیں
+            </button>
             <!-- Kept for sheet.js stop helpers; not shown in Phase 45.3 UI -->
             <div class="route-search__stops" id="extraStops" hidden aria-hidden="true"></div>
             <button type="button" id="addStopBtn" hidden aria-hidden="true" tabindex="-1" aria-label="Add stop"></button>
@@ -484,9 +550,64 @@
             </section>
           </div>
         </div>
+
+        <div class="screen" data-screen="rates" id="screen-rates" hidden>
+          <div class="ep-page-view__inner">
+            <div class="rate-details-page__body" id="rateDetailsPageBody"></div>
+          </div>
+        </div>
+
+        <div class="screen" data-screen="settings" id="screen-settings" hidden>
+          <div class="ep-page-view__inner ep-page-card">
+            <header class="ep-page-head">
+              <h2 id="settingsPageTitle" data-i18n="navSettings">Settings</h2>
+            </header>
+            <section class="ep-settings-lang" aria-label="Language" data-i18n-aria="language">
+              <div class="setting-row setting-row--lang">
+                <span data-i18n="language">Language</span>
+                <div class="lang-switch" role="group" aria-label="Language" data-i18n-aria="language">
+                  <button type="button" class="lang-switch__btn is-active" data-lang="en" aria-pressed="true">EN</button>
+                  <button type="button" class="lang-switch__btn" data-lang="ur" aria-pressed="false">اردو</button>
+                </div>
+              </div>
+            </section>
+            <div class="sidebar__legal ep-settings-legal" aria-label="Legal">
+              <a class="sidebar__legal-link" data-legal="privacy" href="/legal/privacy.html" target="_blank" rel="noopener noreferrer" data-i18n="legalPrivacy">Privacy Policy</a>
+              <a class="sidebar__legal-link" data-legal="terms" href="/legal/terms.html" target="_blank" rel="noopener noreferrer" data-i18n="legalTerms">Terms</a>
+              <a class="sidebar__legal-link" data-legal="dataUse" href="/legal/data-use.html" target="_blank" rel="noopener noreferrer" data-i18n="legalDataUse">Data use</a>
+            </div>
+            <button type="button" class="ep-settings-logout" id="settingsSignOutBtn" hidden data-i18n="signOut">Sign out</button>
+          </div>
+        </div>
       </section>
 
-      <!-- Bottom 10% — expandable sheet (home only) -->
+      <nav class="ep-bottom-nav" id="epBottomNav" aria-label="Bottom navigation">
+        <button type="button" class="ep-bottom-nav__btn is-active" data-route="hub" aria-current="page">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">🏠</span>
+          <span data-i18n="navHome">Home</span>
+        </button>
+        <button type="button" class="ep-bottom-nav__btn" data-route="history">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">📋</span>
+          <span data-i18n="navHistory">History</span>
+        </button>
+        <div class="ep-bottom-nav__btn ep-bottom-nav__btn--center">
+          <button type="button" class="ep-bottom-nav__fab" id="epBottomBookBtn" aria-label="Book a ride" data-i18n-aria="bookRideBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+          </button>
+        </div>
+        <button type="button" class="ep-bottom-nav__btn" data-route="wallet">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">👛</span>
+          <span data-i18n="navWallet">Wallet</span>
+        </button>
+        <button type="button" class="ep-bottom-nav__btn" data-route="contact">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">💬</span>
+          <span data-i18n="navContact">Contact</span>
+        </button>
+      </nav>
+
+      <!-- Bottom 10% — expandable sheet (book/map only) -->
       <footer class="sheet glass" id="sheet" data-state="collapsed" aria-expanded="false">
         <button type="button" class="sheet__handle" id="sheetHandle" aria-label="Expand sheet" data-i18n-aria="expandSheet">
           <span class="sheet__grip" aria-hidden="true"></span>

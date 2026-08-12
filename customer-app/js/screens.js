@@ -49,7 +49,7 @@ export function setWalletBalanceUi(amount) {
 }
 
 export function refreshScreens() {
-  ["screen-wallet", "screen-contact", "screen-missed-call", "historySection", "authModal"].forEach(
+  ["screen-wallet", "screen-contact", "screen-missed-call", "screen-rates", "screen-settings", "screen-hub", "historySection", "authModal"].forEach(
     (id) => {
       const el = document.getElementById(id);
       if (el) applyTranslations(el);
