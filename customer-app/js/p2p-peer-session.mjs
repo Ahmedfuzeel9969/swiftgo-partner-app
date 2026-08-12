@@ -487,6 +487,14 @@ export function createP2pPeerSession(deps) {
     setState(P2P_STATE.SIGNALING);
     diag(P2P_DIAG.SIGNALING_STARTED);
 
+    if (typeof deps.ensureIceConfiguration === "function") {
+      try {
+        await deps.ensureIceConfiguration();
+      } catch {
+        /* STUN-only fallback */
+      }
+    }
+
     const peer = createPc(gen);
     const ch = peer.createDataChannel(P2P_DATA_CHANNEL_LABEL, { ordered: true });
     wireChannel(ch, gen);
@@ -547,6 +555,14 @@ export function createP2pPeerSession(deps) {
     firstValidEmitted = false;
     setState(P2P_STATE.SIGNALING);
     diag(P2P_DIAG.SIGNALING_STARTED);
+
+    if (typeof deps.ensureIceConfiguration === "function") {
+      try {
+        await deps.ensureIceConfiguration();
+      } catch {
+        /* STUN-only fallback */
+      }
+    }
 
     const peer = createPc(gen);
     peer.ondatachannel = (ev) => {

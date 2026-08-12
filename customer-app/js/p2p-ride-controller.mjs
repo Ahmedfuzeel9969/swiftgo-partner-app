@@ -5,6 +5,7 @@
 import { P2P_STATE, P2P_EXECUTION_STATUSES } from "./p2p-protocol.mjs";
 import { createP2pPeerSession } from "./p2p-peer-session.mjs";
 import { createLiveLocationSourceArbiter } from "./live-location-source-arbiter.mjs";
+import { ensureP2pIceConfiguration } from "./p2p-ice-bootstrap.mjs";
 
 async function loadSignalingClient() {
   return import("./p2p-signaling-client.mjs");
@@ -208,6 +209,7 @@ export function createCustomerP2pController(opts = {}) {
         const localSession = createP2pPeerSession({
           role: "customer",
           RTCPeerConnection: opts.RTCPeerConnection,
+          ensureIceConfiguration: opts.ensureIceConfiguration || ensureP2pIceConfiguration,
           onDiag: diag,
           onState: (st) => {
             if (localSession !== session) return;
