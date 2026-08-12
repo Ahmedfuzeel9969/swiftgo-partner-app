@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="css/driver-style.css?v=driver_location_timeout_1" />
   <link rel="stylesheet" href="css/ride-radar.css?v=driver_rate_details_1" />
   <link rel="stylesheet" href="css/driver-home.css?v=driver_home_2" />
+  <link rel="stylesheet" href="css/driver-easypaisa-ui.css?v=ep_ui_14" />
 </head>
 <body>
   <!-- ── Auth & gate overlays (fullscreen) ── -->
@@ -115,7 +116,7 @@
     </div>
   </section>
 
-  <div class="partner-shell driver-app" id="partnerShell" hidden>
+  <div class="partner-shell driver-app ep-shell" id="partnerShell" hidden>
     <button
       type="button"
       class="mobile-nav-rail"
@@ -130,7 +131,7 @@
     </button>
     <div class="mobile-nav-backdrop" id="mobileNavBackdrop" hidden aria-hidden="true"></div>
 
-    <aside class="partner-sidebar" id="partnerSidebar" aria-label="ڈرائیور نیویگیشن" data-i18n-aria="navAria">
+    <aside class="partner-sidebar ep-sidebar-hidden" id="partnerSidebar" aria-label="ڈرائیور نیویگیشن" data-i18n-aria="navAria" aria-hidden="true" hidden>
       <button
         type="button"
         class="partner-sidebar__drawer-tab"
@@ -228,7 +229,40 @@
     </aside>
 
     <div class="partner-main">
-      <header class="partner-topbar" id="partnerHeader">
+      <header class="partner-topbar ep-header" id="partnerHeader">
+        <div class="ep-header__row">
+          <div class="ep-header__start">
+            <button type="button" class="ep-header__back" id="epHeaderBackBtn" aria-label="واپس" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6"></path>
+              </svg>
+            </button>
+            <button type="button" class="ep-header__avatar" id="epHeaderAvatarBtn" aria-label="پروفائل">
+              <span class="ep-header__avatar-img" id="epHeaderAvatar" aria-hidden="true">👤</span>
+            </button>
+            <button type="button" class="ep-header__menu" id="epHeaderMenuBtn" aria-label="مینو کھولیں">
+              <span class="ep-header__menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+            </button>
+          </div>
+          <div class="ep-header__brand" aria-hidden="true">
+            <span class="ep-header__logo-mark">S</span>
+            <span class="ep-header__logo-text">SwiftGo</span>
+          </div>
+          <div class="ep-header__end">
+            <button type="button" class="ep-header__icon" id="epHeaderSearchBtn" aria-label="تلاش" data-i18n-aria="searchAria">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7"></circle>
+                <path d="M20 20l-3.5-3.5"></path>
+              </svg>
+            </button>
+            <button type="button" class="ep-header__icon" id="epHeaderAlertsBtn" aria-label="رائڈ کی آواز">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .53-.21 1.04-.59 1.41L4 17h5"></path>
+                <path d="M10 20a2 2 0 004 0"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
         <div class="partner-topbar__title">
           <p class="partner-topbar__eyebrow">SwiftGo Driver</p>
           <h1 id="partnerViewTitle" data-i18n="topbarHome">ہوم</h1>
@@ -243,8 +277,27 @@
             aria-label="ڈرائیور آن لائن کریں"
             data-i18n-aria="statusToggleAria"
           >
-            <span class="driver-status__dot" aria-hidden="true"></span>
-            <span id="driverStatusText" data-i18n="statusOffline">آف لائن</span>
+            <span class="ep-hero-btn__icon ep-hero-btn__icon--online" data-status-icon="online" hidden aria-hidden="true">
+              <svg class="ep-hero-btn__power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M12 2v10"></path>
+                <path d="M8.5 4.9a7 7 0 101.5 12.2"></path>
+              </svg>
+              <span class="ep-hero-btn__live-dot" aria-hidden="true"></span>
+            </span>
+            <span class="ep-hero-btn__icon ep-hero-btn__icon--offline" data-status-icon="offline" aria-hidden="true">
+              <svg class="ep-hero-btn__power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M12 2v10"></path>
+                <path d="M8.5 4.9a7 7 0 101.5 12.2"></path>
+                <line x1="4" y1="4" x2="20" y2="20"></line>
+              </svg>
+            </span>
+            <span class="ep-hero-btn__icon ep-hero-btn__icon--connecting" data-status-icon="connecting" hidden aria-hidden="true">
+              <svg class="ep-hero-btn__power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+              </svg>
+            </span>
+            <span class="driver-status__dot driver-status__dot--legacy" aria-hidden="true"></span>
+            <span class="ep-hero-btn__text" id="driverStatusText" data-i18n="statusOffline">آف لائن</span>
           </button>
           <button
             type="button"
@@ -348,7 +401,104 @@
             </div>
           </section>
         </div>
+
+        <div class="partner-view ep-page-view" id="ratesSection" data-view-panel="rates" hidden aria-label="کرائے کی تفصیل">
+          <div class="ep-page-view__inner">
+            <div class="rate-details-page__body" id="rateDetailsPageBody"></div>
+          </div>
+        </div>
+
+        <div class="partner-view ep-page-view" id="alertsSection" data-view-panel="alerts" hidden aria-label="رائڈ کی آواز">
+          <div class="ep-page-view__inner ep-page-card">
+            <header class="ep-page-head">
+              <p class="ep-page-head__eyebrow">Alerts</p>
+              <h2 id="notificationSettingsTitle">نوٹیفکیشن سیٹنگز</h2>
+            </header>
+            <label class="notify-settings-field notify-settings-field--switch" for="notificationMuteToggle">
+              <span id="notificationMuteLabel">آواز / Sound</span>
+              <input type="checkbox" id="notificationMuteToggle" role="switch" aria-checked="true" aria-labelledby="notificationMuteLabel" />
+            </label>
+            <label class="notify-settings-field" for="notificationToneSelect">
+              <span id="notificationToneLabel">رنگ ٹون منتخب کریں / Ringtone</span>
+              <select id="notificationToneSelect" aria-labelledby="notificationToneLabel">
+                <option value="tone1">Tone 1 · Default Chime</option>
+                <option value="tone2">Tone 2 · Bell</option>
+                <option value="tone3">Tone 3 · Beep</option>
+              </select>
+            </label>
+            <label class="notify-settings-field" for="notificationVolumeRange">
+              <span id="notificationVolumeCaption">آواز کی شدت / Volume · <strong id="notificationVolumeLabel">80%</strong></span>
+              <input type="range" id="notificationVolumeRange" min="0" max="100" step="1" value="80" aria-labelledby="notificationVolumeCaption" />
+            </label>
+            <div class="notify-settings-actions">
+              <button type="button" class="notify-settings-btn" id="notificationTestBtn">ٹیسٹ کریں</button>
+              <button type="button" class="notify-settings-btn notify-settings-btn--ghost" id="notificationPermissionBtn">براؤزر اجازت</button>
+            </div>
+            <p class="notify-settings-status" id="notificationSettingsStatus" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <div class="partner-view ep-page-view" id="vehicleSection" data-view-panel="vehicle" hidden aria-label="گاڑی تبدیل">
+          <div class="ep-page-view__inner ep-page-card">
+            <header class="ep-page-head">
+              <p class="ep-page-head__eyebrow">Vehicle</p>
+              <h2>گاڑی تبدیل کریں</h2>
+            </header>
+            <p class="ep-page-copy">اپنی منسلک گاڑی تبدیل کرنے کے لیے نیچے بٹن دبائیں۔ PIN تصدیق کے بعد نئی گاڑی منتخب کریں۔</p>
+            <button type="button" class="ep-page-action" id="changeVehiclePageBtn">گاڑی تبدیل کریں</button>
+          </div>
+        </div>
+
+        <div class="partner-view ep-page-view" id="settingsSection" data-view-panel="settings" hidden aria-label="سیٹنگز">
+          <div class="ep-page-view__inner ep-page-card">
+            <header class="ep-page-head">
+              <p class="ep-page-head__eyebrow">Account</p>
+              <h2>سیٹنگز</h2>
+            </header>
+            <div
+              class="partner-lang-pill ep-settings-lang"
+              role="group"
+              aria-label="Language"
+              data-i18n-aria="language"
+            >
+              <button type="button" class="partner-lang-pill__opt is-active" data-lang="ur" aria-pressed="true">اردو</button>
+              <span class="partner-lang-pill__sep" aria-hidden="true">|</span>
+              <button type="button" class="partner-lang-pill__opt" data-lang="en" aria-pressed="false">EN</button>
+            </div>
+            <button type="button" class="partner-sidebar__logout ep-settings-logout" id="partnerSettingsLogoutBtn" data-i18n="logout">لاگ آؤٹ</button>
+          </div>
+        </div>
+
+        <div class="partner-view ep-page-view ep-page-view--map" id="mapSection" data-view-panel="map" hidden aria-label="نقشہ">
+          <div id="driverMap" class="driver-map ep-map-full" role="application" aria-label="ڈرائیور کا نقشہ"></div>
+        </div>
       </section>
+      <nav class="ep-bottom-nav" id="epBottomNav" aria-label="نیچے نیویگیشن">
+        <button type="button" class="ep-bottom-nav__btn is-active" data-view="home" aria-current="page">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">🏠</span>
+          <span>ہوم</span>
+        </button>
+        <button type="button" class="ep-bottom-nav__btn" data-view="dashboard">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">📍</span>
+          <span>ڈیش بورڈ</span>
+        </button>
+        <div class="ep-bottom-nav__btn ep-bottom-nav__btn--center">
+          <button type="button" class="ep-bottom-nav__fab" id="epBottomRideRadarBtn" aria-label="دستیاب سواریاں">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 7h2l2 12h10l2-12h2"></path>
+              <path d="M9 11h6"></path>
+            </svg>
+          </button>
+        </div>
+        <button type="button" class="ep-bottom-nav__btn" data-view="rides">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">📣</span>
+          <span>سواریاں</span>
+        </button>
+        <button type="button" class="ep-bottom-nav__btn" data-view="wallet">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">👤</span>
+          <span>میرا اکاؤنٹ</span>
+        </button>
+      </nav>
     </div>
   </div>
 
@@ -463,37 +613,24 @@
     </section>
   </div>
 
-  <div class="notify-settings-modal" id="notificationSettingsModal" aria-hidden="true" hidden>
-    <button class="notify-settings-modal__backdrop" id="notificationSettingsBackdrop" type="button" aria-label="بند کریں"></button>
-    <section class="notify-settings-modal__panel" role="dialog" aria-modal="true" aria-labelledby="notificationSettingsTitle">
-      <div class="notify-settings-modal__heading">
-        <div>
-          <p>Alerts</p>
-          <h2 id="notificationSettingsTitle">نوٹیفکیشن سیٹنگز</h2>
-        </div>
-        <button type="button" class="notify-settings-modal__close" id="notificationSettingsCloseBtn" aria-label="بند کریں">×</button>
-      </div>
-      <label class="notify-settings-field notify-settings-field--switch" for="notificationMuteToggle">
-        <span id="notificationMuteLabel">آواز / Sound</span>
-        <input type="checkbox" id="notificationMuteToggle" role="switch" aria-checked="true" aria-labelledby="notificationMuteLabel" />
-      </label>
-      <label class="notify-settings-field" for="notificationToneSelect">
-        <span id="notificationToneLabel">رنگ ٹون منتخب کریں / Ringtone</span>
-        <select id="notificationToneSelect" aria-labelledby="notificationToneLabel">
-          <option value="tone1">Tone 1 · Default Chime</option>
-          <option value="tone2">Tone 2 · Bell</option>
-          <option value="tone3">Tone 3 · Beep</option>
-        </select>
-      </label>
-      <label class="notify-settings-field" for="notificationVolumeRange">
-        <span id="notificationVolumeCaption">آواز کی شدت / Volume · <strong id="notificationVolumeLabel">80%</strong></span>
-        <input type="range" id="notificationVolumeRange" min="0" max="100" step="1" value="80" aria-labelledby="notificationVolumeCaption" />
-      </label>
-      <div class="notify-settings-actions">
-        <button type="button" class="notify-settings-btn" id="notificationTestBtn">ٹیسٹ کریں</button>
-        <button type="button" class="notify-settings-btn notify-settings-btn--ghost" id="notificationPermissionBtn">براؤزر اجازت</button>
-      </div>
-      <p class="notify-settings-status" id="notificationSettingsStatus" role="status" aria-live="polite"></p>
+  <button type="button" id="openNotificationSettingsBtn" hidden aria-hidden="true"></button>
+
+  <div class="ep-search-sheet" id="driverSearchSheet" hidden aria-hidden="true">
+    <button type="button" class="ep-search-sheet__backdrop" id="driverSearchBackdrop" aria-label="بند کریں"></button>
+    <section class="ep-search-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="driverSearchTitle">
+      <header class="ep-search-sheet__head">
+        <h2 id="driverSearchTitle">تلاش</h2>
+        <button type="button" class="ep-search-sheet__close" id="driverSearchClose" aria-label="بند کریں">×</button>
+      </header>
+      <input
+        type="search"
+        id="driverSearchInput"
+        class="ep-search-sheet__input"
+        placeholder="سواری، والٹ، ڈیش بورڈ…"
+        autocomplete="off"
+        enterkeyhint="search"
+      />
+      <ul class="ep-search-sheet__results" id="driverSearchResults" role="listbox" aria-label="تلاش کے نتائج"></ul>
     </section>
   </div>
 

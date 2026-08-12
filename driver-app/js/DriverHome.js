@@ -1,19 +1,14 @@
 /**
- * Driver home — map stage + floating summary cards (side-drawer shell).
+ * Driver home — EasyPaisa-style launcher grid (UI only; same data hooks).
  */
 
 import { readCachedHome, subscribeHomeMetrics } from "./home-service.js";
-import { formatBargainCapacity, subscribeOpenBargainCount } from "./bargain-capacity.js";
-
-const money = (n) => `Rs. ${Math.round(Number(n) || 0).toLocaleString("en-PK")}`;
 
 /**
  * @param {HTMLElement | null} root
  * @param {{
  *   getDriverUid: () => string | null,
  *   getWalletThreshold: () => number,
- *   onOpenWallet?: () => void,
- *   onMapMount?: () => void,
  * }} config
  */
 export function initDriverHome(root, config) {
@@ -23,77 +18,98 @@ export function initDriverHome(root, config) {
 
   const getDriverUid = config.getDriverUid || (() => null);
   const getWalletThreshold = config.getWalletThreshold || (() => -500);
-  const onOpenWallet = config.onOpenWallet || (() => {});
-  const onMapMount = config.onMapMount || (() => {});
 
   let unsub = () => {};
-  let bargainSub = null;
   let active = false;
 
   root.innerHTML = `
-    <div class="driver-home-hub__stage">
-      <div id="driverMap" class="driver-map driver-home-hub__map" role="application" aria-label="ڈرائیور کا نقشہ"></div>
-      <div class="driver-home-hub__cards" aria-label="آج کا خلاصہ">
-        <article class="driver-home-hub__card driver-home-hub__card--bargain" aria-live="polite">
-          <h2 class="driver-home-hub__card-title">سودے بازی</h2>
-          <p class="driver-home-hub__metric">
-            <span class="driver-home-hub__label">کھلی پیشکشیں</span>
-            <strong data-home-bargain-count>0 / 10</strong>
-          </p>
-          <p class="driver-home-hub__hint">ایک وقت میں زیادہ سے زیادہ 10 بکنگز کے ساتھ سودے بازی</p>
+    <div class="ep-home driver-home-hub ep-layout">
+      <div class="ep-home__inner">
+        <article class="ep-status-panel" id="driverHomeStatusCard" aria-label="ڈرائیور کنٹرول">
+          <div class="ep-status-panel__actions">
+            <div class="ep-status-panel__status" data-ep-status-mount></div>
+            <button type="button" class="ep-hero-btn ep-hero-btn--rides" data-proxy-click="openRideRadarBtn">
+              <span class="ep-hero-btn__icon ep-hero-btn__icon--rides" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-2-3-2-3 2-3 2-4.5.6-6.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"></path>
+                  <circle cx="7" cy="17" r="2"></circle>
+                  <circle cx="17" cy="17" r="2"></circle>
+                  <path d="M5 17H3v-3"></path>
+                  <path d="M19 17h2v-3"></path>
+                  <path d="M9 9l1-3h4l1 3"></path>
+                </svg>
+              </span>
+              <span class="ep-hero-btn__text" data-i18n="getRideBtn">سواری حاصل کریں</span>
+            </button>
+          </div>
+          <p class="ep-status-panel__wallet-hint" data-home-wallet-hint hidden>والٹ کم ہے — ریچارج کریں</p>
         </article>
-        <article class="driver-home-hub__card">
-          <h2 class="driver-home-hub__card-title">آج کا خلاصہ</h2>
-          <p class="driver-home-hub__metric">
-            <span class="driver-home-hub__label">آج کی کمائی</span>
-            <strong data-home-today-earnings>Rs. 0</strong>
-          </p>
-          <p class="driver-home-hub__submetric">
-            <span class="driver-home-hub__label">آج کی سواریاں</span>
-            <span data-home-today-rides>0</span>
-          </p>
-          <p class="driver-home-hub__sync" data-home-sync hidden aria-live="polite">اپ ڈیٹ ہو رہا ہے…</p>
-        </article>
-        <article class="driver-home-hub__card driver-home-hub__card--wallet" data-home-wallet-card hidden>
-          <h2 class="driver-home-hub__card-title">والٹ کی صورتحال</h2>
-          <p class="driver-home-hub__wallet-balance">
-            <span class="driver-home-hub__label">موجودہ بیلنس</span>
-            <strong data-home-wallet-balance>Rs. 0</strong>
-          </p>
-          <p class="driver-home-hub__wallet-hint">والٹ ریچارج کریں تاکہ آن لائن رہ سکیں۔</p>
-          <button type="button" class="driver-home-hub__wallet-cta" data-home-wallet-cta>والٹ کھولیں</button>
-        </article>
+
+        <div class="ep-quick-row" aria-label="فوری اختیارات">
+          <button type="button" class="ep-quick-card" data-proxy-click="openRideRadarBtn">
+            <span class="ep-quick-card__icon" aria-hidden="true">🛺</span>
+            <span class="ep-quick-card__label">دستیاب سواریاں</span>
+          </button>
+          <button type="button" class="ep-quick-card" data-view="map">
+            <span class="ep-quick-card__icon" aria-hidden="true">📍</span>
+            <span class="ep-quick-card__label">نقشہ</span>
+          </button>
+          <button type="button" class="ep-quick-card" data-view="wallet">
+            <span class="ep-quick-card__icon" aria-hidden="true">👛</span>
+            <span class="ep-quick-card__label">والٹ</span>
+          </button>
+        </div>
+
+        <section class="ep-services-sheet" aria-labelledby="epServicesTitle">
+          <h3 class="ep-section-title" id="epServicesTitle">SwiftGo کے ساتھ مزید</h3>
+          <div class="ep-service-grid" aria-label="تمام آپشنز">
+            <button type="button" class="ep-service-tile" data-view="dashboard">
+              <span class="ep-service-tile__icon" aria-hidden="true">📊</span>
+              <span class="ep-service-tile__label">ڈیش بورڈ</span>
+            </button>
+            <button type="button" class="ep-service-tile" data-view="rates">
+              <span class="ep-service-tile__icon" aria-hidden="true">💰</span>
+              <span class="ep-service-tile__label">کرائے کی تفصیل</span>
+            </button>
+            <button type="button" class="ep-service-tile" data-view="rides">
+              <span class="ep-service-tile__icon" aria-hidden="true">📋</span>
+              <span class="ep-service-tile__label">میری سواریاں</span>
+            </button>
+            <button type="button" class="ep-service-tile" data-view="earnings">
+              <span class="ep-service-tile__icon" aria-hidden="true">💵</span>
+              <span class="ep-service-tile__label">کمائی</span>
+            </button>
+            <button type="button" class="ep-service-tile" data-view="wallet">
+              <span class="ep-service-tile__icon" aria-hidden="true">👛</span>
+              <span class="ep-service-tile__label">والٹ</span>
+            </button>
+            <button type="button" class="ep-service-tile" data-view="alerts">
+              <span class="ep-service-tile__icon" aria-hidden="true">🔔</span>
+              <span class="ep-service-tile__label">رائڈ کی آواز</span>
+            </button>
+            <button type="button" class="ep-service-tile" data-view="vehicle">
+              <span class="ep-service-tile__icon" aria-hidden="true">🔑</span>
+              <span class="ep-service-tile__label">گاڑی تبدیل</span>
+            </button>
+            <button type="button" class="ep-service-tile" data-view="settings">
+              <span class="ep-service-tile__icon" aria-hidden="true">⚙️</span>
+              <span class="ep-service-tile__label">سیٹنگز</span>
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   `;
 
   const els = {
-    todayEarnings: root.querySelector("[data-home-today-earnings]"),
-    todayRides: root.querySelector("[data-home-today-rides]"),
-    bargainCount: root.querySelector("[data-home-bargain-count]"),
-    syncHint: root.querySelector("[data-home-sync]"),
-    walletCard: root.querySelector("[data-home-wallet-card]"),
-    walletBalance: root.querySelector("[data-home-wallet-balance]"),
-    walletCta: root.querySelector("[data-home-wallet-cta]"),
-    map: root.querySelector("#driverMap"),
+    walletHint: root.querySelector("[data-home-wallet-hint]"),
   };
 
-  els.walletCta?.addEventListener("click", () => onOpenWallet());
-
-  function paintBargain({ count, max }) {
-    if (els.bargainCount) els.bargainCount.textContent = formatBargainCapacity(count, max);
-  }
-
   function paint(snap) {
-    if (els.todayEarnings) els.todayEarnings.textContent = money(snap.todayEarnings);
-    if (els.todayRides) els.todayRides.textContent = String(snap.todayRides ?? 0);
-    if (els.syncHint) els.syncHint.hidden = !snap.syncing;
-
     const balance = Number(snap.walletBalance) || 0;
     const threshold = getWalletThreshold();
     const warn = balance <= threshold;
-    if (els.walletBalance) els.walletBalance.textContent = money(balance);
-    if (els.walletCard) els.walletCard.hidden = !warn;
+    if (els.walletHint) els.walletHint.hidden = !warn;
   }
 
   function activate() {
@@ -101,42 +117,19 @@ export function initDriverHome(root, config) {
     active = true;
     unsub();
     unsub = () => {};
-    bargainSub?.stop();
-
-    onMapMount();
 
     const uid = getDriverUid();
     const cached = uid ? readCachedHome(uid) : null;
-    paint(
-      cached || {
-        todayEarnings: 0,
-        todayRides: 0,
-        walletBalance: 0,
-        syncing: false,
-      }
-    );
-    paintBargain({ count: 0, max: 10 });
+    paint(cached || { walletBalance: 0 });
 
     if (!uid) return;
     unsub = subscribeHomeMetrics(uid, paint);
-    bargainSub = subscribeOpenBargainCount({
-      getDriverUid,
-      onChange: paintBargain,
-    });
-    bargainSub.start();
   }
 
   function deactivate() {
     unsub();
     unsub = () => {};
-    bargainSub?.stop();
-    bargainSub = null;
     active = false;
-  }
-
-  function invalidateMap() {
-    if (!active) return;
-    onMapMount();
   }
 
   function destroy() {
@@ -144,5 +137,13 @@ export function initDriverHome(root, config) {
     root.replaceChildren();
   }
 
-  return { activate, deactivate, destroy, invalidateMap, getMapElement: () => els.map };
+  return {
+    activate,
+    deactivate,
+    destroy,
+    invalidateMap: () => {},
+    getMapElement: () => document.getElementById("driverMap"),
+    getStatusMount: () => root.querySelector("[data-ep-status-mount]"),
+    getStatusCard: () => root.querySelector("#driverHomeStatusCard"),
+  };
 }

@@ -12,12 +12,20 @@ import { getSheetState } from "./sheet.js";
 /** @type {RouteUiState} */
 let uiState = "idle";
 
+/** Skip autofocus once when returning from map-pick (avoids keyboard). */
+let skipNextSearchFocus = false;
+
+/** @type {HTMLElement | null} */
+let pillHomeParent = null;
+
 const els = {
   topbar: null,
   trigger: null,
   card: null,
   pill: null,
   pillTrack: null,
+  headerCenter: null,
+  headerBrand: null,
   layersFab: null,
   layersBtn: null,
   layersMenu: null,
@@ -29,6 +37,8 @@ function cacheEls() {
   els.card = document.getElementById("routeSearchCard");
   els.pill = document.getElementById("routePill");
   els.pillTrack = document.getElementById("routePillTrack");
+  els.headerCenter = document.querySelector(".ep-header__center");
+  els.headerBrand = document.getElementById("epHeaderBrand");
   els.layersFab = document.getElementById("mapLayersFab");
   els.layersBtn = document.getElementById("btnLayersFab");
   els.layersMenu = document.getElementById("mapLayers");
@@ -94,6 +104,26 @@ function refreshPill() {
   );
 }
 
+function syncPillPlacement(showPill) {
+  if (!els.pill) return;
+  const onBookScreen = document.getElementById("shell")?.classList.contains("on-home");
+
+  if (showPill && onBookScreen && els.headerCenter) {
+    if (!pillHomeParent) pillHomeParent = els.pill.parentElement;
+    if (els.pill.parentElement !== els.headerCenter) {
+      els.headerCenter.appendChild(els.pill);
+    }
+    els.pill.classList.add("route-pill--header");
+    els.headerBrand?.setAttribute("hidden", "");
+  } else {
+    if (pillHomeParent && els.pill.parentElement !== pillHomeParent) {
+      pillHomeParent.appendChild(els.pill);
+    }
+    els.pill.classList.remove("route-pill--header");
+    if (onBookScreen) els.headerBrand?.removeAttribute("hidden");
+  }
+}
+
 /** @param {RouteUiState} next */
 export function setRouteUiState(next) {
   const state = next === "map-pick" ? "map-pick" : next === "search" ? "search" : next === "collapsed" ? "collapsed" : "idle";
@@ -109,6 +139,8 @@ export function setRouteUiState(next) {
   if (els.card) els.card.hidden = !showCard;
   if (els.pill) els.pill.hidden = !showPill;
 
+  syncPillPlacement(showPill);
+
   document.body.classList.toggle("route-ui-idle", state === "idle");
   document.body.classList.toggle("route-ui-search", state === "search");
   document.body.classList.toggle("route-ui-collapsed", state === "collapsed");
@@ -118,7 +150,7 @@ export function setRouteUiState(next) {
     new CustomEvent("swiftgo:route-ui-state", { detail: { state } })
   );
 
-  if (showCard) {
+  if (showCard && !skipNextSearchFocus) {
     window.requestAnimationFrame(() => {
       const pickup = document.getElementById("pickupInput");
       const dest = document.getElementById("destInput");
@@ -127,6 +159,7 @@ export function setRouteUiState(next) {
       else if (!sheet.destination?.trim()) dest?.focus({ preventScroll: true });
     });
   }
+  skipNextSearchFocus = false;
 }
 
 export function openSearchCard() {
@@ -145,9 +178,29 @@ function onLocationsChanged(detail = {}) {
 
   if (uiState === "map-pick") return;
 
-  if (canCollapse() && (detail.inputId === "destInput" || detail.inputId?.startsWith("stopInput-"))) {
-    tryCollapseRoute();
+  if (!canCollapse()) return;
+
+  const active = document.activeElement;
+  if (
+    active instanceof HTMLInputElement &&
+    (active.id === "pickupInput" ||
+      active.id === "destInput" ||
+      active.classList.contains("stop-input"))
+  ) {
+    return;
   }
+
+  tryCollapseRoute();
+}
+
+function bindInputCollapse() {
+  ["pickupInput", "destInput"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        if (uiState === "search" && canCollapse()) tryCollapseRoute();
+      }, 120);
+    });
+  });
 }
 
 function tryAdvanceOnEnter(event) {
@@ -202,6 +255,8 @@ function bindRouteUi() {
 
   els.pill?.addEventListener("click", () => openSearchCard());
 
+  bindInputCollapse();
+
   document.addEventListener("keydown", tryAdvanceOnEnter);
 
   document.addEventListener("swiftgo:locations-changed", (event) => {
@@ -214,6 +269,7 @@ function bindRouteUi() {
       refreshPill();
       setRouteUiState("collapsed");
     } else {
+      skipNextSearchFocus = true;
       setRouteUiState("search");
     }
   });

@@ -76,6 +76,7 @@ const {
   publishRidePeerAnswer,
   closeRidePeerSession,
 } = require("./ride-peer-session");
+const { issueP2pTurnCredentials } = require("./p2p-turn-credentials");
 const { submitRideBreadcrumbBatch } = require("./breadcrumb-batch");
 const { submitRideLocationReportSection } = require("./ride-location-report");
 
@@ -1156,6 +1157,14 @@ exports.closeRidePeerSession = onCall({ region: "us-central1" }, async (request)
       uid: request.auth.uid,
       rideId: request.data?.rideId,
     })
+  );
+});
+
+/** Phase 3 — ephemeral TURN credentials for NAT traversal (coturn REST API). */
+exports.getP2pTurnCredentials = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("getP2pTurnCredentials", request, () =>
+    issueP2pTurnCredentials({ uid: request.auth.uid })
   );
 });
 

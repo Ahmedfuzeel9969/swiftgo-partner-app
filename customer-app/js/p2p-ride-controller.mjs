@@ -6,6 +6,12 @@ import { P2P_STATE, P2P_EXECUTION_STATUSES } from "./p2p-protocol.mjs";
 import { createP2pPeerSession } from "./p2p-peer-session.mjs";
 import { createLiveLocationSourceArbiter } from "./live-location-source-arbiter.mjs";
 
+/** Lazy — app wrapper pulls Firebase https imports unsuitable for Node tests. */
+async function defaultEnsureIceConfiguration() {
+  const mod = await import("./p2p-ice-bootstrap.mjs");
+  return mod.ensureP2pIceConfiguration();
+}
+
 async function loadSignalingClient() {
   return import("./p2p-signaling-client.mjs");
 }
@@ -62,7 +68,8 @@ export function createCustomerP2pController(opts = {}) {
   let boundSessionId = "";
   let closed = false;
   let answering = false;
-  let visible = true;
+  /** UI/map visibility — must not suspend P2P when the screen is hidden. */
+  let uiVisible = true;
   let watching = false;
   let pendingOfferDoc = null;
   let expectedAssignmentVersion = 0;
@@ -136,7 +143,7 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function isAnswerStillValid(gen, capturedRideId, docData) {
-    if (closed || !visible || gen !== answerGeneration) return false;
+    if (closed || gen !== answerGeneration) return false;
     const rid = String(capturedRideId || "").trim();
     if (!rid || rid !== String(rideId || "").trim()) return false;
     return isOfferCurrent(docData, capturedRideId);
@@ -168,7 +175,7 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function queueAnswer(docData) {
-    if (!visible || closed || !isOfferCurrent(docData)) return;
+    if (closed || !isOfferCurrent(docData)) return;
     const sid = String(docData?.sessionId || "");
     if (boundSessionId === sid && session) return;
 
@@ -188,10 +195,10 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   async function runAnswerLoop() {
-    if (answering || closed || !visible) return;
+    if (answering || closed) return;
     answering = true;
     try {
-      while (queuedAnswerDoc && visible && !closed) {
+      while (queuedAnswerDoc && !closed) {
         const docData = queuedAnswerDoc;
         queuedAnswerDoc = null;
         const capturedRideId = String(rideId || "").trim();
@@ -208,6 +215,7 @@ export function createCustomerP2pController(opts = {}) {
         const localSession = createP2pPeerSession({
           role: "customer",
           RTCPeerConnection: opts.RTCPeerConnection,
+          ensureIceConfiguration: opts.ensureIceConfiguration || defaultEnsureIceConfiguration,
           onDiag: diag,
           onState: (st) => {
             if (localSession !== session) return;
@@ -254,7 +262,7 @@ export function createCustomerP2pController(opts = {}) {
       destroySession();
     } finally {
       answering = false;
-      if (queuedAnswerDoc && visible && !closed) {
+      if (queuedAnswerDoc && !closed) {
         void runAnswerLoop();
       }
     }
@@ -293,7 +301,6 @@ export function createCustomerP2pController(opts = {}) {
               pendingOfferDoc = null;
               return;
             }
-            if (!visible) return;
             queueAnswer(docData);
           },
           () => {
@@ -359,13 +366,9 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function setVisible(next) {
-    visible = Boolean(next);
-    if (!visible) {
-      invalidateAnswer();
-      session?.suspend?.();
-      arbiter.noteP2pUnhealthy();
-      return;
-    }
+    uiVisible = Boolean(next);
+    // Active-ride policy: screen hidden/background must not suspend or stop P2P.
+    if (!uiVisible) return;
     if (!rideId) return;
     if (!watching) {
       attachWatch(rideId);

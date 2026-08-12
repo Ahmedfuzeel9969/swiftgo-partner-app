@@ -56,6 +56,35 @@ export function initRateDetailsModal() {
  *   title?: string,
  * }} context
  */
+async function paintRateDetailsBody(targetEl, context = {}) {
+  if (!targetEl) return;
+
+  const mode = context.mode || (context.vehicleTypeKey || context.vehicleTypeLabel ? "ride" : "all");
+  targetEl.innerHTML = `<p class="rate-details__loading">ریٹ لوڈ ہو رہے ہیں…</p>`;
+
+  try {
+    const pricing = await loadDriverPricing();
+    targetEl.innerHTML = buildRateDetailsHtml(pricing, { ...context, mode });
+  } catch (err) {
+    console.warn("[SwiftGo Partner] rate details", err);
+    targetEl.innerHTML = `<p class="rate-details__error">ریٹ لوڈ نہیں ہو سکے۔ دوبارہ کوشش کریں۔</p>`;
+  }
+}
+
+/**
+ * Full-page rate details (home grid navigation).
+ * @param {Parameters<typeof openRateDetails>[0]} context
+ */
+export async function renderRateDetailsPage(context = {}) {
+  const pageBody = document.getElementById("rateDetailsPageBody");
+  if (!pageBody) return;
+  await paintRateDetailsBody(pageBody, {
+    mode: "all",
+    title: "تمام گاڑیوں کے ریٹ",
+    ...context,
+  });
+}
+
 export async function openRateDetails(context = {}) {
   initRateDetailsModal();
   if (!modalEl || !bodyEl) return;
@@ -69,14 +98,7 @@ export async function openRateDetails(context = {}) {
 
   bodyEl.innerHTML = `<p class="rate-details__loading">ریٹ لوڈ ہو رہے ہیں…</p>`;
   setOpen(true);
-
-  try {
-    const pricing = await loadDriverPricing();
-    bodyEl.innerHTML = buildRateDetailsHtml(pricing, { ...context, mode });
-  } catch (err) {
-    console.warn("[SwiftGo Partner] rate details", err);
-    bodyEl.innerHTML = `<p class="rate-details__error">ریٹ لوڈ نہیں ہو سکے۔ دوبارہ کوشش کریں۔</p>`;
-  }
+  await paintRateDetailsBody(bodyEl, { ...context, mode });
 }
 
 export function closeRateDetails() {

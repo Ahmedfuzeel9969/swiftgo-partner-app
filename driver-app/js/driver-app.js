@@ -33,7 +33,8 @@ import { resolveSurfaceEntry } from "./auth-surface-routing.mjs";
 import { initWalletRecharge } from "./wallet.js";
 import { initEarningsDetail } from "./EarningsDetail.js";
 import { initRideRadarFlow } from "./ride-radar-controller.js";
-import { initRateDetailsModal, openRateDetails } from "./rate-details-modal.js";
+import { initDriverSearch } from "./driver-search.mjs";
+import { initRateDetailsModal, openRateDetails, renderRateDetailsPage } from "./rate-details-modal.js";
 import { resolveVehicleKeyFromLabel } from "./pricing-client.js";
 import { initDriverDashboard } from "./driver-dashboard.js";
 import { initDriverHome } from "./DriverHome.js";
@@ -92,12 +93,15 @@ import {
 } from "./audio-service.js";
 import { shouldUseEmulators } from "./firebase.js";
 import { announce, applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
-import { initI18n, t, subscribe as subscribeLang } from "./i18n.js";
+import { initI18n, t, subscribe as subscribeLang, applyTranslations } from "./i18n.js";
 import { wireLegalLinks, requestAccountDeletionClient } from "./trust.js";
 import { isNativeShell, getNativePlatform, getNetworkStatus } from "./native-shell.js";
+import { installDefaultOsrmPreviewRouteProvider } from "./route-provider-bootstrap.mjs";
 
 window.__swiftgoNative = { isNativeShell, getNativePlatform, getNetworkStatus };
 window.__SWIFTGO_ANDROID_PACKAGE__ = "com.swiftgo.partner";
+// Active-ride two-leg routes: same public OSRM preview booking already uses.
+installDefaultOsrmPreviewRouteProvider(window);
 
 const KARACHI = [24.8607, 67.0011];
 
@@ -108,9 +112,26 @@ const PARTNER_VIEW_TITLES = {
   rides: "میری سواریاں",
   earnings: "کمائی",
   wallet: "والٹ",
+  rates: "کرائے کی تفصیل",
+  alerts: "رائڈ کی آواز",
+  vehicle: "گاڑی تبدیل",
+  settings: "سیٹنگز",
+  map: "نقشہ",
 };
 
-const PARTNER_VIEWS = new Set(["home", "dashboard", "fleet", "rides", "earnings", "wallet"]);
+const PARTNER_VIEWS = new Set([
+  "home",
+  "dashboard",
+  "fleet",
+  "rides",
+  "earnings",
+  "wallet",
+  "rates",
+  "alerts",
+  "vehicle",
+  "settings",
+  "map",
+]);
 
 const els = {
   app: document.getElementById("partnerShell"),
@@ -122,6 +143,7 @@ const els = {
   partnerContent: document.getElementById("partnerContent"),
   viewTitle: document.getElementById("partnerViewTitle"),
   topbarActions: document.getElementById("partnerTopbarActions"),
+  epHeaderBackBtn: document.getElementById("epHeaderBackBtn"),
   navDashboard: document.getElementById("navDashboard"),
   navHome: document.getElementById("navHome"),
   sidebarName: document.getElementById("driverSidebarName"),
@@ -607,6 +629,7 @@ let dashboardUi = null;
 let homeUi = null;
 /** @type {ReturnType<typeof initRideRadarFlow> | null} */
 let rideRadarUi = null;
+let driverSearchUi = null;
 /** @type {ReturnType<typeof createDriverOfferInbox> | null} */
 let driverOfferInbox = null;
 let radarFeedUnsub = () => {};
@@ -679,10 +702,12 @@ function isOnlineReady() {
 function syncOnlineToggleUi(value, connectingPhase = "") {
   const btn = els.statusToggle;
   const connecting = Boolean(connectingPhase);
+  const isHomeCard = Boolean(btn?.classList.contains("driver-status--home-card"));
   if (btn) {
     btn.classList.remove("is-online");
     btn.classList.toggle("is-online", value && !connecting);
     btn.classList.toggle("is-connecting", connecting);
+    btn.classList.toggle("is-offline", !value && !connecting);
     btn.setAttribute("aria-checked", String(value && !connecting));
     btn.setAttribute(
       "aria-label",
@@ -693,7 +718,14 @@ function syncOnlineToggleUi(value, connectingPhase = "") {
           : t("statusToggleAria")
     );
     btn.disabled = connecting;
+
+    if (isHomeCard) {
+      btn.querySelector('[data-status-icon="online"]')?.toggleAttribute("hidden", !(value && !connecting));
+      btn.querySelector('[data-status-icon="offline"]')?.toggleAttribute("hidden", value || connecting);
+      btn.querySelector('[data-status-icon="connecting"]')?.toggleAttribute("hidden", !connecting);
+    }
   }
+
   let label = value ? t("statusOnline") : t("statusOffline");
   if (connectingPhase === ONLINE_READINESS.LOCATING) {
     label = "لوکیشن حاصل ہو رہی ہے…";
@@ -701,6 +733,13 @@ function syncOnlineToggleUi(value, connectingPhase = "") {
     label = "مقام سرور پر محفوظ ہو رہا ہے…";
   }
   if (els.statusText) els.statusText.textContent = label;
+
+  const homeCard = homeUi?.getStatusCard?.();
+  if (homeCard) {
+    homeCard.classList.toggle("is-online", value && !connecting);
+    homeCard.classList.toggle("is-offline", !value && !connecting);
+    homeCard.classList.toggle("is-connecting", connecting);
+  }
 }
 
 function showConnectingOverlay(phase = ONLINE_READINESS.LOCATING) {
@@ -1277,15 +1316,24 @@ function setActiveView(view = "home") {
     btn.setAttribute("aria-current", active ? "page" : "false");
   });
 
+  document.querySelectorAll(".ep-bottom-nav__btn[data-view]").forEach((btn) => {
+    const active = btn.dataset.view === key;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-current", active ? "page" : "false");
+  });
+
   if (els.viewTitle) els.viewTitle.textContent = PARTNER_VIEW_TITLES[key] || key;
+  if (els.epHeaderBackBtn) els.epHeaderBackBtn.hidden = key === "home";
   if (els.partnerContent) {
     els.partnerContent.dataset.activeView = key;
     els.partnerContent.classList.toggle("is-earnings-view", key === "earnings");
   }
 
   if (els.topbarActions) {
-    els.topbarActions.hidden = key === "earnings";
+    els.topbarActions.hidden = key === "home" || key === "earnings";
   }
+
+  syncEpStatusPlacement(key);
 
   if (prev === "earnings" && key !== "earnings") {
     earningsUi?.deactivate();
@@ -1314,15 +1362,23 @@ function setActiveView(view = "home") {
   }
   if (key === "home") {
     homeUi?.activate();
+    syncEpStatusPlacement("home");
+  }
+
+  if (key === "map") {
     ensureDriverMap();
     requestAnimationFrame(() => {
       try {
         map?.invalidateSize?.();
         homeUi?.invalidateMap?.();
       } catch (error) {
-        console.warn("[SwiftGo Driver] home map resize", error);
+        console.warn("[SwiftGo Driver] map view resize", error);
       }
     });
+  }
+
+  if (key === "rates") {
+    void renderRateDetailsPage();
   }
 
   if (key !== "home") {
@@ -1335,7 +1391,7 @@ function configureNavForMode() {
   if (els.navFleet) els.navFleet.hidden = true;
   if (els.navDashboard) els.navDashboard.hidden = false;
   if (els.navWallet) els.navWallet.hidden = false;
-  if (els.topbarActions) els.topbarActions.hidden = partnerView === "earnings";
+  if (els.topbarActions) els.topbarActions.hidden = partnerView === "home" || partnerView === "earnings";
 
   document.querySelectorAll('.partner-nav-item[data-view="rides"]').forEach((btn) => {
     btn.hidden = false;
@@ -1517,12 +1573,83 @@ function initMobileNavDrawer() {
   syncMobileNavRailVisibility();
 }
 
+function syncEpStatusPlacement(view = partnerView) {
+  const toggle = els.statusToggle;
+  if (!toggle || !els.topbarActions) return;
+
+  const homeMount = homeUi?.getStatusMount?.();
+  const onHome = view === "home" && homeMount;
+
+  toggle.classList.toggle("driver-status--home-card", Boolean(onHome));
+  toggle.classList.toggle("driver-status--topbar", !onHome);
+  toggle.classList.toggle("ep-hero-btn", Boolean(onHome));
+  toggle.classList.toggle("ep-hero-btn--status", Boolean(onHome));
+
+  if (onHome) {
+    homeMount.appendChild(toggle);
+    const connectingPhase =
+      onlineReadiness === ONLINE_READINESS.LOCATING
+        ? ONLINE_READINESS.LOCATING
+        : onlineReadiness === ONLINE_READINESS.WRITING_GEO
+          ? ONLINE_READINESS.WRITING_GEO
+          : "";
+    syncOnlineToggleUi(isOnlineReady(), connectingPhase);
+    return;
+  }
+
+  const radar = els.openRideRadarBtn;
+  if (toggle.parentElement !== els.topbarActions) {
+    els.topbarActions.insertBefore(toggle, radar || null);
+  }
+}
+
 function wirePartnerNavigation() {
+  const navHandler = (btn) => {
+    if (!btn?.dataset?.view) return;
+    setActiveView(btn.dataset.view);
+    if (usesDriverSlideNav()) closeMobileNavDrawer();
+  };
+
   document.querySelectorAll(".partner-nav-item[data-view]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      setActiveView(btn.dataset.view);
-      if (usesDriverSlideNav()) closeMobileNavDrawer();
-    });
+    btn.addEventListener("click", () => navHandler(btn));
+  });
+
+  document.querySelectorAll(".ep-bottom-nav__btn[data-view]").forEach((btn) => {
+    btn.addEventListener("click", () => navHandler(btn));
+  });
+
+  els.partnerContent?.addEventListener("click", (event) => {
+    const viewBtn = event.target.closest("[data-view]");
+    if (viewBtn && els.partnerContent.contains(viewBtn)) {
+      event.preventDefault();
+      navHandler(viewBtn);
+      return;
+    }
+    const proxyBtn = event.target.closest("[data-proxy-click]");
+    if (proxyBtn && els.partnerContent.contains(proxyBtn)) {
+      const id = String(proxyBtn.dataset.proxyClick || "").trim();
+      if (!id) return;
+      document.getElementById(id)?.click();
+    }
+  });
+
+  document.getElementById("epBottomRideRadarBtn")?.addEventListener("click", () => {
+    document.getElementById("openRideRadarBtn")?.click();
+  });
+
+  els.epHeaderBackBtn?.addEventListener("click", () => setActiveView("home"));
+
+  document.getElementById("epHeaderMenuBtn")?.addEventListener("click", () => {
+    setActiveView("settings");
+  });
+  document.getElementById("epHeaderAvatarBtn")?.addEventListener("click", () => {
+    setActiveView("settings");
+  });
+  document.getElementById("epHeaderSearchBtn")?.addEventListener("click", () => {
+    driverSearchUi?.open?.();
+  });
+  document.getElementById("epHeaderAlertsBtn")?.addEventListener("click", () => {
+    setActiveView("alerts");
   });
 }
 
@@ -2381,11 +2508,13 @@ function syncSidebarProfile() {
     currentDriver?.displayName ||
     currentDriver?.email?.split("@")[0] ||
     "ڈرائیور";
-  if (els.sidebarName) els.sidebarName.textContent = name;
   const meta = linkedVehicle?.plate
     ? `گاڑی ${linkedVehicle.plate}`
     : "SwiftGo Partner";
+  if (els.sidebarName) els.sidebarName.textContent = name;
   if (els.sidebarMeta) els.sidebarMeta.textContent = meta;
+  const epAvatar = document.getElementById("epHeaderAvatar");
+  if (epAvatar) epAvatar.textContent = name.slice(0, 1).toUpperCase();
 }
 
 function paintLastDriverPositionOnMap(options = {}) {
@@ -2442,7 +2571,7 @@ function ensureDriverMap() {
 }
 
 function invalidateHomeMapIfActive() {
-  if (partnerView !== "home") return;
+  if (partnerView !== "map") return;
   requestAnimationFrame(() => {
     map?.invalidateSize();
     homeUi?.invalidateMap();
@@ -2479,7 +2608,7 @@ function updateDriverLocation(position) {
   paintDriverAvailabilityDiag();
 
   if (!map) {
-    if (partnerView === "home") ensureDriverMap();
+    if (partnerView === "map") ensureDriverMap();
     if (!map) return;
   }
   if (!online) {
@@ -4086,6 +4215,7 @@ function boot() {
           ? onlineReadiness
           : "";
       syncOnlineToggleUi(online, connecting);
+      applyTranslations(document.getElementById("driverHomeRoot"));
     });
     const devNote = document.getElementById("partnerDevModeNote");
     if (devNote) devNote.hidden = !shouldUseEmulators();
@@ -4118,12 +4248,18 @@ function boot() {
   wirePartnerNavigation();
   initMobileNavDrawer();
   els.sidebarLogoutBtn?.addEventListener("click", logoutPartner);
+  document.getElementById("partnerSettingsLogoutBtn")?.addEventListener("click", logoutPartner);
   document.getElementById("changeVehicleBtn")?.addEventListener("click", () => {
     void changeLinkedVehicle();
   });
+  document.getElementById("changeVehiclePageBtn")?.addEventListener("click", () => {
+    void changeLinkedVehicle();
+  });
   document.getElementById("openRateDetailsBtn")?.addEventListener("click", () => {
-    if (usesDriverSlideNav()) closeMobileNavDrawer();
-    void openRateDetails({ mode: "all", title: "تمام گاڑیوں کے ریٹ" });
+    setActiveView("rates");
+  });
+  document.getElementById("openNotificationSettingsBtn")?.addEventListener("click", () => {
+    setActiveView("alerts");
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !els.vehicleModal?.hidden) closeVehicleModal();
@@ -4148,9 +4284,9 @@ function boot() {
   homeUi = initDriverHome(document.getElementById("driverHomeRoot"), {
     getDriverUid: () => currentDriver?.uid ?? null,
     getWalletThreshold: () => cachedWalletThreshold,
-    onOpenWallet: () => setActiveView("wallet"),
-    onMapMount: () => ensureDriverMap(),
   });
+  applyTranslations(document.getElementById("driverHomeRoot"));
+  syncEpStatusPlacement(partnerView);
 
   rideRadarUi = initRideRadarFlow({
     root: document.getElementById("rideRadarRoot"),
@@ -4167,6 +4303,13 @@ function boot() {
     getCounterRideIds: () => driverOfferInbox?.rideIdsWithCustomerCounter?.() ?? [],
     onRideAccepted: handleRadarRideAccepted,
     onToast: driverToast,
+  });
+
+  driverSearchUi = initDriverSearch({
+    onNavigate: (view) => setActiveView(view),
+    onRideRadar: () => {
+      document.getElementById("openRideRadarBtn")?.click();
+    },
   });
 
   driverOfferInbox = createDriverOfferInbox({

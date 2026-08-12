@@ -22,6 +22,7 @@ import {
   expandSheet,
 } from "./sheet.js";
 import { setRoutePoint, clearRoutePoint, getRouteInfo } from "./routing.js";
+import { releaseFocusFrom } from "./a11y.js";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 const OLC_ALPHABET = "23456789CFGHJMPQRVWX";
@@ -34,7 +35,6 @@ let pickPreviewLabel = "";
 let pickCoords = null;
 let unsubMoveEnd = () => {};
 let unsubDragStart = () => {};
-let liveDragPending = false;
 let voiceRecognition = null;
 let searchTimer = null;
 let searchSeq = 0;
@@ -605,40 +605,27 @@ function showPinMode(visible, { confirm = true } = {}) {
   }
 }
 
-function isLiveDragEnabled() {
-  return (
-    document.body.classList.contains("route-ui-search") &&
-    !document.body.classList.contains("map-pick-active")
-  );
+function dismissLocationKeyboard() {
+  releaseFocusFrom(document.getElementById("routeSearchCard"));
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) active.blur();
+  document.documentElement.style.setProperty("--keyboard-inset", "0px");
+}
+
+function setMapPickButtonState(inputId) {
+  document.querySelectorAll(".route-search__map-btn").forEach((btn) => {
+    btn.classList.toggle("is-pressed", Boolean(inputId) && btn.dataset.locationTarget === inputId);
+  });
 }
 
 function syncLiveDragPin() {
-  const live = isLiveDragEnabled();
-  document.body.classList.toggle("map-live-drag", live);
-  if (live) {
-    ensureMap?.();
+  document.body.classList.remove("map-live-drag");
+  if (document.body.classList.contains("map-pick-active")) {
     ensureMapPickListeners();
+    showPinMode(true, { confirm: true });
+    return;
   }
-  if (document.body.classList.contains("map-pick-active")) return;
-  showPinMode(live, { confirm: false });
-}
-
-async function applyCenterToActiveInput(center) {
-  if (!center) return;
-  const inputId = activeInputId || "destInput";
-  const seq = ++reverseSeq;
-  try {
-    const place = await reverseGeocode(center.lat, center.lng);
-    if (seq !== reverseSeq) return;
-    setLocationFieldValue(inputId, place.label, { autoExpand: false });
-    placeLocationCue(inputId, place.lat, place.lng);
-  } catch (err) {
-    console.warn("[SwiftGo] live drag reverse geocode", err);
-    if (seq !== reverseSeq) return;
-    const fallback = `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
-    setLocationFieldValue(inputId, fallback, { autoExpand: false });
-    placeLocationCue(inputId, center.lat, center.lng);
-  }
+  showPinMode(false);
 }
 
 function ensureMapPickListeners() {
@@ -647,19 +634,19 @@ function ensureMapPickListeners() {
   unsubDragStart();
 
   unsubDragStart = onMapDragStart(() => {
-    if (!isLiveDragEnabled()) return;
-    liveDragPending = true;
+    if (!document.body.classList.contains("map-pick-active")) return;
+    dismissLocationKeyboard();
     hideSuggestions();
+    document.body.classList.add("map-dragging");
+    document.getElementById("shell")?.classList.add("map-dragging");
   });
 
   unsubMoveEnd = onMapMoveEnd((center) => {
+    document.body.classList.remove("map-dragging");
+    document.getElementById("shell")?.classList.remove("map-dragging");
     if (document.body.classList.contains("map-pick-active")) {
       updatePickPreview(center);
-      return;
     }
-    if (!liveDragPending || !isLiveDragEnabled()) return;
-    liveDragPending = false;
-    applyCenterToActiveInput(center);
   });
 }
 
@@ -687,7 +674,9 @@ function notifyMapPick(active) {
 
 function exitMapPickMode({ restore = false } = {}) {
   setMapPickMode(false);
-  document.body.classList.remove("map-live-drag");
+  document.body.classList.remove("map-live-drag", "map-dragging");
+  document.getElementById("shell")?.classList.remove("map-dragging");
+  setMapPickButtonState(null);
   showPinMode(false);
 
   if (restore && activeInputId) {
@@ -699,7 +688,12 @@ function exitMapPickMode({ restore = false } = {}) {
   pickCoords = null;
 
   notifyMapPick(false);
-  expandSheet();
+  const bothReady = Boolean(
+    getLocationFieldValue("pickupInput")?.trim() &&
+      getLocationFieldValue("destInput")?.trim()
+  );
+  if (bothReady) expandSheet();
+  else collapseSheet();
   syncLiveDragPin();
   resizeMap();
 }
@@ -709,12 +703,15 @@ function enterMapPickMode({ inputId, role }) {
   ensureMap?.();
   navigateHome?.();
   hideSuggestions();
+  dismissLocationKeyboard();
   collapseSheet();
 
   activeInputId = inputId;
   pickPreviousValue = getLocationFieldValue(inputId);
   pickPreviewLabel = pickPreviousValue;
   highlightActiveRow(inputId);
+  document.getElementById(inputId)?.blur();
+  setMapPickButtonState(inputId);
   setMapPickMode(true);
   ensureMapPickListeners();
 
@@ -854,7 +851,6 @@ export function initLocationModule(handlers = {}) {
   ensureMapPickListeners();
   document.addEventListener("swiftgo:location-action", onLocationAction);
   document.addEventListener("swiftgo:route-ui-state", () => {
-    liveDragPending = false;
     syncLiveDragPin();
   });
   syncLiveDragPin();

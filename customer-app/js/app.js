@@ -18,7 +18,7 @@ import {
   resetSheetForNewRide,
 } from "./sheet.js";
 import { initLocationModule, refreshLocationLabels } from "./location.js";
-import { initStepUi, refreshStepUiLabels } from "./step-ui.js";
+import { initStepUi, refreshStepUiLabels, openSearchCard } from "./step-ui.js";
 
 import {
   initScreens,
@@ -41,7 +41,8 @@ import {
   refreshUtilityDrawerLabels,
   isUtilityDrawerOpen,
 } from "./utility-drawer.js";
-import { initRateDetailsModal, openRateDetails } from "./rate-details-modal.js";
+import { initRateDetailsModal, openRateDetails, renderRateDetailsPage } from "./rate-details-modal.js";
+import { initCustomerHome } from "./CustomerHome.js";
 import { getRouteInfo, initRoutingUi } from "./routing.js";
 import { initFareCalculation } from "./fare.js";
 import { initRideFlow, startRideRequest, resumeActiveRideWatch, clearCustomerRideSession } from "./ride-flow.js";
@@ -61,10 +62,26 @@ import {
   stopCustomerRideHistory,
 } from "./history.js";
 import { isNativeShell, getNativePlatform, getNetworkStatus } from "./native-shell.js";
+import { installDefaultOsrmPreviewRouteProvider } from "./route-provider-bootstrap.mjs";
 
 // Expose thin native helpers for Capacitor shells (no-ops on web).
 window.__swiftgoNative = { isNativeShell, getNativePlatform, getNetworkStatus };
 window.__SWIFTGO_ANDROID_PACKAGE__ = "com.swiftgo.customer";
+// Active-ride two-leg routes: same public OSRM preview booking already uses.
+installDefaultOsrmPreviewRouteProvider(window);
+
+const ROUTES = ["hub", "home", "history", "wallet", "rates", "missed-call", "contact", "settings"];
+
+const ROUTE_TITLE_KEYS = {
+  hub: "navHome",
+  home: "bookRideBtn",
+  history: "navHistory",
+  wallet: "navWallet",
+  rates: "navFareRates",
+  "missed-call": "navMissedCall",
+  contact: "navContact",
+  settings: "navSettings",
+};
 
 const els = {
   app: document.getElementById("app"),
@@ -77,11 +94,20 @@ const els = {
   profileName: document.getElementById("profileName"),
   profileSub: document.getElementById("profileSub"),
   signOutBtn: document.getElementById("signOutBtn"),
+  settingsSignOutBtn: document.getElementById("settingsSignOutBtn"),
+  viewTitle: document.getElementById("customerViewTitle"),
+  headerBrand: document.getElementById("epHeaderBrand"),
+  headerBackBtn: document.getElementById("epHeaderBackBtn"),
+  headerSettingsBtn: document.getElementById("epHeaderSettingsBtn"),
+  bottomBookBtn: document.getElementById("epBottomBookBtn"),
+  viewport: document.getElementById("viewport"),
 };
 
 let drawerOpen = false;
 let mapReady = false;
 let unsubProfile = () => {};
+let customerHomeUi = null;
+let activeRoute = "hub";
 
 function openDrawer() {
   closeUtilityDrawer();
@@ -134,7 +160,45 @@ async function goToMyLocation() {
   await locateUser({ fly: true });
 }
 
+function syncRouteChrome(route) {
+  const onHub = route === "hub";
+  const onBook = route === "home";
+  const showPageTitle = !onHub && !onBook;
+
+  if (els.viewTitle) {
+    const key = ROUTE_TITLE_KEYS[route] || "navHome";
+    els.viewTitle.textContent = t(key);
+    els.viewTitle.hidden = !showPageTitle;
+  }
+
+  if (els.headerBrand) {
+    els.headerBrand.hidden = !onHub;
+  }
+
+  if (els.headerBackBtn) {
+    els.headerBackBtn.hidden = onHub;
+  }
+
+  if (els.headerSettingsBtn) {
+    els.headerSettingsBtn.hidden = onBook;
+  }
+
+  document.querySelectorAll(".ep-bottom-nav__btn[data-route]").forEach((btn) => {
+    const match = btn.dataset.route === route;
+    btn.classList.toggle("is-active", match);
+    if (match) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
+  });
+
+  document.querySelectorAll(".nav-item[data-route]").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.route === route || (onHub && btn.dataset.route === "home"));
+  });
+}
+
 function navigate(route) {
+  if (!ROUTES.includes(route)) route = "hub";
+  activeRoute = route;
+
   document.querySelectorAll(".screen").forEach((screen) => {
     const match = screen.dataset.screen === route;
     screen.classList.toggle("is-active", match);
@@ -142,15 +206,15 @@ function navigate(route) {
     else screen.setAttribute("hidden", "");
   });
 
-  document.querySelectorAll(".nav-item").forEach((item) => {
-    item.classList.toggle("is-active", item.dataset.route === route);
-  });
+  const onBook = route === "home";
+  const onHub = route === "hub";
+  setSheetVisible(onBook);
+  els.shell.classList.toggle("on-home", onBook);
+  els.shell.classList.toggle("on-hub", onHub);
 
-  const onHome = route === "home";
-  setSheetVisible(onHome);
-  els.shell.classList.toggle("on-home", onHome);
+  syncRouteChrome(route);
 
-  if (onHome) {
+  if (onBook) {
     requestAnimationFrame(() => {
       ensureMap();
       resizeMap();
@@ -163,13 +227,25 @@ function navigate(route) {
   if (route === "history") {
     refreshRideHistory();
   }
+
+  if (route === "rates") {
+    void renderRateDetailsPage({ mode: "all" });
+  }
+
+  if (onHub) {
+    customerHomeUi?.refreshLabels?.();
+  }
 }
 
 function bookNow() {
   navigate("home");
   requestAnimationFrame(() => {
     expandSheet();
-    document.getElementById("destInput")?.focus();
+    openSearchCard();
+    const pickup = document.getElementById("pickupInput");
+    const dest = document.getElementById("destInput");
+    if (!pickup?.value.trim()) pickup?.focus({ preventScroll: true });
+    else dest?.focus({ preventScroll: true });
   });
 }
 
@@ -234,6 +310,7 @@ function updateProfileUi(user, profile) {
       els.profileSub.textContent = user.email || t("signedInAs");
     }
     if (els.signOutBtn) els.signOutBtn.hidden = false;
+    if (els.settingsSignOutBtn) els.settingsSignOutBtn.hidden = false;
     setWalletBalanceUi(profile?.walletBalance ?? 0);
   } else {
     if (els.profileName) {
@@ -245,6 +322,7 @@ function updateProfileUi(user, profile) {
       els.profileSub.textContent = t("profileSub");
     }
     if (els.signOutBtn) els.signOutBtn.hidden = true;
+    if (els.settingsSignOutBtn) els.settingsSignOutBtn.hidden = true;
     setWalletBalanceUi(0);
     stopCustomerRideHistory();
   }
@@ -271,8 +349,37 @@ function bindUserData() {
   });
 }
 
+function wireEpNavigation() {
+  els.headerBackBtn?.addEventListener("click", () => navigate("hub"));
+
+  els.headerSettingsBtn?.addEventListener("click", () => navigate("settings"));
+
+  els.bottomBookBtn?.addEventListener("click", () => bookNow());
+
+  document.querySelectorAll(".ep-bottom-nav__btn[data-route]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const route = btn.dataset.route;
+      if (route) navigate(route);
+    });
+  });
+
+  els.viewport?.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-route]");
+    if (!trigger || !els.viewport.contains(trigger)) return;
+    if (trigger.closest(".ep-bottom-nav")) return;
+    const route = trigger.dataset.route;
+    if (route === "home") bookNow();
+    else if (route) navigate(route);
+  });
+
+  els.settingsSignOutBtn?.addEventListener("click", () => {
+    void logout();
+  });
+}
+
 function bindEvents() {
-  els.menuBtn.addEventListener("click", toggleDrawer);
+  wireEpNavigation();
+  els.menuBtn?.addEventListener("click", toggleDrawer);
   els.overlay.addEventListener("click", closeDrawer);
 
   document.addEventListener("keydown", (e) => {
@@ -291,11 +398,12 @@ function bindEvents() {
     btn.addEventListener("click", () => {
       if (btn.dataset.action === "fare-rates") {
         closeDrawer();
-        void openRateDetails({ mode: "all" });
+        navigate("rates");
         return;
       }
       const route = btn.dataset.route;
-      if (route) navigate(route);
+      if (route === "home") navigate("hub");
+      else if (route) navigate(route);
     });
   });
 
@@ -314,6 +422,8 @@ function bindEvents() {
         refreshStepUiLabels();
         refreshUtilityDrawerLabels();
         refreshRideHistory();
+        syncRouteChrome(activeRoute);
+        customerHomeUi?.refreshLabels?.();
         const user = getCurrentUser();
         if (!user) {
           if (els.profileName) els.profileName.textContent = t("profileName");
@@ -351,6 +461,8 @@ function bindEvents() {
     refreshStepUiLabels();
     refreshUtilityDrawerLabels();
     refreshRideHistory();
+    syncRouteChrome(activeRoute);
+    customerHomeUi?.refreshLabels?.();
   });
 }
 
@@ -425,12 +537,17 @@ async function boot() {
     onToast: showToast,
     onReset: resetSheetForNewRide,
     onGoHome: () => {
-      const home = document.querySelector('.screen[data-screen="home"]');
-      if (home && !home.classList.contains("is-active")) navigate("home");
+      navigate("hub");
     },
   });
   initDriverTrack();
   initRideHistory({ onToast: showToast });
+  customerHomeUi = initCustomerHome(document.getElementById("customerHomeRoot"), {
+    onProfileTap: () => {
+      if (!getCurrentUser()) openAuthModal("signin");
+      else navigate("settings");
+    },
+  });
   initLocationModule({
     ensureMap,
     navigateHome: () => navigate("home"),
@@ -444,9 +561,9 @@ async function boot() {
   await initAuth();
   bindUserData();
   bindEvents();
-  els.menuBtn.setAttribute("aria-expanded", "false");
-  els.shell.classList.add("on-home");
-  navigate("home");
+  els.menuBtn?.setAttribute("aria-expanded", "false");
+  els.shell.classList.add("on-hub");
+  navigate("hub");
   closeDrawer();
   installCustomerE2EHooks();
   console.info(

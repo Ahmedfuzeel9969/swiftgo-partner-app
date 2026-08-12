@@ -609,9 +609,32 @@ body.map-pick-active .map-drag-hint {
   background: var(--brand);
 }
 
-body.map-pick-active .sheet {
+body.map-pick-active .sheet,
+.shell.on-home.map-pick-active > .sheet {
+  display: none !important;
   opacity: 0;
   pointer-events: none;
+}
+
+.shell.on-home.map-pick-active > .viewport,
+body.map-pick-active .shell.on-home > .viewport {
+  bottom: 0 !important;
+}
+
+body.map-dragging .sheet,
+.shell.on-home.map-dragging > .sheet {
+  display: none !important;
+  pointer-events: none;
+}
+
+.shell.on-home.map-dragging > .viewport,
+body.map-dragging .shell.on-home > .viewport {
+  bottom: 0 !important;
+}
+
+body.map-pick-active,
+body.map-dragging {
+  --keyboard-inset: 0px;
 }
 
 .loc-suggest {

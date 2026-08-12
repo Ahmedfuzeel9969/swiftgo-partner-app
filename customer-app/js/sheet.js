@@ -168,6 +168,15 @@ export function initSheet(handlers = {}) {
     sheetState.pickup = els.pickup?.value || "";
     sheetState.destination = els.dest?.value || "";
     syncRideReady();
+    document.dispatchEvent(
+      new CustomEvent("swiftgo:locations-changed", {
+        detail: {
+          pickup: sheetState.pickup,
+          destination: sheetState.destination,
+          ready: hasBothLocations(),
+        },
+      })
+    );
   };
 
   els.pickup?.addEventListener("input", onLocInput);
@@ -202,6 +211,31 @@ export function initSheet(handlers = {}) {
     if (typeof onBookRide === "function") {
       onBookRide({ ...getSheetState() });
     }
+  });
+
+  document.getElementById("routePickMapBtn")?.addEventListener("click", () => {
+    const pickupEmpty = !sheetState.pickup?.trim();
+    const destEmpty = !sheetState.destination?.trim();
+    const active = document.activeElement;
+    let inputId = "pickupInput";
+    if (
+      active instanceof HTMLInputElement &&
+      (active.id === "pickupInput" || active.id === "destInput")
+    ) {
+      inputId = active.id;
+    } else if (pickupEmpty) {
+      inputId = "pickupInput";
+    } else if (destEmpty) {
+      inputId = "destInput";
+    } else {
+      inputId = "destInput";
+    }
+    const role = inputId === "destInput" ? "dropoff" : "pickup";
+    document.dispatchEvent(
+      new CustomEvent("swiftgo:location-action", {
+        detail: { action: "map", role, inputId },
+      })
+    );
   });
 
   // Hide every vehicle until a category is chosen; keep CTA label ready.
@@ -426,14 +460,17 @@ function handleLocationQuickAction(event) {
 
   const input = document.getElementById(button.dataset.locationTarget || "");
   const field = button.closest("[data-location-role]");
-  button.classList.add("is-pressed");
-  window.setTimeout(() => button.classList.remove("is-pressed"), 180);
-  input?.focus();
+  const action = button.dataset.locationAction || "";
+  if (action !== "map") {
+    button.classList.add("is-pressed");
+    window.setTimeout(() => button.classList.remove("is-pressed"), 180);
+    input?.focus();
+  }
 
   document.dispatchEvent(
     new CustomEvent("swiftgo:location-action", {
       detail: {
-        action: button.dataset.locationAction,
+        action,
         role: field?.dataset.locationRole || "stop",
         inputId: input?.id || "",
       },

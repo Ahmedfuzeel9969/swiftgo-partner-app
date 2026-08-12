@@ -22,6 +22,8 @@ export const SHARED_JS_MODULES = [
   "ride-location-report-client.mjs",
   "ride-location-report-pending-queue.mjs",
   "auth-surface-routing.mjs",
+  "p2p-ice-bootstrap-core.mjs",
+  "route-provider-bootstrap.mjs",
 ];
 
 export const HOSTING_DIST_JS_TARGETS = [

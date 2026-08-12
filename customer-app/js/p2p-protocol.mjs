@@ -2,7 +2,7 @@
  * Phase 3 — P2P protocol constants and state machine (shared driver/customer).
  *
  * Direct WebRTC is best-effort. Firebase remains signaling + safety fallback.
- * No paid TURN in this phase; missing ICE servers → Firebase fallback.
+ * Default public STUN enabled for NAT traversal. TURN via server-issued credentials only.
  */
 
 export const P2P_PROTOCOL_VERSION = 1;
@@ -65,6 +65,14 @@ export const P2P_MAX_SDP_CHARS = 16_384;
 export const P2P_SESSION_TTL_MS = 15 * 60_000;
 export const P2P_DATA_CHANNEL_LABEL = "swiftgo-loc-v1";
 export const P2P_BUFFERED_AMOUNT_HIGH = 64 * 1024;
+
+/** Public STUN servers for NAT traversal (no secrets). Override via __SWIFTGO_P2P_ICE__. */
+export const DEFAULT_STUN_URLS = Object.freeze([
+  "stun:stun.l.google.com:19302",
+  "stun:stun1.l.google.com:19302",
+  "stun:stun.cloudflare.com:3478",
+]);
+
 /** Bounded wait for RTCDataChannel to reach OPEN before Firebase fallback. */
 export const P2P_CHANNEL_OPEN_TIMEOUT_MS = 30_000;
 /** Driver waits this long after first successful send for customer ACK. */
@@ -129,11 +137,21 @@ export function buildIceServers(opts = {}) {
 
 /**
  * Runtime ICE configuration from optional window/env injection (never hardcode secrets).
+ * Defaults to public STUN when none configured. TURN only if injected via bootstrap.
  */
 export function resolveIceConfiguration(globalObj = typeof globalThis !== "undefined" ? globalThis : {}) {
   const cfg = globalObj?.__SWIFTGO_P2P_ICE__ || {};
+  const configured = Array.isArray(cfg.stunUrls)
+    ? cfg.stunUrls.map((u) => String(u || "").trim()).filter(Boolean)
+    : [];
+  const stunUrls =
+    cfg.disableDefaultStun === true
+      ? configured
+      : configured.length
+        ? configured
+        : [...DEFAULT_STUN_URLS];
   const iceServers = buildIceServers({
-    stunUrls: cfg.stunUrls,
+    stunUrls,
     turn: cfg.turn || null,
   });
   return {

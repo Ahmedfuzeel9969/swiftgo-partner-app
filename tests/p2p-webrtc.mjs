@@ -540,6 +540,21 @@ async function healthAndPeerTests() {
     !ice.hasTurn && buildIceServers({}).length === 0 ? "PASS" : "FAIL"
   );
 
+  const iceTurn = resolveIceConfiguration({
+    __SWIFTGO_P2P_ICE__: {
+      turn: {
+        urls: ["turn:relay.example.com:3478?transport=udp", "turn:relay.example.com:3478?transport=tcp"],
+        username: "1700003600:test",
+        credential: "testcred",
+      },
+    },
+  });
+  record(
+    "60c-turn-injected-with-stun",
+    iceTurn.hasStun && iceTurn.hasTurn && iceTurn.iceServers.length >= 3 ? "PASS" : "FAIL",
+    `stun=${iceTurn.hasStun} turn=${iceTurn.hasTurn} n=${iceTurn.iceServers.length}`
+  );
+
   await cust.close();
   const genClosed = cust.getState().generation;
   cust._handleMessageForTest(JSON.stringify(validLoc({ observedAt: timers.nowMs() })), genClosed - 1);
@@ -1093,8 +1108,10 @@ function lifecycleStaticTests() {
     "static"
   );
   record(
-    "56-customer-hidden-suspends-session",
-    cust.includes("setVisible(false)") || cust.includes("stopPresenceHeartbeat")
+    "56-customer-hidden-keeps-p2p-alive",
+    read("customer-app/js/p2p-ride-controller.mjs").includes("must not suspend or stop P2P") &&
+      cust.includes("keepP2p") &&
+      !cust.includes("customerP2p?.setVisible(false)")
       ? "PASS"
       : "FAIL",
     "",

@@ -48,7 +48,6 @@ import {
 import { createViewerPresenceClient } from "./viewer-presence-client.mjs";
 import { createCustomerP2pController } from "./p2p-ride-controller.mjs";
 import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
-import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
 import { createTwoLegRouteController } from "./two-leg-route-controller.mjs";
 import {
   createTwoLegRouteLayers,
@@ -186,7 +185,7 @@ function viewerDiag(code) {
   }
 }
 
-function clearLiveSubscriptions() {
+function clearLiveSubscriptions({ keepP2p = false } = {}) {
   unsubscribeRide();
   unsubscribeRide = () => {};
   unsubscribeOffers();
@@ -195,7 +194,9 @@ function clearLiveSubscriptions() {
   unsubscribeVehicle = () => {};
   watchedVehicleId = "";
   stopDriverTrack();
-  void customerP2p?.stop({ closeRemote: false });
+  if (!keepP2p) {
+    void customerP2p?.stop({ closeRemote: false });
+  }
   twoLegRoutes?.setVisible(false);
 }
 
@@ -469,7 +470,10 @@ function ensureRideViewLifecycle() {
     unsubscribeLive: () => {
       detachingFromLifecycle = true;
       try {
-        clearLiveSubscriptions();
+        const status = normalizeCustomerRideStatus(activeRide?.status);
+        const keepP2p =
+          Boolean(activeRide?.id) && TRACKABLE_VIEW_STATUSES.has(status);
+        clearLiveSubscriptions({ keepP2p });
       } finally {
         detachingFromLifecycle = false;
       }
@@ -488,7 +492,7 @@ function ensureRideViewLifecycle() {
     },
     stopPresenceHeartbeat: () => {
       presenceClient?.stop();
-      customerP2p?.setVisible(false);
+      // P2P stays alive during active ride while hidden — only map/route UI pauses.
       twoLegRoutes?.setVisible(false);
     },
   });
