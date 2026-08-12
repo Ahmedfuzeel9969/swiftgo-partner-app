@@ -379,7 +379,12 @@ async function healthAndPeerTests() {
     setTimeoutFn: timers.setTimeoutFn,
     clearTimeoutFn: timers.clearTimeoutFn,
   });
-  await cust.startAsCustomer({
+  const drvTimers = createFakeTimers();
+  let drv = null;
+  let bp = null;
+  let bp2 = null;
+  try {
+    await cust.startAsCustomer({
     peerSessionId: "ps_testsession01",
     trackingSessionId: "trk_abc",
     assignmentVersion: 42,
@@ -417,8 +422,7 @@ async function healthAndPeerTests() {
     cust.getState().state
   );
 
-  const drvTimers = createFakeTimers();
-  const drv = createP2pPeerSession({
+  drv = createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
     nowMs: drvTimers.nowMs,
@@ -460,7 +464,7 @@ async function healthAndPeerTests() {
   );
 
   // Backpressure coalesce
-  const bp = createP2pPeerSession({
+  bp = createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
     nowMs: () => 1,
@@ -484,7 +488,7 @@ async function healthAndPeerTests() {
   // Direct: simulate by calling enqueue when channel high — need access. Use getCounters after forcing.
   // Simpler static/architectural assertion + unit on bufferedAmount path via peer session flush
   let coalesced = 0;
-  const bp2 = createP2pPeerSession({
+  bp2 = createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
     onDiag: (c) => {
@@ -543,6 +547,9 @@ async function healthAndPeerTests() {
     "58-old-callbacks-cannot-revive-closed",
     cust.getState().state === P2P_STATE.CLOSED ? "PASS" : "FAIL"
   );
+  } finally {
+    await Promise.all([cust, drv, bp, bp2].filter(Boolean).map((session) => session.close()));
+  }
 }
 
 function checkpointP2pPolicyTests() {

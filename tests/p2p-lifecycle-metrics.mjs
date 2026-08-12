@@ -93,160 +93,207 @@ function validLocSerialized(seq = 1) {
   }).serialized;
 }
 
-async function testSetupStartedChannelNeverOpened() {
-  const session = createP2pPeerSession({
-    role: "driver",
-    RTCPeerConnection: MockRTCPeerConnection,
-    onLocalDescription: async () => {},
-  });
-  await session.startAsDriver(PEER_CTX);
-  const c = session.getCounters();
-  return c.sessionsStarted === 1 && c.channelsOpened === 0 && c.healthySessions === 0;
+async function withSession(deps, fn) {
+  const session = createP2pPeerSession(deps);
+  try {
+    return await fn(session);
+  } finally {
+    await session.close();
+  }
 }
 
-function testChannelOpenedNoDeliveryProof() {
-  const session = createP2pPeerSession({ role: "driver" });
-  session._setChannelOpenForTest(true);
-  const c = session.getCounters();
-  return c.channelsOpened === 1 && c.healthySessions === 0;
+async function testSetupStartedChannelNeverOpened() {
+  return withSession(
+    {
+      role: "driver",
+      RTCPeerConnection: MockRTCPeerConnection,
+      onLocalDescription: async () => {},
+    },
+    async (session) => {
+      await session.startAsDriver(PEER_CTX);
+      const c = session.getCounters();
+      return c.sessionsStarted === 1 && c.channelsOpened === 0 && c.healthySessions === 0;
+    }
+  );
+}
+
+async function testChannelOpenedNoDeliveryProof() {
+  return withSession({ role: "driver" }, async (session) => {
+    session._setChannelOpenForTest(true);
+    const c = session.getCounters();
+    return c.channelsOpened === 1 && c.healthySessions === 0;
+  });
 }
 
 async function testPreOpenFrameCountsAsAttempted() {
-  const session = createP2pPeerSession({
-    role: "driver",
-    RTCPeerConnection: MockRTCPeerConnection,
-    onLocalDescription: async () => {},
-  });
-  await session.startAsDriver(PEER_CTX);
-  session.enqueueLocationFix(sampleFix());
-  const c = session.getCounters();
-  return c.fixesAttempted === 1 && c.fixesSent === 0 && session._getPendingForTest() != null;
+  return withSession(
+    {
+      role: "driver",
+      RTCPeerConnection: MockRTCPeerConnection,
+      onLocalDescription: async () => {},
+    },
+    async (session) => {
+      await session.startAsDriver(PEER_CTX);
+      session.enqueueLocationFix(sampleFix());
+      const c = session.getCounters();
+      return c.fixesAttempted === 1 && c.fixesSent === 0 && session._getPendingForTest() != null;
+    }
+  );
 }
 
 async function testSuccessfulOpenChannelSend() {
-  const session = createP2pPeerSession({
-    role: "driver",
-    RTCPeerConnection: MockRTCPeerConnection,
-    onLocalDescription: async () => {},
-  });
-  await session.startAsDriver(PEER_CTX);
-  session._setChannelOpenForTest(true);
-  session.enqueueLocationFix(sampleFix());
-  const c = session.getCounters();
-  return c.fixesAttempted === 1 && c.fixesSent === 1;
+  return withSession(
+    {
+      role: "driver",
+      RTCPeerConnection: MockRTCPeerConnection,
+      onLocalDescription: async () => {},
+    },
+    async (session) => {
+      await session.startAsDriver(PEER_CTX);
+      session._setChannelOpenForTest(true);
+      session.enqueueLocationFix(sampleFix());
+      const c = session.getCounters();
+      return c.fixesAttempted === 1 && c.fixesSent === 1;
+    }
+  );
 }
 
 async function testSendThrowsDoesNotIncrementSent() {
-  const session = createP2pPeerSession({
-    role: "driver",
-    RTCPeerConnection: MockRTCPeerConnection,
-    onLocalDescription: async () => {},
-  });
-  await session.startAsDriver(PEER_CTX);
-  session._setChannelOpenForTest(true);
-  session._setChannelForTest({
-    readyState: "open",
-    bufferedAmount: 0,
-    send: () => {
-      throw new Error("send_failed");
+  return withSession(
+    {
+      role: "driver",
+      RTCPeerConnection: MockRTCPeerConnection,
+      onLocalDescription: async () => {},
     },
-    close: () => {},
-  });
-  session.enqueueLocationFix(sampleFix());
-  const c = session.getCounters();
-  return c.fixesAttempted === 1 && c.fixesSent === 0 && c.sendFailures === 1;
+    async (session) => {
+      await session.startAsDriver(PEER_CTX);
+      session._setChannelOpenForTest(true);
+      session._setChannelForTest({
+        readyState: "open",
+        bufferedAmount: 0,
+        send: () => {
+          throw new Error("send_failed");
+        },
+        close: () => {},
+      });
+      session.enqueueLocationFix(sampleFix());
+      const c = session.getCounters();
+      return c.fixesAttempted === 1 && c.fixesSent === 0 && c.sendFailures === 1;
+    }
+  );
 }
 
 async function testInvalidFrameNotRendered() {
-  const session = createP2pPeerSession({
-    role: "customer",
-    RTCPeerConnection: MockRTCPeerConnection,
-    onLocalDescription: async () => {},
-  });
-  await session.startAsCustomer({
-    ...PEER_CTX,
-    offerSdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n",
-  });
-  session._setChannelOpenForTest(true);
-  session._handleMessageForTest(JSON.stringify({ type: "loc", v: 99 }), session.getState().generation);
-  const c = session.getCounters();
-  const arbiter = createLiveLocationSourceArbiter({ onRender: () => {} });
-  return c.invalidMessages === 1 && c.fixesReceived === 0 && arbiter.getCounters().p2pRendered === 0;
+  return withSession(
+    {
+      role: "customer",
+      RTCPeerConnection: MockRTCPeerConnection,
+      onLocalDescription: async () => {},
+    },
+    async (session) => {
+      await session.startAsCustomer({
+        ...PEER_CTX,
+        offerSdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n",
+      });
+      session._setChannelOpenForTest(true);
+      session._handleMessageForTest(JSON.stringify({ type: "loc", v: 99 }), session.getState().generation);
+      const c = session.getCounters();
+      const arbiter = createLiveLocationSourceArbiter({ onRender: () => {} });
+      return c.invalidMessages === 1 && c.fixesReceived === 0 && arbiter.getCounters().p2pRendered === 0;
+    }
+  );
 }
 
 async function testValidFrameReceivedAndRendered() {
   const arbiter = createLiveLocationSourceArbiter({ onRender: () => {} });
-  const session = createP2pPeerSession({
-    role: "customer",
-    RTCPeerConnection: MockRTCPeerConnection,
-    onLocalDescription: async () => {},
-    onLocationFix: (fix) => arbiter.ingestP2p(fix, arbiter.getGeneration()),
-  });
-  await session.startAsCustomer({
-    ...PEER_CTX,
-    offerSdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n",
-  });
-  session._setChannelOpenForTest(true);
-  session._handleMessageForTest(validLocSerialized(1), session.getState().generation);
-  const c = session.getCounters();
-  const ac = arbiter.getCounters();
-  return c.fixesReceived === 1 && ac.p2pAccepted === 1;
+  return withSession(
+    {
+      role: "customer",
+      RTCPeerConnection: MockRTCPeerConnection,
+      onLocalDescription: async () => {},
+      onLocationFix: (fix) => arbiter.ingestP2p(fix, arbiter.getGeneration()),
+    },
+    async (session) => {
+      await session.startAsCustomer({
+        ...PEER_CTX,
+        offerSdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n",
+      });
+      session._setChannelOpenForTest(true);
+      session._handleMessageForTest(validLocSerialized(1), session.getState().generation);
+      const c = session.getCounters();
+      const ac = arbiter.getCounters();
+      return c.fixesReceived === 1 && ac.p2pAccepted === 1;
+    }
+  );
 }
 
 async function testAcknowledgementMakesSessionHealthyOnce() {
-  const session = createP2pPeerSession({
-    role: "driver",
-    RTCPeerConnection: MockRTCPeerConnection,
-    onLocalDescription: async () => {},
-  });
-  await session.startAsDriver(PEER_CTX);
-  session._setChannelOpenForTest(true);
-  session.enqueueLocationFix(sampleFix());
-  const ack = buildP2pAckMessage({ ...PEER_CTX, sequence: 1 });
-  session._handleMessageForTest(ack.serialized, session.getState().generation);
-  const c = session.getCounters();
-  return c.acknowledgementsReceived === 1 && c.healthySessions === 1 && c.channelsOpened === 1;
+  return withSession(
+    {
+      role: "driver",
+      RTCPeerConnection: MockRTCPeerConnection,
+      onLocalDescription: async () => {},
+    },
+    async (session) => {
+      await session.startAsDriver(PEER_CTX);
+      session._setChannelOpenForTest(true);
+      session.enqueueLocationFix(sampleFix());
+      const ack = buildP2pAckMessage({ ...PEER_CTX, sequence: 1 });
+      session._handleMessageForTest(ack.serialized, session.getState().generation);
+      const c = session.getCounters();
+      return c.acknowledgementsReceived === 1 && c.healthySessions === 1 && c.channelsOpened === 1;
+    }
+  );
 }
 
 async function testRepeatedAcksDoNotDoubleHealthy() {
-  const session = createP2pPeerSession({
-    role: "driver",
-    RTCPeerConnection: MockRTCPeerConnection,
-    onLocalDescription: async () => {},
-  });
-  await session.startAsDriver(PEER_CTX);
-  session._setChannelOpenForTest(true);
-  session.enqueueLocationFix(sampleFix());
-  const ack = buildP2pAckMessage({ ...PEER_CTX, sequence: 1 });
-  session._handleMessageForTest(ack.serialized, session.getState().generation);
-  session._handleMessageForTest(ack.serialized, session.getState().generation);
-  const c = session.getCounters();
-  return c.acknowledgementsReceived === 1 && c.healthySessions === 1;
+  return withSession(
+    {
+      role: "driver",
+      RTCPeerConnection: MockRTCPeerConnection,
+      onLocalDescription: async () => {},
+    },
+    async (session) => {
+      await session.startAsDriver(PEER_CTX);
+      session._setChannelOpenForTest(true);
+      session.enqueueLocationFix(sampleFix());
+      const ack = buildP2pAckMessage({ ...PEER_CTX, sequence: 1 });
+      session._handleMessageForTest(ack.serialized, session.getState().generation);
+      session._handleMessageForTest(ack.serialized, session.getState().generation);
+      const c = session.getCounters();
+      return c.acknowledgementsReceived === 1 && c.healthySessions === 1;
+    }
+  );
 }
 
-function testFallbackTransitionCountedOnce() {
-  const session = createP2pPeerSession({ role: "driver" });
-  session._setChannelOpenForTest(true);
-  session.suspend();
-  session.suspend();
-  const c = session.getCounters();
-  return c.fallbackTransitions === 1 && session.getState().state === P2P_STATE.FIREBASE_FALLBACK;
+async function testFallbackTransitionCountedOnce() {
+  return withSession({ role: "driver" }, async (session) => {
+    session._setChannelOpenForTest(true);
+    session.suspend();
+    session.suspend();
+    const c = session.getCounters();
+    return c.fallbackTransitions === 1 && session.getState().state === P2P_STATE.FIREBASE_FALLBACK;
+  });
 }
 
 async function testSessionRestartIndependentLifecycle() {
-  const session = createP2pPeerSession({
-    role: "driver",
-    RTCPeerConnection: MockRTCPeerConnection,
-    onLocalDescription: async () => {},
-  });
-  await session.startAsDriver(PEER_CTX);
-  session._setChannelOpenForTest(true);
-  session.enqueueLocationFix(sampleFix());
-  const ack = buildP2pAckMessage({ ...PEER_CTX, sequence: 1 });
-  session._handleMessageForTest(ack.serialized, session.getState().generation);
-  await session.startAsDriver({ ...PEER_CTX, peerSessionId: "ps_lifecycle02" });
-  const c = session.getCounters();
-  return c.sessionsStarted === 2 && c.healthySessions === 1 && c.channelsOpened === 1;
+  return withSession(
+    {
+      role: "driver",
+      RTCPeerConnection: MockRTCPeerConnection,
+      onLocalDescription: async () => {},
+    },
+    async (session) => {
+      await session.startAsDriver(PEER_CTX);
+      session._setChannelOpenForTest(true);
+      session.enqueueLocationFix(sampleFix());
+      const ack = buildP2pAckMessage({ ...PEER_CTX, sequence: 1 });
+      session._handleMessageForTest(ack.serialized, session.getState().generation);
+      await session.startAsDriver({ ...PEER_CTX, peerSessionId: "ps_lifecycle02" });
+      const c = session.getCounters();
+      return c.sessionsStarted === 2 && c.healthySessions === 1 && c.channelsOpened === 1;
+    }
+  );
 }
 
 function testHistoricalReportLegacyLabel() {
@@ -311,7 +358,7 @@ function testCustomerMappingLifecycleCounters() {
 
 async function main() {
   record("1-setup-started-channel-never-opened", (await testSetupStartedChannelNeverOpened()) ? "PASS" : "FAIL");
-  record("2-channel-opened-no-delivery-proof", testChannelOpenedNoDeliveryProof() ? "PASS" : "FAIL");
+  record("2-channel-opened-no-delivery-proof", (await testChannelOpenedNoDeliveryProof()) ? "PASS" : "FAIL");
   record("3-pre-open-frame-counts-as-attempted", (await testPreOpenFrameCountsAsAttempted()) ? "PASS" : "FAIL");
   record("4-successful-open-channel-send", (await testSuccessfulOpenChannelSend()) ? "PASS" : "FAIL");
   record("5-send-throws-not-counted-sent", (await testSendThrowsDoesNotIncrementSent()) ? "PASS" : "FAIL");
@@ -319,7 +366,7 @@ async function main() {
   record("7-valid-frame-received", (await testValidFrameReceivedAndRendered()) ? "PASS" : "FAIL");
   record("8-ack-makes-session-healthy-once", (await testAcknowledgementMakesSessionHealthyOnce()) ? "PASS" : "FAIL");
   record("9-repeated-acks-no-double-healthy", (await testRepeatedAcksDoNotDoubleHealthy()) ? "PASS" : "FAIL");
-  record("10-fallback-counted-once", testFallbackTransitionCountedOnce() ? "PASS" : "FAIL");
+  record("10-fallback-counted-once", (await testFallbackTransitionCountedOnce()) ? "PASS" : "FAIL");
   record("11-session-restart-independent", (await testSessionRestartIndependentLifecycle()) ? "PASS" : "FAIL");
   record("12-historical-report-legacy-label", testHistoricalReportLegacyLabel() ? "PASS" : "FAIL");
   record("13-report-mapping-started-vs-healthy", testReportMappingSeparatesStartedAndHealthy() ? "PASS" : "FAIL");

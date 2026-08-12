@@ -17,6 +17,9 @@ import {
 import { createLiveLocationSourceArbiter } from "../customer-app/js/live-location-source-arbiter.mjs";
 
 const results = [];
+/** @type {Array<{ close: (opts?: object) => Promise<void> }>} */
+const openSessions = [];
+
 function record(name, status, detail = "") {
   results.push({ name, status, detail });
   console.log(`${status === "PASS" ? "✓" : status === "BLOCKED" ? "·" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
@@ -151,22 +154,36 @@ function validLocSerialized(seq = 1, fix = sampleFix()) {
   }).serialized;
 }
 
+function trackSession(session) {
+  openSessions.push(session);
+  return session;
+}
+
+async function cleanupSessions() {
+  const closing = openSessions.splice(0).map((session) => session.close());
+  await Promise.all(closing);
+}
+
 async function driverSession(extra = {}) {
-  return createP2pPeerSession({
-    role: "driver",
-    RTCPeerConnection: MockRTCPeerConnection,
-    onLocalDescription: async () => {},
-    ...extra,
-  });
+  return trackSession(
+    createP2pPeerSession({
+      role: "driver",
+      RTCPeerConnection: MockRTCPeerConnection,
+      onLocalDescription: async () => {},
+      ...extra,
+    })
+  );
 }
 
 async function customerSession(extra = {}) {
-  return createP2pPeerSession({
-    role: "customer",
-    RTCPeerConnection: MockRTCPeerConnection,
-    onLocalDescription: async () => {},
-    ...extra,
-  });
+  return trackSession(
+    createP2pPeerSession({
+      role: "customer",
+      RTCPeerConnection: MockRTCPeerConnection,
+      onLocalDescription: async () => {},
+      ...extra,
+    })
+  );
 }
 
 async function test1PreOpenFrameRetainedNotSent() {
@@ -270,12 +287,12 @@ async function test7SendThrowFailureRecoverable() {
 async function test8BackpressureCoalesceAndFlush() {
   const timers = createFakeTimers();
   let buffered = 128 * 1024;
-  const session = createP2pPeerSession({
+  const session = trackSession(createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
     onLocalDescription: async () => {},
     ...timers,
-  });
+  }));
   await session.startAsDriver(PEER_CTX);
   session._setChannelForTest({
     readyState: "open",
@@ -363,12 +380,12 @@ async function test12ForgedAckIgnored() {
 
 async function test13ChannelOpenTimeoutFallback() {
   const timers = createFakeTimers();
-  const session = createP2pPeerSession({
+  const session = trackSession(createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
     onLocalDescription: async () => {},
     ...timers,
-  });
+  }));
   await session.startAsDriver(PEER_CTX);
   timers.advance(P2P_CHANNEL_OPEN_TIMEOUT_MS + 1);
   return session.getState().state === P2P_STATE.FIREBASE_FALLBACK && session.getCounters().channelsOpened === 0;
@@ -376,12 +393,12 @@ async function test13ChannelOpenTimeoutFallback() {
 
 async function test14AckTimeoutNoHealth() {
   const timers = createFakeTimers();
-  const session = createP2pPeerSession({
+  const session = trackSession(createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
     onLocalDescription: async () => {},
     ...timers,
-  });
+  }));
   await session.startAsDriver(PEER_CTX);
   session._setChannelOpenForTest(true);
   session.enqueueLocationFix(sampleFix());
@@ -402,12 +419,12 @@ async function test15SessionRestartIsolated() {
 
 async function test16CloseCleanup() {
   const timers = createFakeTimers();
-  const session = createP2pPeerSession({
+  const session = trackSession(createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
     onLocalDescription: async () => {},
     ...timers,
-  });
+  }));
   await session.startAsDriver(PEER_CTX);
   session.enqueueLocationFix(sampleFix());
   await session.close();
@@ -424,7 +441,7 @@ async function test17NoDuplicateReconnectLoop() {
 }
 
 async function test18FirebaseOnlyRideUnaffected() {
-  const session = createP2pPeerSession({ role: "driver", RTCPeerConnection: null });
+  const session = trackSession(createP2pPeerSession({ role: "driver", RTCPeerConnection: null }));
   await session.startAsDriver(PEER_CTX);
   session.enqueueLocationFix(sampleFix());
   return session.getState().state === P2P_STATE.FIREBASE_FALLBACK && session.getCounters().fixesSent === 0;
@@ -623,7 +640,8 @@ async function test31RepeatedCadenceFlushNoDuplicateTimerOrSend() {
 }
 
 async function main() {
-  record("1-pre-open-retained-not-sent", (await test1PreOpenFrameRetainedNotSent()) ? "PASS" : "FAIL");
+  try {
+    record("1-pre-open-retained-not-sent", (await test1PreOpenFrameRetainedNotSent()) ? "PASS" : "FAIL");
   record("2-multiple-pre-open-coalesced", (await test2MultiplePreOpenCoalesced()) ? "PASS" : "FAIL");
   record("3-open-flushes-latest-once", (await test3OpenFlushesLatestOnce()) ? "PASS" : "FAIL");
   record("4-assignment-change-discards-pending", (await test4AssignmentChangeDiscardsPending()) ? "PASS" : "FAIL");
@@ -654,11 +672,14 @@ async function main() {
   record("29-channel-close-before-cadence", (await test29ChannelCloseBeforeCadenceTimer()) ? "PASS" : "FAIL");
   record("30-cadence-timer-during-backpressure", (await test30CadenceTimerDuringBackpressure()) ? "PASS" : "FAIL");
   record("31-repeated-cadence-no-duplicate", (await test31RepeatedCadenceFlushNoDuplicateTimerOrSend()) ? "PASS" : "FAIL");
-  record(
-    "manual-two-device-p2p",
-    "BLOCKED",
-    "Requires physical two-browser validation after deployment"
-  );
+    record(
+      "manual-two-device-p2p",
+      "BLOCKED",
+      "Requires physical two-browser validation after deployment"
+    );
+  } finally {
+    await cleanupSessions();
+  }
 
   const pass = results.filter((r) => r.status === "PASS").length;
   const fail = results.filter((r) => r.status === "FAIL").length;
