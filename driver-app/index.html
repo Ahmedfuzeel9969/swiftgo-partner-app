@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="css/driver-style.css?v=driver_location_timeout_1" />
   <link rel="stylesheet" href="css/ride-radar.css?v=driver_rate_details_1" />
   <link rel="stylesheet" href="css/driver-home.css?v=driver_home_2" />
+  <link rel="stylesheet" href="css/driver-easypaisa-ui.css?v=ep_ui_1" />
 </head>
 <body>
   <!-- ── Auth & gate overlays (fullscreen) ── -->
@@ -115,7 +116,7 @@
     </div>
   </section>
 
-  <div class="partner-shell driver-app" id="partnerShell" hidden>
+  <div class="partner-shell driver-app ep-shell" id="partnerShell" hidden>
     <button
       type="button"
       class="mobile-nav-rail"
@@ -228,7 +229,35 @@
     </aside>
 
     <div class="partner-main">
-      <header class="partner-topbar" id="partnerHeader">
+      <header class="partner-topbar ep-header" id="partnerHeader">
+        <div class="ep-header__row">
+          <div class="ep-header__start">
+            <button type="button" class="ep-header__avatar" id="epHeaderAvatarBtn" aria-label="پروفائل">
+              <span class="ep-header__avatar-img" id="epHeaderAvatar" aria-hidden="true">👤</span>
+            </button>
+            <button type="button" class="ep-header__menu" id="epHeaderMenuBtn" aria-label="مینو کھولیں">
+              <span class="ep-header__menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+            </button>
+          </div>
+          <div class="ep-header__brand" aria-hidden="true">
+            <span class="ep-header__logo-mark">S</span>
+            <span class="ep-header__logo-text">SwiftGo</span>
+          </div>
+          <div class="ep-header__end">
+            <button type="button" class="ep-header__icon" id="epHeaderSearchBtn" aria-label="کرaye کی تفصیل">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7"></circle>
+                <path d="M20 20l-3.5-3.5"></path>
+              </svg>
+            </button>
+            <button type="button" class="ep-header__icon" id="epHeaderAlertsBtn" aria-label="رائڈ کی آواز">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .53-.21 1.04-.59 1.41L4 17h5"></path>
+                <path d="M10 20a2 2 0 004 0"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
         <div class="partner-topbar__title">
           <p class="partner-topbar__eyebrow">SwiftGo Driver</p>
           <h1 id="partnerViewTitle" data-i18n="topbarHome">ہوم</h1>
@@ -349,6 +378,32 @@
           </section>
         </div>
       </section>
+      <nav class="ep-bottom-nav" id="epBottomNav" aria-label="نیچے نیویگیشن">
+        <button type="button" class="ep-bottom-nav__btn is-active" data-view="home" aria-current="page">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">🏠</span>
+          <span>ہوم</span>
+        </button>
+        <button type="button" class="ep-bottom-nav__btn" data-view="dashboard">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">📍</span>
+          <span>ڈیش بورڈ</span>
+        </button>
+        <div class="ep-bottom-nav__btn ep-bottom-nav__btn--center">
+          <button type="button" class="ep-bottom-nav__fab" id="epBottomRideRadarBtn" aria-label="دستیاب سواریاں">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 7h2l2 12h10l2-12h2"></path>
+              <path d="M9 11h6"></path>
+            </svg>
+          </button>
+        </div>
+        <button type="button" class="ep-bottom-nav__btn" data-view="rides">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">📣</span>
+          <span>سواریاں</span>
+        </button>
+        <button type="button" class="ep-bottom-nav__btn" data-view="wallet">
+          <span class="ep-bottom-nav__icon" aria-hidden="true">👤</span>
+          <span>میرا اکاؤنٹ</span>
+        </button>
+      </nav>
     </div>
   </div>
 

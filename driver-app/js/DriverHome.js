@@ -1,5 +1,5 @@
 /**
- * Driver home — map stage + floating summary cards (side-drawer shell).
+ * Driver home — EasyPaisa-style dashboard + map (UI only; same data hooks).
  */
 
 import { readCachedHome, subscribeHomeMetrics } from "./home-service.js";
@@ -31,38 +31,98 @@ export function initDriverHome(root, config) {
   let active = false;
 
   root.innerHTML = `
-    <div class="driver-home-hub__stage">
-      <div id="driverMap" class="driver-map driver-home-hub__map" role="application" aria-label="ڈرائیور کا نقشہ"></div>
-      <div class="driver-home-hub__cards" aria-label="آج کا خلاصہ">
-        <article class="driver-home-hub__card driver-home-hub__card--bargain" aria-live="polite">
-          <h2 class="driver-home-hub__card-title">سودے بازی</h2>
-          <p class="driver-home-hub__metric">
-            <span class="driver-home-hub__label">کھلی پیشکشیں</span>
-            <strong data-home-bargain-count>0 / 10</strong>
-          </p>
-          <p class="driver-home-hub__hint">ایک وقت میں زیادہ سے زیادہ 10 بکنگز کے ساتھ سودے بازی</p>
+    <div class="ep-home driver-home-hub ep-layout">
+      <div class="ep-home__inner">
+        <article class="ep-account-card" aria-label="ڈرائیور اکاؤنٹ">
+          <div>
+            <p class="ep-account-card__eyebrow">
+              <span aria-hidden="true">👛</span>
+              <span>سوئفٹ گو ڈرائیور اکاؤنٹ</span>
+            </p>
+            <h2 class="ep-account-card__name" data-home-driver-name>ڈرائیور</h2>
+            <p class="ep-account-card__meta" data-home-driver-meta>SwiftGo Partner</p>
+            <p class="ep-account-card__hint">آن لائن ہوں اور سواریاں حاصل کریں</p>
+          </div>
+          <button type="button" class="ep-account-card__cta" data-home-open-menu>مینو</button>
         </article>
-        <article class="driver-home-hub__card">
-          <h2 class="driver-home-hub__card-title">آج کا خلاصہ</h2>
-          <p class="driver-home-hub__metric">
-            <span class="driver-home-hub__label">آج کی کمائی</span>
-            <strong data-home-today-earnings>Rs. 0</strong>
-          </p>
-          <p class="driver-home-hub__submetric">
-            <span class="driver-home-hub__label">آج کی سواریاں</span>
-            <span data-home-today-rides>0</span>
-          </p>
-          <p class="driver-home-hub__sync" data-home-sync hidden aria-live="polite">اپ ڈیٹ ہو رہا ہے…</p>
-        </article>
-        <article class="driver-home-hub__card driver-home-hub__card--wallet" data-home-wallet-card hidden>
-          <h2 class="driver-home-hub__card-title">والٹ کی صورتحال</h2>
-          <p class="driver-home-hub__wallet-balance">
-            <span class="driver-home-hub__label">موجودہ بیلنس</span>
-            <strong data-home-wallet-balance>Rs. 0</strong>
-          </p>
-          <p class="driver-home-hub__wallet-hint">والٹ ریچارج کریں تاکہ آن لائن رہ سکیں۔</p>
-          <button type="button" class="driver-home-hub__wallet-cta" data-home-wallet-cta>والٹ کھولیں</button>
-        </article>
+
+        <div class="ep-quick-row" aria-label="فوری اختیارات">
+          <button type="button" class="ep-quick-card" data-proxy-click="openRideRadarBtn">
+            <span class="ep-quick-card__icon" aria-hidden="true">🛺</span>
+            <span class="ep-quick-card__label">دستیاب سواریاں</span>
+          </button>
+          <button type="button" class="ep-quick-card" data-view="rides">
+            <span class="ep-quick-card__icon" aria-hidden="true">📋</span>
+            <span class="ep-quick-card__label">میری سواریاں</span>
+          </button>
+          <button type="button" class="ep-quick-card" data-view="earnings">
+            <span class="ep-quick-card__icon" aria-hidden="true">💰</span>
+            <span class="ep-quick-card__label">آج کی کمائی</span>
+          </button>
+        </div>
+
+        <h3 class="ep-section-title">SwiftGo کے ساتھ مزید</h3>
+        <div class="ep-service-grid" aria-label="مزید سروسز">
+          <button type="button" class="ep-service-tile" data-view="dashboard">
+            <span class="ep-service-tile__icon" aria-hidden="true">📊</span>
+            <span class="ep-service-tile__label">ڈیش بورڈ</span>
+          </button>
+          <button type="button" class="ep-service-tile" data-view="wallet">
+            <span class="ep-service-tile__icon" aria-hidden="true">👛</span>
+            <span class="ep-service-tile__label">والٹ</span>
+          </button>
+          <button type="button" class="ep-service-tile" data-proxy-click="openRateDetailsBtn">
+            <span class="ep-service-tile__icon" aria-hidden="true">📈</span>
+            <span class="ep-service-tile__label">کرائے کی تفصیل</span>
+          </button>
+          <button type="button" class="ep-service-tile" data-proxy-click="openNotificationSettingsBtn">
+            <span class="ep-service-tile__icon" aria-hidden="true">🔔</span>
+            <span class="ep-service-tile__label">رائڈ کی آواز</span>
+          </button>
+          <button type="button" class="ep-service-tile" data-proxy-click="changeVehicleBtn">
+            <span class="ep-service-tile__icon" aria-hidden="true">🔑</span>
+            <span class="ep-service-tile__label">گاڑی تبدیل</span>
+          </button>
+          <button type="button" class="ep-service-tile" data-view="rides">
+            <span class="ep-service-tile__icon" aria-hidden="true">🗺️</span>
+            <span class="ep-service-tile__label">سفر کی تاریخ</span>
+          </button>
+          <button type="button" class="ep-service-tile" data-proxy-click="mobileNavRail">
+            <span class="ep-service-tile__icon" aria-hidden="true">☰</span>
+            <span class="ep-service-tile__label">سب دیکھیں</span>
+          </button>
+          <button type="button" class="ep-service-tile" data-view="home">
+            <span class="ep-service-tile__icon" aria-hidden="true">📍</span>
+            <span class="ep-service-tile__label">نقشہ</span>
+          </button>
+        </div>
+
+        <div class="ep-summary-grid" aria-label="آج کا خلاصہ">
+          <article class="ep-summary-card">
+            <h4 class="ep-summary-card__title">آج کی کمائی</h4>
+            <p class="ep-summary-card__value" data-home-today-earnings>Rs. 0</p>
+          </article>
+          <article class="ep-summary-card">
+            <h4 class="ep-summary-card__title">آج کی سواریاں</h4>
+            <p class="ep-summary-card__value" data-home-today-rides>0</p>
+          </article>
+          <article class="ep-summary-card ep-summary-card--wide driver-home-hub__card--bargain" aria-live="polite">
+            <h4 class="ep-summary-card__title">سودے بازی · کھلی پیشکشیں</h4>
+            <p class="ep-summary-card__value" data-home-bargain-count>0 / 10</p>
+            <p class="ep-summary-card__sub">ایک وقت میں زیادہ سے زیادہ 10 بکنگز</p>
+          </article>
+          <article class="ep-summary-card ep-summary-card--wide" data-home-wallet-card hidden>
+            <h4 class="ep-summary-card__title">والٹ کی صورتحال</h4>
+            <p class="ep-summary-card__value" data-home-wallet-balance>Rs. 0</p>
+            <p class="ep-summary-card__sub">والٹ ریچارج کریں تاکہ آن لائن رہ سکیں۔</p>
+            <button type="button" class="ep-account-card__cta" data-home-wallet-cta>والٹ کھولیں</button>
+          </article>
+          <p class="ep-summary-card__sub" data-home-sync hidden aria-live="polite">اپ ڈیٹ ہو رہا ہے…</p>
+        </div>
+
+        <div class="ep-map-panel driver-home-hub__stage">
+          <div id="driverMap" class="driver-map driver-home-hub__map" role="application" aria-label="ڈرائیور کا نقشہ"></div>
+        </div>
       </div>
     </div>
   `;
@@ -75,10 +135,16 @@ export function initDriverHome(root, config) {
     walletCard: root.querySelector("[data-home-wallet-card]"),
     walletBalance: root.querySelector("[data-home-wallet-balance]"),
     walletCta: root.querySelector("[data-home-wallet-cta]"),
+    driverName: root.querySelector("[data-home-driver-name]"),
+    driverMeta: root.querySelector("[data-home-driver-meta]"),
+    openMenu: root.querySelector("[data-home-open-menu]"),
     map: root.querySelector("#driverMap"),
   };
 
   els.walletCta?.addEventListener("click", () => onOpenWallet());
+  els.openMenu?.addEventListener("click", () => {
+    document.getElementById("mobileNavRail")?.click();
+  });
 
   function paintBargain({ count, max }) {
     if (els.bargainCount) els.bargainCount.textContent = formatBargainCapacity(count, max);
@@ -94,6 +160,11 @@ export function initDriverHome(root, config) {
     const warn = balance <= threshold;
     if (els.walletBalance) els.walletBalance.textContent = money(balance);
     if (els.walletCard) els.walletCard.hidden = !warn;
+  }
+
+  function setProfileDisplay({ name, meta }) {
+    if (name && els.driverName) els.driverName.textContent = name;
+    if (meta && els.driverMeta) els.driverMeta.textContent = meta;
   }
 
   function activate() {
@@ -144,5 +215,12 @@ export function initDriverHome(root, config) {
     root.replaceChildren();
   }
 
-  return { activate, deactivate, destroy, invalidateMap, getMapElement: () => els.map };
+  return {
+    activate,
+    deactivate,
+    destroy,
+    invalidateMap,
+    getMapElement: () => els.map,
+    setProfileDisplay,
+  };
 }

@@ -1280,6 +1280,12 @@ function setActiveView(view = "home") {
     btn.setAttribute("aria-current", active ? "page" : "false");
   });
 
+  document.querySelectorAll(".ep-bottom-nav__btn[data-view]").forEach((btn) => {
+    const active = btn.dataset.view === key;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-current", active ? "page" : "false");
+  });
+
   if (els.viewTitle) els.viewTitle.textContent = PARTNER_VIEW_TITLES[key] || key;
   if (els.partnerContent) {
     els.partnerContent.dataset.activeView = key;
@@ -1521,11 +1527,47 @@ function initMobileNavDrawer() {
 }
 
 function wirePartnerNavigation() {
+  const navHandler = (btn) => {
+    if (!btn?.dataset?.view) return;
+    setActiveView(btn.dataset.view);
+    if (usesDriverSlideNav()) closeMobileNavDrawer();
+  };
+
   document.querySelectorAll(".partner-nav-item[data-view]").forEach((btn) => {
+    btn.addEventListener("click", () => navHandler(btn));
+  });
+
+  document.querySelectorAll(".ep-bottom-nav__btn[data-view]").forEach((btn) => {
+    btn.addEventListener("click", () => navHandler(btn));
+  });
+
+  document.querySelectorAll("[data-view].ep-service-tile, [data-view].ep-quick-card").forEach((btn) => {
+    btn.addEventListener("click", () => navHandler(btn));
+  });
+
+  document.querySelectorAll("[data-proxy-click]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      setActiveView(btn.dataset.view);
-      if (usesDriverSlideNav()) closeMobileNavDrawer();
+      const id = String(btn.dataset.proxyClick || "").trim();
+      if (!id) return;
+      document.getElementById(id)?.click();
     });
+  });
+
+  document.getElementById("epBottomRideRadarBtn")?.addEventListener("click", () => {
+    document.getElementById("openRideRadarBtn")?.click();
+  });
+
+  document.getElementById("epHeaderMenuBtn")?.addEventListener("click", () => {
+    document.getElementById("mobileNavRail")?.click();
+  });
+  document.getElementById("epHeaderAvatarBtn")?.addEventListener("click", () => {
+    document.getElementById("mobileNavRail")?.click();
+  });
+  document.getElementById("epHeaderSearchBtn")?.addEventListener("click", () => {
+    document.getElementById("openRateDetailsBtn")?.click();
+  });
+  document.getElementById("epHeaderAlertsBtn")?.addEventListener("click", () => {
+    document.getElementById("openNotificationSettingsBtn")?.click();
   });
 }
 
@@ -2384,11 +2426,14 @@ function syncSidebarProfile() {
     currentDriver?.displayName ||
     currentDriver?.email?.split("@")[0] ||
     "ڈرائیور";
-  if (els.sidebarName) els.sidebarName.textContent = name;
   const meta = linkedVehicle?.plate
     ? `گاڑی ${linkedVehicle.plate}`
     : "SwiftGo Partner";
+  if (els.sidebarName) els.sidebarName.textContent = name;
   if (els.sidebarMeta) els.sidebarMeta.textContent = meta;
+  const epAvatar = document.getElementById("epHeaderAvatar");
+  if (epAvatar) epAvatar.textContent = name.slice(0, 1).toUpperCase();
+  homeUi?.setProfileDisplay?.({ name, meta });
 }
 
 function paintLastDriverPositionOnMap(options = {}) {

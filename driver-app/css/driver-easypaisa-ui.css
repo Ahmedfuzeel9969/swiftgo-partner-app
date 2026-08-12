@@ -1,0 +1,491 @@
+/**
+ * EasyPaisa-inspired driver shell — visual layer only.
+ * Functional IDs and existing nav handlers remain unchanged.
+ */
+
+:root {
+  --ep-green: #00a651;
+  --ep-green-dark: #005f41;
+  --ep-green-deep: #064e3b;
+  --ep-bg: #f3f5f4;
+  --ep-card: #ffffff;
+  --ep-ink: #1a1a1a;
+  --ep-muted: #64748b;
+  --ep-bottom-h: calc(4.35rem + env(safe-area-inset-bottom, 0px));
+}
+
+.partner-shell.driver-app.ep-shell {
+  background: var(--ep-bg);
+}
+
+.partner-shell.driver-app.ep-shell .partner-main {
+  background: linear-gradient(180deg, #e8f7ef 0%, var(--ep-bg) 28%, var(--ep-bg) 100%);
+}
+
+/* ── Header (EasyPaisa top bar) ── */
+
+.partner-shell.driver-app.ep-shell .partner-topbar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
+  padding: max(0.55rem, env(safe-area-inset-top)) 0.85rem 0.55rem;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__start {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__avatar,
+.partner-shell.driver-app.ep-shell .ep-header__menu,
+.partner-shell.driver-app.ep-shell .ep-header__icon {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ep-ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__menu {
+  border-radius: 12px;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__avatar-img {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  object-fit: cover;
+  background: #dbeafe;
+  font-size: 1.1rem;
+  line-height: 2rem;
+  text-align: center;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__menu-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__menu-bars span {
+  display: block;
+  width: 1rem;
+  height: 2px;
+  border-radius: 2px;
+  background: #334155;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__logo-mark {
+  display: grid;
+  place-items: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  background: var(--ep-green);
+  color: #fff;
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__logo-text {
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ep-ink);
+  letter-spacing: -0.02em;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__end {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.partner-shell.driver-app.ep-shell .ep-header__icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.partner-shell.driver-app.ep-shell .partner-topbar__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.partner-shell.driver-app.ep-shell .partner-topbar__actions {
+  max-width: none;
+  width: 100%;
+  gap: 0.5rem;
+}
+
+.partner-shell.driver-app.ep-shell .driver-status--topbar {
+  flex: 1;
+  min-height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 166, 81, 0.18);
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(0, 95, 65, 0.08);
+}
+
+.partner-shell.driver-app.ep-shell .ride-radar-fab--topbar {
+  min-height: 46px;
+  border-radius: 14px;
+  padding-inline: 0.85rem;
+  box-shadow: 0 4px 14px rgba(0, 95, 65, 0.12);
+}
+
+/* ── Bottom tab bar ── */
+
+.ep-bottom-nav {
+  position: fixed;
+  z-index: 480;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: end;
+  min-height: var(--ep-bottom-h);
+  padding: 0.35rem 0.35rem max(0.35rem, env(safe-area-inset-bottom));
+  background: #fff;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.ep-bottom-nav__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.2rem;
+  min-height: 3rem;
+  padding: 0.15rem 0.2rem 0.25rem;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  font-family: var(--urdu);
+  font-size: 0.62rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ep-bottom-nav__btn.is-active {
+  color: var(--ep-green);
+}
+
+.ep-bottom-nav__btn.is-active::before {
+  content: "";
+  display: block;
+  width: 1.35rem;
+  height: 3px;
+  margin-bottom: 0.15rem;
+  border-radius: 999px;
+  background: var(--ep-green);
+}
+
+.ep-bottom-nav__icon {
+  display: grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.ep-bottom-nav__btn--center {
+  position: relative;
+  top: -0.85rem;
+}
+
+.ep-bottom-nav__fab {
+  display: grid;
+  place-items: center;
+  width: 3.35rem;
+  height: 3.35rem;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #12c06a, var(--ep-green));
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(0, 166, 81, 0.38);
+  cursor: pointer;
+}
+
+.ep-bottom-nav__fab svg {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+.partner-shell.driver-app.ep-shell .partner-content {
+  padding: 0 0 var(--ep-bottom-h);
+  background: transparent;
+}
+
+.partner-shell.driver-app.ep-shell .mobile-nav-rail {
+  display: none !important;
+}
+
+/* ── Home (EasyPaisa dashboard) ── */
+
+.ep-home {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ep-home__inner {
+  padding: 0.25rem 0.85rem 1rem;
+}
+
+.ep-account-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 1rem 1rem 1.05rem;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--ep-green-dark) 0%, var(--ep-green-deep) 100%);
+  color: #fff;
+  box-shadow: 0 12px 32px rgba(0, 95, 65, 0.28);
+}
+
+.ep-account-card__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.35rem;
+  font-family: var(--urdu);
+  font-size: 0.72rem;
+  opacity: 0.92;
+}
+
+.ep-account-card__name {
+  margin: 0;
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ep-account-card__meta {
+  margin: 0.15rem 0 0;
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.ep-account-card__hint {
+  margin: 0.55rem 0 0;
+  font-family: var(--urdu);
+  font-size: 0.68rem;
+  line-height: 1.5;
+  opacity: 0.88;
+}
+
+.ep-account-card__cta {
+  align-self: center;
+  min-width: 5.5rem;
+  min-height: 2.35rem;
+  padding: 0 0.85rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ep-green);
+  color: #fff;
+  font-family: var(--urdu);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+.ep-quick-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.ep-quick-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 6.5rem;
+  padding: 0.65rem 0.35rem;
+  border: 0;
+  border-radius: 16px;
+  background: var(--ep-card);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+}
+
+.ep-quick-card__icon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 14px;
+  background: #ecfdf3;
+  font-size: 1.25rem;
+}
+
+.ep-quick-card__label {
+  font-family: var(--urdu);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--ep-ink);
+  text-align: center;
+  line-height: 1.35;
+}
+
+.ep-section-title {
+  margin: 1rem 0 0.65rem;
+  font-family: var(--urdu);
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--ep-ink);
+}
+
+.ep-service-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.55rem 0.35rem;
+}
+
+.ep-service-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.15rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ep-service-tile__icon {
+  display: grid;
+  place-items: center;
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  font-size: 1.15rem;
+}
+
+.ep-service-tile__label {
+  font-family: var(--urdu);
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #334155;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.ep-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.ep-summary-card {
+  padding: 0.85rem;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.ep-summary-card--wide {
+  grid-column: 1 / -1;
+}
+
+.ep-summary-card__title {
+  margin: 0 0 0.35rem;
+  font-family: var(--urdu);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--ep-muted);
+}
+
+.ep-summary-card__value {
+  margin: 0;
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--ep-green);
+}
+
+.ep-summary-card__sub {
+  margin: 0.25rem 0 0;
+  font-family: var(--urdu);
+  font-size: 0.68rem;
+  color: var(--ep-muted);
+}
+
+.ep-map-panel {
+  margin-top: 0.85rem;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #dfe8e3;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  min-height: 11rem;
+  height: 42vh;
+  max-height: 320px;
+}
+
+.ep-map-panel .driver-map,
+.ep-map-panel #driverMap {
+  width: 100%;
+  height: 100%;
+  min-height: 11rem;
+}
+
+.driver-home-hub.ep-layout .driver-home-hub__stage,
+.driver-home-hub.ep-layout .driver-home-hub__cards {
+  position: static;
+}
+
+.driver-home-hub.ep-layout .driver-home-hub__cards {
+  display: contents;
+}
+
+.partner-shell.driver-app.ep-shell .partner-content[data-active-view="home"] {
+  padding-bottom: var(--ep-bottom-h);
+}
+
+.partner-shell.driver-app.ep-shell .ride-radar-fab:not(.ride-radar-fab--topbar) {
+  bottom: calc(var(--ep-bottom-h) + 0.65rem);
+}
