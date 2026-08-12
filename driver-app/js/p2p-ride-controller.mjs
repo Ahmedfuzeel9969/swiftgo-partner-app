@@ -5,7 +5,12 @@
 
 import { P2P_STATE, P2P_EXECUTION_STATUSES } from "./p2p-protocol.mjs";
 import { createP2pPeerSession } from "./p2p-peer-session.mjs";
-import { ensureP2pIceConfiguration } from "./p2p-ice-bootstrap.mjs";
+
+/** Lazy — app wrapper pulls Firebase https imports unsuitable for Node tests. */
+async function defaultEnsureIceConfiguration() {
+  const mod = await import("./p2p-ice-bootstrap.mjs");
+  return mod.ensureP2pIceConfiguration();
+}
 
 async function loadSignalingClient() {
   return import("./p2p-signaling-client.mjs");
@@ -181,7 +186,7 @@ export function createDriverP2pController(opts = {}) {
         const localSession = createP2pPeerSession({
           role: "driver",
           RTCPeerConnection: opts.RTCPeerConnection,
-          ensureIceConfiguration: opts.ensureIceConfiguration || ensureP2pIceConfiguration,
+          ensureIceConfiguration: opts.ensureIceConfiguration || defaultEnsureIceConfiguration,
           onDiag: diag,
           onState: () => {
             if (localSession === session) notifyHealth();

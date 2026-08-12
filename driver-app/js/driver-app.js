@@ -95,9 +95,12 @@ import { announce, applyReducedMotionClass, initKeyboardInset, trapFocus } from 
 import { initI18n, t, subscribe as subscribeLang } from "./i18n.js";
 import { wireLegalLinks, requestAccountDeletionClient } from "./trust.js";
 import { isNativeShell, getNativePlatform, getNetworkStatus } from "./native-shell.js";
+import { installDefaultOsrmPreviewRouteProvider } from "./route-provider-bootstrap.mjs";
 
 window.__swiftgoNative = { isNativeShell, getNativePlatform, getNetworkStatus };
 window.__SWIFTGO_ANDROID_PACKAGE__ = "com.swiftgo.partner";
+// Active-ride two-leg routes: same public OSRM preview booking already uses.
+installDefaultOsrmPreviewRouteProvider(window);
 
 const KARACHI = [24.8607, 67.0011];
 

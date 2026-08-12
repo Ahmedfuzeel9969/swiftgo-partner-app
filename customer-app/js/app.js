@@ -61,10 +61,13 @@ import {
   stopCustomerRideHistory,
 } from "./history.js";
 import { isNativeShell, getNativePlatform, getNetworkStatus } from "./native-shell.js";
+import { installDefaultOsrmPreviewRouteProvider } from "./route-provider-bootstrap.mjs";
 
 // Expose thin native helpers for Capacitor shells (no-ops on web).
 window.__swiftgoNative = { isNativeShell, getNativePlatform, getNetworkStatus };
 window.__SWIFTGO_ANDROID_PACKAGE__ = "com.swiftgo.customer";
+// Active-ride two-leg routes: same public OSRM preview booking already uses.
+installDefaultOsrmPreviewRouteProvider(window);
 
 const els = {
   app: document.getElementById("app"),

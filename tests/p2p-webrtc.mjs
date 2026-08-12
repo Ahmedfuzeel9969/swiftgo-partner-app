@@ -1108,8 +1108,10 @@ function lifecycleStaticTests() {
     "static"
   );
   record(
-    "56-customer-hidden-suspends-session",
-    cust.includes("setVisible(false)") || cust.includes("stopPresenceHeartbeat")
+    "56-customer-hidden-keeps-p2p-alive",
+    read("customer-app/js/p2p-ride-controller.mjs").includes("must not suspend or stop P2P") &&
+      cust.includes("keepP2p") &&
+      !cust.includes("customerP2p?.setVisible(false)")
       ? "PASS"
       : "FAIL",
     "",

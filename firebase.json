@@ -8,9 +8,7 @@
       "**/node_modules/**"
     ],
     "predeploy": [
-      "node tools/hosting-deploy-integrity.mjs",
-      "node tools/build-hosting.mjs",
-      "node tools/hosting-deploy-integrity.mjs --verify-build"
+      "npm run test:hosting-deploy-integrity"
     ],
     "redirects": [
       {
