@@ -21,8 +21,10 @@ import {
   ROUTE_PROVIDER_KIND,
   createFixtureRouteProvider,
   createMockRouteProvider,
+  createOsrmPreviewProvider,
   resolveRouteProvider,
 } from "../customer-app/js/road-route-provider.mjs";
+import { installDefaultOsrmPreviewRouteProvider } from "../shared/js/route-provider-bootstrap.mjs";
 import {
   APPROACH_MIN_DISPLACEMENT_M,
   APPROACH_MIN_REFRESH_MS,
@@ -330,6 +332,105 @@ async function providerAsyncTests() {
       : "FAIL"
   );
   void models;
+
+  // Detailed OSRM failure diagnostics (no public network).
+  const httpFail = createOsrmPreviewProvider({
+    fetchFn: async () => ({
+      ok: false,
+      status: 503,
+      text: async () => '{"message":"overloaded"}',
+      json: async () => ({ message: "overloaded" }),
+    }),
+  });
+  try {
+    await httpFail.route({ origin: ORIGIN, destination: DEST });
+    record("diag-osrm-http-status", "FAIL", "expected throw");
+  } catch (err) {
+    record(
+      "diag-osrm-http-status",
+      err?.diag?.httpStatus === 503 &&
+        String(err?.diag?.requestUrl || "").includes("router.project-osrm.org") &&
+        String(err?.diag?.responseBodySnippet || "").includes("overloaded") &&
+        err?.diag?.fallbackTrigger === "http_error"
+        ? "PASS"
+        : "FAIL",
+      JSON.stringify(err?.diag || {})
+    );
+  }
+
+  let abortFetchSignal = null;
+  const timeoutProv = createOsrmPreviewProvider({
+    timeoutMs: 5,
+    fetchFn: (_url, opts) =>
+      new Promise((_resolve, reject) => {
+        abortFetchSignal = opts?.signal;
+        opts?.signal?.addEventListener?.("abort", () => {
+          const e = new Error("Aborted");
+          e.name = "AbortError";
+          reject(e);
+        });
+      }),
+  });
+  try {
+    await timeoutProv.route({ origin: ORIGIN, destination: DEST });
+    record("diag-osrm-timeout-reason", "FAIL", "expected timeout");
+  } catch (err) {
+    record(
+      "diag-osrm-timeout-reason",
+      err?.code === "timeout" &&
+        err?.diag?.timeoutReason === "request_timeout" &&
+        err?.diag?.fallbackTrigger === "request_timeout" &&
+        abortFetchSignal?.aborted === true
+        ? "PASS"
+        : "FAIL",
+      JSON.stringify(err?.diag || {})
+    );
+  }
+
+  const diags = [];
+  const disabledCtrl = createTwoLegRouteController({
+    provider: resolveRouteProvider({}),
+    AbortControllerImpl: FakeAbortController,
+    onDiag: (code, detail) => diags.push({ code, detail }),
+  });
+  disabledCtrl.syncRide({
+    id: "r-disabled",
+    status: "accepted",
+    pickupLocation: PICKUP,
+    dropoffLocation: DROPOFF,
+    driverLocation: ORIGIN,
+  });
+  await new Promise((r) => setTimeout(r, 20));
+  const unavailable = diags.find((d) => d.code === ROUTE_DIAG.PROVIDER_UNAVAILABLE);
+  const fallback = diags.find((d) => d.code === ROUTE_DIAG.FALLBACK_DIRECT);
+  record(
+    "diag-disabled-provider-detail",
+    unavailable?.detail?.fallbackTrigger === "provider_disabled_config" &&
+      fallback?.detail?.fallbackTrigger === "provider_disabled_config" &&
+      disabledCtrl.getModel().approach.status === LEG_STATUS.FALLBACK
+      ? "PASS"
+      : "FAIL",
+    JSON.stringify({ unavailable: unavailable?.detail, fallback: fallback?.detail })
+  );
+
+  const g = {};
+  installDefaultOsrmPreviewRouteProvider(g);
+  record(
+    "bootstrap-enables-osrm-preview",
+    resolveRouteProvider(g).id === ROUTE_PROVIDER_KIND.OSRM_PREVIEW &&
+      resolveRouteProvider({}).id === ROUTE_PROVIDER_KIND.DISABLED
+      ? "PASS"
+      : "FAIL"
+  );
+  const g2 = { __SWIFTGO_ROUTE_PROVIDER__: { kind: "disabled" } };
+  installDefaultOsrmPreviewRouteProvider(g2);
+  record(
+    "bootstrap-respects-existing-config",
+    g2.__SWIFTGO_ROUTE_PROVIDER__.kind === "disabled" &&
+      resolveRouteProvider(g2).id === ROUTE_PROVIDER_KIND.DISABLED
+      ? "PASS"
+      : "FAIL"
+  );
 }
 
 async function twoLegStateTests() {
@@ -449,6 +550,67 @@ async function twoLegStateTests() {
     c.getModel().emphasis === ROUTE_EMPHASIS.NONE && c.getGeneration() >= afterTerm ? "PASS" : "FAIL"
   );
   void genB;
+}
+
+async function concurrentLegOrderingTests() {
+  const pending = new Map();
+  const calls = [];
+  const fixture = createMockRouteProvider();
+  const provider = {
+    id: "deferred",
+    route(req) {
+      const leg = req.context?.leg;
+      calls.push(leg);
+      return new Promise((resolve, reject) => pending.set(leg, { resolve, reject, req }));
+    },
+  };
+  const c = createTwoLegRouteController({ provider, AbortControllerImpl: FakeAbortController });
+  const ride = {
+    id: "concurrent-legs",
+    status: "accepted",
+    pickupLocation: PICKUP,
+    dropoffLocation: DROPOFF,
+    driverLocation: ORIGIN,
+  };
+
+  c.syncRide(ride);
+  await Promise.resolve();
+  record(
+    "approach-starts-without-waiting-for-slow-trip",
+    calls.join(",") === "approach,trip" ? "PASS" : "FAIL",
+    `request-order=${calls.join(",")}`
+  );
+
+  void c.ensureRoutes({ forceApproach: true });
+  await Promise.resolve();
+  record(
+    "concurrent-leg-requests-coalesce-without-duplicates",
+    calls.length === 2 && c.getCounters().requestsCoalesced >= 2 ? "PASS" : "FAIL",
+    `calls=${calls.length} coalesced=${c.getCounters().requestsCoalesced}`
+  );
+
+  pending.get("approach").resolve(await fixture.route(pending.get("approach").req));
+  await Promise.resolve();
+  await Promise.resolve();
+  record(
+    "approach-can-be-ready-before-trip",
+    c.getModel().approach.status === LEG_STATUS.READY && c.getModel().trip.status === LEG_STATUS.LOADING
+      ? "PASS"
+      : "FAIL",
+    `a=${c.getModel().approach.status} t=${c.getModel().trip.status}`
+  );
+
+  pending.get("trip").reject(new Error("simulated trip failure"));
+  await Promise.resolve();
+  await Promise.resolve();
+  record(
+    "trip-failure-does-not-block-ready-approach",
+    c.getModel().approach.status === LEG_STATUS.READY &&
+      c.getModel().trip.status === LEG_STATUS.FALLBACK
+      ? "PASS"
+      : "FAIL",
+    `a=${c.getModel().approach.status} t=${c.getModel().trip.status}`
+  );
 }
 
 async function requestControlTests() {
@@ -713,6 +875,26 @@ function staticIntegrationTests() {
     "",
     "static"
   );
+  record(
+    "active-ride-osrm-bootstrap-wired",
+    read("customer-app/js/app.js").includes("installDefaultOsrmPreviewRouteProvider") &&
+      read("driver-app/js/driver-app.js").includes("installDefaultOsrmPreviewRouteProvider") &&
+      fs.existsSync(path.join(ROOT, "shared/js/route-provider-bootstrap.mjs"))
+      ? "PASS"
+      : "FAIL",
+    "Hosted apps opt into osrm_preview for active-ride road polylines",
+    "static"
+  );
+  record(
+    "route-diag-includes-request-fields",
+    read("shared/js/road-route-provider.mjs").includes("attachRouteProviderDiag") &&
+      read("shared/js/road-route-provider.mjs").includes("responseBodySnippet") &&
+      read("shared/js/two-leg-route-controller.mjs").includes("fallbackTrigger")
+      ? "PASS"
+      : "FAIL",
+    "",
+    "static"
+  );
 }
 
 function manualPreview() {
@@ -734,6 +916,7 @@ async function main() {
   );
   await providerAsyncTests();
   await twoLegStateTests();
+  await concurrentLegOrderingTests();
   await requestControlTests();
   staticIntegrationTests();
   manualPreview();

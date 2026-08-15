@@ -14,6 +14,8 @@ const ROUTE_STYLE = {
 };
 const FIT_PADDING = { paddingTopLeft: [48, 100], paddingBottomRight: [48, 140] };
 const FALLBACK_SPEED_KMH = 24;
+/** Match the active-ride preview provider timeout; public OSRM has no SLA. */
+export const BOOKING_ROUTE_TIMEOUT_MS = 12_000;
 /** Extra travel-time multiplier when traffic overlay is on. */
 const TRAFFIC_ETA_FACTOR = 1.35;
 
@@ -30,6 +32,7 @@ export const routeState = {
 let routeLine = null;
 let routeCasing = null;
 let fetchSeq = 0;
+let routeAbortController = null;
 /** @type {number | null} */
 let lastDurationSec = null;
 /** @type {Array<[number, number]> | null} */
@@ -149,17 +152,29 @@ function drawRoute(latlngs) {
   }
 }
 
-async function fetchOsrmRoute(pickup, dropoff) {
+async function fetchOsrmRoute(pickup, dropoff, signal) {
   const coords = `${pickup.lng},${pickup.lat};${dropoff.lng},${dropoff.lat}`;
   const url = `${OSRM_BASE}/${coords}?overview=full&geometries=geojson&alternatives=false&steps=false`;
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`OSRM_${res.status}`);
-  const data = await res.json();
-  const route = data?.routes?.[0];
-  if (data?.code !== "Ok" || !route?.geometry?.coordinates?.length) {
-    throw new Error("OSRM_NO_ROUTE");
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  signal?.addEventListener?.("abort", onAbort, { once: true });
+  const timeout = window.setTimeout(() => controller.abort(), BOOKING_ROUTE_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`OSRM_${res.status}`);
+    const data = await res.json();
+    const route = data?.routes?.[0];
+    if (data?.code !== "Ok" || !route?.geometry?.coordinates?.length) {
+      throw new Error("OSRM_NO_ROUTE");
+    }
+    return route;
+  } finally {
+    window.clearTimeout(timeout);
+    signal?.removeEventListener?.("abort", onAbort);
   }
-  return route;
 }
 
 async function refreshRoute() {
@@ -167,8 +182,11 @@ async function refreshRoute() {
   if (!pickup || !dropoff) return;
 
   const seq = ++fetchSeq;
+  routeAbortController?.abort();
+  const controller = new AbortController();
+  routeAbortController = controller;
   try {
-    const route = await fetchOsrmRoute(pickup, dropoff);
+    const route = await fetchOsrmRoute(pickup, dropoff, controller.signal);
     if (seq !== fetchSeq) return;
 
     const latlngs = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
@@ -190,6 +208,8 @@ async function refreshRoute() {
       [pickup.lat, pickup.lng],
       [dropoff.lat, dropoff.lng],
     ]);
+  } finally {
+    if (routeAbortController === controller) routeAbortController = null;
   }
 
   announceRoute();
@@ -221,6 +241,8 @@ export function clearRoutePoint(role) {
   lastDurationSec = null;
   lastLatlngs = null;
   fetchSeq += 1;
+  routeAbortController?.abort();
+  routeAbortController = null;
   clearRouteLine();
   announceRoute();
 }

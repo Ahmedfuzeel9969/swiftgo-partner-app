@@ -9,7 +9,7 @@ import {
   isValidLatLng,
   validateRouteResult,
 } from "./route-geometry.mjs";
-import { resolveRouteProvider } from "./road-route-provider.mjs";
+import { resolveRouteProvider, ROUTE_PROVIDER_KIND } from "./road-route-provider.mjs";
 
 export const ROUTE_DIAG = Object.freeze({
   APPROACH_REQUESTED: "route_approach_requested",
@@ -84,7 +84,7 @@ function emptyLeg() {
  * @param {{
  *   provider?: object,
  *   onModel?: (model: object) => void,
- *   onDiag?: (code: string) => void,
+ *   onDiag?: (code: string, detail?: object|null) => void,
  *   nowMs?: () => number,
  *   setTimeoutFn?: typeof setTimeout,
  *   clearTimeoutFn?: typeof clearTimeout,
@@ -99,6 +99,34 @@ export function createTwoLegRouteController(opts = {}) {
   const diag = opts.onDiag || (() => {});
   const onModel = opts.onModel || (() => {});
   let provider = opts.provider || resolveRouteProvider();
+
+  function pushDiag(code, detail = null) {
+    try {
+      if (detail != null) diag(code, detail);
+      else diag(code);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function failureDetail(err, fallbackTrigger, extra = {}) {
+    const fromErr =
+      err?.diag && typeof err.diag === "object" ? { ...err.diag } : {};
+    return {
+      providerId: provider?.id || null,
+      requestUrl: fromErr.requestUrl ?? null,
+      httpStatus: fromErr.httpStatus ?? null,
+      responseBodySnippet: fromErr.responseBodySnippet ?? null,
+      timeoutMs: fromErr.timeoutMs ?? null,
+      timeoutReason: fromErr.timeoutReason ?? null,
+      networkError: fromErr.networkError === true,
+      corsOrNetworkLikely: fromErr.corsOrNetworkLikely === true,
+      errorCode: err?.code || fromErr.errorCode || null,
+      errorMessage: String(err?.message || fromErr.errorMessage || "").slice(0, 200),
+      fallbackTrigger,
+      ...extra,
+    };
+  }
 
   let generation = 0;
   let rideId = "";
@@ -174,7 +202,7 @@ export function createTwoLegRouteController(opts = {}) {
       }
       approachAbort = null;
       counters.requestsAborted += 1;
-      diag(ROUTE_DIAG.REQUEST_ABORTED);
+      pushDiag(ROUTE_DIAG.REQUEST_ABORTED, { fallbackTrigger: "generation_bump_approach" });
     }
     if (tripAbort) {
       try {
@@ -184,7 +212,7 @@ export function createTwoLegRouteController(opts = {}) {
       }
       tripAbort = null;
       counters.requestsAborted += 1;
-      diag(ROUTE_DIAG.REQUEST_ABORTED);
+      pushDiag(ROUTE_DIAG.REQUEST_ABORTED, { fallbackTrigger: "generation_bump_trip" });
     }
     approachInFlight = null;
     tripInFlight = null;
@@ -195,7 +223,7 @@ export function createTwoLegRouteController(opts = {}) {
     return generation;
   }
 
-  function applyFallback(legName, origin, destination) {
+  function applyFallback(legName, origin, destination, detail = null) {
     const fb = buildDirectFallback(origin, destination);
     if (!fb) return;
     const validated = validateRouteResult(fb, { origin, destination, nowMs: nowMs() });
@@ -219,7 +247,11 @@ export function createTwoLegRouteController(opts = {}) {
     if (legName === "approach") approach = leg;
     else trip = leg;
     counters.fallbackActivations += 1;
-    diag(ROUTE_DIAG.FALLBACK_DIRECT);
+    pushDiag(ROUTE_DIAG.FALLBACK_DIRECT, {
+      leg: legName,
+      fallbackTrigger: detail?.fallbackTrigger || "direct_estimate",
+      ...(detail && typeof detail === "object" ? detail : {}),
+    });
   }
 
   function scheduleRetry() {
@@ -240,19 +272,33 @@ export function createTwoLegRouteController(opts = {}) {
 
   async function requestLeg(kind, origin, destination, gen) {
     if (!provider?.route) {
-      diag(ROUTE_DIAG.PROVIDER_UNAVAILABLE);
-      applyFallback(kind, origin, destination);
+      const detail = failureDetail(null, "missing_provider", {
+        errorCode: "missing_route_fn",
+        errorMessage: "provider.route missing",
+      });
+      pushDiag(ROUTE_DIAG.PROVIDER_UNAVAILABLE, detail);
+      applyFallback(kind, origin, destination, detail);
+      emit();
+      return;
+    }
+    if (provider.id === ROUTE_PROVIDER_KIND.DISABLED) {
+      const detail = failureDetail(
+        { code: "unavailable", message: "PROVIDER_DISABLED", diag: { providerKind: "disabled" } },
+        "provider_disabled_config"
+      );
+      pushDiag(ROUTE_DIAG.PROVIDER_UNAVAILABLE, detail);
+      applyFallback(kind, origin, destination, detail);
       emit();
       return;
     }
     if (kind === "approach" && approachInFlight) {
       counters.requestsCoalesced += 1;
-      diag(ROUTE_DIAG.REQUEST_COALESCED);
+      pushDiag(ROUTE_DIAG.REQUEST_COALESCED, { leg: kind });
       return approachInFlight;
     }
     if (kind === "trip" && tripInFlight) {
       counters.requestsCoalesced += 1;
-      diag(ROUTE_DIAG.REQUEST_COALESCED);
+      pushDiag(ROUTE_DIAG.REQUEST_COALESCED, { leg: kind });
       return tripInFlight;
     }
 
@@ -261,7 +307,10 @@ export function createTwoLegRouteController(opts = {}) {
     else tripAbort = ctrl;
 
     counters.requestsAttempted += 1;
-    diag(kind === "approach" ? ROUTE_DIAG.APPROACH_REQUESTED : ROUTE_DIAG.TRIP_REQUESTED);
+    pushDiag(kind === "approach" ? ROUTE_DIAG.APPROACH_REQUESTED : ROUTE_DIAG.TRIP_REQUESTED, {
+      leg: kind,
+      providerId: provider?.id || null,
+    });
     if (kind === "approach") {
       approach = {
         ...approach,
@@ -291,7 +340,7 @@ export function createTwoLegRouteController(opts = {}) {
         });
         if (gen !== generation || closed) {
           counters.staleIgnored += 1;
-          diag(ROUTE_DIAG.RESPONSE_STALE);
+          pushDiag(ROUTE_DIAG.RESPONSE_STALE, { leg: kind });
           return;
         }
         const validated = validateRouteResult(result, {
@@ -301,8 +350,13 @@ export function createTwoLegRouteController(opts = {}) {
         });
         if (!validated.ok) {
           counters.invalidResponses += 1;
-          diag(ROUTE_DIAG.RESPONSE_INVALID);
-          applyFallback(kind, origin, destination);
+          const detail = failureDetail(
+            { code: "invalid_response", message: validated.reason },
+            "response_invalid",
+            { leg: kind, validationReason: validated.reason }
+          );
+          pushDiag(ROUTE_DIAG.RESPONSE_INVALID, detail);
+          applyFallback(kind, origin, destination, detail);
           scheduleRetry();
           emit();
           return;
@@ -310,8 +364,17 @@ export function createTwoLegRouteController(opts = {}) {
         // Fail closed: only snap-eligible verified/fixture road geometry becomes READY for snap.
         if (validated.route.snapEligible !== true) {
           counters.invalidResponses += 1;
-          diag(ROUTE_DIAG.RESPONSE_INVALID);
-          applyFallback(kind, origin, destination);
+          const detail = failureDetail(
+            { code: "invalid_response", message: "not_snap_eligible" },
+            "geometry_not_snap_eligible",
+            {
+              leg: kind,
+              providerKind: validated.route.providerKind || validated.route.provider,
+              geometryKind: validated.route.geometryKind,
+            }
+          );
+          pushDiag(ROUTE_DIAG.RESPONSE_INVALID, detail);
+          applyFallback(kind, origin, destination, detail);
           scheduleRetry();
           emit();
           return;
@@ -339,27 +402,47 @@ export function createTwoLegRouteController(opts = {}) {
           lastApproachOrigin = { ...origin };
           lastApproachAt = nowMs();
           counters.approachRefreshes += 1;
-          diag(ROUTE_DIAG.APPROACH_READY);
+          pushDiag(ROUTE_DIAG.APPROACH_READY, {
+            leg: kind,
+            providerId: leg.providerKind || leg.provider,
+            pointCount: leg.renderGeometry?.length || leg.geometry?.length || 0,
+          });
         } else {
           trip = leg;
           tripCachedForRide = rideId;
           counters.tripRefreshes += 1;
-          diag(ROUTE_DIAG.TRIP_READY);
+          pushDiag(ROUTE_DIAG.TRIP_READY, {
+            leg: kind,
+            providerId: leg.providerKind || leg.provider,
+            pointCount: leg.renderGeometry?.length || leg.geometry?.length || 0,
+          });
         }
         emit();
       } catch (err) {
         if (err?.code === "aborted" || err?.name === "AbortError") {
           counters.requestsAborted += 1;
-          diag(ROUTE_DIAG.REQUEST_ABORTED);
+          pushDiag(ROUTE_DIAG.REQUEST_ABORTED, failureDetail(err, err?.diag?.timeoutReason || "aborted", { leg: kind }));
+          return;
+        }
+        if (err?.code === "timeout") {
+          counters.requestsAborted += 1;
+          const detail = failureDetail(err, "request_timeout", { leg: kind });
+          pushDiag(ROUTE_DIAG.PROVIDER_UNAVAILABLE, detail);
+          applyFallback(kind, origin, destination, detail);
+          scheduleRetry();
+          emit();
           return;
         }
         if (gen !== generation || closed) {
           counters.staleIgnored += 1;
-          diag(ROUTE_DIAG.RESPONSE_STALE);
+          pushDiag(ROUTE_DIAG.RESPONSE_STALE, { leg: kind });
           return;
         }
-        diag(ROUTE_DIAG.PROVIDER_UNAVAILABLE);
-        applyFallback(kind, origin, destination);
+        const detail = failureDetail(err, err?.diag?.fallbackTrigger || "provider_route_threw", {
+          leg: kind,
+        });
+        pushDiag(ROUTE_DIAG.PROVIDER_UNAVAILABLE, detail);
+        applyFallback(kind, origin, destination, detail);
         scheduleRetry();
         emit();
       } finally {
@@ -393,13 +476,12 @@ export function createTwoLegRouteController(opts = {}) {
     }
     const gen = generation;
 
-    // Trip: once per ride (pickup → dropoff).
-    if (tripCachedForRide !== rideId || trip.status === LEG_STATUS.IDLE) {
-      await requestLeg("trip", pickup, dropoff, gen);
-    }
-
     // Approach: driver → pickup (not during in_progress).
     if (rideStatus === "in_progress") {
+      // Trip: once per ride (pickup → dropoff).
+      if (tripCachedForRide !== rideId || trip.status === LEG_STATUS.IDLE) {
+        await requestLeg("trip", pickup, dropoff, gen);
+      }
       // Keep trip prominent; approach subdued/cleared visually by layers.
       if (approach.status === LEG_STATUS.READY) {
         approach = { ...approach, status: LEG_STATUS.CLEARED };
@@ -408,13 +490,18 @@ export function createTwoLegRouteController(opts = {}) {
       return;
     }
 
-    if (!isValidLatLng(driverLoc?.lat, driverLoc?.lng)) {
-      return;
-    }
-    if (!forceApproach && !shouldRefreshApproach(driverLoc)) {
-      return;
-    }
-    await requestLeg("approach", driverLoc, pickup, gen);
+    // Start the user-visible driver → pickup leg first. The cached
+    // pickup → dropoff trip may load concurrently, but must not delay approach.
+    const approachPromise =
+      isValidLatLng(driverLoc?.lat, driverLoc?.lng) &&
+      (forceApproach || shouldRefreshApproach(driverLoc))
+        ? requestLeg("approach", driverLoc, pickup, gen)
+        : null;
+    const tripPromise =
+      tripCachedForRide !== rideId || trip.status === LEG_STATUS.IDLE
+        ? requestLeg("trip", pickup, dropoff, gen)
+        : null;
+    await Promise.all([approachPromise, tripPromise].filter(Boolean));
   }
 
   /**
@@ -427,7 +514,20 @@ export function createTwoLegRouteController(opts = {}) {
     if (!TRACKABLE.has(rideStatus)) return { ok: false, reason: "not_trackable" };
     if (!isValidLatLng(origin?.lat, origin?.lng)) return { ok: false, reason: "invalid_origin" };
     if (!provider?.route) {
-      diag(ROUTE_DIAG.PROVIDER_UNAVAILABLE);
+      pushDiag(
+        ROUTE_DIAG.PROVIDER_UNAVAILABLE,
+        failureDetail(null, "missing_provider", { errorCode: "missing_route_fn" })
+      );
+      return { ok: false, reason: "provider_unavailable" };
+    }
+    if (provider.id === ROUTE_PROVIDER_KIND.DISABLED) {
+      pushDiag(
+        ROUTE_DIAG.PROVIDER_UNAVAILABLE,
+        failureDetail(
+          { code: "unavailable", message: "PROVIDER_DISABLED" },
+          "provider_disabled_config"
+        )
+      );
       return { ok: false, reason: "provider_unavailable" };
     }
     // Abort in-flight so this request is not coalesced away.
@@ -553,7 +653,7 @@ export function createTwoLegRouteController(opts = {}) {
     driverLoc = null;
     pickup = null;
     dropoff = null;
-    if (emitDiag) diag(ROUTE_DIAG.LAYERS_CLEARED);
+    if (emitDiag) pushDiag(ROUTE_DIAG.LAYERS_CLEARED);
     emit();
   }
 

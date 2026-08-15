@@ -89,6 +89,7 @@ async function main() {
 
   // Customer own searching cancel
   const r1 = await createCustomerBooking(db, { customerUid: cust, ridePayload: payload });
+  const cancelStartMs = performance.now();
   const c1 = await cancelCustomerBooking(db, {
     customerUid: cust,
     rideId: r1.id,
@@ -98,6 +99,12 @@ async function main() {
     "C01-customer-cancel-searching",
     c1.ok && c1.cancelledCount === 1 ? "PASS" : "FAIL",
     JSON.stringify(c1)
+  );
+  record(
+    "PERF-cancel-click-to-confirmed",
+    c1.ok && c1.cancelledCount === 1 ? "PASS" : "FAIL",
+    `${Math.round(performance.now() - cancelStartMs)}ms`,
+    { milliseconds: Math.round(performance.now() - cancelStartMs) }
   );
 
   // Other customer denied
@@ -179,11 +186,19 @@ async function main() {
     driverName: "D",
     vehiclePlate: "CC-1",
   });
+  const acceptStartMs = performance.now();
   await finalizeAssignmentFromOffer(db, {
     offerId: off.offerId,
     actorUid: cust,
     actorRole: "customer",
   });
+  const assignedAfterAccept = (await db.doc(`rides/${r4.id}`).get()).data() || {};
+  record(
+    "PERF-driver-accept-to-assignment-confirmed",
+    assignedAfterAccept.status === "accepted" && assignedAfterAccept.driverId === drv ? "PASS" : "FAIL",
+    `${Math.round(performance.now() - acceptStartMs)}ms`,
+    { milliseconds: Math.round(performance.now() - acceptStartMs) }
+  );
   const cAcc = await cancelCustomerBooking(db, {
     customerUid: cust,
     rideId: r4.id,

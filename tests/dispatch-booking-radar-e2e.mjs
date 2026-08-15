@@ -22,6 +22,7 @@ import {
   getDocs,
   doc,
   getDoc,
+  onSnapshot,
 } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 
@@ -176,10 +177,42 @@ async function main() {
   await seedDriver(prefix, otherUid, otherVehicleId, near.lat + 0.01, near.lng + 0.01);
 
   // --- Callable createCustomerBooking (T0–T2) ---
+  // Keep the driver signed in and listening before booking so listener latency
+  // is not polluted by authentication or subscription startup.
+  const drv = clientApp(`${prefix}-driver`);
+  await signInWithEmailAndPassword(drv.auth, `${driverUid}@test.local`, "TestPass123!");
+  const listenerMarks = new Map();
+  let listenerReadyResolve;
+  const listenerReady = new Promise((resolve) => {
+    listenerReadyResolve = resolve;
+  });
+  const unsubCandidateListener = onSnapshot(
+    query(
+      collection(drv.fsDb, "ride_candidates"),
+      where("driverId", "==", driverUid),
+      where("status", "==", "invited")
+    ),
+    (snap) => {
+      if (listenerReadyResolve) {
+        listenerReadyResolve();
+        listenerReadyResolve = null;
+      }
+      snap.docChanges().forEach((change) => {
+        const rideId = change.doc.data()?.rideId;
+        if (change.type === "added" && rideId) {
+          listenerMarks.set(rideId, performance.now());
+        }
+      });
+    }
+  );
+  await listenerReady;
   const cust = clientApp(`${prefix}-client`);
   await signInWithEmailAndPassword(cust.auth, `${customerUid}@test.local`, "TestPass123!");
   let created;
+  let bookingStartMs = 0;
+  let bookingResponseMs = 0;
   try {
+    bookingStartMs = performance.now();
     created = (
       await httpsCallable(cust.functions, "createCustomerBooking")({
         confirmedExtraBooking: true,
@@ -194,6 +227,7 @@ async function main() {
         paymentMethod: "cash",
       })
     )?.data;
+    bookingResponseMs = performance.now();
   } catch (e) {
     record("T0-createCustomerBooking-callable", "FAIL", String(e.message || e));
     created = null;
@@ -252,13 +286,66 @@ async function main() {
     record("T4-candidate-doc", t4 ? "PASS" : "FAIL", candId);
 
     // T5 driver client query (same as ride-radar-service)
-    const drv = clientApp(`${prefix}-driver`);
-    await signInWithEmailAndPassword(drv.auth, `${driverUid}@test.local`, "TestPass123!");
     const candQ = await driverCandidateQuery(drv.fsDb, driverUid);
+    const driverCandidateVisibleMs = performance.now();
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const driverListenerReceivedMs = listenerMarks.get(rideId) || 0;
     record(
       "T5-driver-candidate-query",
       candQ.docs.some((d) => d.id === candId) ? "PASS" : "FAIL",
       `docs=${candQ.size}`
+    );
+    record(
+      "PERF-book-click-to-ride-created-and-match-complete",
+      "PASS",
+      `${Math.round(bookingResponseMs - bookingStartMs)}ms`,
+      {
+        milliseconds: Math.round(bookingResponseMs - bookingStartMs),
+        serverLatencyMs: Number(created?.latencyMs) || null,
+      }
+    );
+    record(
+      "PERF-book-click-to-driver-candidate-visible",
+      candQ.docs.some((d) => d.id === candId) ? "PASS" : "FAIL",
+      `${Math.round(driverCandidateVisibleMs - bookingStartMs)}ms`,
+      { milliseconds: Math.round(driverCandidateVisibleMs - bookingStartMs) }
+    );
+    record(
+      "PERF-cold-book-click-to-driver-listener",
+      driverListenerReceivedMs > 0 ? "PASS" : "FAIL",
+      driverListenerReceivedMs > 0 ? `${Math.round(driverListenerReceivedMs - bookingStartMs)}ms` : "not received",
+      { milliseconds: driverListenerReceivedMs > 0 ? Math.round(driverListenerReceivedMs - bookingStartMs) : null }
+    );
+
+    const warmStartMs = performance.now();
+    const warmCreated = (
+      await httpsCallable(cust.functions, "createCustomerBooking")({
+        confirmedExtraBooking: true,
+        pickupLocation: pickup,
+        dropoffLocation: dropoff,
+        vehicleType: "Go",
+        vehicleTypeKey: "go",
+        distanceKm: 4,
+        timeMins: 12,
+        farePkr: 250,
+        estimatedFare: 250,
+        paymentMethod: "cash",
+      })
+    )?.data;
+    const warmResponseMs = performance.now();
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const warmListenerMs = listenerMarks.get(warmCreated?.id) || 0;
+    record(
+      "PERF-warm-book-click-to-callable-response",
+      warmCreated?.id ? "PASS" : "FAIL",
+      `${Math.round(warmResponseMs - warmStartMs)}ms`,
+      { milliseconds: Math.round(warmResponseMs - warmStartMs), serverLatencyMs: warmCreated?.latencyMs ?? null }
+    );
+    record(
+      "PERF-warm-book-click-to-driver-listener",
+      warmListenerMs > 0 ? "PASS" : "FAIL",
+      warmListenerMs > 0 ? `${Math.round(warmListenerMs - warmStartMs)}ms` : "not received",
+      { milliseconds: warmListenerMs > 0 ? Math.round(warmListenerMs - warmStartMs) : null }
     );
 
     // T6 ride read as invited driver
@@ -300,6 +387,7 @@ async function main() {
       "T7-not-assigned-on-offer-only",
       rideBeforeAccept.status === "searching_driver" ? "PASS" : "FAIL"
     );
+    const acceptStartMs = performance.now();
     await acceptCustomerInitialFareAsDriver(db, {
       rideId,
       driverUid,
@@ -313,7 +401,14 @@ async function main() {
       "T7-single-assignment",
       rideAfter.status === "accepted" && rideAfter.driverId === driverUid ? "PASS" : "FAIL"
     );
+    record(
+      "PERF-driver-accept-to-assignment-confirmed",
+      rideAfter.status === "accepted" && rideAfter.driverId === driverUid ? "PASS" : "FAIL",
+      `${Math.round(performance.now() - acceptStartMs)}ms`,
+      { milliseconds: Math.round(performance.now() - acceptStartMs) }
+    );
     await deleteApp(cust.app).catch(() => {});
+    unsubCandidateListener();
     await deleteApp(drv.app).catch(() => {});
     await deleteApp(stranger.app).catch(() => {});
   }

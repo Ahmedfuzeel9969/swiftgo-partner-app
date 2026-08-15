@@ -1,6 +1,10 @@
 ﻿/**
  * Package the four independent apps into hosting-dist/ for Firebase Hosting.
  * Usage: node tools/build-hosting.mjs
+ *
+ * POLICY: Never overlay live/hybrid Customer or Driver JS onto this output.
+ * Deploy only a coherent tree from this script, then run
+ * tools/hosting-startup-health.mjs (firebase.json predeploy).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -43,6 +47,7 @@ const SHARED_JS_MODULES = [
   "marker-heading.mjs",
   "route-geometry.mjs",
   "road-route-provider.mjs",
+  "route-provider-bootstrap.mjs",
   "two-leg-route-controller.mjs",
   "two-leg-route-layers.mjs",
   "route-projection.mjs",
@@ -51,6 +56,23 @@ const SHARED_JS_MODULES = [
   "off-route-detector.mjs",
   "display-location-pipeline.mjs",
   "breadcrumb-schema.mjs",
+  "field-diagnostics.mjs",
+  "phase1-billing-diagnostics.mjs",
+  "phase1-billing-reports.mjs",
+  "phase2-runtime-verification.mjs",
+  "phase2-runtime-reports.mjs",
+  "phase3-billing-proof.mjs",
+  "phase3-billing-reports.mjs",
+  "diagnostics-screen-core.mjs",
+  "p2p-comm-protocol.mjs",
+  "p2p-comm-session.mjs",
+  "p2p-comm-router.mjs",
+  "p2p-comm-voice.mjs",
+  "p2p-comm-call.mjs",
+  "p2p-comm-panel.mjs",
+  "p2p-comm-module.mjs",
+  "p2p-pipeline-trace.mjs",
+  "p2p-ice-bootstrap-core.mjs",
 ];
 
 function syncSharedJsInto(destJsDir) {
@@ -61,9 +83,43 @@ function syncSharedJsInto(destJsDir) {
     if (!fs.existsSync(from)) {
       throw new Error(`Missing canonical shared module: shared/js/${name}`);
     }
-    fs.copyFileSync(from, path.join(destJsDir, name));
+    if (name === "phase1-billing-diagnostics.mjs") {
+      // Monorepo source imports ../../driver-app|customer-app (Node tests).
+      // Hosting packages apps as /partner and /customer — rewrite to local ./ deps.
+      let content = fs.readFileSync(from, "utf8");
+      for (const [fromPath, toPath] of PHASE1_HOSTING_IMPORT_REWRITES) {
+        content = content.split(fromPath).join(toPath);
+      }
+      fs.writeFileSync(path.join(destJsDir, name), content);
+    } else {
+      fs.copyFileSync(from, path.join(destJsDir, name));
+    }
+  }
+  // Ensure SSoT runtime modules sit beside rewritten phase1 imports.
+  for (const dep of PHASE1_RUNTIME_DEPS) {
+    const src = path.join(ROOT, dep.from);
+    if (!fs.existsSync(src)) {
+      throw new Error(`Missing phase1 runtime dep: ${dep.from}`);
+    }
+    fs.copyFileSync(src, path.join(destJsDir, dep.name));
   }
 }
+
+/** Hosting-safe rewrite for phase1 diagnostics (keeps monorepo source imports intact). */
+const PHASE1_HOSTING_IMPORT_REWRITES = [
+  ["../../driver-app/js/location-checkpoint-policy.mjs", "./location-checkpoint-policy.mjs"],
+  ["../../driver-app/js/p2p-protocol.mjs", "./p2p-protocol.mjs"],
+  ["../../customer-app/js/live-location-render.mjs", "./live-location-render.mjs"],
+  ["../../driver-app/js/location-envelope.mjs", "./location-envelope.mjs"],
+];
+
+/** Pure runtime constant modules required by rewritten phase1 imports. */
+const PHASE1_RUNTIME_DEPS = [
+  { from: "driver-app/js/location-checkpoint-policy.mjs", name: "location-checkpoint-policy.mjs" },
+  { from: "driver-app/js/p2p-protocol.mjs", name: "p2p-protocol.mjs" },
+  { from: "customer-app/js/live-location-render.mjs", name: "live-location-render.mjs" },
+  { from: "driver-app/js/location-envelope.mjs", name: "location-envelope.mjs" },
+];
 
 rmrf(DIST);
 ensureDir(DIST);

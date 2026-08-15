@@ -18,6 +18,8 @@ const {
   cancelAllSearchingBookings,
   expireSearchingBooking,
   expireDueSearchingBookings,
+  expireDueRideOffers,
+  expireRideOffer,
   matchRideCandidates,
   previewCancellationFare,
   submitRideOffer,
@@ -27,6 +29,9 @@ const {
   acceptCustomerInitialFareAsDriver,
   readDispatchSettings,
   rematchNearbySearchingRidesForVehicle,
+  normalizeSearchTimeoutSeconds,
+  SEARCH_TIMEOUT_SECONDS_MIN,
+  SEARCH_TIMEOUT_SECONDS_MAX,
 } = require("./bargaining");
 const {
   declineRideCandidate,
@@ -67,6 +72,7 @@ const {
   publishRidePeerAnswer,
   closeRidePeerSession,
 } = require("./ride-peer-session");
+const { issueP2pTurnCredentials } = require("./p2p-turn-credentials");
 const { submitRideBreadcrumbBatch } = require("./breadcrumb-batch");
 
 if (!getApps().length) {
@@ -414,6 +420,55 @@ exports.expireDueSearchingBookings = onCall({ region: "us-central1" }, async (re
   }
 });
 
+/**
+ * P1-B: Admin-only sweeper for per-offer timeouts.
+ * Do NOT enable Cloud Scheduler until billing impact is approved.
+ */
+exports.expireDueRideOffers = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  const isAdmin = await callerIsAdmin(request);
+  if (!isAdmin) throw new HttpsError("permission-denied", "ADMIN_REQUIRED");
+  try {
+    const limit = request.data?.limit;
+    return await expireDueRideOffers(db, {
+      limit: limit != null ? Number(limit) : 25,
+    });
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+/**
+ * P1-B: Party-scoped offer expiry (customer or driver on the offer).
+ * Used by client timers / reconnect — server re-checks offerExpiresAt.
+ */
+exports.expireRideOffer = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    const offerId = String(request.data?.offerId || "").trim();
+    logger.info("expireRideOffer_invoke", {
+      uid: request.auth.uid,
+      offerId,
+    });
+    const result = await expireRideOffer(db, {
+      offerId,
+      actorUid: request.auth.uid,
+    });
+    logger.info("expireRideOffer_result", {
+      offerId,
+      status: result?.status,
+      alreadyClosed: result?.alreadyClosed,
+      closedReason: result?.closedReason || null,
+    });
+    return result;
+  } catch (err) {
+    logger.warn("expireRideOffer_error", {
+      message: String(err?.message || err).slice(0, 160),
+    });
+    throw mapErr(err);
+  }
+});
+
 /** Trusted matching after ride create (Admin SDK writes candidates). Phase 3B: geo-scoped only. */
 exports.matchRideCandidates = onCall(
   { region: "us-central1", minInstances: 1 },
@@ -645,6 +700,39 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       updatedBy: request.auth.uid,
     };
 
+    if (request.data?.idleLocationIntervalMs != null) {
+      const idleMs = Math.round(Number(request.data.idleLocationIntervalMs));
+      if (!Number.isFinite(idleMs) || idleMs < 1_000 || idleMs > 30 * 60_000) {
+        throw new HttpsError("invalid-argument", "IDLE_INTERVAL_OUT_OF_RANGE");
+      }
+      payload.idleLocationIntervalMs = idleMs;
+    }
+    if (request.data?.idleLocationMoveMeters != null) {
+      const moveM = Math.round(Number(request.data.idleLocationMoveMeters));
+      if (!Number.isFinite(moveM) || moveM < 1 || moveM > 5_000) {
+        throw new HttpsError("invalid-argument", "IDLE_MOVE_OUT_OF_RANGE");
+      }
+      payload.idleLocationMoveMeters = moveM;
+    }
+    if (request.data?.offerTimeoutSeconds != null) {
+      const offerSec = Math.round(Number(request.data.offerTimeoutSeconds));
+      if (!Number.isFinite(offerSec) || offerSec < 5 || offerSec > 300) {
+        throw new HttpsError("invalid-argument", "OFFER_TIMEOUT_OUT_OF_RANGE");
+      }
+      payload.offerTimeoutSeconds = offerSec;
+    }
+    if (request.data?.searchTimeoutSeconds != null) {
+      const searchSec = Math.round(Number(request.data.searchTimeoutSeconds));
+      if (
+        !Number.isFinite(searchSec) ||
+        searchSec < SEARCH_TIMEOUT_SECONDS_MIN ||
+        searchSec > SEARCH_TIMEOUT_SECONDS_MAX
+      ) {
+        throw new HttpsError("invalid-argument", "SEARCH_TIMEOUT_OUT_OF_RANGE");
+      }
+      payload.searchTimeoutSeconds = normalizeSearchTimeoutSeconds(searchSec);
+    }
+
     if (radius) {
       payload.maxSearchRadiusKm = radius.maxSearchRadiusKm;
       payload.maxSearchRadiusMeters = radius.maxSearchRadiusMeters;
@@ -668,6 +756,9 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       maxSearchRadiusKm: payload.maxSearchRadiusKm ?? null,
       maxSearchRadiusMeters: payload.maxSearchRadiusMeters ?? null,
       searchRingsKm: payload.searchRingsKm,
+      idleLocationIntervalMs: payload.idleLocationIntervalMs ?? null,
+      idleLocationMoveMeters: payload.idleLocationMoveMeters ?? null,
+      offerTimeoutSeconds: payload.offerTimeoutSeconds ?? null,
     };
   } catch (err) {
     throw mapErr(err);
@@ -973,6 +1064,14 @@ exports.closeRidePeerSession = onCall({ region: "us-central1" }, async (request)
       uid: request.auth.uid,
       rideId: request.data?.rideId,
     })
+  );
+});
+
+/** Phase 3 — ephemeral TURN credentials for NAT traversal (coturn REST API). */
+exports.getP2pTurnCredentials = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("getP2pTurnCredentials", request, () =>
+    issueP2pTurnCredentials({ uid: request.auth.uid })
   );
 });
 

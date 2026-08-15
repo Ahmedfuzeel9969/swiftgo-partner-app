@@ -45,6 +45,275 @@ const CANCEL_REASON_KEYS = Object.freeze([
   "other",
 ]);
 
+/** P1-B — per-offer lifetime (independent of search timeout). */
+const DEFAULT_OFFER_TIMEOUT_SECONDS = 30;
+const OFFER_TIMEOUT_SECONDS_MIN = 5;
+const OFFER_TIMEOUT_SECONDS_MAX = 300;
+const DEFAULT_SEARCH_TIMEOUT_SECONDS = 180;
+const SEARCH_TIMEOUT_SECONDS_MIN = 30;
+const SEARCH_TIMEOUT_SECONDS_MAX = 600;
+const OFFER_TIMEOUT_CLOSED_REASON = "offer_timeout";
+
+/**
+ * Normalize admin search/booking timeout (seconds). Missing/invalid → 180 (3 min).
+ * @param {unknown} raw
+ * @returns {number}
+ */
+function normalizeSearchTimeoutSeconds(raw) {
+  if (raw != null && Number.isFinite(Number(raw))) {
+    return Math.min(
+      SEARCH_TIMEOUT_SECONDS_MAX,
+      Math.max(SEARCH_TIMEOUT_SECONDS_MIN, Math.round(Number(raw)))
+    );
+  }
+  return DEFAULT_SEARCH_TIMEOUT_SECONDS;
+}
+
+/**
+ * Normalize admin offer timeout (seconds). Missing/invalid → 30.
+ * @param {unknown} raw
+ * @returns {number}
+ */
+function normalizeOfferTimeoutSeconds(raw) {
+  if (raw != null && Number.isFinite(Number(raw))) {
+    return Math.min(
+      OFFER_TIMEOUT_SECONDS_MAX,
+      Math.max(OFFER_TIMEOUT_SECONDS_MIN, Math.round(Number(raw)))
+    );
+  }
+  return DEFAULT_OFFER_TIMEOUT_SECONDS;
+}
+
+/**
+ * @param {unknown} value Firestore Timestamp | Date | ms
+ * @returns {number|null}
+ */
+function offerExpiresAtMillis(value) {
+  if (value == null) return null;
+  if (typeof value.toMillis === "function") {
+    const ms = value.toMillis();
+    return Number.isFinite(ms) ? ms : null;
+  }
+  if (value instanceof Date) {
+    const ms = value.getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+  if (typeof value === "object" && value.seconds != null) {
+    const ms = Number(value.seconds) * 1000 + Math.floor(Number(value.nanoseconds || 0) / 1e6);
+    return Number.isFinite(ms) ? ms : null;
+  }
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Absolute expiry ms for an offer.
+ * offerSubmittedAtMs + offerTimeout is authoritative (independent of ride search).
+ */
+function resolveOfferExpiryMs(offer, fallbackOfferTimeoutSeconds = null, rideSearchDeadlineMs = null) {
+  let sec = Number(offer?.offerTimeoutSeconds);
+  if (!Number.isFinite(sec) || sec <= 0) {
+    sec =
+      fallbackOfferTimeoutSeconds != null
+        ? normalizeOfferTimeoutSeconds(fallbackOfferTimeoutSeconds)
+        : null;
+  }
+  if (!sec) return null;
+
+  const submittedMs = Number(offer?.offerSubmittedAtMs);
+  if (Number.isFinite(submittedMs) && submittedMs > 0) {
+    return submittedMs + Math.round(sec) * 1000;
+  }
+
+  const base =
+    offerExpiresAtMillis(offer?.createdAt) || offerExpiresAtMillis(offer?.updatedAt);
+  const fromBase = base != null ? base + Math.round(sec) * 1000 : null;
+
+  let candidate = fromBase;
+  if (candidate == null) {
+    const explicitMs = Number(offer?.offerExpiresAtMs);
+    if (Number.isFinite(explicitMs) && explicitMs > 0) candidate = explicitMs;
+    else {
+      const direct = offerExpiresAtMillis(offer?.offerExpiresAt);
+      if (direct != null) candidate = direct;
+    }
+  }
+
+  if (
+    candidate != null &&
+    rideSearchDeadlineMs != null &&
+    Math.abs(candidate - rideSearchDeadlineMs) < 5000
+  ) {
+    if (fromBase != null && Math.abs(fromBase - rideSearchDeadlineMs) >= 5000) {
+      return fromBase;
+    }
+    if (base != null) return base + Math.round(sec) * 1000;
+    return null;
+  }
+  return candidate;
+}
+
+function isOfferPastTimeout(
+  offer,
+  nowMs = Date.now(),
+  fallbackOfferTimeoutSeconds = null,
+  rideSearchDeadlineMs = null
+) {
+  const exp = resolveOfferExpiryMs(offer, fallbackOfferTimeoutSeconds, rideSearchDeadlineMs);
+  if (exp == null) return false;
+  return nowMs >= exp;
+}
+
+function markOfferTimedOutInTx(tx, offerRef) {
+  tx.update(offerRef, {
+    status: "expired",
+    closedReason: OFFER_TIMEOUT_CLOSED_REASON,
+    updatedAt: FieldValue.serverTimestamp(),
+    expiredAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/** Read-only assign-path diagnostic — one structured log per transaction (remove after capture). */
+function offerExpiresAtForAssignDiag(offer) {
+  const ms = resolveOfferExpiryMs(offer);
+  return ms != null ? new Date(ms).toISOString() : null;
+}
+
+function logAssignTransactionDiag(functionName, payload) {
+  console.info(
+    JSON.stringify({
+      type: "assign_transaction_diag",
+      function: functionName,
+      ...payload,
+    })
+  );
+}
+
+/**
+ * Expire all open/countered offers on a ride that are past offerExpiresAt.
+ * Event-driven piggyback helper (rematch / reconcile / client reconcile).
+ * Does not change ride search status (same rule as rejectOffer).
+ * @returns {{ expired: number, skipped: number }}
+ */
+async function expireDueOffersForRide(db, rideId, { nowMs = Date.now(), fallbackOfferTimeoutSeconds = null } = {}) {
+  if (!rideId) return { expired: 0, skipped: 0 };
+  let fallback = fallbackOfferTimeoutSeconds;
+  if (fallback == null) {
+    const dispatch = await readDispatchSettings(db);
+    fallback = dispatch.offerTimeoutSeconds;
+  }
+  let rideSearchDeadlineMs = null;
+  try {
+    const rideSnap = await db.collection("rides").doc(String(rideId)).get();
+    if (rideSnap.exists) {
+      rideSearchDeadlineMs = timestampToMs(rideSnap.data()?.expiresAt) || null;
+    }
+  } catch {
+    /* best-effort */
+  }
+  const snap = await db
+    .collection("ride_offers")
+    .where("rideId", "==", String(rideId))
+    .where("status", "in", [...OPEN_OFFER_STATUSES])
+    .limit(50)
+    .get();
+  let expired = 0;
+  let skipped = 0;
+  for (const doc of snap.docs) {
+    const offer = doc.data() || {};
+    if (!isOfferPastTimeout(offer, nowMs, fallback, rideSearchDeadlineMs)) {
+      skipped += 1;
+      continue;
+    }
+    try {
+      const changed = await db.runTransaction(async (tx) => {
+        const fresh = await tx.get(doc.ref);
+        if (!fresh.exists) return false;
+        const data = fresh.data() || {};
+        if (!isOpenOfferStatus(data.status)) return false;
+        if (!isOfferPastTimeout(data, nowMs, fallback, rideSearchDeadlineMs)) return false;
+        markOfferTimedOutInTx(tx, doc.ref);
+        return true;
+      });
+      if (changed) expired += 1;
+      else skipped += 1;
+    } catch {
+      skipped += 1;
+    }
+  }
+  return { expired, skipped };
+}
+
+/**
+ * Authoritative single-offer expiry for client timers / reconnect.
+ * Caller must be the offer's customerId or driverId.
+ */
+async function expireRideOffer(db, { offerId, actorUid, nowMs = Date.now() }) {
+  const id = String(offerId || "").trim();
+  if (!id || !actorUid) throw err("invalid-argument", "MISSING_FIELDS");
+  const offerRef = db.collection("ride_offers").doc(id);
+  const dispatch = await readDispatchSettings(db);
+  const fallbackOfferTimeoutSeconds = dispatch.offerTimeoutSeconds;
+  const offerSnapPre = await offerRef.get();
+  const offerPre = offerSnapPre.exists ? offerSnapPre.data() || {} : {};
+  let rideSearchDeadlineMs = null;
+  if (offerPre.rideId) {
+    const rideSnapPre = await db.collection("rides").doc(String(offerPre.rideId)).get();
+    if (rideSnapPre.exists) {
+      const ride = rideSnapPre.data() || {};
+      rideSearchDeadlineMs = timestampToMs(ride.expiresAt) || null;
+    }
+  }
+
+  const result = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(offerRef);
+    if (!snap.exists) throw err("not-found", "OFFER_NOT_FOUND");
+    const offer = snap.data() || {};
+    if (offer.customerId !== actorUid && offer.driverId !== actorUid) {
+      throw err("permission-denied", "NOT_YOUR_OFFER");
+    }
+    if (["rejected", "withdrawn", "expired", "accepted"].includes(offer.status)) {
+      return {
+        offerId: id,
+        status: offer.status,
+        alreadyClosed: true,
+        closedReason: offer.closedReason || null,
+      };
+    }
+    if (
+      !isOfferPastTimeout(offer, nowMs, fallbackOfferTimeoutSeconds, rideSearchDeadlineMs)
+    ) {
+      throw err("failed-precondition", "NOT_YET_EXPIRED");
+    }
+    markOfferTimedOutInTx(tx, offerRef);
+    return {
+      offerId: id,
+      status: "expired",
+      closedReason: OFFER_TIMEOUT_CLOSED_REASON,
+      alreadyClosed: false,
+      rideId: offer.rideId || null,
+    };
+  });
+
+  if (result?.alreadyClosed === false && result?.rideId) {
+    try {
+      const rideSnap = await db.collection("rides").doc(String(result.rideId)).get();
+      const ride = rideSnap.exists ? rideSnap.data() || {} : null;
+      if (ride && isSearchingPastExpiry(ride, nowMs)) {
+        await expireSearchingBooking(db, {
+          customerUid: ride.userId || ride[CUSTOMER_RIDE_OWNER_FIELD] || null,
+          rideId: String(result.rideId),
+          nowMs,
+        });
+      }
+    } catch {
+      /* best-effort — client timer may also expire search */
+    }
+  }
+
+  return result;
+}
+
 /** Server-minted immutable assignment session token (Admin/CF only; clients cannot choose). */
 function mintAssignmentSessionToken() {
   return `as_${Date.now().toString(36)}_${crypto.randomBytes(8).toString("hex")}`;
@@ -81,7 +350,11 @@ function rideExpireAtMs(ride) {
   const fromField = timestampToMs(ride?.expiresAt);
   if (fromField > 0) return fromField;
   const created = timestampToMs(ride?.createdAt);
-  if (created > 0) return created + SEARCH_EXPIRE_MS;
+  if (created > 0) {
+    const perRideMs = Number(ride?.searchExpireMs);
+    if (Number.isFinite(perRideMs) && perRideMs > 0) return created + perRideMs;
+    return created + SEARCH_EXPIRE_MS;
+  }
   // Missing timestamps → treat as overdue (ghost cleanup).
   return 0;
 }
@@ -141,6 +414,13 @@ async function reconcileCustomerBookingState(db, customerUid, { nowMs = Date.now
   if (!customerUid) return { activeCount: 0, expired: 0, activeBookings: [] };
   const active = await countCustomerActiveBookings(db, customerUid);
   const toClose = [];
+
+  // P1-B event piggyback: expire overdue offers on each active searching ride.
+  await Promise.all(
+    active.map((ride) =>
+      expireDueOffersForRide(db, ride.id, { nowMs }).catch(() => ({ expired: 0, skipped: 0 }))
+    )
+  );
 
   for (const ride of active) {
     if (!isSearchingPastExpiry(ride, nowMs)) continue;
@@ -286,6 +566,19 @@ async function readDispatchSettings(db) {
     searchRingsKm,
     maxDriverOpenBargains: MAX_DRIVER_OPEN_BARGAINS,
     maxCustomerActiveBookings: MAX_CUSTOMER_ACTIVE_BOOKINGS,
+    // P1-A idle publish — defaults match production (4s / 10m) until admin sets keys
+    idleLocationIntervalMs:
+      data.idleLocationIntervalMs != null && Number.isFinite(Number(data.idleLocationIntervalMs))
+        ? Math.min(30 * 60_000, Math.max(1_000, Math.round(Number(data.idleLocationIntervalMs))))
+        : 4_000,
+    idleLocationMoveMeters:
+      data.idleLocationMoveMeters != null && Number.isFinite(Number(data.idleLocationMoveMeters))
+        ? Math.min(5_000, Math.max(1, Math.round(Number(data.idleLocationMoveMeters))))
+        : 10,
+    // P1-B per-offer timeout — default 30s until admin sets key
+    offerTimeoutSeconds: normalizeOfferTimeoutSeconds(data.offerTimeoutSeconds),
+    // Whole booking search window — default 180s until admin sets key
+    searchTimeoutSeconds: normalizeSearchTimeoutSeconds(data.searchTimeoutSeconds),
   };
 }
 
@@ -370,6 +663,8 @@ async function createCustomerBooking(db, { customerUid, ridePayload, confirmedEx
 
   const slotRef = db.collection("booking_slots").doc(customerUid);
   const rideRef = db.collection("rides").doc();
+  const dispatch = await readDispatchSettings(db);
+  const searchExpireMs = Math.round(normalizeSearchTimeoutSeconds(dispatch.searchTimeoutSeconds) * 1000);
 
   return db.runTransaction(async (tx) => {
     const slotSnap = await tx.get(slotRef);
@@ -390,8 +685,9 @@ async function createCustomerBooking(db, { customerUid, ridePayload, confirmedEx
       status: "searching_driver",
       createdAt: FieldValue.serverTimestamp(),
       // Server-controlled search deadline — clients must not overwrite (rules deny).
-      expiresAt: Timestamp.fromMillis(now + SEARCH_EXPIRE_MS),
-      searchExpireMs: SEARCH_EXPIRE_MS,
+      expiresAt: Timestamp.fromMillis(now + searchExpireMs),
+      searchExpireMs,
+      searchTimeoutSeconds: Math.round(searchExpireMs / 1000),
     };
     Object.keys(payload).forEach((k) => {
       if (payload[k] === undefined) delete payload[k];
@@ -750,6 +1046,77 @@ async function expireDueSearchingBookings(db, { limit = 25, nowMs = Date.now() }
 }
 
 /**
+ * P1-B: expire open/countered ride_offers past offerExpiresAt.
+ * Does NOT change ride search status. Offers without offerExpiresAt are skipped (compat).
+ *
+ * @returns {{ processed, expired, skipped, failed, readsEstimate, writesEstimate }}
+ */
+async function expireDueRideOffers(db, { limit = 25, nowMs = Date.now() } = {}) {
+  const batchLimit = Math.max(1, Math.min(50, Number(limit) || 25));
+  const dispatch = await readDispatchSettings(db);
+  const fallbackOfferTimeoutSeconds = dispatch.offerTimeoutSeconds;
+  const nowTs = Timestamp.fromMillis(nowMs);
+  let docs = [];
+  try {
+    const snap = await db
+      .collection("ride_offers")
+      .where("status", "in", [...OPEN_OFFER_STATUSES])
+      .where("offerExpiresAt", "<=", nowTs)
+      .orderBy("offerExpiresAt", "asc")
+      .limit(batchLimit)
+      .get();
+    docs = snap.docs;
+  } catch {
+    const fallback = await db
+      .collection("ride_offers")
+      .where("status", "in", [...OPEN_OFFER_STATUSES])
+      .limit(Math.min(100, batchLimit * 4))
+      .get();
+    docs = fallback.docs
+      .filter((d) => isOfferPastTimeout(d.data() || {}, nowMs, fallbackOfferTimeoutSeconds))
+      .slice(0, batchLimit);
+  }
+
+  let expired = 0;
+  let skipped = 0;
+  let failed = 0;
+  for (const doc of docs) {
+    try {
+      const result = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(doc.ref);
+        if (!snap.exists) return { changed: false };
+        const offer = snap.data() || {};
+        if (!isOpenOfferStatus(offer.status) && offer.status !== "open") {
+          return { changed: false };
+        }
+        if (["rejected", "withdrawn", "expired", "accepted"].includes(offer.status)) {
+          return { changed: false };
+        }
+        if (!isOfferPastTimeout(offer, nowMs, fallbackOfferTimeoutSeconds)) {
+          return { changed: false };
+        }
+        markOfferTimedOutInTx(tx, doc.ref);
+        return { changed: true };
+      });
+      if (result.changed) expired += 1;
+      else skipped += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+
+  return {
+    processed: docs.length,
+    expired,
+    skipped,
+    failed,
+    readsEstimate: docs.length + expired,
+    writesEstimate: expired,
+    limit: batchLimit,
+  };
+}
+
+/**
  * After ride create: select candidates and write ride_candidates docs.
  * Phase 3B: when `onlineDrivers` is omitted, loads via geo-scoped cell/hotspot
  * queries only (never full online fleet). Passing `onlineDrivers` remains for
@@ -757,6 +1124,8 @@ async function expireDueSearchingBookings(db, { limit = 25, nowMs = Date.now() }
  */
 async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidateDriverLimit, excludeDriverIds, _latencyTimer }) {
   const matchStart = Date.now();
+  // P1-B: rematch / dispatch refresh expires overdue offers on this ride first.
+  await expireDueOffersForRide(db, rideId).catch(() => ({ expired: 0, skipped: 0 }));
   const [settings, rideMeta] = await Promise.all([
     readDispatchSettings(db),
     db.collection("rides").doc(rideId).get(),
@@ -1080,6 +1449,14 @@ async function submitRideOffer(db, params) {
   const partnerRef = db.collection("partners").doc(driverUid);
   const vehicleRef = db.collection("vehicles").doc(vehicleId);
 
+  const dispatch = await readDispatchSettings(db);
+  const offerTimeoutSeconds = normalizeOfferTimeoutSeconds(dispatch.offerTimeoutSeconds);
+  const nowMs = Date.now();
+  const offerExpiresAt = Timestamp.fromMillis(nowMs + offerTimeoutSeconds * 1000);
+
+  // Piggyback: close any overdue offers on this ride before writing/refreshing.
+  await expireDueOffersForRide(db, rideId, { nowMs, fallbackOfferTimeoutSeconds: offerTimeoutSeconds }).catch(() => ({ expired: 0, skipped: 0 }));
+
   return db.runTransaction(async (tx) => {
     const [rideSnap, candSnap, offerSnap, partnerSnap, vehicleSnap] = await Promise.all([
       tx.get(rideRef),
@@ -1124,6 +1501,10 @@ async function submitRideOffer(db, params) {
       ownerId: ownerId || null,
       driverName: driverName || "SwiftGo Driver",
       vehiclePlate: vehiclePlate || "—",
+      offerExpiresAt,
+      offerTimeoutSeconds,
+      offerSubmittedAtMs: nowMs,
+      offerExpiresAtMs: nowMs + offerTimeoutSeconds * 1000,
       updatedAt: FieldValue.serverTimestamp(),
     };
     if (!offerSnap.exists) {
@@ -1136,7 +1517,15 @@ async function submitRideOffer(db, params) {
     }
 
     tx.set(offerRef, payload, { merge: true });
-    return { offerId: existingOfferId, fare: bid, status: payload.status, assigned: false };
+    return {
+      offerId: existingOfferId,
+      fare: bid,
+      status: payload.status,
+      assigned: false,
+      offerExpiresAtMs: nowMs + offerTimeoutSeconds * 1000,
+      offerSubmittedAtMs: nowMs,
+      offerTimeoutSeconds,
+    };
   });
 }
 
@@ -1146,24 +1535,46 @@ async function submitRideOffer(db, params) {
 async function counterRideOffer(db, { offerId, customerUid, fare }) {
   const bid = Math.max(0, Math.round(Number(fare) || 0));
   const offerRef = db.collection("ride_offers").doc(offerId);
-  return db.runTransaction(async (tx) => {
+  const dispatch = await readDispatchSettings(db);
+  const offerTimeoutSeconds = normalizeOfferTimeoutSeconds(dispatch.offerTimeoutSeconds);
+  const nowMs = Date.now();
+  const offerExpiresAt = Timestamp.fromMillis(nowMs + offerTimeoutSeconds * 1000);
+
+  const result = await db.runTransaction(async (tx) => {
     const snap = await tx.get(offerRef);
     if (!snap.exists) throw err("not-found", "OFFER_NOT_FOUND");
     const offer = snap.data() || {};
     if (offer.customerId !== customerUid) throw err("permission-denied", "NOT_YOUR_BOOKING");
+    if (["rejected", "withdrawn", "expired", "accepted"].includes(offer.status)) {
+      throw err("failed-precondition", "OFFER_CLOSED");
+    }
     if (!isOpenOfferStatus(offer.status) && offer.status !== "open") {
       throw err("failed-precondition", "OFFER_NOT_OPEN");
     }
-    if (["rejected", "withdrawn", "expired", "accepted"].includes(offer.status)) {
-      throw err("failed-precondition", "OFFER_CLOSED");
+    if (isOfferPastTimeout(offer, nowMs, offerTimeoutSeconds)) {
+      markOfferTimedOutInTx(tx, offerRef);
+      return { __timedOut: true };
     }
     tx.update(offerRef, {
       customerCounterFare: bid,
       status: "countered",
+      offerExpiresAt,
+      offerTimeoutSeconds,
+      offerSubmittedAtMs: nowMs,
+      offerExpiresAtMs: nowMs + offerTimeoutSeconds * 1000,
       updatedAt: FieldValue.serverTimestamp(),
     });
-    return { offerId, status: "countered", customerCounterFare: bid };
+    return {
+      offerId,
+      status: "countered",
+      customerCounterFare: bid,
+      offerExpiresAtMs: nowMs + offerTimeoutSeconds * 1000,
+      offerSubmittedAtMs: nowMs,
+      offerTimeoutSeconds,
+    };
   });
+  if (result?.__timedOut) throw err("failed-precondition", "OFFER_EXPIRED");
+  return result;
 }
 
 /**
@@ -1171,6 +1582,9 @@ async function counterRideOffer(db, { offerId, customerUid, fare }) {
  */
 async function rejectRideOffer(db, { offerId, customerUid }) {
   const offerRef = db.collection("ride_offers").doc(offerId);
+  const dispatch = await readDispatchSettings(db);
+  const fallbackOfferTimeoutSeconds = dispatch.offerTimeoutSeconds;
+  const nowMs = Date.now();
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(offerRef);
     if (!snap.exists) throw err("not-found", "OFFER_NOT_FOUND");
@@ -1178,6 +1592,10 @@ async function rejectRideOffer(db, { offerId, customerUid }) {
     if (offer.customerId !== customerUid) throw err("permission-denied", "NOT_YOUR_BOOKING");
     if (["rejected", "withdrawn", "expired", "accepted"].includes(offer.status)) {
       throw err("failed-precondition", "OFFER_CLOSED");
+    }
+    if (isOfferPastTimeout(offer, nowMs, fallbackOfferTimeoutSeconds)) {
+      markOfferTimedOutInTx(tx, offerRef);
+      return { offerId, status: "expired", closedReason: OFFER_TIMEOUT_CLOSED_REASON };
     }
     tx.update(offerRef, {
       status: "rejected",
@@ -1194,136 +1612,212 @@ async function finalizeAssignmentFromOffer(db, params) {
   const { offerId, actorUid, actorRole } = params;
   // actorRole: 'customer' | 'driver'
   const offerRef = db.collection("ride_offers").doc(offerId);
+  const dispatch = await readDispatchSettings(db);
+  const fallbackOfferTimeoutSeconds = dispatch.offerTimeoutSeconds;
+  const serverTimestamp = new Date().toISOString();
+  let assignDiag = {
+    offerId: offerId || null,
+    rideId: null,
+    driverUid: null,
+    offerStatus: null,
+    offerExpiresAt: null,
+  };
+  let transactionOutcome = "UNKNOWN";
 
-  return db.runTransaction(async (tx) => {
-    const offerSnap = await tx.get(offerRef);
-    if (!offerSnap.exists) throw err("not-found", "OFFER_NOT_FOUND");
-    const offer = offerSnap.data() || {};
+  try {
+    const result = await db
+      .runTransaction(async (tx) => {
+        const offerSnap = await tx.get(offerRef);
+        if (!offerSnap.exists) {
+          transactionOutcome = "OFFER_NOT_FOUND";
+          throw err("not-found", "OFFER_NOT_FOUND");
+        }
+        const offer = offerSnap.data() || {};
+        assignDiag = {
+          offerId,
+          rideId: offer.rideId ?? null,
+          driverUid: offer.driverId ?? null,
+          offerStatus: offer.status ?? null,
+          offerExpiresAt: offerExpiresAtForAssignDiag(offer),
+        };
 
-    if (["rejected", "withdrawn", "expired"].includes(offer.status)) {
-      throw err("failed-precondition", "OFFER_CLOSED");
-    }
-    if (offer.status === "accepted") {
-      // idempotent
-      return { alreadyAssigned: true, rideId: offer.rideId, driverId: offer.driverId };
-    }
+        if (["rejected", "withdrawn", "expired"].includes(offer.status)) {
+          transactionOutcome = "OFFER_CLOSED";
+          throw err("failed-precondition", "OFFER_CLOSED");
+        }
+        if (offer.status === "accepted") {
+          transactionOutcome = "ALREADY_ASSIGNED";
+          return { alreadyAssigned: true, rideId: offer.rideId, driverId: offer.driverId };
+        }
 
-    const rideRef = db.collection("rides").doc(offer.rideId);
-    const rideSnap = await tx.get(rideRef);
-    if (!rideSnap.exists) throw err("not-found", "RIDE_NOT_FOUND");
-    const ride = rideSnap.data() || {};
+        if (isOfferPastTimeout(offer, Date.now(), fallbackOfferTimeoutSeconds)) {
+          transactionOutcome = "OFFER_EXPIRED";
+          markOfferTimedOutInTx(tx, offerRef);
+          return { __timedOut: true, rideId: offer.rideId };
+        }
 
-    if (ride.status !== "searching_driver") {
-      throw err("failed-precondition", "RIDE_NOT_AVAILABLE");
-    }
+        const rideRef = db.collection("rides").doc(offer.rideId);
+        const rideSnap = await tx.get(rideRef);
+        if (!rideSnap.exists) {
+          transactionOutcome = "RIDE_NOT_FOUND";
+          throw err("not-found", "RIDE_NOT_FOUND");
+        }
+        const ride = rideSnap.data() || {};
 
-    if (actorRole === "customer" && ride.userId !== actorUid) {
-      throw err("permission-denied", "NOT_YOUR_BOOKING");
-    }
-    if (actorRole === "driver" && offer.driverId !== actorUid) {
-      throw err("permission-denied", "NOT_YOUR_OFFER");
-    }
+        if (ride.status !== "searching_driver") {
+          transactionOutcome = "RIDE_NOT_AVAILABLE";
+          throw err("failed-precondition", "RIDE_NOT_AVAILABLE");
+        }
 
-    const partnerRef = db.collection("partners").doc(offer.driverId);
-    const partnerSnap = await tx.get(partnerRef);
-    const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
-    if (partner.accountStatus === "blocked") throw err("permission-denied", "DRIVER_BLOCKED");
-    if (partner.accountStatus === "suspended") throw err("permission-denied", "DRIVER_SUSPENDED");
+        if (actorRole === "customer" && ride.userId !== actorUid) {
+          transactionOutcome = "NOT_YOUR_BOOKING";
+          throw err("permission-denied", "NOT_YOUR_BOOKING");
+        }
+        if (actorRole === "driver" && offer.driverId !== actorUid) {
+          transactionOutcome = "NOT_YOUR_OFFER";
+          throw err("permission-denied", "NOT_YOUR_OFFER");
+        }
 
-    const vehicleRef = offer.vehicleId
-      ? db.collection("vehicles").doc(offer.vehicleId)
-      : null;
-    const vehicleSnap = vehicleRef ? await tx.get(vehicleRef) : null;
-    if (!vehicleSnap?.exists || vehicleSnap.data()?.driverId !== offer.driverId) {
-      throw err("permission-denied", "VEHICLE_NOT_LINKED");
-    }
-    await reconcileDriverAvailabilityInTx(tx, db, {
-      driverUid: offer.driverId,
-      vehicleId: offer.vehicleId,
-      partnerRef,
-      vehicleRef,
-      partnerSnap,
-      vehicleSnap,
-    });
+        const partnerRef = db.collection("partners").doc(offer.driverId);
+        const partnerSnap = await tx.get(partnerRef);
+        const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
+        if (partner.accountStatus === "blocked") {
+          transactionOutcome = "DRIVER_BLOCKED";
+          throw err("permission-denied", "DRIVER_BLOCKED");
+        }
+        if (partner.accountStatus === "suspended") {
+          transactionOutcome = "DRIVER_SUSPENDED";
+          throw err("permission-denied", "DRIVER_SUSPENDED");
+        }
 
-    let finalFare = Math.round(Number(offer.fare) || 0);
-    if (actorRole === "driver" && offer.status === "countered") {
-      finalFare = Math.round(Number(offer.customerCounterFare) || 0);
-      if (finalFare <= 0) throw err("failed-precondition", "NO_COUNTER");
-    }
-
-    // Assign ride
-    tx.update(rideRef, {
-      status: "accepted",
-      driverId: offer.driverId,
-      vehicleId: offer.vehicleId,
-      ownerId: offer.ownerId,
-      driverName: offer.driverName,
-      vehiclePlate: offer.vehiclePlate,
-      farePkr: finalFare,
-      estimatedFare: finalFare,
-      driverBidFare: finalFare,
-      assignedAt: FieldValue.serverTimestamp(),
-      // Immutable for this assignment; never overwrite if somehow already present.
-      assignmentSessionToken:
-        String(ride.assignmentSessionToken || "").trim() || mintAssignmentSessionToken(),
-    });
-
-    tx.update(offerRef, {
-      status: "accepted",
-      fare: finalFare,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    tx.set(
-      partnerRef,
-      { activeRideId: offer.rideId, updatedAt: FieldValue.serverTimestamp() },
-      { merge: true }
-    );
-
-    tx.update(vehicleRef, {
-      status: "in_ride",
-      activeRideId: offer.rideId,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    const candRef = db.collection("ride_candidates").doc(
-      candidateDocId(offer.rideId, offer.driverId)
-    );
-    tx.set(
-      candRef,
-      {
-        rideId: offer.rideId,
-        driverId: offer.driverId,
-        status: "accepted",
-        updatedAt: FieldValue.serverTimestamp(),
-        closedReason: "driver_assigned",
-      },
-      { merge: true }
-    );
-
-    return {
-      alreadyAssigned: false,
-      rideId: offer.rideId,
-      driverId: offer.driverId,
-      fare: finalFare,
-      needsOfferCleanup: true,
-    };
-  }).then(async (result) => {
-    if (result.needsOfferCleanup) {
-      await closeSiblingOffers(db, result.rideId, result.driverId, offerId);
-    }
-    if (!result.alreadyAssigned && result.rideId) {
-      const offerSnap = await db.collection("ride_offers").doc(offerId).get();
-      const vehicleId = offerSnap.data()?.vehicleId;
-      if (vehicleId) {
-        await seedDriverLocationFromVehicle(db, result.rideId, vehicleId).catch((err) => {
-          console.warn("[seedDriverLocation]", err?.message || err);
+        const vehicleRef = offer.vehicleId
+          ? db.collection("vehicles").doc(offer.vehicleId)
+          : null;
+        const vehicleSnap = vehicleRef ? await tx.get(vehicleRef) : null;
+        if (!vehicleSnap?.exists || vehicleSnap.data()?.driverId !== offer.driverId) {
+          transactionOutcome = "VEHICLE_NOT_LINKED";
+          throw err("permission-denied", "VEHICLE_NOT_LINKED");
+        }
+        await reconcileDriverAvailabilityInTx(tx, db, {
+          driverUid: offer.driverId,
+          vehicleId: offer.vehicleId,
+          partnerRef,
+          vehicleRef,
+          partnerSnap,
+          vehicleSnap,
         });
-      }
+
+        let finalFare = Math.round(Number(offer.fare) || 0);
+        if (actorRole === "driver" && offer.status === "countered") {
+          finalFare = Math.round(Number(offer.customerCounterFare) || 0);
+          if (finalFare <= 0) {
+            transactionOutcome = "NO_COUNTER";
+            throw err("failed-precondition", "NO_COUNTER");
+          }
+        }
+
+        // Assign ride
+        tx.update(rideRef, {
+          status: "accepted",
+          driverId: offer.driverId,
+          vehicleId: offer.vehicleId,
+          ownerId: offer.ownerId,
+          driverName: offer.driverName,
+          vehiclePlate: offer.vehiclePlate,
+          farePkr: finalFare,
+          estimatedFare: finalFare,
+          driverBidFare: finalFare,
+          assignedAt: FieldValue.serverTimestamp(),
+          // Immutable for this assignment; never overwrite if somehow already present.
+          assignmentSessionToken:
+            String(ride.assignmentSessionToken || "").trim() || mintAssignmentSessionToken(),
+        });
+
+        tx.update(offerRef, {
+          status: "accepted",
+          fare: finalFare,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        tx.set(
+          partnerRef,
+          { activeRideId: offer.rideId, updatedAt: FieldValue.serverTimestamp() },
+          { merge: true }
+        );
+
+        tx.update(vehicleRef, {
+          status: "in_ride",
+          activeRideId: offer.rideId,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        const candRef = db.collection("ride_candidates").doc(
+          candidateDocId(offer.rideId, offer.driverId)
+        );
+        tx.set(
+          candRef,
+          {
+            rideId: offer.rideId,
+            driverId: offer.driverId,
+            status: "accepted",
+            updatedAt: FieldValue.serverTimestamp(),
+            closedReason: "driver_assigned",
+          },
+          { merge: true }
+        );
+
+        transactionOutcome = "ASSIGNED";
+        return {
+          alreadyAssigned: false,
+          rideId: offer.rideId,
+          driverId: offer.driverId,
+          fare: finalFare,
+          needsOfferCleanup: true,
+        };
+      })
+      .then(async (txResult) => {
+        if (txResult?.__timedOut) {
+          throw err("failed-precondition", "OFFER_EXPIRED");
+        }
+        if (txResult.needsOfferCleanup) {
+          await closeSiblingOffers(db, txResult.rideId, txResult.driverId, offerId);
+        }
+        if (!txResult.alreadyAssigned && txResult.rideId) {
+          const offerSnap = await db.collection("ride_offers").doc(offerId).get();
+          const vehicleId = offerSnap.data()?.vehicleId;
+          if (vehicleId) {
+            await seedDriverLocationFromVehicle(db, txResult.rideId, vehicleId).catch((err) => {
+              console.warn("[seedDriverLocation]", err?.message || err);
+            });
+          }
+        }
+        return txResult;
+      });
+
+    if (transactionOutcome === "UNKNOWN") {
+      transactionOutcome = result?.alreadyAssigned ? "ALREADY_ASSIGNED" : "ASSIGNED";
     }
+    logAssignTransactionDiag("finalizeAssignmentFromOffer", {
+      ...assignDiag,
+      serverTimestamp,
+      transactionOutcome,
+      actorUid: actorUid ?? null,
+      actorRole: actorRole ?? null,
+    });
     return result;
-  });
+  } catch (e) {
+    if (transactionOutcome === "UNKNOWN") {
+      transactionOutcome = String(e?.message || e?.code || "ERROR").slice(0, 120);
+    }
+    logAssignTransactionDiag("finalizeAssignmentFromOffer", {
+      ...assignDiag,
+      serverTimestamp,
+      transactionOutcome,
+      actorUid: actorUid ?? null,
+      actorRole: actorRole ?? null,
+    });
+    throw e;
+  }
 }
 
 /**
@@ -1347,128 +1841,208 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
   const offerRef = db.collection("ride_offers").doc(existingOfferId);
   const partnerRef = db.collection("partners").doc(driverUid);
   const vehicleRef = db.collection("vehicles").doc(vehicleId);
+  const dispatch = await readDispatchSettings(db);
+  const fallbackOfferTimeoutSeconds = dispatch.offerTimeoutSeconds;
+  const serverTimestamp = new Date().toISOString();
+  let assignDiag = {
+    offerId: existingOfferId,
+    rideId,
+    driverUid,
+    offerStatus: null,
+    offerExpiresAt: null,
+  };
+  let transactionOutcome = "UNKNOWN";
 
-  const result = await db.runTransaction(async (tx) => {
-    const [rideSnap, candSnap, offerSnap, partnerSnap, vehicleSnap] = await Promise.all([
-      tx.get(rideRef),
-      tx.get(candRef),
-      tx.get(offerRef),
-      tx.get(partnerRef),
-      tx.get(vehicleRef),
-    ]);
-    if (!rideSnap.exists) throw err("not-found", "RIDE_NOT_FOUND");
-    const ride = rideSnap.data() || {};
-    if (ride.status !== "searching_driver") throw err("failed-precondition", "RIDE_NOT_AVAILABLE");
-    if (!candSnap.exists || candSnap.data()?.status !== "invited") {
-      throw err("permission-denied", "NOT_A_CANDIDATE");
-    }
+  try {
+    const result = await db.runTransaction(async (tx) => {
+      const [rideSnap, candSnap, offerSnap, partnerSnap, vehicleSnap] = await Promise.all([
+        tx.get(rideRef),
+        tx.get(candRef),
+        tx.get(offerRef),
+        tx.get(partnerRef),
+        tx.get(vehicleRef),
+      ]);
+      if (!rideSnap.exists) {
+        transactionOutcome = "RIDE_NOT_FOUND";
+        throw err("not-found", "RIDE_NOT_FOUND");
+      }
+      const ride = rideSnap.data() || {};
+      if (ride.status !== "searching_driver") {
+        transactionOutcome = "RIDE_NOT_AVAILABLE";
+        throw err("failed-precondition", "RIDE_NOT_AVAILABLE");
+      }
+      if (!candSnap.exists || candSnap.data()?.status !== "invited") {
+        transactionOutcome = "NOT_A_CANDIDATE";
+        throw err("permission-denied", "NOT_A_CANDIDATE");
+      }
 
-    const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
-    if (partner.accountStatus === "blocked") throw err("permission-denied", "DRIVER_BLOCKED");
-    if (partner.accountStatus === "suspended") throw err("permission-denied", "DRIVER_SUSPENDED");
-    if (!vehicleSnap.exists || vehicleSnap.data()?.driverId !== driverUid) {
-      throw err("permission-denied", "VEHICLE_NOT_LINKED");
-    }
-    await reconcileDriverAvailabilityInTx(tx, db, {
-      driverUid,
-      vehicleId,
-      partnerRef,
-      vehicleRef,
-      partnerSnap,
-      vehicleSnap,
-    });
+      const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
+      if (partner.accountStatus === "blocked") {
+        transactionOutcome = "DRIVER_BLOCKED";
+        throw err("permission-denied", "DRIVER_BLOCKED");
+      }
+      if (partner.accountStatus === "suspended") {
+        transactionOutcome = "DRIVER_SUSPENDED";
+        throw err("permission-denied", "DRIVER_SUSPENDED");
+      }
+      if (!vehicleSnap.exists || vehicleSnap.data()?.driverId !== driverUid) {
+        transactionOutcome = "VEHICLE_NOT_LINKED";
+        throw err("permission-denied", "VEHICLE_NOT_LINKED");
+      }
+      await reconcileDriverAvailabilityInTx(tx, db, {
+        driverUid,
+        vehicleId,
+        partnerRef,
+        vehicleRef,
+        partnerSnap,
+        vehicleSnap,
+      });
 
-    const prev = offerSnap.exists ? offerSnap.data() : null;
-    if (prev?.status === "accepted") {
-      return {
-        alreadyAssigned: true,
+      const prev = offerSnap.exists ? offerSnap.data() : null;
+      assignDiag = {
+        offerId: existingOfferId,
+        rideId,
+        driverUid,
+        offerStatus: prev?.status ?? null,
+        offerExpiresAt: prev ? offerExpiresAtForAssignDiag(prev) : null,
+      };
+
+      if (prev?.status === "accepted") {
+        transactionOutcome = "ALREADY_ASSIGNED";
+        return {
+          alreadyAssigned: true,
+          rideId,
+          driverId: driverUid,
+          fare: Math.round(Number(prev.fare) || Number(ride.estimatedFare) || 0),
+        };
+      }
+
+      // acceptCustomerInitialFare is only for drivers who have not entered custom-offer negotiation.
+      if (prev?.status === "expired") {
+        transactionOutcome = "OFFER_EXPIRED";
+        throw err("failed-precondition", "OFFER_EXPIRED");
+      }
+      if (prev && ["rejected", "withdrawn"].includes(prev.status)) {
+        transactionOutcome = "OFFER_CLOSED";
+        throw err("failed-precondition", "OFFER_CLOSED");
+      }
+      if (prev && (isOpenOfferStatus(prev.status) || prev.status === "open")) {
+        if (isOfferPastTimeout(prev, Date.now(), fallbackOfferTimeoutSeconds)) {
+          transactionOutcome = "OFFER_EXPIRED";
+          markOfferTimedOutInTx(tx, offerRef);
+          return { __timedOut: true, rideId, offerId: existingOfferId };
+        }
+        transactionOutcome = "OFFER_NEGOTIATION_ACTIVE";
+        throw err("failed-precondition", "OFFER_NEGOTIATION_ACTIVE");
+      }
+
+      const finalFare = Math.round(Number(ride.estimatedFare ?? ride.farePkr ?? 0));
+      if (!Number.isFinite(finalFare) || finalFare <= 0) {
+        transactionOutcome = "INVALID_FARE";
+        throw err("failed-precondition", "INVALID_FARE");
+      }
+
+      tx.update(vehicleRef, {
+        status: "in_ride",
+        activeRideId: rideId,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      tx.update(candRef, {
+        status: "accepted",
+        updatedAt: FieldValue.serverTimestamp(),
+        closedReason: "driver_assigned",
+      });
+
+      tx.update(rideRef, {
+        status: "accepted",
+        driverId: driverUid,
+        vehicleId,
+        ownerId: ownerId || null,
+        driverName: driverName || "SwiftGo Driver",
+        vehiclePlate: vehiclePlate || "—",
+        farePkr: finalFare,
+        estimatedFare: finalFare,
+        driverBidFare: finalFare,
+        assignedAt: FieldValue.serverTimestamp(),
+        assignmentSessionToken:
+          String(ride.assignmentSessionToken || "").trim() || mintAssignmentSessionToken(),
+      });
+
+      const offerPayload = {
         rideId,
         driverId: driverUid,
-        fare: Math.round(Number(prev.fare) || Number(ride.estimatedFare) || 0),
+        customerId: ride.userId,
+        fare: finalFare,
+        status: "accepted",
+        vehicleId,
+        ownerId: ownerId || null,
+        driverName: driverName || "SwiftGo Driver",
+        vehiclePlate: vehiclePlate || "—",
+        acceptedAtCustomerFare: true,
+        updatedAt: FieldValue.serverTimestamp(),
       };
-    }
+      if (!offerSnap.exists) {
+        offerPayload.createdAt = FieldValue.serverTimestamp();
+      }
+      tx.set(offerRef, offerPayload, { merge: true });
 
-    const finalFare = Math.round(Number(ride.estimatedFare ?? ride.farePkr ?? 0));
-    if (!Number.isFinite(finalFare) || finalFare <= 0) {
-      throw err("failed-precondition", "INVALID_FARE");
-    }
+      tx.set(
+        partnerRef,
+        { activeRideId: rideId, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
 
-    tx.update(vehicleRef, {
-      status: "in_ride",
-      activeRideId: rideId,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-    tx.update(candRef, {
-      status: "accepted",
-      updatedAt: FieldValue.serverTimestamp(),
-      closedReason: "driver_assigned",
-    });
-
-    tx.update(rideRef, {
-      status: "accepted",
-      driverId: driverUid,
-      vehicleId,
-      ownerId: ownerId || null,
-      driverName: driverName || "SwiftGo Driver",
-      vehiclePlate: vehiclePlate || "—",
-      farePkr: finalFare,
-      estimatedFare: finalFare,
-      driverBidFare: finalFare,
-      assignedAt: FieldValue.serverTimestamp(),
-      assignmentSessionToken:
-        String(ride.assignmentSessionToken || "").trim() || mintAssignmentSessionToken(),
+      transactionOutcome = "ASSIGNED";
+      return {
+        alreadyAssigned: false,
+        rideId,
+        driverId: driverUid,
+        fare: finalFare,
+        needsOfferCleanup: true,
+      };
     });
 
-    const offerPayload = {
-      rideId,
-      driverId: driverUid,
-      customerId: ride.userId,
-      fare: finalFare,
-      status: "accepted",
-      vehicleId,
-      ownerId: ownerId || null,
-      driverName: driverName || "SwiftGo Driver",
-      vehiclePlate: vehiclePlate || "—",
-      acceptedAtCustomerFare: true,
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-    if (!offerSnap.exists) {
-      offerPayload.createdAt = FieldValue.serverTimestamp();
+    if (result?.__timedOut) {
+      throw err("failed-precondition", "OFFER_EXPIRED");
     }
-    tx.set(offerRef, offerPayload, { merge: true });
 
-    tx.set(
-      partnerRef,
-      { activeRideId: rideId, updatedAt: FieldValue.serverTimestamp() },
-      { merge: true }
-    );
+    if (result.needsOfferCleanup) {
+      await closeSiblingOffers(db, result.rideId, driverUid, existingOfferId);
+    }
+    if (!result.alreadyAssigned) {
+      await seedDriverLocationFromVehicle(db, result.rideId, vehicleId).catch((err) => {
+        console.warn("[seedDriverLocation]", err?.message || err);
+      });
+    }
+
+    if (transactionOutcome === "UNKNOWN") {
+      transactionOutcome = result?.alreadyAssigned ? "ALREADY_ASSIGNED" : "ASSIGNED";
+    }
+    logAssignTransactionDiag("acceptCustomerInitialFare", {
+      ...assignDiag,
+      serverTimestamp,
+      transactionOutcome,
+    });
 
     return {
-      alreadyAssigned: false,
-      rideId,
-      driverId: driverUid,
-      fare: finalFare,
-      needsOfferCleanup: true,
+      ok: true,
+      rideId: result.rideId,
+      driverId: result.driverId,
+      fare: result.fare,
+      assigned: true,
+      alreadyAssigned: Boolean(result.alreadyAssigned),
     };
-  });
-
-  if (result.needsOfferCleanup) {
-    await closeSiblingOffers(db, result.rideId, driverUid, existingOfferId);
-  }
-  if (!result.alreadyAssigned) {
-    await seedDriverLocationFromVehicle(db, result.rideId, vehicleId).catch((err) => {
-      console.warn("[seedDriverLocation]", err?.message || err);
+  } catch (e) {
+    if (transactionOutcome === "UNKNOWN") {
+      transactionOutcome = String(e?.message || e?.code || "ERROR").slice(0, 120);
+    }
+    logAssignTransactionDiag("acceptCustomerInitialFare", {
+      ...assignDiag,
+      serverTimestamp,
+      transactionOutcome,
     });
+    throw e;
   }
-
-  return {
-    ok: true,
-    rideId: result.rideId,
-    driverId: result.driverId,
-    fare: result.fare,
-    assigned: true,
-    alreadyAssigned: Boolean(result.alreadyAssigned),
-  };
 }
 
 /**
@@ -1616,6 +2190,9 @@ module.exports = {
   previewCancellationFare,
   expireSearchingBooking,
   expireDueSearchingBookings,
+  expireDueRideOffers,
+  expireDueOffersForRide,
+  expireRideOffer,
   closeCandidatesAndOffersForRide,
   matchRideCandidates,
   countDriverOpenBargains,
@@ -1628,6 +2205,14 @@ module.exports = {
   closeSiblingOffers,
   rematchNearbySearchingRidesForVehicle,
   mintAssignmentSessionToken,
+  normalizeOfferTimeoutSeconds,
+  normalizeSearchTimeoutSeconds,
+  DEFAULT_SEARCH_TIMEOUT_SECONDS,
+  SEARCH_TIMEOUT_SECONDS_MIN,
+  SEARCH_TIMEOUT_SECONDS_MAX,
+  isOfferPastTimeout,
+  resolveOfferExpiryMs,
+  DEFAULT_OFFER_TIMEOUT_SECONDS,
   SEARCH_EXPIRE_MS,
   SEARCH_EXPIRED_STATUS,
 };

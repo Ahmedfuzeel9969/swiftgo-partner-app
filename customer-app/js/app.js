@@ -28,7 +28,6 @@ import {
 import { initAuth, onUserChange, openAuthModal, getCurrentUser, logout } from "./auth.js";
 import { watchUserProfile } from "./data.js";
 import { isFirebaseConfigured } from "./firebase.js";
-import { installCustomerE2EHooks } from "./e2e-hooks.js";
 import {
   initDashboard,
   refreshDashboardLabels,
@@ -54,17 +53,98 @@ import {
   requestAccountDeletionClient,
   askTrustConfirm,
 } from "./trust.js";
-import {
-  initRideHistory,
-  refreshRideHistory,
-  startCustomerRideHistory,
-  stopCustomerRideHistory,
-} from "./history.js";
 import { isNativeShell, getNativePlatform, getNetworkStatus } from "./native-shell.js";
+import { installDefaultOsrmPreviewRouteProvider } from "./route-provider-bootstrap.mjs";
 
 // Expose thin native helpers for Capacitor shells (no-ops on web).
 window.__swiftgoNative = { isNativeShell, getNativePlatform, getNetworkStatus };
 window.__SWIFTGO_ANDROID_PACKAGE__ = "com.swiftgo.customer";
+// Active-ride two-leg routes: same public OSRM preview booking already uses.
+installDefaultOsrmPreviewRouteProvider(window);
+
+let diagnosticsUi = null;
+let fieldDiagnostics = null;
+let historyApi = null;
+let historyLoadPromise = null;
+let historyListeningUid = "";
+let activeUser = null;
+let diagnosticsLoadPromise = null;
+let e2eHooksLoadPromise = null;
+
+function startHistoryForActiveUser() {
+  const uid = activeUser?.uid || "";
+  if (!historyApi || !uid || historyListeningUid === uid) return;
+  historyApi.startCustomerRideHistory(uid);
+  historyListeningUid = uid;
+}
+
+function loadHistory() {
+  if (!historyLoadPromise) {
+    historyLoadPromise = import("./history.js").then((module) => {
+      historyApi = module;
+      historyApi.initRideHistory({ onToast: showToast });
+      startHistoryForActiveUser();
+      return module;
+    });
+  }
+  return historyLoadPromise;
+}
+
+function loadDiagnostics() {
+  if (!diagnosticsLoadPromise) {
+    diagnosticsLoadPromise = Promise.all([
+      import("./diagnostics-screen.js"),
+      import("./field-diagnostics.mjs"),
+    ]).then(([diagnosticsModule, fieldModule]) => {
+      fieldModule.installFieldDiagnostics({ role: "customer" });
+      fieldDiagnostics = fieldModule.getFieldDiagnostics();
+      fieldDiagnostics?.setMeta({
+        firebase: {
+          configured: isFirebaseConfigured(),
+          authUidPresent: Boolean(activeUser?.uid),
+        },
+      });
+      return diagnosticsModule;
+    }).then((diagnosticsModule) => {
+      diagnosticsUi = diagnosticsModule.initDiagnosticsScreen({
+        role: "customer",
+        summaryId: "diagSummary",
+        logId: "diagLog",
+        copyBtnId: "diagCopyBtn",
+        phase1CopyBtnId: "diagPhase1CopyBtn",
+        phase2CopyBtnId: "diagPhase2CopyBtn",
+        phase3CopyBtnId: "diagPhase3CopyBtn",
+        clearBtnId: "diagClearBtn",
+        statusId: "diagCopyStatus",
+        onCopied: (ok) => {
+          if (ok) showToast(t("diagnosticsCopied") || "Report copied");
+        },
+      });
+      return diagnosticsUi;
+    });
+  }
+  return diagnosticsLoadPromise;
+}
+
+function loadE2EHooks() {
+  if (!e2eHooksLoadPromise) {
+    e2eHooksLoadPromise = import("./e2e-hooks.js").then((module) => {
+      module.installCustomerE2EHooks();
+    });
+  }
+  return e2eHooksLoadPromise;
+}
+
+function scheduleNonCriticalStartup() {
+  const load = () => {
+    void loadE2EHooks().catch((err) => console.warn("[SwiftGo] E2E hooks startup", err));
+  };
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(load, { timeout: 2000 });
+  } else {
+    window.setTimeout(load, 300);
+  }
+}
 
 const els = {
   app: document.getElementById("app"),
@@ -120,7 +200,8 @@ function ensureMap() {
     resizeMap();
     return;
   }
-  initMap("map");
+  const instance = initMap("map");
+  if (!instance) return;
   mapReady = true;
   // Layout may still be settling after floating topbar grid fix.
   window.requestAnimationFrame(() => {
@@ -151,9 +232,14 @@ function navigate(route) {
   els.shell.classList.toggle("on-home", onHome);
 
   if (onHome) {
+    if (els.overlay) {
+      els.overlay.classList.remove("is-visible");
+      els.overlay.hidden = true;
+    }
     requestAnimationFrame(() => {
       ensureMap();
       resizeMap();
+      window.setTimeout(() => resizeMap(), 280);
     });
   }
 
@@ -161,7 +247,12 @@ function navigate(route) {
   closeUtilityDrawer();
 
   if (route === "history") {
-    refreshRideHistory();
+    void loadHistory().then(() => historyApi?.refreshRideHistory());
+  }
+  if (route === "diagnostics") {
+    void loadDiagnostics().then((ui) => ui?.onShow?.());
+  } else {
+    diagnosticsUi?.onHide?.();
   }
 }
 
@@ -246,7 +337,8 @@ function updateProfileUi(user, profile) {
     }
     if (els.signOutBtn) els.signOutBtn.hidden = true;
     setWalletBalanceUi(0);
-    stopCustomerRideHistory();
+    historyApi?.stopCustomerRideHistory();
+    historyListeningUid = "";
   }
 }
 
@@ -254,10 +346,26 @@ function bindUserData() {
   onUserChange((user) => {
     unsubProfile();
     unsubProfile = () => {};
+    activeUser = user;
+    try {
+      fieldDiagnostics?.setMeta({
+        firebase: {
+          configured: isFirebaseConfigured(),
+          authUidPresent: Boolean(user?.uid),
+        },
+      });
+      fieldDiagnostics?.record("firebase_status", {
+        configured: isFirebaseConfigured(),
+        authUidPresent: Boolean(user?.uid),
+      });
+    } catch {
+      /* ignore */
+    }
 
     if (!user) {
       updateProfileUi(null, null);
-      stopCustomerRideHistory();
+      historyApi?.stopCustomerRideHistory();
+      historyListeningUid = "";
       clearCustomerRideSession();
       return;
     }
@@ -266,7 +374,7 @@ function bindUserData() {
     unsubProfile = watchUserProfile(user.uid, (profile) => {
       updateProfileUi(user, profile);
     });
-    startCustomerRideHistory(user.uid);
+    startHistoryForActiveUser();
     void resumeActiveRideWatch(user.uid);
   });
 }
@@ -313,7 +421,7 @@ function bindEvents() {
         refreshLocationLabels();
         refreshStepUiLabels();
         refreshUtilityDrawerLabels();
-        refreshRideHistory();
+        historyApi?.refreshRideHistory();
         const user = getCurrentUser();
         if (!user) {
           if (els.profileName) els.profileName.textContent = t("profileName");
@@ -350,7 +458,7 @@ function bindEvents() {
     refreshLocationLabels();
     refreshStepUiLabels();
     refreshUtilityDrawerLabels();
-    refreshRideHistory();
+    historyApi?.refreshRideHistory();
   });
 }
 
@@ -430,7 +538,6 @@ async function boot() {
     },
   });
   initDriverTrack();
-  initRideHistory({ onToast: showToast });
   initLocationModule({
     ensureMap,
     navigateHome: () => navigate("home"),
@@ -448,7 +555,17 @@ async function boot() {
   els.shell.classList.add("on-home");
   navigate("home");
   closeDrawer();
-  installCustomerE2EHooks();
+  closeUtilityDrawer();
+  if (els.overlay) {
+    els.overlay.classList.remove("is-visible");
+    els.overlay.hidden = true;
+  }
+  requestAnimationFrame(() => {
+    ensureMap();
+    resizeMap();
+    window.setTimeout(() => resizeMap(), 280);
+  });
+  scheduleNonCriticalStartup();
   console.info(
     `[SwiftGo] Phase 17 live ride status ready · firebase=${isFirebaseConfigured()} · lang=${getLang()}`
   );
