@@ -197,6 +197,7 @@
               <table class="rides-table" aria-label="All rides monitoring">
                 <thead>
                   <tr>
+                    <th>لوکیشن رپورٹ</th>
                     <th>تاریخ</th>
                     <th>کسٹمر</th>
                     <th>ڈرائیور</th>
@@ -204,7 +205,6 @@
                     <th>کل کرایہ</th>
                     <th>کمیشن</th>
                     <th>ریٹنگ</th>
-                    <th>لوکیشن رپورٹ</th>
                   </tr>
                 </thead>
                 <tbody id="allRidesTableBody">
@@ -501,6 +501,63 @@
                   کل فاصلہ: 3 کلومیٹر / 3000 میٹر
                 </p>
               </div>
+              <label class="finance-field" for="idleLocationIntervalSeconds">
+                <span class="finance-field__label" id="idleLocationIntervalLabel">ویٹنگ لوکیشن وقفہ (سیکنڈ) / Idle location interval (seconds)</span>
+                <input
+                  type="number"
+                  id="idleLocationIntervalSeconds"
+                  name="idleLocationIntervalSeconds"
+                  min="1"
+                  max="1800"
+                  step="1"
+                  value="4"
+                  required
+                  aria-labelledby="idleLocationIntervalLabel"
+                />
+              </label>
+              <label class="finance-field" for="idleLocationMoveMeters">
+                <span class="finance-field__label" id="idleLocationMoveLabel">ویٹنگ حرکت حد (میٹر) / Idle move threshold (meters)</span>
+                <input
+                  type="number"
+                  id="idleLocationMoveMeters"
+                  name="idleLocationMoveMeters"
+                  min="1"
+                  max="5000"
+                  step="1"
+                  value="10"
+                  required
+                  aria-labelledby="idleLocationMoveLabel"
+                />
+              </label>
+              <label class="finance-field" for="offerTimeoutSeconds">
+                <span class="finance-field__label" id="offerTimeoutSecondsLabel">آفر وقت ختم (سیکنڈ) / Offer timeout (seconds)</span>
+                <input
+                  type="number"
+                  id="offerTimeoutSeconds"
+                  name="offerTimeoutSeconds"
+                  min="5"
+                  max="300"
+                  step="1"
+                  value="30"
+                  required
+                  aria-labelledby="offerTimeoutSecondsLabel"
+                />
+              </label>
+              <label class="finance-field" for="searchTimeoutSeconds">
+                <span class="finance-field__label" id="searchTimeoutSecondsLabel">بکنگ تلاش وقت ختم (سیکنڈ) / Booking search timeout (seconds)</span>
+                <input
+                  type="number"
+                  id="searchTimeoutSeconds"
+                  name="searchTimeoutSeconds"
+                  min="30"
+                  max="600"
+                  step="1"
+                  value="180"
+                  required
+                  aria-labelledby="searchTimeoutSecondsLabel"
+                />
+              </label>
+              <p class="admin-live-note">آفر وقت = ہر پیشکش کی مدت · بکنگ تلاش وقت = پوری بکنگ کب تک searching رہے (کوئی ڈرائیور نہ ملے تو ختم) · Production defaults: offer 30s · search 180s.</p>
               <button type="submit" class="finance-save-btn" id="dispatchSaveBtn">
                 ڈسپیچ سیٹنگ محفوظ کریں
                 <span class="finance-save-btn__en">Save Dispatch Limit</span>

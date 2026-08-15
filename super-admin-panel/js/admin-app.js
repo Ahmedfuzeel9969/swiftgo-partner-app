@@ -163,6 +163,10 @@ const els = {
   pricingStatusNote: document.getElementById("pricingStatusNote"),
   dispatchForm: document.getElementById("dispatchSettingsForm"),
   candidateDriverLimitInput: document.getElementById("candidateDriverLimit"),
+  idleLocationIntervalSecondsInput: document.getElementById("idleLocationIntervalSeconds"),
+  idleLocationMoveMetersInput: document.getElementById("idleLocationMoveMeters"),
+  offerTimeoutSecondsInput: document.getElementById("offerTimeoutSeconds"),
+  searchTimeoutSecondsInput: document.getElementById("searchTimeoutSeconds"),
   dispatchRadiusKmInput: document.getElementById("dispatchRadiusKm"),
   dispatchRadiusMetersInput: document.getElementById("dispatchRadiusMeters"),
   dispatchRadiusPreview: document.getElementById("dispatchRadiusPreview"),
@@ -1487,6 +1491,14 @@ function renderAllRidesTable(rides = allRidesCache) {
         const rideId = escapeHtml(ride.id || "");
         return `
           <tr data-ride-id="${rideId}">
+            <td>
+              <button
+                type="button"
+                class="rides-table__report-btn"
+                data-open-location-report="${rideId}"
+                aria-label="لوکیشن رپورٹ دیکھیں ${rideId}"
+              >پوری رپورٹ</button>
+            </td>
             <td><time class="rides-table__date">${date}</time></td>
             <td><code class="rides-table__id" title="${escapeHtml(ride.userId || "")}">${customer}</code></td>
             <td>${driver}</td>
@@ -1494,14 +1506,6 @@ function renderAllRidesTable(rides = allRidesCache) {
             <td><strong class="rides-table__money">${fare}</strong></td>
             <td><strong class="rides-table__money rides-table__money--cut">${commission}</strong></td>
             <td>${rating}</td>
-            <td>
-              <button
-                type="button"
-                class="rides-table__report-btn"
-                data-open-location-report="${rideId}"
-                aria-label="لوکیشن رپورٹ دیکھیں ${rideId}"
-              >رپورٹ</button>
-            </td>
           </tr>`;
       })
       .join("");
@@ -1977,6 +1981,36 @@ async function loadDispatchSettings() {
     els.candidateDriverLimitInput.value =
       Number.isInteger(limit) && limit >= 1 && limit <= 100 ? String(limit) : "10";
 
+    const idleIntervalMs =
+      data.idleLocationIntervalMs != null && Number.isFinite(Number(data.idleLocationIntervalMs))
+        ? Math.round(Number(data.idleLocationIntervalMs))
+        : 4_000;
+    const idleSeconds = Math.max(1, Math.min(1800, Math.round(idleIntervalMs / 1000)));
+    if (els.idleLocationIntervalSecondsInput) {
+      els.idleLocationIntervalSecondsInput.value = String(idleSeconds);
+    }
+    const idleMove =
+      data.idleLocationMoveMeters != null && Number.isFinite(Number(data.idleLocationMoveMeters))
+        ? Math.round(Number(data.idleLocationMoveMeters))
+        : 10;
+    if (els.idleLocationMoveMetersInput) {
+      els.idleLocationMoveMetersInput.value = String(Math.max(1, Math.min(5000, idleMove)));
+    }
+    const offerTimeout =
+      data.offerTimeoutSeconds != null && Number.isFinite(Number(data.offerTimeoutSeconds))
+        ? Math.round(Number(data.offerTimeoutSeconds))
+        : 30;
+    if (els.offerTimeoutSecondsInput) {
+      els.offerTimeoutSecondsInput.value = String(Math.max(5, Math.min(300, offerTimeout)));
+    }
+    const searchTimeout =
+      data.searchTimeoutSeconds != null && Number.isFinite(Number(data.searchTimeoutSeconds))
+        ? Math.round(Number(data.searchTimeoutSeconds))
+        : 180;
+    if (els.searchTimeoutSecondsInput) {
+      els.searchTimeoutSecondsInput.value = String(Math.max(30, Math.min(600, searchTimeout)));
+    }
+
     const totalMeters =
       data.maxSearchRadiusMeters != null && Number.isFinite(Number(data.maxSearchRadiusMeters))
         ? Math.max(0, Math.round(Number(data.maxSearchRadiusMeters)))
@@ -1989,8 +2023,8 @@ async function loadDispatchSettings() {
 
     if (els.dispatchStatusNote) {
       els.dispatchStatusNote.textContent = snapshot.exists()
-        ? `موجودہ: ${els.candidateDriverLimitInput.value} ڈرائیور · ${formatDispatchRadiusPreview(totalMeters)} · settings/dispatch`
-        : "Default 10 drivers · 3 km — document not found yet.";
+        ? `موجودہ: ${els.candidateDriverLimitInput.value} ڈرائیور · idle ${els.idleLocationIntervalSecondsInput?.value || 4}s / ${els.idleLocationMoveMetersInput?.value || 10}m · offer ${els.offerTimeoutSecondsInput?.value || 30}s · search ${els.searchTimeoutSecondsInput?.value || 180}s · ${formatDispatchRadiusPreview(totalMeters)} · settings/dispatch`
+        : "Default 10 drivers · idle 4s / 10m · offer 30s · search 180s · 3 km — document not found yet.";
     }
   } catch (error) {
     console.warn("[SwiftGo Admin] loadDispatchSettings", error);
@@ -2028,6 +2062,35 @@ async function saveDispatchSettings(event) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     if (els.dispatchStatusNote) {
       els.dispatchStatusNote.textContent = "امیدوار حد 1 سے 100 کے درمیان ہونی چاہیے۔";
+    }
+    return;
+  }
+
+  const idleSeconds = Math.round(Number(els.idleLocationIntervalSecondsInput?.value));
+  if (!Number.isInteger(idleSeconds) || idleSeconds < 1 || idleSeconds > 1800) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = "Idle interval must be 1–1800 seconds.";
+    }
+    return;
+  }
+  const idleMoveMeters = Math.round(Number(els.idleLocationMoveMetersInput?.value));
+  if (!Number.isInteger(idleMoveMeters) || idleMoveMeters < 1 || idleMoveMeters > 5000) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = "Idle move threshold must be 1–5000 meters.";
+    }
+    return;
+  }
+  const offerTimeoutSeconds = Math.round(Number(els.offerTimeoutSecondsInput?.value));
+  if (!Number.isInteger(offerTimeoutSeconds) || offerTimeoutSeconds < 5 || offerTimeoutSeconds > 300) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = "Offer timeout must be 5–300 seconds.";
+    }
+    return;
+  }
+  const searchTimeoutSeconds = Math.round(Number(els.searchTimeoutSecondsInput?.value));
+  if (!Number.isInteger(searchTimeoutSeconds) || searchTimeoutSeconds < 30 || searchTimeoutSeconds > 600) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = "بکنگ تلاش وقت 30–600 سیکنڈ ہونا چاہیے۔";
     }
     return;
   }
@@ -2073,9 +2136,13 @@ async function saveDispatchSettings(event) {
       dispatchRadiusMeters: meters,
       maxSearchRadiusKm: totalKm,
       maxSearchRadiusMeters: totalMeters,
+      idleLocationIntervalMs: idleSeconds * 1000,
+      idleLocationMoveMeters: idleMoveMeters,
+      offerTimeoutSeconds,
+      searchTimeoutSeconds,
     });
     if (els.dispatchStatusNote) {
-      els.dispatchStatusNote.textContent = `محفوظ: ${limit} ڈرائیور · ${formatDispatchRadiusPreview(totalMeters)}`;
+      els.dispatchStatusNote.textContent = `محفوظ: ${limit} ڈرائیور · idle ${idleSeconds}s / ${idleMoveMeters}m · offer ${offerTimeoutSeconds}s · search ${searchTimeoutSeconds}s · ${formatDispatchRadiusPreview(totalMeters)}`;
     }
     showAdminToast("ڈسپیچ سیٹنگ محفوظ ہو گئی");
   } catch (error) {
