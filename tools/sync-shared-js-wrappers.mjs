@@ -38,6 +38,12 @@ const MODULES = [
   "p2p-comm-module.mjs",
   "p2p-pipeline-trace.mjs",
   "p2p-ice-bootstrap-core.mjs",
+  "location-reporting-config.mjs",
+  "location-reporting-config-cache.mjs",
+  "ride-location-local-counter-store.mjs",
+  "ride-location-report-client.mjs",
+  "ride-location-report-pending-queue.mjs",
+  "ride-location-report-schema.mjs",
 ];
 
 const body = (name) =>

@@ -74,6 +74,7 @@ const {
 } = require("./ride-peer-session");
 const { issueP2pTurnCredentials } = require("./p2p-turn-credentials");
 const { submitRideBreadcrumbBatch } = require("./breadcrumb-batch");
+const { submitRideLocationReportSection } = require("./ride-location-report");
 
 if (!getApps().length) {
   initializeApp();
@@ -1085,6 +1086,56 @@ exports.submitRideBreadcrumbBatch = onCall({ region: "us-central1" }, async (req
     submitRideBreadcrumbBatch(db, {
       driverUid: request.auth.uid,
       batch: request.data?.batch,
+    })
+  );
+});
+
+/** Super Admin: persist location reporting config (settings/locationReporting). Diagnostic only. */
+exports.saveAdminLocationReportingSettings = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid || !(await ensureCallerCanAdminWrite(db, request.auth))) {
+    throw new HttpsError("permission-denied", "ADMIN_ONLY");
+  }
+  try {
+    const {
+      LOCATION_REPORTING_SCHEMA_VERSION,
+      LOCATION_REPORTING_CONFIG_DOC_PATH,
+      buildValidatedLocationReportingSettings,
+    } = require("./location-reporting-config");
+    const config = buildValidatedLocationReportingSettings(request.data || {});
+    await db.doc(LOCATION_REPORTING_CONFIG_DOC_PATH).set(
+      {
+        schemaVersion: LOCATION_REPORTING_SCHEMA_VERSION,
+        ...config,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: request.auth.uid,
+      },
+      { merge: true }
+    );
+    const { invalidateLocationReportingConfigCache } = require("./location-reporting-config-cache");
+    invalidateLocationReportingConfigCache();
+    return { ok: true, config };
+  } catch (err) {
+    const msg = String(err?.message || err || "");
+    if (msg.startsWith("INVALID_")) {
+      throw new HttpsError("invalid-argument", msg);
+    }
+    console.error("[saveAdminLocationReportingSettings]", err?.code || err?.message || err);
+    throw mapErr(err);
+  }
+});
+
+/** Per-ride location delivery report — driver/customer diagnostic section submit. */
+exports.submitRideLocationReportSection = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("submitRideLocationReportSection", request, () =>
+    submitRideLocationReportSection(db, {
+      callerUid: request.auth.uid,
+      rideId: request.data?.rideId,
+      role: request.data?.role,
+      assignmentSessionTokenHash: request.data?.assignmentSessionTokenHash,
+      section: request.data?.section,
+      submitSequence: request.data?.submitSequence,
+      finalSubmit: request.data?.finalSubmit,
     })
   );
 });

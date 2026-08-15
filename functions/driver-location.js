@@ -7,6 +7,8 @@
 
 const { FieldValue } = require("firebase-admin/firestore");
 const { accumulateTraveledSegment } = require("./partial-fare");
+const locationReportingConfigCache = require("./location-reporting-config-cache.js");
+const { buildAcceptedMirrorAggregatePatch } = require("./server-mirror-aggregate.js");
 const {
   LOCATION_DIAG,
   evaluateFixAgainstPrevious,
@@ -195,6 +197,22 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
     return { mirrored: false, reason: "no_active_ride" };
   }
 
+  let trackServerAggregate = false;
+  if (opts.reportingConfig != null) {
+    trackServerAggregate = locationReportingConfigCache.shouldAggregateServerMirror(opts.reportingConfig);
+  } else {
+    try {
+      const reportingConfig = await locationReportingConfigCache.getCachedLocationReportingConfig(db);
+      trackServerAggregate = locationReportingConfigCache.shouldAggregateServerMirror(reportingConfig);
+    } catch (configErr) {
+      if (!opts.silent) {
+        logLocationDiag("location_reporting_config_unavailable", {
+          code: String(configErr?.code || configErr?.message || "config_error").slice(0, 80),
+        });
+      }
+    }
+  }
+
   const vehicleRef = db.collection("vehicles").doc(vehicleId);
   const runTx =
     typeof opts.runTransaction === "function"
@@ -235,7 +253,11 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
       }
 
       // --- writes after all reads ---
-      tx.update(rideRef, decision.patch);
+      const patch = { ...decision.patch };
+      if (trackServerAggregate) {
+        Object.assign(patch, buildAcceptedMirrorAggregatePatch(ride, Date.now()));
+      }
+      tx.update(rideRef, patch);
       return { mirrored: true, reason: LOCATION_DIAG.MIRRORED };
     });
   } catch (err) {

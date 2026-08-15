@@ -46,6 +46,11 @@ import {
   saveAdminDispatchSettings,
   saveAdminPricingSettings as saveAdminPricingSettingsClient,
 } from "./admin-settings-client.js?v=dispatch_dynamic_1";
+import {
+  buildRideLocationReportViewModel,
+  renderRideLocationReportPanelHtml,
+  RIDE_LOCATION_REPORT_COLLECTION,
+} from "./ride-location-report-view.mjs";
 
 /** Sole authorized Super Admin (Owner). No driver may enter Command Center. */
 const SUPER_ADMIN_EMAIL = "fuzail1158@gmail.com";
@@ -175,6 +180,11 @@ const els = {
   allRidesTableBody: document.getElementById("allRidesTableBody"),
   allRidesTableCount: document.getElementById("allRidesTableCount"),
   allRidesLiveNote: document.getElementById("allRidesLiveNote"),
+  locationReportModal: document.getElementById("locationReportModal"),
+  locationReportModalBackdrop: document.getElementById("locationReportModalBackdrop"),
+  locationReportModalCloseBtn: document.getElementById("locationReportModalCloseBtn"),
+  locationReportModalRideId: document.getElementById("locationReportModalRideId"),
+  locationReportModalBody: document.getElementById("locationReportModalBody"),
   rechargeRequestsSection: document.getElementById("rechargeRequestsSection"),
   rechargeRequestsTableBody: document.getElementById("rechargeRequestsTableBody"),
   rechargeRequestsCount: document.getElementById("rechargeRequestsCount"),
@@ -213,6 +223,8 @@ let cachedWalletThreshold = DEFAULT_PRICING.walletThreshold;
 let adminCanWriteSettings = null;
 let rechargeListenerPrimed = false;
 let allRidesListenerPrimed = false;
+let releaseLocationReportModalTrap = null;
+let locationReportModalReturnFocus = null;
 /** @type {Array<Record<string, unknown>>} */
 let promoCodesCache = [];
 let promoCodesListenerPrimed = false;
@@ -1367,13 +1379,92 @@ function statusPillClass(status) {
   return "pill--blocked";
 }
 
+function closeRideLocationReportModal() {
+  if (!els.locationReportModal) return;
+  els.locationReportModal.hidden = true;
+  els.locationReportModal.setAttribute("aria-hidden", "true");
+  releaseLocationReportModalTrap?.();
+  releaseLocationReportModalTrap = null;
+  if (locationReportModalReturnFocus instanceof HTMLElement) {
+    locationReportModalReturnFocus.focus();
+    locationReportModalReturnFocus = null;
+  }
+}
+
+async function openRideLocationReportModal(rideId, rideMeta = null) {
+  if (!els.locationReportModal || !els.locationReportModalBody || !rideId) return;
+
+  const ride =
+    rideMeta ||
+    allRidesCache.find((row) => String(row.id || "") === String(rideId)) ||
+    null;
+
+  locationReportModalReturnFocus =
+    document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  els.locationReportModal.hidden = false;
+  els.locationReportModal.setAttribute("aria-hidden", "false");
+  if (els.locationReportModalRideId) {
+    els.locationReportModalRideId.textContent = `Ride ID: ${rideId}`;
+  }
+  els.locationReportModalBody.innerHTML =
+    `<p class="location-report-loading">لوڈ ہو رہا ہے…</p>`;
+  releaseLocationReportModalTrap = trapFocus(els.locationReportModal, {
+    initialFocus: els.locationReportModalCloseBtn || els.locationReportModalBody,
+  });
+  els.locationReportModalBody.focus();
+
+  const { db } = getFirebase();
+  if (!db) {
+    els.locationReportModalBody.innerHTML =
+      `<p class="location-report-empty">Firestore is not configured.</p>`;
+    return;
+  }
+
+  try {
+    const snapshot = await getDoc(doc(db, RIDE_LOCATION_REPORT_COLLECTION, rideId));
+    const report = snapshot.exists() ? snapshot.data() : null;
+    const viewModel = buildRideLocationReportViewModel(report, {
+      rideId,
+      ride,
+      rideStatus: ride?.status,
+    });
+    els.locationReportModalBody.innerHTML = renderRideLocationReportPanelHtml(viewModel);
+  } catch (error) {
+    console.warn("[SwiftGo Admin] location report modal", error);
+    const msg =
+      error?.code === "permission-denied"
+        ? "Permission denied reading rideLocationReports."
+        : `Could not load report: ${error?.message || "unknown error"}`;
+    els.locationReportModalBody.innerHTML =
+      `<p class="location-report-empty">${escapeHtml(msg)}</p>`;
+  }
+}
+
+function wireAllRidesReportActions() {
+  els.allRidesTableBody?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-open-location-report]");
+    const rideId = btn?.getAttribute("data-open-location-report");
+    if (rideId) openRideLocationReportModal(rideId);
+  });
+}
+
+function wireLocationReportModal() {
+  els.locationReportModalBackdrop?.addEventListener("click", closeRideLocationReportModal);
+  els.locationReportModalCloseBtn?.addEventListener("click", closeRideLocationReportModal);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && els.locationReportModal && !els.locationReportModal.hidden) {
+      closeRideLocationReportModal();
+    }
+  });
+}
+
 function renderAllRidesTable(rides = allRidesCache) {
   if (!els.allRidesTableBody) return;
 
   if (!rides.length) {
     els.allRidesTableBody.innerHTML = `
       <tr class="rides-table__empty">
-        <td colspan="7">ابھی کوئی سواری نہیں ملی۔</td>
+        <td colspan="8">ابھی کوئی سواری نہیں ملی۔</td>
       </tr>`;
   } else {
     els.allRidesTableBody.innerHTML = rides
@@ -1403,6 +1494,14 @@ function renderAllRidesTable(rides = allRidesCache) {
             <td><strong class="rides-table__money">${fare}</strong></td>
             <td><strong class="rides-table__money rides-table__money--cut">${commission}</strong></td>
             <td>${rating}</td>
+            <td>
+              <button
+                type="button"
+                class="rides-table__report-btn"
+                data-open-location-report="${rideId}"
+                aria-label="لوکیشن رپورٹ دیکھیں ${rideId}"
+              >رپورٹ</button>
+            </td>
           </tr>`;
       })
       .join("");
@@ -1439,7 +1538,7 @@ function fetchAndRenderAllRides() {
   if (!allRidesCache.length && els.allRidesTableBody) {
     els.allRidesTableBody.innerHTML = `
       <tr class="rides-table__empty">
-        <td colspan="7">لوڈ ہو رہا ہے...</td>
+        <td colspan="8">لوڈ ہو رہا ہے...</td>
       </tr>`;
   }
 
@@ -1491,7 +1590,7 @@ function startAllRidesMonitor() {
         if (els.allRidesTableBody) {
           els.allRidesTableBody.innerHTML = `
             <tr class="rides-table__empty">
-              <td colspan="7">${escapeHtml(permissionHint(error))}</td>
+              <td colspan="8">${escapeHtml(permissionHint(error))}</td>
             </tr>`;
         }
         if (els.allRidesLiveNote) {
@@ -2461,6 +2560,8 @@ function boot() {
   wireVehiclesTableActions();
   wireGlobalTakeControl();
   wirePromoTableActions();
+  wireAllRidesReportActions();
+  wireLocationReportModal();
   els.pricingForm?.addEventListener("submit", savePricingSettings);
   els.dispatchForm?.addEventListener("submit", saveDispatchSettings);
   for (const input of [els.dispatchRadiusKmInput, els.dispatchRadiusMetersInput]) {

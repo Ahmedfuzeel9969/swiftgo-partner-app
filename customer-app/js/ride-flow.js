@@ -52,6 +52,7 @@ import { resolveRouteProvider } from "./road-route-provider.mjs";
 import { createDisplayLocationPipeline } from "./display-location-pipeline.mjs";
 import { getMap, setAssignedDriverLocation } from "./map.js";
 import { getFirebase } from "./firebase.js";
+import { createRideLocationReportClient } from "./ride-location-report-client.mjs";
 
 const SEARCH_TIMEOUT_MS = 180_000;
 const TRACKABLE_VIEW_STATUSES = new Set(["accepted", "arrived", "in_progress"]);
@@ -107,8 +108,63 @@ let twoLegRoutes = null;
 let twoLegLayers = null;
 /** @type {ReturnType<typeof createDisplayLocationPipeline> | null} */
 let displayPipeline = null;
+/** @type {ReturnType<typeof createRideLocationReportClient> | null} */
+let customerLocationReport = null;
 let detachBrowserLifecycle = () => {};
 let detachingFromLifecycle = false;
+
+function ensureCustomerLocationReport() {
+  if (customerLocationReport) return customerLocationReport;
+  customerLocationReport = createRideLocationReportClient({
+    role: "customer",
+    getFirebase,
+    getRuntimeCounters: () => ({
+      p2p: customerP2p?.getCounters?.() || {},
+      arbiter: customerP2p?.getArbiterCounters?.() || {},
+    }),
+  });
+  if (typeof window !== "undefined") {
+    window.__SWIFTGO_LOCATION_REPORT_COUNTERS__ = () =>
+      customerLocationReport?.snapshotSection?.() || null;
+    window.addEventListener("online", () => {
+      void ensureCustomerLocationReport().retryPendingReports();
+    });
+    window.addEventListener("visibilitychange", () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void ensureCustomerLocationReport().retryPendingReports();
+      }
+    });
+  }
+  return customerLocationReport;
+}
+
+function syncCustomerLocationReportBinding(ride) {
+  const token = String(ride?.assignmentSessionToken || "").trim();
+  if (!ride?.id || !token || !isCustomerActiveRideStatus(ride.status)) return;
+  void ensureCustomerLocationReport().bindForRide({
+    rideId: ride.id,
+    assignmentSessionToken: token,
+  });
+}
+
+function maybeFlushCustomerLocationReport(ride, previousStatus) {
+  if (!ride?.id || !isTerminalRideStatus(ride.status)) return;
+  if (previousStatus && isTerminalRideStatus(previousStatus)) return;
+  void ensureCustomerLocationReport().flushFinal({ finalSubmit: true });
+}
+
+function scheduleCustomerLocationReportStartupRetry() {
+  void (async () => {
+    for (let i = 0; i < 30; i += 1) {
+      const fb = getFirebase();
+      if (fb?.ready && fb?.functions) {
+        await ensureCustomerLocationReport().retryPendingReports();
+        return;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 100));
+    }
+  })();
+}
 
 function authUid() {
   try {
@@ -471,6 +527,7 @@ function unbindRideView() {
 /** Sign-out / session teardown — zero listeners and heartbeats. */
 export function clearCustomerRideSession() {
   unbindRideView();
+  void ensureCustomerLocationReport().clearBinding({ flushFirst: true });
   presenceClient?.stop();
   if (activeRide?.id) clearDispatchSession(activeRide.id);
   clearSearchTimers();
@@ -596,6 +653,8 @@ export function initRideFlow(handlers = {}) {
   els.invoiceDoneBtn?.addEventListener("click", dismissInvoiceAndReset);
   initRatingStars();
   ensureRideViewLifecycle();
+  ensureCustomerLocationReport();
+  scheduleCustomerLocationReportStartupRetry();
 }
 
 function clearSearchTimers() {
@@ -1110,6 +1169,7 @@ function handleRideSnapshot(rawRide) {
   };
   const previousStatus = activeRide?.status;
   activeRide = { ...activeRide, ...ride };
+  syncCustomerLocationReportBinding(activeRide);
   if (ride?.driverLocation?.lat && ride?.driverLocation?.lng) {
     activeRide.driverLocationReceivedAt = Date.now();
   }
@@ -1191,6 +1251,8 @@ function handleRideSnapshot(rawRide) {
     if (previousStatus !== "searching_driver") showSearchingState();
     updateDriverOfferUi(ride);
   }
+
+  maybeFlushCustomerLocationReport(ride, previousStatus);
 }
 
 /**

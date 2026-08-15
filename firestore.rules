@@ -719,6 +719,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Per-ride location delivery reports — Admin read only; writes via Cloud Functions.
+    match /rideLocationReports/{rideId} {
+      allow get, list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
     // ── ops_metrics/{id} ── Phase 4F monitoring snapshots (Admin SDK writes)
     match /ops_metrics/{metricId} {
       allow read: if isSuperAdmin();

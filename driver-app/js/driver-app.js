@@ -80,6 +80,7 @@ import { P2P_STATE } from "./p2p-protocol.mjs";
 import { createDriverActiveRouteController } from "./driver-active-route.mjs";
 import { createBreadcrumbCollector } from "./breadcrumb-collector.mjs";
 import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
+import { createRideLocationReportClient } from "./ride-location-report-client.mjs";
 import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { cancelAssignedRideByDriverClient } from "./ride-radar-actions.js";
@@ -438,10 +439,20 @@ const breadcrumbCollector = createBreadcrumbCollector({
   },
 });
 
+const driverLocationReport = createRideLocationReportClient({
+  role: "driver",
+  getFirebase,
+  getRuntimeCounters: () => ({
+    checkpoint: checkpointPolicy.getCounters(),
+    p2p: driverP2p.getCounters?.() || {},
+  }),
+});
+
 if (typeof window !== "undefined") {
   window.__SWIFTGO_CHECKPOINT_COUNTERS__ = () => checkpointPolicy.getCounters();
   window.__SWIFTGO_P2P_COUNTERS__ = () => driverP2p.getCounters();
   window.__SWIFTGO_BREADCRUMB_COUNTERS__ = () => breadcrumbCollector.getCounters();
+  window.__SWIFTGO_LOCATION_REPORT_COUNTERS__ = () => driverLocationReport.snapshotSection();
   window.__SWIFTGO_DUMP_DRIVER_TRACE__ = () => {
     const payload = {
       role: "driver",
@@ -450,6 +461,7 @@ if (typeof window !== "undefined") {
       p2p: driverP2p.getCounters?.() || null,
       p2pState: driverP2p.getState?.() || null,
       breadcrumb: breadcrumbCollector.getCounters?.() || null,
+      locationReport: driverLocationReport.snapshotSection?.() || null,
     };
     try {
       console.info(JSON.stringify({ type: "swiftgo_driver_dump", ...payload }));
@@ -477,10 +489,12 @@ if (typeof window !== "undefined") {
       }
     }
     void breadcrumbCollector.onNetworkResume();
+    void driverLocationReport.retryPendingReports();
   });
   window.addEventListener("visibilitychange", () => {
     if (typeof document !== "undefined" && document.visibilityState === "visible") {
       void breadcrumbCollector.onAppResume();
+      void driverLocationReport.retryPendingReports();
       try {
         if (activeExecutionRide?.id) syncDriverP2pForActiveRide();
       } catch {
@@ -519,6 +533,31 @@ function syncBreadcrumbCollectionForActiveRide() {
     status,
     assignedDriverId: ride.driverId,
   });
+}
+
+function syncLocationReportForActiveRide() {
+  const ride = activeExecutionRide;
+  const status = String(ride?.status || "");
+  const assignmentSessionToken = String(ride?.assignmentSessionToken || "").trim();
+  if (
+    !ride?.id ||
+    !assignmentSessionToken ||
+    !["accepted", "arrived", "in_progress"].includes(status)
+  ) {
+    return;
+  }
+  void driverLocationReport.bindForRide({
+    rideId: ride.id,
+    assignmentSessionToken,
+  });
+}
+
+async function flushLocationReportBeforeSettlement() {
+  try {
+    await driverLocationReport.flushFinal({ finalSubmit: true });
+  } catch {
+    /* diagnostic upload must never block settlement */
+  }
 }
 
 function syncDriverP2pForActiveRide() {
@@ -610,6 +649,7 @@ function beginLocationTrackingSession() {
   }
   syncDriverP2pForActiveRide();
   syncBreadcrumbCollectionForActiveRide();
+  syncLocationReportForActiveRide();
 }
 
 function endLocationTrackingSession() {
@@ -2874,6 +2914,7 @@ async function commitVehicleLocationJob(job) {
   if (payload.status) lastVehicleStatusWritten = payload.status;
   lastLocationSyncError = "";
   checkpointPolicy.noteWriteCommitted();
+  driverLocationReport.noteVehicleWriteAcknowledged();
   locationDiagCounters.vehicleWritesCompleted += 1;
   // Intentionally no client ride.driverLocation write — CF mirror is authoritative.
   locationDiagCounters.duplicateRideWritesPrevented += 1;
@@ -3039,6 +3080,8 @@ async function syncVehicleLocationToFirestore(
     return;
   }
 
+  driverLocationReport.noteGpsFix(Date.now());
+
   // Phase 3: feed validated GPS to P2P data channel (independent of Firebase write gate).
   if (activeExecutionRide?.id) {
     driverP2p.onLocationFix({
@@ -3131,6 +3174,7 @@ async function syncVehicleLocationToFirestore(
     checkpointPolicy.consumeImmediate();
   }
   checkpointPolicy.noteWriteAttempted();
+  driverLocationReport.noteVehicleWriteAttempted();
 
   const hotspotId = matchHotspotId(lat, lng);
   const location = toVehicleLocationField(normalized.envelope);
@@ -3896,6 +3940,7 @@ async function finalizeSuccessfulRideCompletion(ride, settlementResult) {
   } catch {
     /* purge must not block settlement UI */
   }
+  void driverLocationReport.clearBinding({ flushFirst: false });
 
   activeExecutionRide = null;
   activeRideRecoveryPending = false;
@@ -4281,12 +4326,14 @@ function startActiveRideWatch(rideId, collectionName = "rides") {
         persistActiveRideCache(snapshot.id, collectionName);
         syncCheckpointPresenceForActiveRide();
         syncBreadcrumbCollectionForActiveRide();
+        syncLocationReportForActiveRide();
       } else {
         clearActiveRideCache();
         // Terminal: never attempt a server upload that is guaranteed to fail.
         void breadcrumbCollector
           .stop({ purge: true, flush: false, reason: "terminal_status" })
           .catch(() => {});
+        void driverLocationReport.clearBinding({ flushFirst: false });
         detachCheckpointPresence("terminal_status");
       }
       renderActiveRideControls(activeExecutionRide);
@@ -4444,6 +4491,11 @@ async function advanceActiveRideStatus() {
         await breadcrumbCollector.flushBeforeSettlement();
       } catch {
         /* flush timeout/failure must not prevent settlement */
+      }
+      try {
+        await flushLocationReportBeforeSettlement();
+      } catch {
+        /* location report flush must not prevent settlement */
       }
       const settlementResult = await completeRideWithEarnings({ ...ride, ...live });
       await finalizeSuccessfulRideCompletion(
