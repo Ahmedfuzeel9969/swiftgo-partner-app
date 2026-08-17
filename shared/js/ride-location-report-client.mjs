@@ -29,19 +29,23 @@ export const RIDE_LOCATION_REPORT_FINAL_FLUSH_TIMEOUT_MS = 4_000;
 /**
  * @param {Record<string, unknown>} checkpoint
  * @param {Record<string, unknown>} p2p
+ * @param {Record<string, unknown>} [nativeDiag]
  */
-export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}) {
+export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}, nativeDiag = {}) {
   const rawGps = Number(checkpoint.rawGpsFixes) || 0;
   const rejected =
     (Number(checkpoint.rejectedInterval) || 0) + (Number(checkpoint.rejectedMovementNoop) || 0);
   const attempted = Number(checkpoint.writesAttempted) || 0;
   const committed = Number(checkpoint.writesCommitted) || 0;
+  const nativeUploaded = Number(nativeDiag.uploaded) || 0;
+  const nativeRejected = Number(nativeDiag.rejected) || 0;
+  const nativeFixCount = Number(nativeDiag.fixCount) || 0;
   return {
-    gpsFixesReceived: rawGps,
-    validFixesAccepted: Math.max(0, rawGps - rejected),
-    duplicateOrOutOfOrderRejected: rejected,
-    vehicleWritesAttempted: attempted,
-    vehicleWritesAcknowledged: committed,
+    gpsFixesReceived: rawGps + nativeFixCount,
+    validFixesAccepted: Math.max(0, rawGps - rejected) + nativeFixCount,
+    duplicateOrOutOfOrderRejected: rejected + nativeRejected,
+    vehicleWritesAttempted: attempted + nativeUploaded + nativeRejected,
+    vehicleWritesAcknowledged: committed + nativeUploaded,
     vehicleWritesFailed: Math.max(0, attempted - committed),
     p2pSessionsStarted: Number(p2p.sessionsStarted) || 0,
     p2pChannelsOpened: Number(p2p.channelsOpened) || 0,
@@ -185,7 +189,11 @@ export function createRideLocationReportClient(opts) {
     const runtime = getRuntimeCounters() || {};
     let counters =
       role === "driver"
-        ? mapDriverRuntimeCounters(runtime.checkpoint || {}, runtime.p2p || {})
+        ? mapDriverRuntimeCounters(
+            runtime.checkpoint || {},
+            runtime.p2p || {},
+            runtime.native || {}
+          )
         : mapCustomerRuntimeCounters(runtime.p2p || {}, runtime.display || {});
     counters = applyConfigToCounters(role, counters, config);
     store.applyCounterSnapshot(counters);

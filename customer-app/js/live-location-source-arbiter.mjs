@@ -53,11 +53,15 @@ export function createLiveLocationSourceArbiter(opts = {}) {
 
   const counters = {
     p2pAccepted: 0,
+    p2pRendered: 0,
     firebaseAccepted: 0,
+    firebaseRendered: 0,
     firebaseThrottled: 0,
     firebaseIgnoredWhileP2p: 0,
     staleRejected: 0,
     sourceSwitches: 0,
+    sourceSwitchP2pToFirebase: 0,
+    sourceSwitchFirebaseToP2p: 0,
   };
 
   function bumpGeneration() {
@@ -95,9 +99,16 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     lastRendered = fix;
     if (prevSource && prevSource !== fix.source) {
       counters.sourceSwitches += 1;
+      if (prevSource === "p2p" && fix.source === "firebase") {
+        counters.sourceSwitchP2pToFirebase += 1;
+      } else if (prevSource === "firebase" && fix.source === "p2p") {
+        counters.sourceSwitchFirebaseToP2p += 1;
+      }
       diag(fix.source === "p2p" ? P2P_DIAG.SOURCE_P2P : P2P_DIAG.SOURCE_FIREBASE);
     }
     onRender(fix, { reason, preferred, p2pHealthy, generation });
+    if (fix.source === "p2p") counters.p2pRendered += 1;
+    else if (fix.source === "firebase") counters.firebaseRendered += 1;
     return true;
   }
 
@@ -119,8 +130,9 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     lastP2pAt = nowMs();
     p2pHealthy = true;
     preferred = "p2p";
-    counters.p2pAccepted += 1;
-    return render({ ...fix, source: "p2p" }, "p2p");
+    const rendered = render({ ...fix, source: "p2p" }, "p2p");
+    if (rendered) counters.p2pAccepted += 1;
+    return rendered;
   }
 
   function ingestFirebase(fix, gen) {
@@ -148,8 +160,9 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     }
 
     lastFirebaseRenderAt = now;
-    counters.firebaseAccepted += 1;
-    return render(lastFirebase, "firebase");
+    const rendered = render(lastFirebase, "firebase");
+    if (rendered) counters.firebaseAccepted += 1;
+    return rendered;
   }
 
   function noteP2pUnhealthy() {

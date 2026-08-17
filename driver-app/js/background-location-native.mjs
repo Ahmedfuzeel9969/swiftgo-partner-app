@@ -56,6 +56,7 @@ export function createBackgroundLocationNativeController(opts = {}) {
   let refreshTimer = 0;
   let lastCredential = null;
   let lastBinding = null;
+  let lastNativeDiagnostics = null;
 
   function clearTimers() {
     if (aliveTimer) {
@@ -139,6 +140,15 @@ export function createBackgroundLocationNativeController(opts = {}) {
       });
       stateListener = await plugin.addListener("serviceState", (state) => {
         try {
+          const upload = state?.upload || {};
+          lastNativeDiagnostics = {
+            fixCount: Number(state?.fixCount) || 0,
+            queued: Number(upload.queued) || 0,
+            uploaded: Number(upload.uploaded) || 0,
+            rejected: Number(upload.rejected) || 0,
+            lastReason: String(upload.lastReason || state?.state || ""),
+            hasCredential: Boolean(upload.hasCredential),
+          };
           opts.onServiceState?.(state || {});
         } catch {
           /* ignore */
@@ -302,12 +312,17 @@ export function createBackgroundLocationNativeController(opts = {}) {
     };
   }
 
+  function getDiagnostics() {
+    return lastNativeDiagnostics ? { ...lastNativeDiagnostics } : null;
+  }
+
   return {
     start,
     stop,
     syncForActiveRide,
     isStarted,
     getLastCredentialMeta,
+    getDiagnostics,
     isAvailable: () => isNativeShell() && getNativePlatform() === "android" && Boolean(getPlugin()),
   };
 }

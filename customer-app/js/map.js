@@ -43,6 +43,10 @@ let assignedDriverMoveListener = null;
 let assignedDriverTargetMeta = null;
 /** Last accepted fix used for animation interval (not pickup/dropoff). */
 let assignedDriverPrevAccepted = null;
+/** When true, map pans to keep assigned driver in view (disabled after user drag). */
+let followDriverEnabled = true;
+let followDriverListenersAttached = false;
+const FOLLOW_DRIVER_MIN_PAN_M = 35;
 
 /** @type {import('leaflet').Marker | null} */
 let pickupMarker = null;
@@ -330,6 +334,36 @@ export function clearLiveDrivers() {
 export function setSuppressSimulatedDrivers(suppressed) {
   suppressSimulatedDrivers = Boolean(suppressed);
   if (suppressSimulatedDrivers) clearLiveDrivers();
+}
+
+export function setFollowDriverEnabled(enabled) {
+  followDriverEnabled = Boolean(enabled);
+}
+
+export function isFollowDriverEnabled() {
+  return followDriverEnabled;
+}
+
+function attachFollowDriverListeners() {
+  if (!map || followDriverListenersAttached) return;
+  followDriverListenersAttached = true;
+  map.on("dragstart", () => {
+    followDriverEnabled = false;
+  });
+}
+
+/**
+ * Pan map toward assigned driver when follow mode is enabled.
+ * Does not change zoom; no-op when user has panned away manually.
+ */
+export function followAssignedDriverIfEnabled(lat, lng) {
+  if (!map || !followDriverEnabled) return;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  attachFollowDriverListeners();
+  const center = map.getCenter();
+  const distM = distanceMetres({ lat: center.lat, lng: center.lng }, { lat, lng });
+  if (distM < FOLLOW_DRIVER_MIN_PAN_M) return;
+  map.panTo([lat, lng], { animate: true, duration: 0.45 });
 }
 
 export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) {

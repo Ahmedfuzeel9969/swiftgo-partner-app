@@ -2,6 +2,12 @@ package com.swiftgo.partner;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
+import android.os.Handler;
+import android.os.Looper;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -30,10 +36,14 @@ final class BackgroundLocationUploader {
   private static final int MAX_QUEUE = 40;
   private static final long BASE_RETRY_MS = 2_000L;
   private static final long MAX_RETRY_MS = 60_000L;
+  private static final long QUEUE_RETRY_INTERVAL_MS = 15_000L;
 
   private final Context appContext;
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private final AtomicBoolean flushing = new AtomicBoolean(false);
+  private final Handler mainHandler = new Handler(Looper.getMainLooper());
+  private ConnectivityManager.NetworkCallback networkCallback;
+  private Runnable queueRetryRunnable;
 
   private volatile String uploadUrl = "";
   private volatile String token = "";
@@ -48,6 +58,54 @@ final class BackgroundLocationUploader {
   BackgroundLocationUploader(Context context) {
     this.appContext = context.getApplicationContext();
     loadPrefs();
+    registerNetworkCallback();
+    scheduleQueueRetry();
+  }
+
+  private void registerNetworkCallback() {
+    try {
+      ConnectivityManager cm =
+          (ConnectivityManager) appContext.getSystemService(Context.CONNECTIVITY_SERVICE);
+      if (cm == null) return;
+      networkCallback =
+          new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+              requestFlush();
+            }
+
+            @Override
+            public void onCapabilitiesChanged(Network network, NetworkCapabilities caps) {
+              if (caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                requestFlush();
+              }
+            }
+          };
+      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+        cm.registerDefaultNetworkCallback(networkCallback);
+      } else {
+        NetworkRequest request =
+            new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build();
+        cm.registerNetworkCallback(request, networkCallback);
+      }
+    } catch (Exception ignored) {
+      networkCallback = null;
+    }
+  }
+
+  private void scheduleQueueRetry() {
+    if (queueRetryRunnable != null) return;
+    queueRetryRunnable =
+        new Runnable() {
+          @Override
+          public void run() {
+            if (queuedCount > 0) requestFlush();
+            mainHandler.postDelayed(this, QUEUE_RETRY_INTERVAL_MS);
+          }
+        };
+    mainHandler.postDelayed(queueRetryRunnable, QUEUE_RETRY_INTERVAL_MS);
   }
 
   void configure(String uploadUrl, String token, long tokenExpiresAtMs, int lastSequence) {
@@ -322,6 +380,19 @@ final class BackgroundLocationUploader {
   }
 
   void shutdown() {
+    try {
+      if (networkCallback != null) {
+        ConnectivityManager cm =
+            (ConnectivityManager) appContext.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm != null) cm.unregisterNetworkCallback(networkCallback);
+      }
+    } catch (Exception ignored) {
+    }
+    networkCallback = null;
+    if (queueRetryRunnable != null) {
+      mainHandler.removeCallbacks(queueRetryRunnable);
+      queueRetryRunnable = null;
+    }
     executor.shutdownNow();
   }
 

@@ -1,7 +1,7 @@
 {
   "suite": "background-location-upload",
-  "generatedAt": "2026-08-17T05:35:01.288Z",
-  "pass": 21,
+  "generatedAt": "2026-08-17T10:27:13.683Z",
+  "pass": 23,
   "fail": 0,
   "results": [
     {
@@ -108,6 +108,16 @@
       "name": "mainactivity-registers-plugin",
       "status": "PASS",
       "detail": ""
+    },
+    {
+      "name": "uploader-network-reconnect-flush",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "driver-native-diagnostics-merge",
+      "status": "PASS",
+      "detail": "gps=7 ack=5"
     }
   ]
 }

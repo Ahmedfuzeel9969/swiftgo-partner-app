@@ -37,6 +37,38 @@ export function createDriverP2pController(opts = {}) {
   let lastAcceptedAnswer = "";
   let lastPublishedOffer = "";
   let signalingMod = null;
+  let watchRetryTimer = null;
+  let watchRetryAttempt = 0;
+  const MAX_WATCH_RETRIES = 8;
+
+  const ctrlCounters = {
+    startAttempts: 0,
+    startFailures: 0,
+    offerPublishFailures: 0,
+    watchErrors: 0,
+    watchRetries: 0,
+  };
+
+  function clearWatchRetry() {
+    if (watchRetryTimer) {
+      clearTimeout(watchRetryTimer);
+      watchRetryTimer = null;
+    }
+    watchRetryAttempt = 0;
+  }
+
+  function scheduleWatchRetry(rid) {
+    if (closed || rideId !== rid) return;
+    if (watchRetryAttempt >= MAX_WATCH_RETRIES) return;
+    if (watchRetryTimer) return;
+    const delayMs = Math.min(30_000, 1_000 * 2 ** watchRetryAttempt);
+    watchRetryAttempt += 1;
+    ctrlCounters.watchRetries += 1;
+    watchRetryTimer = setTimeout(() => {
+      watchRetryTimer = null;
+      if (!closed && rideId === rid) attachAnswerWatch(rid);
+    }, delayMs);
+  }
 
   async function signaling() {
     if (
@@ -65,6 +97,7 @@ export function createDriverP2pController(opts = {}) {
   }
 
   function destroySession() {
+    clearWatchRetry();
     unwatch();
     unwatch = () => {};
     const s = session;
@@ -88,9 +121,14 @@ export function createDriverP2pController(opts = {}) {
   }
 
   function attachAnswerWatch(rid) {
+    if (watchRetryTimer) {
+      clearTimeout(watchRetryTimer);
+      watchRetryTimer = null;
+    }
     unwatch();
     const onData = (docData) => {
       if (!session || !docData) return;
+      watchRetryAttempt = 0;
       if (String(docData.state || "") === "closed") return;
       const sid = String(docData.sessionId || "");
       const answer = String(docData.answer || "");
@@ -104,7 +142,8 @@ export function createDriverP2pController(opts = {}) {
       void session.acceptRemoteAnswer(answer);
     };
     const onError = () => {
-      /* permission / network → Firebase fallback via peer state */
+      ctrlCounters.watchErrors += 1;
+      scheduleWatchRetry(rid);
     };
     if (typeof opts.watchRidePeerSession === "function") {
       unwatch = opts.watchRidePeerSession(rid, onData, onError);
@@ -155,6 +194,7 @@ export function createDriverP2pController(opts = {}) {
     }
 
     starting = true;
+    ctrlCounters.startAttempts += 1;
     try {
       const sig = await signaling();
       destroySession();
@@ -175,16 +215,21 @@ export function createDriverP2pController(opts = {}) {
           if (kind !== "offer") return;
           lastPublishedOffer = String(sdp || "");
           answeredSessionId = "";
-          const res = await sig.createRidePeerOfferClient?.({
-            rideId,
-            offerSdp: sdp,
-            peerSessionId: meta.peerSessionId,
-            trackingSessionId: meta.trackingSessionId,
-            vehicleId: vehicleId || undefined,
-            assignmentVersion: assignmentVersion || undefined,
-          });
-          assignmentVersion = Number(res?.assignmentVersion) || meta.assignmentVersion || 1;
-          session?.noteOfferUploaded?.(sdp);
+          try {
+            const res = await sig.createRidePeerOfferClient?.({
+              rideId,
+              offerSdp: sdp,
+              peerSessionId: meta.peerSessionId,
+              trackingSessionId: meta.trackingSessionId,
+              vehicleId: vehicleId || undefined,
+              assignmentVersion: assignmentVersion || undefined,
+            });
+            assignmentVersion = Number(res?.assignmentVersion) || meta.assignmentVersion || 1;
+            session?.noteOfferUploaded?.(sdp);
+          } catch {
+            ctrlCounters.offerPublishFailures += 1;
+            throw new Error("OFFER_PUBLISH_FAILED");
+          }
         },
       });
       session.setPipelineRideId?.(rid);
@@ -196,6 +241,7 @@ export function createDriverP2pController(opts = {}) {
 
       attachAnswerWatch(rid);
     } catch {
+      ctrlCounters.startFailures += 1;
       destroySession();
       opts.onHealthyChange?.(false);
     } finally {
@@ -215,6 +261,7 @@ export function createDriverP2pController(opts = {}) {
   }
 
   async function stop({ closeRemote = true } = {}) {
+    clearWatchRetry();
     if (closeRemote) await closeSignaling();
     destroySession();
     rideId = "";
@@ -264,7 +311,10 @@ export function createDriverP2pController(opts = {}) {
     isHealthy,
     createCommTransport,
     createMediaBridge,
-    getCounters: () => session?.getCounters?.() || {},
+    getCounters: () => ({
+      ...(session?.getCounters?.() || {}),
+      ...ctrlCounters,
+    }),
     getState: () => session?.getState?.() || { state: P2P_STATE.DISABLED },
     getPipeline: () => session?.getPipeline?.() || [],
     getPipelineReport: () => session?.getPipelineReport?.() || null,

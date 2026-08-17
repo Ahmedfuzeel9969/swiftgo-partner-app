@@ -2,7 +2,7 @@
   "suite": "customer-marker-motion-continuity",
   "dualPhysicalDevices": "BLOCKED",
   "dualPhysicalDevicesNote": "Agent cannot operate two real phones or Gmail accounts. Automated in-process dual-client path verified; physical dual-device run required on-device.",
-  "generatedAt": "2026-08-03T11:09:16.136Z",
+  "generatedAt": "2026-08-17T10:28:13.021Z",
   "pass": 5,
   "fail": 0,
   "blocked": 0,
@@ -16,7 +16,7 @@
     {
       "name": "e2e-firebase-fallback-continues-motion",
       "status": "PASS",
-      "detail": "fbPaints=5 preferred=firebase silentMs=32500"
+      "detail": "fbPaints=5 preferred=firebase silentMs=50500"
     },
     {
       "name": "e2e-p2p-recovery-continues-motion",

@@ -233,6 +233,41 @@ function baseClaims(over = {}) {
     "mainactivity-registers-plugin",
     main.includes("DriverLocationPlugin") ? "PASS" : "FAIL"
   );
+
+  const uploaderSrc = fs.readFileSync(
+    path.join(
+      ROOT,
+      "mobile/partner/android/app/src/main/java/com/swiftgo/partner/BackgroundLocationUploader.java"
+    ),
+    "utf8"
+  );
+  record(
+    "uploader-network-reconnect-flush",
+    uploaderSrc.includes("registerDefaultNetworkCallback") &&
+      uploaderSrc.includes("QUEUE_RETRY_INTERVAL_MS")
+      ? "PASS"
+      : "FAIL"
+  );
+}
+
+{
+  const { mapDriverRuntimeCounters } = await import(
+    "../shared/js/ride-location-report-client.mjs"
+  );
+  const mapped = mapDriverRuntimeCounters(
+    { rawGpsFixes: 2, writesAttempted: 2, writesCommitted: 2 },
+    {},
+    { fixCount: 5, uploaded: 3, rejected: 1, queued: 2 }
+  );
+  record(
+    "driver-native-diagnostics-merge",
+    mapped.gpsFixesReceived === 7 &&
+      mapped.vehicleWritesAcknowledged === 5 &&
+      mapped.vehicleWritesAttempted === 6
+      ? "PASS"
+      : "FAIL",
+    `gps=${mapped.gpsFixesReceived} ack=${mapped.vehicleWritesAcknowledged}`
+  );
 }
 
 const failed = results.filter((r) => r.status === "FAIL");

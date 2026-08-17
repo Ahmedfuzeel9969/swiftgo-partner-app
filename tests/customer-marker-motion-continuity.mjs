@@ -97,6 +97,7 @@ function main() {
   const arb = createLiveLocationSourceArbiter({
     nowMs: timers.nowMs,
     fallbackAfterMs: P2P_FALLBACK_AFTER_MS,
+    firebaseBackupReadIntervalMs: 4_000,
     onRender: (fix, meta) => {
       arbRenders.push({ ...fix, preferred: meta?.preferred, at: timers.nowMs() });
       pipe.ingestValidatedFix({

@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-08-17T10:27:30.934Z",
+  "pass": 4,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-map-follow-exports",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-map-drag-disables-follow",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-ride-flow-wires-follow-visible-only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-follow-does-not-change-zoom",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

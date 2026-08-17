@@ -42,6 +42,38 @@ export function createCustomerP2pController(opts = {}) {
   let watching = false;
   let lastOfferSdp = "";
   let signalingMod = null;
+  let watchRetryTimer = null;
+  let watchRetryAttempt = 0;
+  const MAX_WATCH_RETRIES = 8;
+
+  const ctrlCounters = {
+    offersReceived: 0,
+    answerAttempts: 0,
+    answerFailures: 0,
+    watchErrors: 0,
+    watchRetries: 0,
+  };
+
+  function clearWatchRetry() {
+    if (watchRetryTimer) {
+      clearTimeout(watchRetryTimer);
+      watchRetryTimer = null;
+    }
+    watchRetryAttempt = 0;
+  }
+
+  function scheduleWatchRetry(rid) {
+    if (closed || !watching || rideId !== rid) return;
+    if (watchRetryAttempt >= MAX_WATCH_RETRIES) return;
+    if (watchRetryTimer) return;
+    const delayMs = Math.min(30_000, 1_000 * 2 ** watchRetryAttempt);
+    watchRetryAttempt += 1;
+    ctrlCounters.watchRetries += 1;
+    watchRetryTimer = setTimeout(() => {
+      watchRetryTimer = null;
+      if (!closed && watching && rideId === rid) attachWatch(rid);
+    }, delayMs);
+  }
 
   async function signaling() {
     if (opts.watchRidePeerSession || opts.publishRidePeerAnswerClient || opts.closeRidePeerSessionClient) {
@@ -58,6 +90,7 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function destroySession() {
+    clearWatchRetry();
     unwatch();
     unwatch = () => {};
     watching = false;
@@ -86,6 +119,7 @@ export function createCustomerP2pController(opts = {}) {
     const offer = String(docData?.offer || "");
     if (!sid || !offer) return;
     if (String(docData.state || "") === "closed") return;
+    ctrlCounters.offersReceived += 1;
     // Same offer + live session: skip. Re-answer only when PC is actually gone.
     if (boundSessionId === sid && session && offer === lastOfferSdp) {
       const st = String(session.getState?.()?.state || "");
@@ -99,6 +133,7 @@ export function createCustomerP2pController(opts = {}) {
     }
 
     answering = true;
+    ctrlCounters.answerAttempts += 1;
     try {
       const sig = await signaling();
       destroySession();
@@ -147,6 +182,7 @@ export function createCustomerP2pController(opts = {}) {
         offerSdp: offer,
       });
     } catch {
+      ctrlCounters.answerFailures += 1;
       destroySession();
     } finally {
       answering = false;
@@ -154,14 +190,21 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function attachWatch(rid) {
+    if (watchRetryTimer) {
+      clearTimeout(watchRetryTimer);
+      watchRetryTimer = null;
+    }
     unwatch();
     watching = true;
     const onData = (docData) => {
       if (!docData) return;
+      watchRetryAttempt = 0;
       void answerOffer(docData);
     };
     const onError = () => {
       arbiter.noteP2pUnhealthy();
+      ctrlCounters.watchErrors += 1;
+      scheduleWatchRetry(rid);
     };
     if (typeof opts.watchRidePeerSession === "function") {
       unwatch = opts.watchRidePeerSession(rid, onData, onError);
@@ -234,6 +277,7 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   async function stop({ closeRemote = true } = {}) {
+    clearWatchRetry();
     if (closeRemote) await closeSignaling();
     destroySession();
     rideId = "";
@@ -260,6 +304,7 @@ export function createCustomerP2pController(opts = {}) {
     getCounters: () => ({
       ...(session?.getCounters?.() || {}),
       ...(arbiter.getCounters?.() || {}),
+      ...ctrlCounters,
     }),
     getState: () => session?.getState?.() || { state: P2P_STATE.DISABLED },
     getPipeline: () => session?.getPipeline?.() || [],

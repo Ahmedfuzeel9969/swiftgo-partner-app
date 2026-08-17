@@ -1,7 +1,7 @@
 {
   "suite": "p2p-customer-receive",
-  "generatedAt": "2026-08-15T16:16:33.977Z",
-  "pass": 7,
+  "generatedAt": "2026-08-17T10:27:11.437Z",
+  "pass": 8,
   "fail": 0,
   "results": [
     {
@@ -38,6 +38,11 @@
       "name": "customer-resume-no-duplicate-when-session-alive",
       "status": "PASS",
       "detail": "answers=1 before=1"
+    },
+    {
+      "name": "customer-watch-error-retries-signaling",
+      "status": "PASS",
+      "detail": "watchCalls=2 errors=1 retries=1"
     }
   ]
 }

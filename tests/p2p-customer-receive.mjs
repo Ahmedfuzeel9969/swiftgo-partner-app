@@ -216,9 +216,41 @@ async function testStaticLastPublishedOfferDeclared() {
   );
 }
 
+async function testCustomerWatchErrorRetries() {
+  let watchFactoryCalls = 0;
+  let onErrorCb = null;
+  const cust = createCustomerP2pController({
+    RTCPeerConnection: MockRTCPeerConnection,
+    publishRidePeerAnswerClient: async () => ({ ok: true }),
+    closeRidePeerSessionClient: async () => {},
+    watchRidePeerSession: (_rid, _onData, onError) => {
+      watchFactoryCalls += 1;
+      onErrorCb = onError;
+      return () => {
+        onErrorCb = null;
+      };
+    },
+  });
+
+  cust.syncForRide({ id: "ride_recv_retry", status: "accepted" }, { isVisible: true });
+  await new Promise((r) => setTimeout(r, 10));
+  const initialCalls = watchFactoryCalls;
+  onErrorCb?.();
+  await new Promise((r) => setTimeout(r, 1_100));
+  const counters = cust.getCounters();
+  record(
+    "customer-watch-error-retries-signaling",
+    watchFactoryCalls > initialCalls && (counters.watchErrors || 0) >= 1 ? "PASS" : "FAIL",
+    `watchCalls=${watchFactoryCalls} errors=${counters.watchErrors || 0} retries=${counters.watchRetries || 0}`
+  );
+  await cust.stop({ closeRemote: false });
+  cust.destroy();
+}
+
 await testStaticLastPublishedOfferDeclared();
 await testDriverOfferPublishesWithoutThrow();
 await testCustomerResumeReanswersSameOffer();
+await testCustomerWatchErrorRetries();
 
 const pass = results.filter((r) => r.status === "PASS").length;
 const fail = results.filter((r) => r.status === "FAIL").length;

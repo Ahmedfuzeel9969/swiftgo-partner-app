@@ -450,6 +450,7 @@ const driverLocationReport = createRideLocationReportClient({
   getRuntimeCounters: () => ({
     checkpoint: checkpointPolicy.getCounters(),
     p2p: driverP2p.getCounters?.() || {},
+    native: backgroundLocationNative.getDiagnostics?.() || {},
   }),
 });
 

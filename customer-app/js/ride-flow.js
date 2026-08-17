@@ -52,7 +52,7 @@ import { createTwoLegRouteController } from "./two-leg-route-controller.mjs";
 import { createTwoLegRouteLayers } from "./two-leg-route-layers.mjs";
 import { resolveRouteProvider } from "./road-route-provider.mjs";
 import { createDisplayLocationPipeline } from "./display-location-pipeline.mjs";
-import { getMap, setAssignedDriverLocation } from "./map.js";
+import { getMap, setAssignedDriverLocation, followAssignedDriverIfEnabled, setFollowDriverEnabled } from "./map.js";
 import { getFirebase } from "./firebase.js";
 import { createRideLocationReportClient } from "./ride-location-report-client.mjs";
 import { createCustomerP2pBackgroundKeepalive } from "./p2p-background-keepalive.mjs";
@@ -125,7 +125,7 @@ function ensureCustomerLocationReport() {
     getFirebase,
     getRuntimeCounters: () => ({
       p2p: customerP2p?.getCounters?.() || {},
-      arbiter: customerP2p?.getArbiterCounters?.() || {},
+      display: displayPipeline?.getCounters?.() || {},
     }),
   });
   if (typeof window !== "undefined") {
@@ -233,6 +233,11 @@ function paintDisplayFrame(pos) {
     skipAnimation: isSnap,
     allowPredict: false,
   });
+  const visible =
+    typeof document === "undefined" || document.visibilityState !== "hidden";
+  if (visible) {
+    followAssignedDriverIfEnabled(pos.lat, pos.lng);
+  }
 }
 
 function syncDisplayPipelineFromModel(model) {
@@ -1214,6 +1219,7 @@ function handleRideSnapshot(rawRide) {
       previousStatus !== "arrived" &&
       previousStatus !== "in_progress";
     if (firstActive) {
+      setFollowDriverEnabled(true);
       showActiveRideState(ride.status);
       if (ride.status === "accepted") {
         onToast?.(t("rideAccepted"));

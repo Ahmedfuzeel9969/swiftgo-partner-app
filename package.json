@@ -50,6 +50,8 @@
     "test:p2p-turn-credentials": "node tests/p2p-turn-credentials.mjs",
     "test:background-location-upload": "node tests/background-location-upload.mjs",
     "test:customer-p2p-background": "node tests/customer-p2p-background.mjs",
+    "test:customer-location-report-counters": "node tests/customer-location-report-counters.mjs",
+    "test:customer-map-follow-driver": "node tests/customer-map-follow-driver.mjs",
     "test:customer-marker-motion": "node tests/customer-marker-motion-continuity.mjs",
     "test:road-routing": "node tests/road-routing.mjs",
     "test:road-snapping": "node tests/road-snapping.mjs",
