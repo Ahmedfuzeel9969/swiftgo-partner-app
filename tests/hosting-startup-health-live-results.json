@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-08-16T13:16:44.492Z",
+  "generatedAt": "2026-08-17T05:40:58.999Z",
   "mode": "live",
   "target": "https://swiftgo-ride-app.web.app",
-  "pass": 34,
-  "fail": 3,
+  "pass": 37,
+  "fail": 0,
   "results": [
     {
       "name": "customer-root-html-loads",
@@ -38,12 +38,12 @@
     {
       "name": "customer-root-import-graph-complete",
       "status": "PASS",
-      "detail": "scanned=71"
+      "detail": "scanned=76"
     },
     {
       "name": "customer-root-export-bindings-resolve",
-      "status": "FAIL",
-      "detail": "js/phase1-billing-diagnostics.mjs → ./location-checkpoint-policy.mjs lacks 'IDLE_LOCATION_INTERVAL_MS'; js/phase1-billing-diagnostics.mjs → ./p2p-protocol.mjs lacks 'P2P_HEARTBEAT_INTERVAL_MS'; js/phase1-billing-diagnostics.mjs → ./p2p-protocol.mjs lacks 'FIREBASE_BACKUP_READ_INTERVAL_MS'"
+      "status": "PASS",
+      "detail": "modules=76"
     },
     {
       "name": "customer-root-firebase-init-module",
@@ -93,12 +93,12 @@
     {
       "name": "customer-alias-import-graph-complete",
       "status": "PASS",
-      "detail": "scanned=71"
+      "detail": "scanned=76"
     },
     {
       "name": "customer-alias-export-bindings-resolve",
-      "status": "FAIL",
-      "detail": "customer/js/phase1-billing-diagnostics.mjs → ./location-checkpoint-policy.mjs lacks 'IDLE_LOCATION_INTERVAL_MS'; customer/js/phase1-billing-diagnostics.mjs → ./p2p-protocol.mjs lacks 'P2P_HEARTBEAT_INTERVAL_MS'; customer/js/phase1-billing-diagnostics.mjs → ./p2p-protocol.mjs lacks 'FIREBASE_BACKUP_READ_INTERVAL_MS'"
+      "status": "PASS",
+      "detail": "modules=76"
     },
     {
       "name": "customer-alias-firebase-init-module",
@@ -143,12 +143,12 @@
     {
       "name": "driver-import-graph-complete",
       "status": "PASS",
-      "detail": "scanned=80"
+      "detail": "scanned=84"
     },
     {
       "name": "driver-export-bindings-resolve",
-      "status": "FAIL",
-      "detail": "partner/js/driver-app.js → ./location-checkpoint-policy.mjs lacks 'normalizeIdlePublishConfig'; partner/js/phase1-billing-diagnostics.mjs → ./location-checkpoint-policy.mjs lacks 'IDLE_LOCATION_INTERVAL_MS'; partner/js/phase1-billing-diagnostics.mjs → ./p2p-protocol.mjs lacks 'P2P_HEARTBEAT_INTERVAL_MS'; partner/js/phase1-billing-diagnostics.mjs → ./p2p-protocol.mjs lacks 'FIREBASE_BACKUP_READ_INTERVAL_MS'"
+      "status": "PASS",
+      "detail": "modules=84"
     },
     {
       "name": "driver-firebase-init-module",
@@ -173,7 +173,7 @@
     {
       "name": "asset-not-html:partner/js/phase1-billing-diagnostics.mjs",
       "status": "PASS",
-      "detail": "ct=text/javascript; charset=utf-8 len=12932"
+      "detail": "ct=text/javascript; charset=utf-8 len=12582"
     },
     {
       "name": "asset-not-html:partner/js/route-provider-bootstrap.mjs",
@@ -188,7 +188,7 @@
     {
       "name": "asset-not-html:js/phase1-billing-diagnostics.mjs",
       "status": "PASS",
-      "detail": "ct=text/javascript; charset=utf-8 len=12932"
+      "detail": "ct=text/javascript; charset=utf-8 len=12582"
     }
   ]
 }
