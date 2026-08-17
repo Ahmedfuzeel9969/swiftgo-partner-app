@@ -4,4 +4,8 @@
     <string name="title_activity_main">SwiftGo Driver</string>
     <string name="package_name">com.swiftgo.partner</string>
     <string name="custom_url_scheme">com.swiftgo.partner</string>
+    <string name="location_share_channel">سفر کی لوکیشن</string>
+    <string name="location_share_channel_desc">فعال سواری کے دوران لوکیشن شیئرنگ</string>
+    <string name="location_share_title">SwiftGo سفر کی لوکیشن شیئر ہو رہی ہے</string>
+    <string name="location_share_text">گاڑی چلتے وقت لوکیشن کسٹمر تک پہنچ رہی ہے</string>
 </resources>

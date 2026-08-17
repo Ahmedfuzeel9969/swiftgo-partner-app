@@ -8,7 +8,8 @@
       "**/node_modules/**"
     ],
     "predeploy": [
-      "node tools/build-hosting.mjs"
+      "node tools/build-hosting.mjs",
+      "node tools/hosting-startup-health.mjs"
     ],
     "redirects": [
       {
@@ -28,15 +29,7 @@
         "destination": "/partner/index.html"
       },
       {
-        "source": "/partner/**",
-        "destination": "/partner/index.html"
-      },
-      {
         "source": "/owner",
-        "destination": "/owner/index.html"
-      },
-      {
-        "source": "/owner/**",
         "destination": "/owner/index.html"
       },
       {
@@ -44,20 +37,8 @@
         "destination": "/admin/index.html"
       },
       {
-        "source": "/admin/**",
-        "destination": "/admin/index.html"
-      },
-      {
         "source": "/customer",
         "destination": "/customer/index.html"
-      },
-      {
-        "source": "/customer/**",
-        "destination": "/customer/index.html"
-      },
-      {
-        "source": "**",
-        "destination": "/index.html"
       }
     ],
     "headers": [
@@ -71,7 +52,7 @@
         ]
       },
       {
-        "source": "**/*.@(js|css)",
+        "source": "**/*.@(js|mjs|css)",
         "headers": [
           {
             "key": "Cache-Control",

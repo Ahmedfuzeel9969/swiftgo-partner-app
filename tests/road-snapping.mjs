@@ -1007,10 +1007,10 @@ function performanceStaticTests() {
     SNAP_HIGH_DISTANCE_M === 25 &&
       SNAP_MAX_DISTANCE_M === 55 &&
       SNAP_HEADING_TOLERANCE_DEG === 55 &&
-      OFF_ROUTE_MIN_FIXES === 3 &&
-      OFF_ROUTE_DISTANCE_M === 65 &&
-      OFF_ROUTE_SUSTAIN_MS === 15_000 &&
-      REROUTE_COOLDOWN_MS === 75_000
+      OFF_ROUTE_MIN_FIXES === 2 &&
+      OFF_ROUTE_DISTANCE_M === 55 &&
+      OFF_ROUTE_SUSTAIN_MS === 6_000 &&
+      REROUTE_COOLDOWN_MS === 25_000
       ? "PASS"
       : "FAIL",
     JSON.stringify({

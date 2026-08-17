@@ -1,0 +1,89 @@
+{
+  "generatedAt": "2026-08-16T13:45:21.178Z",
+  "summary": {
+    "pass": 11,
+    "fail": 1,
+    "blocked": 1,
+    "total": 13
+  },
+  "results": [
+    {
+      "name": "index-ride_candidates-driver-status",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "rules-candidates-driver-list-only",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "rules-candidates-no-client-write",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "geo-grid-deg",
+      "status": "PASS",
+      "detail": "grid=0.0036",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T0-createCustomerBooking-callable",
+      "status": "FAIL",
+      "detail": "not-found",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "T1-T7-chain",
+      "status": "BLOCKED",
+      "detail": "no ride id from callable",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-offline",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-missing-geo",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-stale-location",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-blocked-partner",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-busy-driver",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "fail-outside-radius",
+      "status": "PASS",
+      "detail": "targetInvited=false totalCount=0",
+      "suite": "dispatch-e2e"
+    },
+    {
+      "name": "rematch-candidate-count-preserved",
+      "status": "PASS",
+      "detail": "first=1 second=1 toInvite2=1",
+      "suite": "dispatch-e2e"
+    }
+  ]
+}

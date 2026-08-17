@@ -1,0 +1,43 @@
+{
+  "suite": "p2p-customer-receive",
+  "generatedAt": "2026-08-15T16:16:33.977Z",
+  "pass": 7,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-lastPublishedOffer-declared",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-customer-hidden-does-not-suspend-p2p",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "driver-offer-publishes-without-referenceerror",
+      "status": "PASS",
+      "detail": "offers=1 state=CONNECTING"
+    },
+    {
+      "name": "driver-stop-clears-session",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer-answers-initial-offer",
+      "status": "PASS",
+      "detail": "answers=1"
+    },
+    {
+      "name": "customer-hidden-keeps-p2p-session",
+      "status": "PASS",
+      "detail": "CONNECTING"
+    },
+    {
+      "name": "customer-resume-no-duplicate-when-session-alive",
+      "status": "PASS",
+      "detail": "answers=1 before=1"
+    }
+  ]
+}

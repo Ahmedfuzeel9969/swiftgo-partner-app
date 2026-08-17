@@ -623,6 +623,25 @@ function unitTests() {
       )
     )
   );
+  {
+    const age = locationAgeMs(
+      {
+        driverLocation: {
+          lat: 1,
+          lng: 1,
+          receivedAt: now - 120_000,
+          observedAt: now - 2_000,
+        },
+        driverLocationUpdatedAt: now - 2_000,
+      },
+      now
+    );
+    record(
+      "fresh-newest-wins-over-stale-receivedAt",
+      age != null && age < 10_000 ? "PASS" : "FAIL",
+      String(age)
+    );
+  }
   record(
     "fresh-timestamp-seconds-nanos",
     timestampToMs({ seconds: 1700000000, nanoseconds: 500000000 }) === 1700000000500

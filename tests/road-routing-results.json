@@ -1,18 +1,18 @@
 {
   "suite": "road-routing",
-  "generatedAt": "2026-08-02T01:00:31.366Z",
+  "generatedAt": "2026-08-15T16:16:34.387Z",
   "totals": {
-    "pass": 64,
+    "pass": 75,
     "fail": 0,
     "blocked": 1,
     "byCategory": {
       "unit": {
-        "pass": 41,
+        "pass": 50,
         "fail": 0,
         "blocked": 0
       },
       "static": {
-        "pass": 23,
+        "pass": 25,
         "fail": 0,
         "blocked": 0
       },
@@ -141,6 +141,41 @@
       "category": "unit"
     },
     {
+      "name": "diag-osrm-http-status",
+      "status": "PASS",
+      "detail": "{\"providerKind\":\"osrm_preview\",\"requestUrl\":\"https://router.project-osrm.org/route/v1/driving/67,24.86;67.05,24.9?overview=full&geometries=geojson&alternatives=false&steps=false\",\"httpStatus\":503,\"responseBodySnippet\":\"{\\\"message\\\":\\\"overloaded\\\"}\",\"timeoutMs\":12000,\"timeoutReason\":null,\"networkError\":false,\"corsOrNetworkLikely\":false,\"errorCode\":\"unavailable\",\"errorMessage\":\"OSRM_503\",\"fallbackTrigger\":\"http_error\"}",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "diag-osrm-timeout-reason",
+      "status": "PASS",
+      "detail": "{\"providerKind\":\"osrm_preview\",\"requestUrl\":\"https://router.project-osrm.org/route/v1/driving/67,24.86;67.05,24.9?overview=full&geometries=geojson&alternatives=false&steps=false\",\"httpStatus\":null,\"responseBodySnippet\":null,\"timeoutMs\":5,\"timeoutReason\":\"request_timeout\",\"networkError\":false,\"corsOrNetworkLikely\":false,\"errorCode\":\"timeout\",\"errorMessage\":\"TIMEOUT\",\"fallbackTrigger\":\"request_timeout\"}",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "diag-disabled-provider-detail",
+      "status": "PASS",
+      "detail": "{\"unavailable\":{\"providerId\":\"disabled\",\"requestUrl\":null,\"httpStatus\":null,\"responseBodySnippet\":null,\"timeoutMs\":null,\"timeoutReason\":null,\"networkError\":false,\"corsOrNetworkLikely\":false,\"errorCode\":\"unavailable\",\"errorMessage\":\"PROVIDER_DISABLED\",\"fallbackTrigger\":\"provider_disabled_config\"},\"fallback\":{\"leg\":\"approach\",\"fallbackTrigger\":\"provider_disabled_config\",\"providerId\":\"disabled\",\"requestUrl\":null,\"httpStatus\":null,\"responseBodySnippet\":null,\"timeoutMs\":null,\"timeoutReason\":null,\"networkError\":false,\"corsOrNetworkLikely\":false,\"errorCode\":\"unavailable\",\"errorMessage\":\"PROVIDER_DISABLED\"}}",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "bootstrap-enables-osrm-preview",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "bootstrap-respects-existing-config",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
       "name": "15-assignment-creates-approach-and-trip",
       "status": "PASS",
       "detail": "a=ready t=ready",
@@ -235,6 +270,34 @@
       "name": "28-terminal-late-ignored",
       "status": "PASS",
       "detail": "",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "approach-starts-without-waiting-for-slow-trip",
+      "status": "PASS",
+      "detail": "request-order=approach,trip",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "concurrent-leg-requests-coalesce-without-duplicates",
+      "status": "PASS",
+      "detail": "calls=2 coalesced=2",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "approach-can-be-ready-before-trip",
+      "status": "PASS",
+      "detail": "a=ready t=loading",
+      "suite": "road-routing",
+      "category": "unit"
+    },
+    {
+      "name": "trip-failure-does-not-block-ready-approach",
+      "status": "PASS",
+      "detail": "a=ready t=fallback",
       "suite": "road-routing",
       "category": "unit"
     },
@@ -471,6 +534,20 @@
     },
     {
       "name": "constants-documented",
+      "status": "PASS",
+      "detail": "",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "active-ride-osrm-bootstrap-wired",
+      "status": "PASS",
+      "detail": "Hosted apps opt into osrm_preview for active-ride road polylines",
+      "suite": "road-routing",
+      "category": "static"
+    },
+    {
+      "name": "route-diag-includes-request-fields",
       "status": "PASS",
       "detail": "",
       "suite": "road-routing",

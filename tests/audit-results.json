@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-07-31T09:25:07.701Z",
+  "generatedAt": "2026-08-15T11:10:11.376Z",
   "baseUrl": "https://swiftgo-ride-app.web.app",
   "total": 238,
-  "passed": 235,
-  "failed": 3,
-  "passRate": 98.7,
+  "passed": 233,
+  "failed": 5,
+  "passRate": 97.9,
   "bySuite": {
     "structure": {
       "passed": 39,
@@ -32,13 +32,13 @@
       "total": 8
     },
     "security": {
-      "passed": 16,
-      "failed": 1,
+      "passed": 15,
+      "failed": 2,
       "total": 17
     },
     "wiring": {
-      "passed": 44,
-      "failed": 2,
+      "passed": 43,
+      "failed": 3,
       "total": 46
     },
     "a11y": {
@@ -773,13 +773,13 @@
       "suite": "i18n",
       "name": "i18n EN keys > 60",
       "status": "PASS",
-      "detail": "count=369"
+      "detail": "count=384"
     },
     {
       "suite": "i18n",
       "name": "i18n UR keys > 60",
       "status": "PASS",
-      "detail": "count=369"
+      "detail": "count=384"
     },
     {
       "suite": "i18n",
@@ -958,8 +958,8 @@
     {
       "suite": "security",
       "name": "Hosting SPA rewrite to index.html",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "security",
@@ -1234,8 +1234,8 @@
     {
       "suite": "wiring",
       "name": "Phase 16.1 rides collection write + searching_driver status",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",

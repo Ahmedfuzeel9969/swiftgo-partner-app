@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-29T09:58:04.520Z",
+  "generatedAt": "2026-08-06T18:18:48.797Z",
   "command": "firebase emulators:exec --only firestore,storage,auth --project demo-swiftgo-phase1 \"node tests/phase2c-run-all.mjs\"",
   "results": [
     {
       "name": "T01-customer-create-driver-read-open",
       "status": "PASS",
-      "detail": "candidate can read; non-candidate denied",
+      "detail": "client create denied; candidate can read; non-candidate denied",
       "rules": "rides"
     },
     {
@@ -279,9 +279,9 @@
       "rules": "settlement"
     },
     {
-      "name": "B01-candidate-limit-10-20-only",
+      "name": "B01-candidate-limit-range-1-100",
       "status": "PASS",
-      "detail": "10/20 ok; 15 rejected",
+      "detail": "valid range accepted; rejectedBounds=2",
       "rules": "bargaining"
     },
     {
@@ -323,7 +323,7 @@
     {
       "name": "B08-second-needs-confirmation",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"krJg9bfM4PiePzhsjuUH\",\"status\":\"searching_driver\"}]}",
+      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"gIXUovzK7SKzm8H1ATlp\",\"status\":\"searching_driver\"}]}",
       "rules": "bargaining"
     },
     {
@@ -509,7 +509,7 @@
     {
       "name": "S18-pin-lockout-after-max",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785319981367}",
+      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1786041219780}",
       "suite": "phase2b"
     },
     {
@@ -558,8 +558,8 @@
     {
       "name": "C02-candidate-limits-10-20",
       "expected": "10 and 20 work; invalid rejected",
-      "actual": "n10=10 n20=20 invalidRejected=true",
-      "status": "PASS",
+      "actual": "n10=10 n20=20 invalidRejected=false",
+      "status": "FAIL",
       "suite": "phase2c-e2e"
     },
     {
@@ -586,7 +586,7 @@
     {
       "name": "C06-booking-and-match",
       "expected": "booking created; blocked not candidate",
-      "actual": "ride=g5oz4SJUc1V9Q3c4RcMz cands=2 blockedCand=false",
+      "actual": "ride=ftVBIt9NJBAN3JS9vLqy cands=2 blockedCand=false",
       "status": "PASS",
       "suite": "phase2c-e2e"
     },
@@ -668,8 +668,8 @@
     {
       "name": "A06-customer-creates-rides",
       "expected": "createRideRequest writes rides collection",
-      "actual": "rides",
-      "status": "PASS",
+      "actual": "missing",
+      "status": "FAIL",
       "detail": "",
       "suite": "phase2c-audit"
     },
@@ -722,13 +722,13 @@
       "suite": "phase2c-audit"
     }
   ],
-  "passed": 114,
-  "failed": 0,
+  "passed": 112,
+  "failed": 2,
   "blocked": 0,
   "exitCodes": {
     "phase2b": 0,
-    "e2e": 0,
-    "audit": 0
+    "e2e": 1,
+    "audit": 1
   },
   "total": 114
 }

@@ -299,9 +299,13 @@ function arbiterUnitTests() {
   arb2.ingestFirebase({ lat: 3, lng: 3, observedAt: 10_500, sequence: 2 }, gen);
   const s2 = arb2.getState();
   record(
-    "31-newer-firebase-beats-delayed-p2p",
-    s2.lastRendered?.lat === 3 ? "PASS" : "FAIL",
-    `src=${s2.lastRendered?.source}`
+    "31-p2p-primary-ignores-firebase-while-healthy",
+    s2.lastRendered?.source === "p2p" &&
+      s2.lastRendered?.lat === 1 &&
+      s2.preferred === "p2p"
+      ? "PASS"
+      : "FAIL",
+    `src=${s2.lastRendered?.source} lat=${s2.lastRendered?.lat}`
   );
 
   now = 10_000;
@@ -589,8 +593,32 @@ async function healthAndPeerTests() {
 
   const ice = resolveIceConfiguration({ __SWIFTGO_P2P_ICE__: {} });
   record(
-    "60-missing-turn-firebase-fallback-path",
-    !ice.hasTurn && buildIceServers({}).length === 0 ? "PASS" : "FAIL"
+    "60-default-stun-without-turn",
+    ice.hasStun && !ice.hasTurn && ice.iceServers.length >= 1 ? "PASS" : "FAIL",
+    `stun=${ice.hasStun} turn=${ice.hasTurn} n=${ice.iceServers.length}`
+  );
+
+  const iceTurn = resolveIceConfiguration({
+    __SWIFTGO_P2P_ICE__: {
+      turn: {
+        urls: ["turn:relay.example.com:3478?transport=udp", "turn:relay.example.com:3478?transport=tcp"],
+        username: "1700003600:test",
+        credential: "testcred",
+      },
+    },
+  });
+  record(
+    "60c-turn-injected-with-stun",
+    iceTurn.hasStun && iceTurn.hasTurn && iceTurn.iceServers.length >= 3 ? "PASS" : "FAIL",
+    `stun=${iceTurn.hasStun} turn=${iceTurn.hasTurn} n=${iceTurn.iceServers.length}`
+  );
+
+  const iceOff = resolveIceConfiguration({
+    __SWIFTGO_P2P_ICE__: { disableDefaultStun: true, stunUrls: [] },
+  });
+  record(
+    "60b-disable-default-stun",
+    !iceOff.hasStun && buildIceServers({}).length === 0 ? "PASS" : "FAIL"
   );
 
   await cust.close();
@@ -719,7 +747,7 @@ function checkpointP2pPolicyTests() {
     "cadence-constants-documented",
     P2P_SEND_INTERVAL_MS >= 2000 &&
       P2P_SEND_INTERVAL_MS <= 4000 &&
-      P2P_FALLBACK_AFTER_MS === 12_000
+      P2P_FALLBACK_AFTER_MS === 30_000
       ? "PASS"
       : "FAIL"
   );
@@ -1143,8 +1171,10 @@ function lifecycleStaticTests() {
     "static"
   );
   record(
-    "56-customer-hidden-suspends-session",
-    cust.includes("setVisible(false)") || cust.includes("stopPresenceHeartbeat")
+    "56-customer-hidden-keeps-p2p-alive",
+    read("customer-app/js/p2p-ride-controller.mjs").includes("must not suspend or stop P2P") &&
+      cust.includes("keepP2p") &&
+      !cust.includes("customerP2p?.setVisible(false)")
       ? "PASS"
       : "FAIL",
     "",

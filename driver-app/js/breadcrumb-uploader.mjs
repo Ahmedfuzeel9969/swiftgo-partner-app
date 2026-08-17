@@ -78,13 +78,12 @@ export function createBreadcrumbUploader(opts) {
     return exp + jitter;
   }
 
-  async function uploadOldest(binding, { force = false, pendingOnly = false } = {}) {
+  async function uploadOldest(binding, { force = false } = {}) {
     if (closed || inFlight || !binding) return { ok: false, reason: "busy_or_closed" };
     inFlight = true;
     try {
       let batch = await queue.peekOldestBatch(binding);
       if (!batch) {
-        if (pendingOnly) return { ok: false, reason: "no_pending_batch" };
         const batchResult = await queue.takeBatch(binding, {
           force,
           maxPoints: BREADCRUMB_TARGET_BATCH_POINTS,
@@ -126,27 +125,16 @@ export function createBreadcrumbUploader(opts) {
       schedule(BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS);
       return;
     }
-    // A wake tick drains only batches that were pending when/while it runs. It must
-    // never promote raw points into a new pending batch via queue.takeBatch().
-    if (wake) {
-      let attempts = 0;
-      while (!closed && attempts < BREADCRUMB_MAX_UPLOADS_PER_WAKE) {
-        const pending = await queue.peekOldestBatch(binding);
-        if (!pending) break;
-        const r = await uploadOldest(binding, { force: true, pendingOnly: true });
-        attempts += 1;
-        if (!r.ok) break;
-      }
-      schedule(BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS);
-      return;
-    }
     const count = await queue.pointCount(binding);
     const intervalDue = nowMs() - lastUploadAt >= BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS;
     const sizeDue = count >= BREADCRUMB_TARGET_BATCH_POINTS;
     const pending = await queue.peekOldestBatch(binding);
     const due = force || sizeDue || intervalDue || Boolean(pending);
-    // A scheduled/non-wake tick remains bounded (normally one upload attempt).
-    const maxAttempts = BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK;
+    // Wake: BREADCRUMB_MAX_UPLOADS_PER_WAKE is the strict TOTAL including the first attempt.
+    // Scheduled: BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK (normally 1).
+    const maxAttempts = wake
+      ? BREADCRUMB_MAX_UPLOADS_PER_WAKE
+      : BREADCRUMB_MAX_UPLOADS_PER_SCHEDULED_TICK;
     let attempts = 0;
     if (due && attempts < maxAttempts) {
       const r = await uploadOldest(binding, { force: force || sizeDue || intervalDue });
@@ -155,6 +143,16 @@ export function createBreadcrumbUploader(opts) {
         schedule(BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS);
         return;
       }
+    }
+    while (
+      wake &&
+      !closed &&
+      attempts < maxAttempts &&
+      (await queue.peekOldestBatch(binding))
+    ) {
+      const r = await uploadOldest(binding, { force: true });
+      attempts += 1;
+      if (!r.ok) break;
     }
     schedule(BREADCRUMB_TARGET_UPLOAD_INTERVAL_MS);
   }

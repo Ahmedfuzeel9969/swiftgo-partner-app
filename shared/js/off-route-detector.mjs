@@ -4,11 +4,11 @@
 
 import { SNAP_DIAG, SNAP_MAX_DISTANCE_M } from "./route-projection.mjs";
 
-export const OFF_ROUTE_MIN_FIXES = 3;
-export const OFF_ROUTE_DISTANCE_M = 65;
-export const OFF_ROUTE_SUSTAIN_MS = 15_000;
+export const OFF_ROUTE_MIN_FIXES = 2;
+export const OFF_ROUTE_DISTANCE_M = 55;
+export const OFF_ROUTE_SUSTAIN_MS = 6_000;
 export const OFF_ROUTE_MAX_ACCURACY_M = 45;
-export const REROUTE_COOLDOWN_MS = 75_000;
+export const REROUTE_COOLDOWN_MS = 25_000;
 export const REROUTE_MAX_ATTEMPTS_WINDOW = 4;
 export const REROUTE_WINDOW_MS = 15 * 60_000;
 export const REROUTE_BACKOFF_BASE_MS = 5_000;

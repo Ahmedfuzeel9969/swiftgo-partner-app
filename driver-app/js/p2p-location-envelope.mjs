@@ -85,6 +85,24 @@ export function buildP2pAckMessage(ctx) {
   return { ok: true, message: msg, serialized: JSON.stringify(msg) };
 }
 
+export function buildP2pHbMessage(ctx) {
+  const msg = {
+    v: P2P_PROTOCOL_VERSION,
+    type: P2P_MESSAGE_TYPE.HB,
+    peerSessionId: ctx.peerSessionId,
+    trackingSessionId: String(ctx.trackingSessionId || ""),
+    assignmentVersion: Math.max(1, Math.floor(Number(ctx.assignmentVersion) || 1)),
+    seq: Math.floor(Number(ctx.sequence) || 0),
+    observedAt: Date.now(),
+    role: ctx.role || "driver",
+  };
+  const serialized = JSON.stringify(msg);
+  if (serialized.length > P2P_MAX_MESSAGE_BYTES) {
+    return { ok: false, reason: "oversized" };
+  }
+  return { ok: true, message: msg, serialized };
+}
+
 /**
  * @param {string|object} raw
  * @param {{

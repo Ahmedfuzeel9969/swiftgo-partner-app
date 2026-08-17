@@ -1,0 +1,213 @@
+{
+  "generatedAt": "2026-08-15T12:17:15.491Z",
+  "host": "http://127.0.0.1:5000",
+  "cold": {
+    "label": "cold",
+    "available": true,
+    "elapsedMs": 1955,
+    "tile": {
+      "visible": true,
+      "elapsedMs": 2905
+    },
+    "leafletGlobal": true,
+    "mapContainer": true,
+    "visibleTile": true,
+    "gpsMarks": [],
+    "resources": [
+      {
+        "name": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+        "durationMs": 397,
+        "transferSize": 0
+      },
+      {
+        "name": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+        "durationMs": 415,
+        "transferSize": 0
+      },
+      {
+        "name": "https://a.tile.openstreetmap.org/15/22482/14046.png",
+        "durationMs": 672,
+        "transferSize": 0
+      },
+      {
+        "name": "https://c.tile.openstreetmap.org/15/22482/14045.png",
+        "durationMs": 676,
+        "transferSize": 0
+      },
+      {
+        "name": "https://c.tile.openstreetmap.org/15/22481/14046.png",
+        "durationMs": 569,
+        "transferSize": 0
+      },
+      {
+        "name": "https://b.tile.openstreetmap.org/15/22483/14046.png",
+        "durationMs": 681,
+        "transferSize": 0
+      },
+      {
+        "name": "https://b.tile.openstreetmap.org/15/22482/14047.png",
+        "durationMs": 655,
+        "transferSize": 0
+      },
+      {
+        "name": "https://b.tile.openstreetmap.org/15/22481/14045.png",
+        "durationMs": 566,
+        "transferSize": 0
+      },
+      {
+        "name": "https://a.tile.openstreetmap.org/15/22483/14045.png",
+        "durationMs": 567,
+        "transferSize": 0
+      },
+      {
+        "name": "https://a.tile.openstreetmap.org/15/22481/14047.png",
+        "durationMs": 668,
+        "transferSize": 0
+      },
+      {
+        "name": "https://c.tile.openstreetmap.org/15/22483/14047.png",
+        "durationMs": 654,
+        "transferSize": 0
+      }
+    ]
+  },
+  "warm": {
+    "label": "warm",
+    "available": true,
+    "elapsedMs": 425,
+    "tile": {
+      "visible": true,
+      "elapsedMs": 502
+    },
+    "leafletGlobal": true,
+    "mapContainer": true,
+    "visibleTile": true,
+    "gpsMarks": [],
+    "resources": [
+      {
+        "name": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+        "durationMs": 0,
+        "transferSize": 0
+      },
+      {
+        "name": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+        "durationMs": 0,
+        "transferSize": 0
+      },
+      {
+        "name": "https://a.tile.openstreetmap.org/15/22482/14046.png",
+        "durationMs": 0,
+        "transferSize": 0
+      },
+      {
+        "name": "https://c.tile.openstreetmap.org/15/22482/14045.png",
+        "durationMs": 0,
+        "transferSize": 0
+      },
+      {
+        "name": "https://c.tile.openstreetmap.org/15/22481/14046.png",
+        "durationMs": 0,
+        "transferSize": 0
+      },
+      {
+        "name": "https://b.tile.openstreetmap.org/15/22483/14046.png",
+        "durationMs": 0,
+        "transferSize": 0
+      },
+      {
+        "name": "https://b.tile.openstreetmap.org/15/22482/14047.png",
+        "durationMs": 0,
+        "transferSize": 0
+      },
+      {
+        "name": "https://b.tile.openstreetmap.org/15/22481/14045.png",
+        "durationMs": 0,
+        "transferSize": 0
+      },
+      {
+        "name": "https://a.tile.openstreetmap.org/15/22483/14045.png",
+        "durationMs": 0,
+        "transferSize": 0
+      },
+      {
+        "name": "https://a.tile.openstreetmap.org/15/22481/14047.png",
+        "durationMs": 0,
+        "transferSize": 0
+      },
+      {
+        "name": "https://c.tile.openstreetmap.org/15/22483/14047.png",
+        "durationMs": 0,
+        "transferSize": 0
+      },
+      {
+        "name": "https://c.tile.openstreetmap.org/15/22482/14045.png",
+        "durationMs": 117,
+        "transferSize": 0
+      },
+      {
+        "name": "https://c.tile.openstreetmap.org/15/22481/14046.png",
+        "durationMs": 130,
+        "transferSize": 0
+      },
+      {
+        "name": "https://b.tile.openstreetmap.org/15/22482/14047.png",
+        "durationMs": 124,
+        "transferSize": 0
+      },
+      {
+        "name": "https://b.tile.openstreetmap.org/15/22481/14045.png",
+        "durationMs": 132,
+        "transferSize": 0
+      },
+      {
+        "name": "https://a.tile.openstreetmap.org/15/22483/14045.png",
+        "durationMs": 134,
+        "transferSize": 0
+      },
+      {
+        "name": "https://a.tile.openstreetmap.org/15/22481/14047.png",
+        "durationMs": 132,
+        "transferSize": 0
+      }
+    ]
+  },
+  "throttled": {
+    "label": "throttled-400kbps-150ms",
+    "available": true,
+    "elapsedMs": 12501,
+    "tile": {
+      "visible": true,
+      "elapsedMs": 17501
+    },
+    "leafletGlobal": true,
+    "mapContainer": true,
+    "visibleTile": true,
+    "gpsMarks": [],
+    "resources": [
+      {
+        "name": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+        "durationMs": 492,
+        "transferSize": 0
+      },
+      {
+        "name": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+        "durationMs": 2251,
+        "transferSize": 0
+      },
+      {
+        "name": "https://a.tile.openstreetmap.org/15/22482/14046.png",
+        "durationMs": 4989,
+        "transferSize": 0
+      },
+      {
+        "name": "https://c.tile.openstreetmap.org/15/22482/14045.png",
+        "durationMs": 4663,
+        "transferSize": 0
+      }
+    ]
+  },
+  "failures": [],
+  "errors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

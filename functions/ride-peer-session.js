@@ -236,7 +236,8 @@ async function publishRidePeerAnswer(db, input) {
       answer: answerSdp,
       state: "answer_ready",
       updatedAt: new Date(now),
-      // Do not extend expiresAt from client.
+      // Refresh TTL only when peers actively signal (long-ride stability; no polling).
+      expiresAt: new Date(now + P2P_SESSION_TTL_MS),
     },
     { merge: true }
   );

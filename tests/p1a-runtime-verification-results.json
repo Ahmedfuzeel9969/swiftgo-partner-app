@@ -1,0 +1,62 @@
+{
+  "generatedAt": "2026-08-05T11:30:15.710Z",
+  "package": "P1-A",
+  "labPass": true,
+  "results": [
+    {
+      "name": "T1-defaults",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "T2-hot-3min",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "T3-move-OR",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "T5-AND-blocked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "T4-time-OR",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "billing",
+      "ok": true,
+      "detail": "{\"m5\":2880000,\"m3\":4800000,\"extra\":1920000}"
+    }
+  ],
+  "billing": {
+    "perDriverPerHour": {
+      "m5": 12,
+      "m3": 20
+    },
+    "daily": {
+      "d100": {
+        "m5": 28800,
+        "m3": 48000,
+        "extra": 19200
+      },
+      "d1k": {
+        "m5": 288000,
+        "m3": 480000,
+        "extra": 192000
+      },
+      "d10k": {
+        "m5": 2880000,
+        "m3": 4800000,
+        "extra": 1920000
+      }
+    },
+    "ratio": 1.6666666666666667
+  },
+  "physicalDevice": "PENDING_OPERATOR"
+}

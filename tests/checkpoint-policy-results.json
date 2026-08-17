@@ -308,7 +308,7 @@
     {
       "name": "33-rapid-transitions-no-strand",
       "status": "PASS",
-      "detail": "{\"inFlight\":true,\"hasPending\":false,\"sessionStartStamped\":false,\"writesStarted\":4,\"writesCompleted\":3}",
+      "detail": "{\"inFlight\":false,\"hasPending\":false,\"sessionStartStamped\":false,\"writesStarted\":2,\"writesCompleted\":2}",
       "suite": "checkpoint-policy",
       "category": "unit"
     },
@@ -376,5 +376,5 @@
       "category": "rules"
     }
   ],
-  "generatedAt": "2026-08-01T18:43:00.597Z"
+  "generatedAt": "2026-08-03T11:01:09.249Z"
 }

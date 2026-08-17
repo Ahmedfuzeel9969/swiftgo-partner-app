@@ -1,21 +1,26 @@
 {
   "suite": "booking-cancellation-contract",
-  "generatedAt": "2026-07-30T16:07:58.410Z",
+  "generatedAt": "2026-08-15T05:16:35.917Z",
   "summary": {
-    "pass": 18,
+    "pass": 20,
     "fail": 0,
-    "total": 18
+    "total": 20
   },
   "results": [
     {
       "name": "C00-cancellable-includes-pre-start",
       "status": "PASS",
-      "detail": "[\"searching_driver\",\"accepted\",\"arrived\"]"
+      "detail": "[\"searching_driver\",\"accepted\",\"arrived\",\"in_progress\"]"
     },
     {
       "name": "C01-customer-cancel-searching",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"rideId\":\"WStJ6sR5bn3h0uGENJfo\",\"status\":\"cancelled_by_customer\",\"already\":false,\"cancelledCount\":1,\"skippedCount\":0,\"failedCount\":0}"
+      "detail": "{\"ok\":true,\"rideId\":\"hKJp5TPcyuPsk8o2Iyzu\",\"status\":\"cancelled_by_customer\",\"already\":false,\"cancelledCount\":1,\"skippedCount\":0,\"failedCount\":0,\"partialFareApplies\":false,\"cancellationFare\":0,\"traveledDistanceKm\":0,\"settlement\":null}"
+    },
+    {
+      "name": "PERF-cancel-click-to-confirmed",
+      "status": "PASS",
+      "detail": "254ms"
     },
     {
       "name": "C02-other-customer-denied",
@@ -28,9 +33,14 @@
       "detail": ""
     },
     {
-      "name": "C04-cancel-after-start-rejected",
+      "name": "C04-cancel-in-progress-partial-fare",
       "status": "PASS",
-      "detail": ""
+      "detail": "{\"cancellationFare\":46,\"traveledDistanceKm\":0.4,\"status\":\"cancelled_by_customer\"}"
+    },
+    {
+      "name": "PERF-driver-accept-to-assignment-confirmed",
+      "status": "PASS",
+      "detail": "385ms"
     },
     {
       "name": "C05-customer-cancel-accepted",
@@ -55,7 +65,7 @@
     {
       "name": "D04-assigned-cancel-rematch",
       "status": "PASS",
-      "detail": "{\"status\":\"searching_driver\",\"candidates\":0,\"exclude\":\"cc-drv\",\"selfCand\":\"expired\",\"gateCount\":1}"
+      "detail": "{\"status\":\"searching_driver\",\"candidates\":0,\"exclude\":\"cc-drv\",\"selfCand\":\"accepted\",\"gateCount\":1}"
     },
     {
       "name": "D05-rematch-same-booking-no-extra-slot",

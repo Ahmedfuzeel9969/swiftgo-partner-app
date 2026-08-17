@@ -138,13 +138,22 @@ export function trapFocus(container, options = {}) {
 export function initKeyboardInset(root = document.documentElement) {
   if (typeof window === "undefined" || !window.visualViewport) return () => {};
 
+  const isMapLocationInteraction = () =>
+    document.body.classList.contains("map-pick-active") ||
+    document.body.classList.contains("map-dragging");
+
   const sync = () => {
+    if (isMapLocationInteraction()) {
+      root.style.setProperty("--keyboard-inset", "0px");
+      return;
+    }
     const vv = window.visualViewport;
     const obscured = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
     root.style.setProperty("--keyboard-inset", `${Math.round(obscured)}px`);
   };
 
   const onFocusIn = (event) => {
+    if (isMapLocationInteraction()) return;
     const el = event.target;
     if (!(el instanceof HTMLElement)) return;
     if (!el.matches("input, textarea, select, [contenteditable='true']")) return;

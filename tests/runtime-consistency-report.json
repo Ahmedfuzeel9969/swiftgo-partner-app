@@ -1,0 +1,127 @@
+{
+  "suite": "runtime-consistency",
+  "phase": 2,
+  "title": "Runtime Consistency Report",
+  "generatedAt": "2026-08-15T16:16:35.497Z",
+  "pass": 19,
+  "fail": 0,
+  "results": [
+    {
+      "name": "responsive_interval",
+      "status": "PASS",
+      "runtime": 4000,
+      "diagnostic": 4000
+    },
+    {
+      "name": "idle_interval",
+      "status": "PASS",
+      "runtime": 300000,
+      "diagnostic": 300000
+    },
+    {
+      "name": "bg_approach",
+      "status": "PASS",
+      "runtime": 60000,
+      "diagnostic": 60000
+    },
+    {
+      "name": "bg_trip",
+      "status": "PASS",
+      "runtime": 30000,
+      "diagnostic": 30000
+    },
+    {
+      "name": "movement_m",
+      "status": "PASS",
+      "runtime": 200,
+      "diagnostic": 200
+    },
+    {
+      "name": "sparse_enter",
+      "status": "PASS",
+      "runtime": 5000,
+      "diagnostic": 5000
+    },
+    {
+      "name": "sparse_exit",
+      "status": "PASS",
+      "runtime": 3000,
+      "diagnostic": 3000
+    },
+    {
+      "name": "p2p_fallback",
+      "status": "PASS",
+      "runtime": 30000,
+      "diagnostic": 30000
+    },
+    {
+      "name": "p2p_degraded",
+      "status": "PASS",
+      "runtime": 9000,
+      "diagnostic": 9000
+    },
+    {
+      "name": "p2p_send",
+      "status": "PASS",
+      "runtime": 3000,
+      "diagnostic": 3000
+    },
+    {
+      "name": "p2p_heartbeat",
+      "status": "PASS",
+      "runtime": 12000,
+      "diagnostic": 12000
+    },
+    {
+      "name": "fb_backup_read",
+      "status": "PASS",
+      "runtime": 15000,
+      "diagnostic": 15000
+    },
+    {
+      "name": "freshness_fresh",
+      "status": "PASS",
+      "runtime": 15000,
+      "diagnostic": 15000
+    },
+    {
+      "name": "freshness_delayed",
+      "status": "PASS",
+      "runtime": 45000,
+      "diagnostic": 45000
+    },
+    {
+      "name": "max_accuracy",
+      "status": "PASS",
+      "runtime": 80,
+      "diagnostic": 80
+    },
+    {
+      "name": "driver_config_prose_uses_runtime_move",
+      "status": "PASS",
+      "detail": "Envelope must normalize (accuracy ≤80m) + pass evaluateFixAgainstPrevious; then checkpoint write gate (force OR status change OR hard-interval elapsed OR moved≥200m OR interval elapsed OR zone/cell change)."
+    },
+    {
+      "name": "p2p_config_prose_uses_runtime_fallback",
+      "status": "PASS",
+      "detail": "Silent P2P >30s, session closed, or explicit unhealthy → prefer Firebase"
+    },
+    {
+      "name": "no_hardcoded_duplicate_cfg_literals",
+      "status": "PASS"
+    },
+    {
+      "name": "phase3_prose_uses_runtime_sec",
+      "status": "PASS",
+      "detail": "checked shared/js/phase3-billing-reports.mjs (lazy report subgraph)"
+    }
+  ],
+  "summary": {
+    "criticalMismatchesResolved": [
+      "P2P fallback: diagnostic now aliases P2P_FALLBACK_AFTER_MS (30000)",
+      "Movement threshold: diagnostic now aliases MIN_LOCATION_MOVE_M (200)"
+    ],
+    "architecture": "shared/js/phase1-billing-diagnostics.mjs is a lightweight facade re-exporting runtime constants; report builders live in phase1-billing-reports.mjs (lazy via field-diagnostics)."
+  },
+  "status": "PASS — awaiting approval for Phase 3"
+}

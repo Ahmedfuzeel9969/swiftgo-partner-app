@@ -28,9 +28,58 @@ for (const app of ["customer", "partner", "owner"]) {
     record(`${app}-fine-location`, xml.includes("ACCESS_FINE_LOCATION") ? "PASS" : "FAIL");
     record(`${app}-notifications-13`, xml.includes("POST_NOTIFICATIONS") ? "PASS" : "FAIL");
     record(`${app}-deep-link`, xml.includes("swiftgo-ride-app.web.app") ? "PASS" : "FAIL");
+    if (app === "customer") {
+      record(
+        "customer-p2p-keepalive-service-declared",
+        xml.includes("CustomerP2pKeepAliveForegroundService") &&
+          xml.includes('foregroundServiceType="dataSync"')
+          ? "PASS"
+          : "FAIL"
+      );
+      record(
+        "customer-p2p-keepalive-service-java",
+        exists(
+          "mobile/customer/android/app/src/main/java/com/swiftgo/customer/CustomerP2pKeepAliveForegroundService.java"
+        )
+          ? "PASS"
+          : "FAIL"
+      );
+      record(
+        "customer-p2p-keepalive-plugin-java",
+        exists(
+          "mobile/customer/android/app/src/main/java/com/swiftgo/customer/CustomerP2pKeepAlivePlugin.java"
+        )
+          ? "PASS"
+          : "FAIL"
+      );
+    }
     if (app === "partner") {
       record("partner-background-location", xml.includes("ACCESS_BACKGROUND_LOCATION") ? "PASS" : "FAIL");
       record("partner-fg-service-location", xml.includes("FOREGROUND_SERVICE_LOCATION") ? "PASS" : "FAIL");
+      record(
+        "partner-location-service-declared",
+        xml.includes("DriverLocationForegroundService") && xml.includes('foregroundServiceType="location"')
+          ? "PASS"
+          : "FAIL"
+      );
+      record(
+        "partner-location-service-java",
+        exists("mobile/partner/android/app/src/main/java/com/swiftgo/partner/DriverLocationForegroundService.java")
+          ? "PASS"
+          : "FAIL"
+      );
+      record(
+        "partner-location-plugin-java",
+        exists("mobile/partner/android/app/src/main/java/com/swiftgo/partner/DriverLocationPlugin.java")
+          ? "PASS"
+          : "FAIL"
+      );
+      record(
+        "partner-bg-uploader-java",
+        exists("mobile/partner/android/app/src/main/java/com/swiftgo/partner/BackgroundLocationUploader.java")
+          ? "PASS"
+          : "FAIL"
+      );
     }
   } else {
     record(`${app}-manifest`, "FAIL", "missing");

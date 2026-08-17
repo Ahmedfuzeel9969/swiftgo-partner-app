@@ -154,6 +154,32 @@ export function createFixtureRouteProvider(fixtures = {}) {
 }
 
 /**
+ * Attach structured routing failure diagnostics for console / two-leg fallback.
+ * @param {Error} err
+ * @param {object} fields
+ */
+export function attachRouteProviderDiag(err, fields = {}) {
+  const snippet =
+    fields.responseBodySnippet == null
+      ? null
+      : String(fields.responseBodySnippet).slice(0, 500);
+  err.diag = {
+    providerKind: fields.providerKind || ROUTE_PROVIDER_KIND.OSRM_PREVIEW,
+    requestUrl: fields.requestUrl ?? null,
+    httpStatus: fields.httpStatus ?? null,
+    responseBodySnippet: snippet,
+    timeoutMs: fields.timeoutMs ?? null,
+    timeoutReason: fields.timeoutReason ?? null,
+    networkError: fields.networkError === true,
+    corsOrNetworkLikely: fields.corsOrNetworkLikely === true,
+    errorCode: err.code || fields.errorCode || null,
+    errorMessage: String(err.message || fields.errorMessage || "").slice(0, 200),
+    fallbackTrigger: fields.fallbackTrigger || null,
+  };
+  return err;
+}
+
+/**
  * Public OSRM adapter — preview/dev only. Feature-gated.
  * Endpoint: https://router.project-osrm.org/route/v1/driving
  */
@@ -173,11 +199,20 @@ export function createOsrmPreviewProvider(opts = {}) {
       if (!fetchFn) {
         const err = new Error("FETCH_UNAVAILABLE");
         err.code = "unavailable";
+        attachRouteProviderDiag(err, {
+          fallbackTrigger: "fetch_unavailable",
+          errorCode: "unavailable",
+        });
         throw err;
       }
       if (req.signal?.aborted) {
         const err = new Error("ABORTED");
         err.code = "aborted";
+        attachRouteProviderDiag(err, {
+          timeoutReason: "external_abort",
+          timeoutMs,
+          fallbackTrigger: "external_abort_before_fetch",
+        });
         throw err;
       }
       const o = req.origin;
@@ -185,17 +220,34 @@ export function createOsrmPreviewProvider(opts = {}) {
       const coords = `${o.lng},${o.lat};${d.lng},${d.lat}`;
       const url = `${base}/${coords}?overview=full&geometries=geojson&alternatives=false&steps=false`;
       const ctrl = new AbortController();
+      let timedOut = false;
       const onAbort = () => ctrl.abort();
       req.signal?.addEventListener?.("abort", onAbort);
-      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      const timer = setTimeout(() => {
+        timedOut = true;
+        ctrl.abort();
+      }, timeoutMs);
       try {
         const res = await fetchFn(url, {
           headers: { Accept: "application/json" },
           signal: ctrl.signal,
         });
         if (!res.ok) {
+          let bodySnippet = null;
+          try {
+            bodySnippet = await res.text();
+          } catch {
+            bodySnippet = null;
+          }
           const err = new Error(`OSRM_${res.status}`);
           err.code = "unavailable";
+          attachRouteProviderDiag(err, {
+            requestUrl: url,
+            httpStatus: res.status,
+            responseBodySnippet: bodySnippet,
+            timeoutMs,
+            fallbackTrigger: "http_error",
+          });
           throw err;
         }
         const data = await res.json();
@@ -203,6 +255,19 @@ export function createOsrmPreviewProvider(opts = {}) {
         if (data?.code !== "Ok" || !route?.geometry?.coordinates?.length) {
           const err = new Error("OSRM_NO_ROUTE");
           err.code = "invalid_response";
+          let bodySnippet = null;
+          try {
+            bodySnippet = JSON.stringify(data);
+          } catch {
+            bodySnippet = String(data?.code || "");
+          }
+          attachRouteProviderDiag(err, {
+            requestUrl: url,
+            httpStatus: res.status,
+            responseBodySnippet: bodySnippet,
+            timeoutMs,
+            fallbackTrigger: "osrm_no_route",
+          });
           throw err;
         }
         const raw = {
@@ -219,16 +284,45 @@ export function createOsrmPreviewProvider(opts = {}) {
         if (!validated.ok) {
           const err = new Error(validated.reason);
           err.code = "invalid_response";
+          attachRouteProviderDiag(err, {
+            requestUrl: url,
+            httpStatus: res.status,
+            timeoutMs,
+            fallbackTrigger: "geometry_validation_failed",
+            errorMessage: validated.reason,
+          });
           throw err;
         }
         return validated.route;
       } catch (err) {
+        if (err?.diag) throw err;
         if (err?.name === "AbortError" || err?.code === "aborted") {
-          const e = new Error("ABORTED");
-          e.code = "aborted";
+          const e = new Error(timedOut ? "TIMEOUT" : "ABORTED");
+          e.code = timedOut ? "timeout" : "aborted";
+          attachRouteProviderDiag(e, {
+            requestUrl: url,
+            timeoutMs,
+            timeoutReason: timedOut ? "request_timeout" : "external_abort",
+            fallbackTrigger: timedOut ? "request_timeout" : "external_abort",
+          });
           throw e;
         }
-        throw err;
+        const e = err instanceof Error ? err : new Error(String(err?.message || err || "OSRM_FETCH_FAILED"));
+        if (!e.code) e.code = "unavailable";
+        const msg = String(e.message || "").toLowerCase();
+        const corsOrNetworkLikely =
+          e.name === "TypeError" ||
+          msg.includes("failed to fetch") ||
+          msg.includes("networkerror") ||
+          msg.includes("cors");
+        attachRouteProviderDiag(e, {
+          requestUrl: url,
+          timeoutMs,
+          networkError: true,
+          corsOrNetworkLikely,
+          fallbackTrigger: corsOrNetworkLikely ? "cors_or_network" : "fetch_threw",
+        });
+        throw e;
       } finally {
         clearTimeout(timer);
         req.signal?.removeEventListener?.("abort", onAbort);
@@ -238,8 +332,11 @@ export function createOsrmPreviewProvider(opts = {}) {
 }
 
 /**
- * Resolve runtime provider. Default: mock in tests, disabled unless configured.
- * window.__SWIFTGO_ROUTE_PROVIDER__ = { kind: "osrm_preview"|"mock"|"disabled", ... }
+ * Resolve runtime provider. Default: disabled unless configured.
+ * window.__SWIFTGO_ROUTE_PROVIDER__ = { kind: "osrm_preview"|"mock"|"disabled", enabled?: true, ... }
+ *
+ * Hosted apps should call installDefaultOsrmPreviewRouteProvider() at startup
+ * (same public OSRM already used for booking). Unset global stays disabled for tests.
  */
 export function resolveRouteProvider(globalObj = typeof globalThis !== "undefined" ? globalThis : {}) {
   const cfg = globalObj?.__SWIFTGO_ROUTE_PROVIDER__ || {};
@@ -247,7 +344,7 @@ export function resolveRouteProvider(globalObj = typeof globalThis !== "undefine
   if (kind === ROUTE_PROVIDER_KIND.MOCK) return createMockRouteProvider(cfg);
   if (kind === ROUTE_PROVIDER_KIND.FIXTURE) return createFixtureRouteProvider(cfg.fixtures || {});
   if (kind === ROUTE_PROVIDER_KIND.OSRM_PREVIEW) {
-    // Explicit opt-in only — never silently enable public OSRM in production builds.
+    // Explicit opt-in only — never silently enable public OSRM from an empty global.
     if (cfg.enabled === true) return createOsrmPreviewProvider(cfg);
   }
   return {
@@ -256,6 +353,11 @@ export function resolveRouteProvider(globalObj = typeof globalThis !== "undefine
     async route() {
       const err = new Error("PROVIDER_DISABLED");
       err.code = "unavailable";
+      attachRouteProviderDiag(err, {
+        providerKind: ROUTE_PROVIDER_KIND.DISABLED,
+        fallbackTrigger: "provider_disabled_config",
+        errorCode: "unavailable",
+      });
       throw err;
     },
   };

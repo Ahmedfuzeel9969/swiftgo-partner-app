@@ -36,6 +36,7 @@ export function initRideRadarFlow(config) {
     getDriverPosition: config.getDriverPosition,
     getHasActiveRide: config.getHasActiveRide,
     getCounterRideIds: config.getCounterRideIds,
+    getOfferForRide: config.getOfferForRide,
     onSelectRide: (ride) => {
       listUi.hide({ keepSubscription: true });
       detailUi.show(ride);

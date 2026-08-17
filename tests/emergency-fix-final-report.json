@@ -1,0 +1,35 @@
+{
+  "suite": "emergency-fix-final",
+  "title": "Emergency Fix Final Report",
+  "generatedAt": "2026-08-04T14:50:00.000Z",
+  "rootCause": "shared/js/phase1-billing-diagnostics.mjs imported ../../driver-app and ../../customer-app paths. Hosting inlines that file under /partner/js and /customer/js where those paths 404, breaking the ES module graph (driver never boots; customer UI/buttons dead).",
+  "filesChanged": [
+    "tools/build-hosting.mjs"
+  ],
+  "fix": "During hosting package, rewrite phase1 imports to ./ and copy pure runtime constant modules beside them. Monorepo source imports for Node/SSoT left intact.",
+  "testsExecuted": {
+    "runtime-consistency": "19 PASS",
+    "runtime-validation-phase3": "14 PASS",
+    "cross-device-validation-phase4": "19 PASS",
+    "emergency-fix-verification": "37 PASS"
+  },
+  "runtimeConsistencyStatus": {
+    "200m_movement": "PASS (present)",
+    "5min_idle": "PASS (present)",
+    "30s_p2p_fallback": "PASS (present)",
+    "15s_firebase_backup": "PASS (present)",
+    "single_source_of_truth": "PASS (source still aliases runtime; hosting rewrite packaging-only)",
+    "phases_1_to_5": "PASS (intact)"
+  },
+  "driverAppStatus": "Fixed in build — module graph should load; verify after deploy hard-refresh",
+  "customerAppStatus": "Fixed in build — module graph should load; verify after deploy hard-refresh",
+  "deployment": {
+    "status": "DEPLOYED",
+    "targets": ["hosting"],
+    "rollback": false,
+    "hostingUrl": "https://swiftgo-ride-app.web.app",
+    "partnerUrl": "https://swiftgo-ride-app.web.app/partner/",
+    "deployedAt": "2026-08-04T14:51:00.000Z"
+  },
+  "status": "COMPLETE — STOPPED"
+}

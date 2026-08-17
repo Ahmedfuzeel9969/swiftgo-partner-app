@@ -1,7 +1,7 @@
 {
   "suite": "road-snapping",
   "phase": 5,
-  "generatedAt": "2026-08-02T01:00:29.465Z",
+  "generatedAt": "2026-08-17T03:50:59.754Z",
   "thresholds": {
     "SNAP_HIGH_DISTANCE_M": 25,
     "SNAP_MAX_DISTANCE_M": 55,
@@ -10,10 +10,10 @@
     "SNAP_LOCAL_WINDOW": 12,
     "SNAP_POOR_ACCURACY_M": 40,
     "PROGRESS_JITTER_M": 12,
-    "OFF_ROUTE_MIN_FIXES": 3,
-    "OFF_ROUTE_DISTANCE_M": 65,
-    "OFF_ROUTE_SUSTAIN_MS": 15000,
-    "REROUTE_COOLDOWN_MS": 75000,
+    "OFF_ROUTE_MIN_FIXES": 2,
+    "OFF_ROUTE_DISTANCE_M": 55,
+    "OFF_ROUTE_SUSTAIN_MS": 6000,
+    "REROUTE_COOLDOWN_MS": 25000,
     "karachiRisks": [
       "dense parallel roads",
       "service lanes",
@@ -27,17 +27,17 @@
     ]
   },
   "totals": {
-    "pass": 116,
+    "pass": 118,
     "fail": 0,
     "blocked": 1,
     "byCategory": {
       "static": {
-        "pass": 40,
+        "pass": 41,
         "fail": 0,
         "blocked": 0
       },
       "unit": {
-        "pass": 69,
+        "pass": 70,
         "fail": 0,
         "blocked": 0
       },
@@ -240,6 +240,20 @@
       "name": "27-approach-trip-domain",
       "status": "PASS",
       "detail": "new generation on leg change via model",
+      "suite": "road-snapping",
+      "category": "static"
+    },
+    {
+      "name": "27b-progress-reject-emits-raw-not-silent-hold",
+      "status": "PASS",
+      "detail": "r1=snap r2=raw held=true frames=2",
+      "suite": "road-snapping",
+      "category": "unit"
+    },
+    {
+      "name": "27c-customer-raw-paint-animates",
+      "status": "PASS",
+      "detail": "raw frames animate; snap keeps skipAnimation",
       "suite": "road-snapping",
       "category": "static"
     },
@@ -561,7 +575,7 @@
     {
       "name": "thresholds-documented",
       "status": "PASS",
-      "detail": "{\"SNAP_HIGH_DISTANCE_M\":25,\"SNAP_MAX_DISTANCE_M\":55,\"SNAP_HEADING_TOLERANCE_DEG\":55,\"SNAP_POOR_ACCURACY_M\":40,\"OFF_ROUTE_DISTANCE_M\":65,\"REROUTE_COOLDOWN_MS\":75000}",
+      "detail": "{\"SNAP_HIGH_DISTANCE_M\":25,\"SNAP_MAX_DISTANCE_M\":55,\"SNAP_HEADING_TOLERANCE_DEG\":55,\"SNAP_POOR_ACCURACY_M\":40,\"OFF_ROUTE_DISTANCE_M\":55,\"REROUTE_COOLDOWN_MS\":25000}",
       "suite": "road-snapping",
       "category": "unit"
     },
@@ -582,21 +596,21 @@
     {
       "name": "68-400-point-repeated-fixes",
       "status": "PASS",
-      "detail": "{\"label\":\"400-local-window\",\"n\":800,\"medianMs\":0.02410000000000423,\"p95Ms\":0.10960000000000036,\"maxMs\":1.018400000000014}",
+      "detail": "{\"label\":\"400-local-window\",\"n\":800,\"medianMs\":0.017299999999977445,\"p95Ms\":0.07159999999998945,\"maxMs\":2.4913999999999987}",
       "suite": "road-snapping",
       "category": "unit"
     },
     {
       "name": "69-large-fixture-bounded",
       "status": "PASS",
-      "detail": "{\"label\":\"1200-wide-search-miss\",\"n\":400,\"medianMs\":0.7006999999999834,\"p95Ms\":1.6662000000000035,\"maxMs\":2.454099999999926}",
+      "detail": "{\"label\":\"1200-wide-search-miss\",\"n\":400,\"medianMs\":0.6580000000000155,\"p95Ms\":2.093999999999994,\"maxMs\":4.428500000000042}",
       "suite": "road-snapping",
       "category": "unit"
     },
     {
       "name": "H29-performance-median-p95-max",
       "status": "PASS",
-      "detail": "{\"smallStats\":{\"label\":\"small-bent\",\"n\":1000,\"medianMs\":0.003199999999992542,\"p95Ms\":0.0050999999999703505,\"maxMs\":0.3990999999999758},\"local\":{\"label\":\"400-local-window\",\"n\":800,\"medianMs\":0.02410000000000423,\"p95Ms\":0.10960000000000036,\"maxMs\":1.018400000000014},\"miss\":{\"label\":\"1200-wide-search-miss\",\"n\":400,\"medianMs\":0.7006999999999834,\"p95Ms\":1.6662000000000035,\"maxMs\":2.454099999999926}}",
+      "detail": "{\"smallStats\":{\"label\":\"small-bent\",\"n\":1000,\"medianMs\":0.003100000000017644,\"p95Ms\":0.008600000000001273,\"maxMs\":0.4411999999999807},\"local\":{\"label\":\"400-local-window\",\"n\":800,\"medianMs\":0.017299999999977445,\"p95Ms\":0.07159999999998945,\"maxMs\":2.4913999999999987},\"miss\":{\"label\":\"1200-wide-search-miss\",\"n\":400,\"medianMs\":0.6580000000000155,\"p95Ms\":2.093999999999994,\"maxMs\":4.428500000000042}}",
       "suite": "road-snapping",
       "category": "unit"
     },

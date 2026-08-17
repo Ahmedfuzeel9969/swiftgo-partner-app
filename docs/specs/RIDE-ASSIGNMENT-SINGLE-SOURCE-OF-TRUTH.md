@@ -29,6 +29,19 @@
 
 ---
 
+## Package 2 — COMPLETE (frozen)
+
+| Item | Record |
+|------|--------|
+| **Removed** | `owner-app/js/owner-app.js` → `resolveActiveRequest` (94 lines) |
+| **Deploy** | Hosting only |
+| **Physical** | PASS — owner fleet flow |
+| **Behavior change** | **Zero** |
+| **Recovery tag** | `ssot/package2-complete-20260807` |
+| **Do not modify** | Package 2 unless bug discovered |
+
+---
+
 ## 0. Design principles
 
 1. **Server writes truth.** Clients may hide UI early only after calling the authoritative CF; they must never mutate local offer/ride status as if it were Firestore.

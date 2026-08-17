@@ -36,7 +36,7 @@ import { initRateDetailsModal, openRateDetails } from "./rate-details-modal.js";
 import { resolveVehicleKeyFromLabel } from "./pricing-client.js";
 import { initDriverDashboard } from "./driver-dashboard.js";
 import { initDriverHome } from "./DriverHome.js";
-import { subscribePendingRadarRides, normalizeRadarDoc } from "./ride-radar-service.js";
+import { subscribePendingRadarRides, normalizeRadarDoc, rideSearchDeadlineMs, readCachedRadarRides } from "./ride-radar-service.js";
 import { clearLocalCacheNamespace } from "./local-first-cache.js";
 import { createDriverOfferInbox } from "./driver-offer-inbox.js";
 import { requestRideSettlement } from "./settlement-client.js";
@@ -83,7 +83,10 @@ import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
 import { createRideLocationReportClient } from "./ride-location-report-client.mjs";
 import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
-import { cancelAssignedRideByDriverClient } from "./ride-radar-actions.js";
+import {
+  cancelAssignedRideByDriverClient,
+  recordDispatchDeliveryReceiptClient,
+} from "./ride-radar-actions.js";
 import { hashVehiclePin } from "./pin-hash.js";
 import {
   AudioService,
@@ -95,6 +98,8 @@ import { announce, applyReducedMotionClass, initKeyboardInset, trapFocus } from 
 import { initI18n, t, subscribe as subscribeLang } from "./i18n.js";
 import { wireLegalLinks, requestAccountDeletionClient } from "./trust.js";
 import { isNativeShell, getNativePlatform, getNetworkStatus } from "./native-shell.js";
+import { createBackgroundLocationNativeController } from "./background-location-native.mjs";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
 import { installDefaultOsrmPreviewRouteProvider } from "./route-provider-bootstrap.mjs";
 import { initDiagnosticsScreen } from "./diagnostics-screen.js";
 import { installFieldDiagnostics, getFieldDiagnostics } from "./field-diagnostics.mjs";
@@ -448,6 +453,93 @@ const driverLocationReport = createRideLocationReportClient({
   }),
 });
 
+/** Android foreground GPS — P2P-first while WebView alive; HTTPS ingest after swipe-close. */
+const backgroundLocationNative = createBackgroundLocationNativeController({
+  httpsCallable: (name) => {
+    const { ready, functions } = getFirebase();
+    if (!ready || !functions) {
+      return async () => {
+        throw new Error("FIREBASE_UNAVAILABLE");
+      };
+    }
+    const fn = httpsCallable(functions, name);
+    return (data) => fn(data);
+  },
+  getLastSequence: () => locationTrackingSequence,
+  onNativeFix: (fix) => {
+    if (!fix || typeof fix.lat !== "number" || typeof fix.lng !== "number") return;
+    // Feed the same pipeline as browser geolocation so P2P stays first while WebView lives.
+    const fakePos = {
+      __fromNative: true,
+      coords: {
+        latitude: fix.lat,
+        longitude: fix.lng,
+        accuracy: Number.isFinite(Number(fix.accuracyM)) ? Number(fix.accuracyM) : null,
+        heading: Number.isFinite(Number(fix.headingDeg)) ? Number(fix.headingDeg) : null,
+        speed: Number.isFinite(Number(fix.speedMps)) ? Number(fix.speedMps) : null,
+      },
+      timestamp: Number(fix.observedAt) || Date.now(),
+    };
+    try {
+      updateDriverLocation(fakePos);
+    } catch (err) {
+      console.warn("[SwiftGo Partner] native fix", err);
+    }
+  },
+  onServiceState: (state) => {
+    try {
+      console.info(
+        JSON.stringify({
+          type: "background_location_native",
+          state: String(state?.state || ""),
+          fixCount: state?.fixCount ?? null,
+        })
+      );
+    } catch {
+      /* ignore */
+    }
+  },
+});
+
+function syncBackgroundLocationNativeForActiveRide() {
+  if (!isNativeShell() || getNativePlatform() !== "android") return;
+  const ride = activeExecutionRide;
+  const status = String(ride?.status || "");
+  if (
+    !ride?.id ||
+    !ACTIVE_EXECUTION_STATUSES.has(status) ||
+    !linkedVehicle?.id ||
+    !currentDriver?.uid ||
+    !locationTrackingSessionId
+  ) {
+    void backgroundLocationNative.stop();
+    return;
+  }
+  const assignmentSessionToken = String(ride.assignmentSessionToken || "").trim();
+  if (!assignmentSessionToken) {
+    void backgroundLocationNative.stop();
+    return;
+  }
+  const decision = checkpointPolicy.currentDecision?.() || {};
+  void backgroundLocationNative.syncForActiveRide({
+    rideId: ride.id,
+    vehicleId: linkedVehicle.id,
+    driverUid: currentDriver.uid,
+    trackingSessionId: locationTrackingSessionId,
+    assignmentSessionToken,
+    rideStatus: status,
+    intervalMs: Number(decision.intervalMs) || RESPONSIVE_INTERVAL_MS,
+    lastSequence: locationTrackingSequence,
+  });
+}
+
+if (typeof window !== "undefined") {
+  window.__SWIFTGO_BACKGROUND_LOCATION_NATIVE__ = () => ({
+    started: backgroundLocationNative.isStarted(),
+    available: backgroundLocationNative.isAvailable(),
+    credential: backgroundLocationNative.getLastCredentialMeta(),
+  });
+}
 if (typeof window !== "undefined") {
   window.__SWIFTGO_CHECKPOINT_COUNTERS__ = () => checkpointPolicy.getCounters();
   window.__SWIFTGO_P2P_COUNTERS__ = () => driverP2p.getCounters();
@@ -586,6 +678,7 @@ function syncCheckpointPresenceForActiveRide() {
     viewerPresenceConsumer.unbind();
     checkpointPolicy.setActiveRide({ active: false });
     syncDriverP2pForActiveRide();
+    void backgroundLocationNative.stop();
     return;
   }
   const result = checkpointPolicy.setActiveRide({
@@ -598,6 +691,7 @@ function syncCheckpointPresenceForActiveRide() {
     viewerPresenceConsumer.unbind();
     checkpointPolicy.setViewerLease(VIEWER_LEASE.UNKNOWN);
     syncDriverP2pForActiveRide();
+    syncBackgroundLocationNativeForActiveRide();
     return;
   }
   viewerPresenceConsumer.bind({
@@ -607,6 +701,7 @@ function syncCheckpointPresenceForActiveRide() {
   });
   void presenceDocId; // available for tests / diagnostics without logging IDs
   syncDriverP2pForActiveRide();
+  syncBackgroundLocationNativeForActiveRide();
   maybeFlushImmediateCheckpoint();
 }
 
@@ -617,6 +712,7 @@ function detachCheckpointPresence(reason = "") {
   void driverP2p.stop({ closeRemote: true });
   checkpointPolicy.setP2pHealthy(false);
   void breadcrumbCollector.stop({ purge: true, flush: false, reason: reason || "detach" });
+  void backgroundLocationNative.stop();
 }
 
 function maybeFlushImmediateCheckpoint() {
@@ -650,6 +746,7 @@ function beginLocationTrackingSession() {
   syncDriverP2pForActiveRide();
   syncBreadcrumbCollectionForActiveRide();
   syncLocationReportForActiveRide();
+  syncBackgroundLocationNativeForActiveRide();
 }
 
 function endLocationTrackingSession() {
@@ -660,6 +757,7 @@ function endLocationTrackingSession() {
   locationTrackingGeneration += 1;
   locationWriteSerializer.cancelAll();
   void breadcrumbCollector.stop({ purge: true, flush: false, reason: "session_end" });
+  void backgroundLocationNative.stop();
 }
 
 function nextLocationSequence() {
@@ -741,6 +839,7 @@ let radarListenerMeta = {
 };
 let radarFeedPrimed = false;
 let lastRadarFeedCount = 0;
+const reportedDispatchDeliveryIds = new Set();
 /** @type {{ lat: number, lng: number } | null} */
 let lastDriverPosition = null;
 /** Phase 5 — display-only active-ride route + snap (no second GPS watch). */
@@ -2375,6 +2474,23 @@ function stopRadarBackgroundFeed() {
   updateRideRadarButtonLabel();
 }
 
+function reportDispatchDelivery(ride, meta) {
+  const rideId = String(ride?.id || "").trim();
+  const dispatchTraceId = String(ride?.dispatchTraceId || "").trim();
+  const candidateId = String(meta?.candidateId || "").trim();
+  if (!rideId || !dispatchTraceId || !candidateId || reportedDispatchDeliveryIds.has(candidateId)) return;
+  reportedDispatchDeliveryIds.add(candidateId);
+  const clientReceivedAtMs = Number(meta?.receivedAtMs) || Date.now();
+  requestAnimationFrame(() => {
+    void recordDispatchDeliveryReceiptClient({
+      rideId,
+      dispatchTraceId,
+      clientReceivedAtMs,
+      clientRenderedAtMs: Date.now(),
+    });
+  });
+}
+
 function startRadarBackgroundFeed() {
   const uid = currentDriver?.uid;
   if (!uid || !isOnlineReady() || !linkedVehicle?.id || activeExecutionRide?.id) return;
@@ -2409,7 +2525,8 @@ function startRadarBackgroundFeed() {
       updateRideRadarButtonLabel();
     },
     () => lastDriverPosition,
-    () => Boolean(activeExecutionRide?.id)
+    () => Boolean(activeExecutionRide?.id),
+    reportDispatchDelivery
   );
 }
 
@@ -2773,6 +2890,11 @@ function invalidateHomeMapIfActive() {
 }
 
 function updateDriverLocation(position) {
+  // While Android foreground service owns the active ride, ignore browser GPS
+  // so P2P + Firebase share one authoritative native sequence path.
+  if (backgroundLocationNative.isStarted() && !position?.__fromNative) {
+    return;
+  }
   const { latitude, longitude, accuracy, speed, heading } = position.coords;
   if (!isValidCoord(latitude, longitude)) {
     console.warn("[SwiftGo Partner] GPS fix ignored — invalid coordinates");
@@ -4458,6 +4580,8 @@ async function advanceActiveRideStatus() {
 
     if (nextStatus === "completed") {
       activeRideCompletionInFlight = true;
+      setLocationMessage("سفر مکمل ہو رہا ہے…");
+      announce("سفر مکمل ہو رہا ہے");
       const rideCollection = ride.sourceCollection || "rides";
       const liveSnap = await getDoc(doc(db, rideCollection, ride.id));
       if (!liveSnap.exists()) {
@@ -4486,17 +4610,9 @@ async function advanceActiveRideStatus() {
         if (els.activeRideActionBtn) els.activeRideActionBtn.disabled = false;
         return;
       }
-      // Flush breadcrumbs while still in_progress; never block settlement.
-      try {
-        await breadcrumbCollector.flushBeforeSettlement();
-      } catch {
-        /* flush timeout/failure must not prevent settlement */
-      }
-      try {
-        await flushLocationReportBeforeSettlement();
-      } catch {
-        /* location report flush must not prevent settlement */
-      }
+      // Diagnostics are best-effort and must not delay the driver's completion action.
+      void breadcrumbCollector.flushBeforeSettlement().catch(() => {});
+      void flushLocationReportBeforeSettlement().catch(() => {});
       const settlementResult = await completeRideWithEarnings({ ...ride, ...live });
       await finalizeSuccessfulRideCompletion(
         { ...ride, ...live, id: ride.id, sourceCollection: rideCollection },
@@ -4730,6 +4846,13 @@ function boot() {
 
   driverOfferInbox = createDriverOfferInbox({
     getDriverUid: () => currentDriver?.uid ?? null,
+    getSearchDeadlineMsForRide: (rideId) => {
+      const uid = currentDriver?.uid;
+      if (!uid || !rideId) return null;
+      const cached = readCachedRadarRides(uid);
+      const ride = cached?.rides?.find((r) => r.id === rideId);
+      return ride ? rideSearchDeadlineMs(ride) : null;
+    },
     onOffersChanged: () => {
       rideRadarUi?.refreshList?.();
       rideRadarUi?.syncDetailFromInbox?.();

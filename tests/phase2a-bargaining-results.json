@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-07-29T18:41:53.630Z",
+  "generatedAt": "2026-08-06T18:46:24.727Z",
   "results": [
     {
-      "name": "B01-candidate-limit-10-20-only",
+      "name": "B01-candidate-limit-range-1-100",
       "status": "PASS",
-      "detail": "10/20 ok; 15 rejected",
+      "detail": "valid range accepted; rejectedBounds=2",
       "rules": "bargaining"
     },
     {
@@ -46,7 +46,7 @@
     {
       "name": "B08-second-needs-confirmation",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"mhszJw3QmLc3wWr7r8hP\",\"status\":\"searching_driver\"}]}",
+      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"xUGR0YEMFqtTrtmX0PmV\",\"status\":\"searching_driver\"}]}",
       "rules": "bargaining"
     },
     {

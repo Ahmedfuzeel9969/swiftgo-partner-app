@@ -637,7 +637,10 @@ async function evaluateCustomerBookingGate(db, customerUid, { confirmedExtraBook
  * Atomic create with booking_slots counter (race-safe 4-booking limit).
  * Slot counter is synced to live non-terminal rides before the transaction.
  */
-async function createCustomerBooking(db, { customerUid, ridePayload, confirmedExtraBooking = false }) {
+async function createCustomerBooking(
+  db,
+  { customerUid, ridePayload, confirmedExtraBooking = false, dispatchTraceId = "" }
+) {
   if (!customerUid || !ridePayload) throw err("invalid-argument", "MISSING_FIELDS");
 
   const pickupLat = Number(ridePayload.pickupLocation?.lat);
@@ -666,7 +669,7 @@ async function createCustomerBooking(db, { customerUid, ridePayload, confirmedEx
   const dispatch = await readDispatchSettings(db);
   const searchExpireMs = Math.round(normalizeSearchTimeoutSeconds(dispatch.searchTimeoutSeconds) * 1000);
 
-  return db.runTransaction(async (tx) => {
+  const created = await db.runTransaction(async (tx) => {
     const slotSnap = await tx.get(slotRef);
     // Post-reconcile slots track live non-terminal count; TX remains race-safe.
     const count = slotSnap.exists ? Math.max(0, Number(slotSnap.data()?.count || 0)) : 0;
@@ -683,6 +686,7 @@ async function createCustomerBooking(db, { customerUid, ridePayload, confirmedEx
       [CUSTOMER_RIDE_OWNER_FIELD]: customerUid,
       userId: customerUid,
       status: "searching_driver",
+      dispatchTraceId: String(dispatchTraceId || "") || null,
       createdAt: FieldValue.serverTimestamp(),
       // Server-controlled search deadline — clients must not overwrite (rules deny).
       expiresAt: Timestamp.fromMillis(now + searchExpireMs),
@@ -703,6 +707,9 @@ async function createCustomerBooking(db, { customerUid, ridePayload, confirmedEx
     );
     return { id: rideRef.id, count: count + 1 };
   });
+  // Reuse this server-read configuration for the immediate match. It is never
+  // returned to the customer and later rematches still read current settings.
+  return { ...created, dispatchSettings: dispatch };
 }
 
 /**
@@ -1122,14 +1129,44 @@ async function expireDueRideOffers(db, { limit = 25, nowMs = Date.now() } = {}) 
  * queries only (never full online fleet). Passing `onlineDrivers` remains for
  * pure unit fixtures that already built an in-memory list.
  */
-async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidateDriverLimit, excludeDriverIds, _latencyTimer }) {
+async function matchRideCandidates(
+  db,
+  {
+    rideId,
+    pickup,
+    onlineDrivers,
+    candidateDriverLimit,
+    excludeDriverIds,
+    dispatchSettings,
+    _latencyTimer,
+  }
+) {
   const matchStart = Date.now();
   // P1-B: rematch / dispatch refresh expires overdue offers on this ride first.
   await expireDueOffersForRide(db, rideId).catch(() => ({ expired: 0, skipped: 0 }));
   const [settings, rideMeta] = await Promise.all([
-    readDispatchSettings(db),
+    dispatchSettings ? Promise.resolve(dispatchSettings) : readDispatchSettings(db),
     db.collection("rides").doc(rideId).get(),
   ]);
+  const rideData = rideMeta.exists ? rideMeta.data() || {} : {};
+  // Candidate docs are readable only by their invited driver. Carry the small,
+  // immutable card payload so the Radar listener does not need an N+1 ride read.
+  const ridePreview = {
+    status: String(rideData.status || "searching_driver"),
+    pickupLocation: rideData.pickupLocation || null,
+    dropoffLocation: rideData.dropoffLocation || null,
+    vehicleType: String(rideData.vehicleType || ""),
+    vehicleTypeKey: String(rideData.vehicleTypeKey || ""),
+    distanceKm: Number(rideData.distanceKm) || 0,
+    estimatedFare: Number(rideData.estimatedFare ?? rideData.farePkr) || 0,
+    farePkr: Number(rideData.farePkr ?? rideData.estimatedFare) || 0,
+    userId: String(rideData.userId || ""),
+    riderRating: Number(rideData.riderRating ?? rideData.customerRating) || null,
+    createdAt: rideData.createdAt || null,
+    expiresAt: rideData.expiresAt || null,
+    expiresAtMs: Number(rideData.expiresAtMs) || null,
+    searchExpireMs: Number(rideData.searchExpireMs) || null,
+  };
   const limit =
     candidateDriverLimit != null
       ? validateCandidateDriverLimit(candidateDriverLimit)
@@ -1151,6 +1188,7 @@ async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidat
   }
 
   const createdMs = timestampToMs(rideMeta.exists ? rideMeta.data()?.createdAt : null);
+  const dispatchTraceId = String(rideData.dispatchTraceId || "");
   const elapsedSeconds = createdMs > 0 ? Math.max(0, Math.round((Date.now() - createdMs) / 1000)) : 0;
   console.log(
     "[Dispatch Debug] Searching candidates for booking:",
@@ -1339,6 +1377,8 @@ async function matchRideCandidates(db, { rideId, pickup, onlineDrivers, candidat
       distanceKm: c.distanceKm,
       ringKm: c.ringKm,
       status: "invited",
+      dispatchTraceId: dispatchTraceId || null,
+      ridePreview,
       createdAt: FieldValue.serverTimestamp(),
     });
   }

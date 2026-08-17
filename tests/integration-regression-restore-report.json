@@ -1,0 +1,25 @@
+{
+  "title": "Integration regression restore — P1-B hybrid hosting",
+  "generatedAt": "2026-08-05T16:56:28.697Z",
+  "rootCause": "hybrid-hosting-overlay-missing-mjs-served-as-html",
+  "introducingChange": {
+    "strategy": "hybrid-preserve-live-partner-p2p-plus-p1b-admin",
+    "report": "tests/p1b-validation-deploy-report.json",
+    "hybridDriverSha16": "018baaf69ae5a3fb",
+    "hybridBackup": "backups/hybrid-p1a-driver-app.js",
+    "notCausedBy": "P1-B offerTimeoutSeconds Cloud Functions"
+  },
+  "beforeLiveHealth": { "pass": 27, "fail": 7 },
+  "afterLiveHealth": { "pass": 34, "fail": 0 },
+  "distHealth": { "pass": 35, "fail": 0 },
+  "hostingDeploy": "SUCCESS",
+  "permanentGates": [
+    "tools/hosting-startup-health.mjs",
+    "firebase.json predeploy health",
+    "removed SPA /** rewrites that HTML-fallback missing assets",
+    "Cache-Control includes mjs",
+    "P1-B admin synced into F:/ride-app for coherent deploys",
+    "ban hybrid customer/driver overlays"
+  ],
+  "p2c": "BLOCKED"
+}

@@ -1,0 +1,53 @@
+{
+  "suite": "customer-p2p-background",
+  "generatedAt": "2026-08-17T05:34:59.725Z",
+  "pass": 9,
+  "fail": 0,
+  "results": [
+    {
+      "name": "background-detaches-firebase-listeners",
+      "status": "PASS",
+      "detail": "lifecycle detaches live Firestore subscriptions"
+    },
+    {
+      "name": "background-preserves-p2p-session",
+      "status": "PASS",
+      "detail": "customer P2P controller keeps signaling/session attached"
+    },
+    {
+      "name": "foreground-firebase-policy-unchanged",
+      "status": "PASS",
+      "detail": "visible path remains the existing P2P/Firebase policy"
+    },
+    {
+      "name": "active-ride-starts-native-keepalive",
+      "status": "PASS",
+      "detail": "Android service starts only for trackable ride statuses"
+    },
+    {
+      "name": "terminal-ride-stops-native-keepalive",
+      "status": "PASS",
+      "detail": "terminal/session teardown stops service"
+    },
+    {
+      "name": "native-bridge-is-android-only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "manifest-declares-foreground-service",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "service-survives-task-removal",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "mainactivity-registers-customer-plugin",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

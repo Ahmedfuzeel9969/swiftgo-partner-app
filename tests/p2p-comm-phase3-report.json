@@ -1,0 +1,132 @@
+{
+  "phase": 3,
+  "title": "P2P Communication — Voice Messages",
+  "generatedAt": "2026-08-04T16:25:13.271Z",
+  "summary": {
+    "passed": 24,
+    "failed": 0,
+    "total": 24
+  },
+  "results": [
+    {
+      "name": "chunk_splits",
+      "status": "PASS",
+      "detail": "n=16"
+    },
+    {
+      "name": "assemble_roundtrip",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "build_voice_payloads",
+      "status": "PASS",
+      "detail": "chunks=3"
+    },
+    {
+      "name": "chunk_under_envelope_cap",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "reject_empty_voice",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "reject_oversized_voice",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "chunk_chars_constant",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "progress_partial",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "progress_complete_flag",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "finalize_assembles",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "send_voice_ok",
+      "status": "PASS",
+      "detail": "chunks=2"
+    },
+    {
+      "name": "voice_received_once",
+      "status": "PASS",
+      "detail": "n=1"
+    },
+    {
+      "name": "voice_ack_clears_pending",
+      "status": "PASS",
+      "detail": "pending=0 acks=1"
+    },
+    {
+      "name": "outbound_progress_seen",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "inbound_progress_seen",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "counters_voice",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "voice_retry_pending",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "voice_retry_fires",
+      "status": "PASS",
+      "detail": "retries=1"
+    },
+    {
+      "name": "voice_retry_ack_clears",
+      "status": "PASS",
+      "detail": "pending=0"
+    },
+    {
+      "name": "module_send_voice",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "module_onVoice",
+      "status": "PASS",
+      "detail": "n=1"
+    },
+    {
+      "name": "panel_has_ptt_and_playback",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no_firebase_media_in_voice_module",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "voice_wrappers_synced",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

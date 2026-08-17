@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-08-05T11:52:51.437Z",
+  "option": "A",
+  "pass": true,
+  "results": [
+    {
+      "n": "defaults-match-production-4s",
+      "ok": true,
+      "d": ""
+    },
+    {
+      "n": "defaults-match-production-10m",
+      "ok": true,
+      "d": ""
+    },
+    {
+      "n": "normalize-empty",
+      "ok": true,
+      "d": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10}"
+    },
+    {
+      "n": "idle-decision-default-4s",
+      "ok": true,
+      "d": ""
+    },
+    {
+      "n": "hot-apply-without-restart",
+      "ok": true,
+      "d": ""
+    },
+    {
+      "n": "fallback-keeps-last-on-bad-omit",
+      "ok": true,
+      "d": ""
+    },
+    {
+      "n": "restore-defaults",
+      "ok": true,
+      "d": ""
+    },
+    {
+      "n": "OR-move",
+      "ok": true,
+      "d": ""
+    },
+    {
+      "n": "OR-block",
+      "ok": true,
+      "d": ""
+    },
+    {
+      "n": "OR-time",
+      "ok": true,
+      "d": ""
+    }
+  ]
+}

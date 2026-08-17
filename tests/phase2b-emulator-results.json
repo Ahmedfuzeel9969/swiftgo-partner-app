@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-29T18:41:57.397Z",
+  "generatedAt": "2026-08-06T18:18:40.205Z",
   "command": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/phase2b-run-all.mjs\"",
   "results": [
     {
       "name": "T01-customer-create-driver-read-open",
-      "status": "FAIL",
-      "detail": "Firestore has already been started and its settings can no longer be changed. You can only modify settings before calling any other methods on a Firestore object.",
+      "status": "PASS",
+      "detail": "client create denied; candidate can read; non-candidate denied",
       "rules": "rides"
     },
     {
@@ -279,9 +279,9 @@
       "rules": "settlement"
     },
     {
-      "name": "B01-candidate-limit-10-20-only",
+      "name": "B01-candidate-limit-range-1-100",
       "status": "PASS",
-      "detail": "10/20 ok; 15 rejected",
+      "detail": "valid range accepted; rejectedBounds=2",
       "rules": "bargaining"
     },
     {
@@ -323,7 +323,7 @@
     {
       "name": "B08-second-needs-confirmation",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"mhszJw3QmLc3wWr7r8hP\",\"status\":\"searching_driver\"}]}",
+      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"gIXUovzK7SKzm8H1ATlp\",\"status\":\"searching_driver\"}]}",
       "rules": "bargaining"
     },
     {
@@ -509,7 +509,7 @@
     {
       "name": "S18-pin-lockout-after-max",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785351416795}",
+      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1786041219780}",
       "suite": "phase2b"
     },
     {
@@ -549,11 +549,11 @@
       "suite": "phase2b"
     }
   ],
-  "passed": 90,
-  "failed": 1,
+  "passed": 91,
+  "failed": 0,
   "blocked": 0,
   "exitCodes": {
-    "phase2a": 1,
+    "phase2a": 0,
     "phase2b": 0
   },
   "total": 91

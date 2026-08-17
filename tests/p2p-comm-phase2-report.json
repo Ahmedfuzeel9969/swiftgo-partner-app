@@ -1,0 +1,122 @@
+{
+  "phase": 2,
+  "title": "P2P Communication — Text Chat",
+  "generatedAt": "2026-08-04T16:34:36.101Z",
+  "summary": {
+    "passed": 22,
+    "failed": 0,
+    "total": 22
+  },
+  "results": [
+    {
+      "name": "send_text_ok",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "ordered_delivery",
+      "status": "PASS",
+      "detail": "n=2"
+    },
+    {
+      "name": "auto_ack_clears_pending",
+      "status": "PASS",
+      "detail": "acks=2 pending=0"
+    },
+    {
+      "name": "timestamps_present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "ack_references_msgId",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "reject_empty_text",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "truncate_long_text",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "retry_setup_send",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "retry_pending_while_ack_blocked",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "retry_increments",
+      "status": "PASS",
+      "detail": "retries=1"
+    },
+    {
+      "name": "retry_delivers_after_ack_unblocked",
+      "status": "PASS",
+      "detail": "pending=0 acked=1"
+    },
+    {
+      "name": "ack_max_retries_constant",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "duplicate_text_still_acked",
+      "status": "PASS",
+      "detail": "pending=0"
+    },
+    {
+      "name": "comm_bypass_location_validate",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "comm_transport_ready",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "comm_transport_send",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "module_send_text",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "module_peer_receives_text",
+      "status": "PASS",
+      "detail": "recv=1"
+    },
+    {
+      "name": "panel_factory_no_dom",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "conversation_id_ride_scoped",
+      "status": "PASS",
+      "detail": "ride:mod1"
+    },
+    {
+      "name": "contact_host_both_apps",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "panel_wrappers_synced",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

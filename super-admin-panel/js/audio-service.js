@@ -206,7 +206,7 @@ function bindRangeLabel(rangeEl, labelEl) {
 
 export function initNotificationSettingsUI(config = {}) {
   const modal = document.getElementById(config.modalId || "notificationSettingsModal");
-  const openBtn = document.getElementById(config.openBtnId || "openNotificationSettingsBtn");
+  const openBtn = document.getElementById(config.openBtnId || "openNotificationSettingsBtnSidebar");
   const closeBtn = document.getElementById(config.closeBtnId || "notificationSettingsCloseBtn");
   const backdrop = document.getElementById(config.backdropId || "notificationSettingsBackdrop");
   const muteToggle = document.getElementById(config.muteToggleId || "notificationMuteToggle");

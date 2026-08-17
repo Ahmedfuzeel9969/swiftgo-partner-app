@@ -4,41 +4,46 @@
  */
 
 import { LEG_STATUS, ROUTE_EMPHASIS } from "./two-leg-route-controller.mjs";
+import {
+  buildRouteMetrics,
+  remainingGeometryFromProgress,
+} from "./route-projection.mjs";
 
+/** Route A (driver→pickup): vivid green. Route B (pickup→destination): vivid blue. */
 const STYLE = {
   approachProminent: {
-    color: "#0b7a4b",
-    weight: 5,
-    opacity: 0.95,
+    color: "#16a34a",
+    weight: 6,
+    opacity: 0.98,
     lineCap: "round",
     lineJoin: "round",
   },
   approachSubdued: {
-    color: "#64748b",
-    weight: 3,
-    opacity: 0.35,
+    color: "#16a34a",
+    weight: 4,
+    opacity: 0.4,
     lineCap: "round",
     lineJoin: "round",
   },
   tripProminent: {
-    color: "#1d4ed8",
-    weight: 5,
-    opacity: 0.9,
+    color: "#2563eb",
+    weight: 6,
+    opacity: 0.98,
     lineCap: "round",
     lineJoin: "round",
   },
+  /** Before Start Ride: trip stays clearly blue alongside green approach. */
   tripSecondary: {
-    color: "#93c5fd",
-    weight: 4,
-    opacity: 0.55,
+    color: "#2563eb",
+    weight: 5,
+    opacity: 0.88,
     lineCap: "round",
     lineJoin: "round",
-    dashArray: "1 0",
   },
   fallback: {
-    color: "#0b7a4b",
-    weight: 3,
-    opacity: 0.7,
+    color: "#16a34a",
+    weight: 4,
+    opacity: 0.75,
     dashArray: "8 10",
     lineCap: "round",
     lineJoin: "round",
@@ -65,6 +70,15 @@ export function createTwoLegRouteLayers(opts = {}) {
   let lastGeneration = -1;
   let userPanZoom = false;
   let mapListenersBound = false;
+  /** @type {object|null} */
+  let lastModel = null;
+  /** @type {ReturnType<typeof buildRouteMetrics>|null} */
+  let approachMetrics = null;
+  /** @type {ReturnType<typeof buildRouteMetrics>|null} */
+  let tripMetrics = null;
+  let lastProgressM = 0;
+  let lastProgressLeg = "";
+  let lastEmphasis = null;
 
   function remove(layer) {
     const map = getMap();
@@ -82,6 +96,12 @@ export function createTwoLegRouteLayers(opts = {}) {
     approachLayer = remove(approachLayer);
     tripLayer = remove(tripLayer);
     fallbackLayer = remove(fallbackLayer);
+    approachMetrics = null;
+    tripMetrics = null;
+    lastModel = null;
+    lastProgressM = 0;
+    lastProgressLeg = "";
+    lastEmphasis = null;
     if (attributionEl?.parentNode) {
       attributionEl.parentNode.removeChild(attributionEl);
     }
@@ -101,19 +121,42 @@ export function createTwoLegRouteLayers(opts = {}) {
 
   function toLatLngs(geometry) {
     if (!Array.isArray(geometry) || geometry.length < 2) return null;
+    if (geometry.length === 1) return [[geometry[0].lat, geometry[0].lng]];
     return geometry.map((p) => [p.lat, p.lng]);
   }
 
   function setPolyline(existing, latlngs, style) {
     const map = getMap();
     if (!map || typeof L === "undefined") return existing;
-    if (!latlngs) return remove(existing);
+    if (!latlngs || latlngs.length < 1) return remove(existing);
+    if (latlngs.length === 1) {
+      // Degenerate remaining route — hide line.
+      return remove(existing);
+    }
     if (existing) {
       existing.setLatLngs(latlngs);
       existing.setStyle(style);
       return existing;
     }
     return L.polyline(latlngs, { ...style, interactive: false }).addTo(map);
+  }
+
+  function metricsFor(leg) {
+    const geo = leg?.renderGeometry || leg?.geometry;
+    if (!Array.isArray(geo) || geo.length < 2) return null;
+    try {
+      return buildRouteMetrics(geo);
+    } catch {
+      return null;
+    }
+  }
+
+  function visibleGeometry(leg, metrics, isActiveLeg) {
+    const full = leg?.renderGeometry || leg?.geometry;
+    if (!isActiveLeg || !metrics || !Number.isFinite(lastProgressM) || lastProgressM <= 0) {
+      return full;
+    }
+    return remainingGeometryFromProgress(metrics, lastProgressM) || full;
   }
 
   function renderAttribution(text) {
@@ -175,13 +218,18 @@ export function createTwoLegRouteLayers(opts = {}) {
     }
 
     if (model.rideGeneration !== lastGeneration) {
-      // New ride generation — drop old layers before drawing.
       clearAll();
       userPanZoom = false;
       lastGeneration = model.rideGeneration;
     }
 
+    lastModel = model;
     const emphasis = model.emphasis;
+    if (emphasis !== lastEmphasis) {
+      lastProgressM = 0;
+      lastProgressLeg = "";
+      lastEmphasis = emphasis;
+    }
     const approach = model.approach;
     const trip = model.trip;
 
@@ -192,13 +240,13 @@ export function createTwoLegRouteLayers(opts = {}) {
     const tripReady =
       trip && (trip.status === LEG_STATUS.READY || trip.status === LEG_STATUS.FALLBACK);
 
-    // Approach layer (hide when cleared / in_progress emphasis).
+    approachMetrics = approachReady && !approach.fallback ? metricsFor(approach) : null;
+    tripMetrics = tripReady && !trip.fallback ? metricsFor(trip) : null;
+
+    // Approach = GREEN (driver → pickup). Hide when cleared after Start Ride.
     if (emphasis === ROUTE_EMPHASIS.APPROACH && approachReady && !approach.fallback) {
-      approachLayer = setPolyline(
-        approachLayer,
-        toLatLngs(approach.renderGeometry || approach.geometry),
-        STYLE.approachProminent
-      );
+      const geo = visibleGeometry(approach, approachMetrics, true);
+      approachLayer = setPolyline(approachLayer, toLatLngs(geo), STYLE.approachProminent);
     } else if (emphasis === ROUTE_EMPHASIS.TRIP && approachReady && !approach.fallback) {
       approachLayer = setPolyline(
         approachLayer,
@@ -209,28 +257,27 @@ export function createTwoLegRouteLayers(opts = {}) {
       approachLayer = remove(approachLayer);
     }
 
-    // Trip layer
+    // Trip = BLUE (pickup → destination). Solid blue before and after Start Ride.
     if (tripReady && !trip.fallback) {
+      const activeTrip = emphasis === ROUTE_EMPHASIS.TRIP;
+      const geo = visibleGeometry(trip, tripMetrics, activeTrip);
       tripLayer = setPolyline(
         tripLayer,
-        toLatLngs(trip.renderGeometry || trip.geometry),
-        emphasis === ROUTE_EMPHASIS.TRIP ? STYLE.tripProminent : STYLE.tripSecondary
+        toLatLngs(geo),
+        activeTrip ? STYLE.tripProminent : STYLE.tripSecondary
       );
     } else {
       tripLayer = remove(tripLayer);
     }
 
-    // Fallback dashed (separate layer) when active leg is fallback.
     const activeFallback =
       (emphasis === ROUTE_EMPHASIS.APPROACH && approach?.fallback) ||
       (emphasis === ROUTE_EMPHASIS.TRIP && trip?.fallback);
     if (activeFallback) {
       const leg = emphasis === ROUTE_EMPHASIS.TRIP ? trip : approach;
-      fallbackLayer = setPolyline(
-        fallbackLayer,
-        toLatLngs(leg.renderGeometry || leg.geometry),
-        STYLE.fallback
-      );
+      const m = emphasis === ROUTE_EMPHASIS.TRIP ? tripMetrics : approachMetrics;
+      const geo = visibleGeometry(leg, m, true);
+      fallbackLayer = setPolyline(fallbackLayer, toLatLngs(geo), STYLE.fallback);
       renderFallbackBanner(true);
     } else {
       fallbackLayer = remove(fallbackLayer);
@@ -249,6 +296,46 @@ export function createTwoLegRouteLayers(opts = {}) {
       (!model.fittedOnceForRide && !userPanZoom && (approachReady || tripReady));
     if (shouldFit) {
       fitOnce(model);
+    }
+  }
+
+  /**
+   * Progressively shorten the active route as the vehicle moves (display only).
+   * @param {number} progressM
+   * @param {"approach"|"trip"|string} [activeLeg]
+   */
+  function setProgress(progressM, activeLeg = "") {
+    if (!Number.isFinite(progressM)) return;
+    lastProgressM = Math.max(0, progressM);
+    if (activeLeg) lastProgressLeg = String(activeLeg);
+    if (!lastModel) return;
+
+    const emphasis = lastModel.emphasis;
+    const trimLayer = (layer, metrics) => {
+      if (!layer || !metrics) return layer;
+      const rem = remainingGeometryFromProgress(metrics, lastProgressM);
+      const ll = toLatLngs(rem);
+      if (ll && ll.length >= 2) {
+        layer.setLatLngs(ll);
+        return layer;
+      }
+      return remove(layer);
+    };
+
+    if (emphasis === ROUTE_EMPHASIS.APPROACH) {
+      approachLayer = trimLayer(approachLayer, approachMetrics);
+      if (fallbackLayer && lastModel.approach) {
+        const m = approachMetrics || metricsFor(lastModel.approach);
+        fallbackLayer = trimLayer(fallbackLayer, m);
+      }
+      return;
+    }
+    if (emphasis === ROUTE_EMPHASIS.TRIP) {
+      tripLayer = trimLayer(tripLayer, tripMetrics);
+      if (fallbackLayer && lastModel.trip) {
+        const m = tripMetrics || metricsFor(lastModel.trip);
+        fallbackLayer = trimLayer(fallbackLayer, m);
+      }
     }
   }
 
@@ -281,6 +368,7 @@ export function createTwoLegRouteLayers(opts = {}) {
 
   return {
     render,
+    setProgress,
     clear: clearAll,
     destroy,
     markUserInteracted: () => {

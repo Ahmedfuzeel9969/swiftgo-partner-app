@@ -5,16 +5,25 @@
 import {
   enrichRadarList,
   readCachedRadarRides,
+  rideSearchDeadlineMs,
   subscribePendingRadarRides,
 } from "./ride-radar-service.js";
+import { computeOfferDeadlineMs } from "./driver-offer-inbox.js";
 import { openRateDetails } from "./rate-details-modal.js";
 import { resolveVehicleKeyFromLabel } from "./pricing-client.js";
 
 const money = (n) => `Rs. ${Math.round(Math.max(0, Number(n) || 0)).toLocaleString("en-PK")}`;
 
+function formatOfferCountdown(remainingMs) {
+  const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 /**
  * @param {HTMLElement | null} root
- * @param {{ getDriverUid: () => string|null, getDriverPosition: () => {lat:number,lng:number}|null, getHasActiveRide?: () => boolean, getCounterRideIds?: () => string[], onSelectRide: (ride: object) => void, onBack: () => void }} opts
+ * @param {{ getDriverUid: () => string|null, getDriverPosition: () => {lat:number,lng:number}|null, getHasActiveRide?: () => boolean, getCounterRideIds?: () => string[], getOfferForRide?: (rideId: string) => object|null, onSelectRide: (ride: object) => void, onBack: () => void }} opts
  */
 export function initAvailableRidesList(root, opts) {
   if (!root) return { show: () => {}, hide: () => {}, destroy: () => {} };
@@ -23,6 +32,7 @@ export function initAvailableRidesList(root, opts) {
   const getDriverPosition = opts.getDriverPosition || (() => null);
   const getHasActiveRide = opts.getHasActiveRide || (() => false);
   const getCounterRideIds = opts.getCounterRideIds || (() => []);
+  const getOfferForRide = opts.getOfferForRide || (() => null);
   const onSelectRide = opts.onSelectRide || (() => {});
   const onBack = opts.onBack || (() => {});
 
@@ -31,6 +41,55 @@ export function initAvailableRidesList(root, opts) {
   let visible = false;
   /** @type {object | null} */
   let lastState = null;
+  /** @type {ReturnType<typeof setInterval> | null} */
+  let listOfferTick = null;
+
+  function stopListOfferTick() {
+    if (listOfferTick) {
+      clearInterval(listOfferTick);
+      listOfferTick = null;
+    }
+  }
+
+  function updateOfferTimersOnCards() {
+    if (!visible || !listEl) return;
+    listEl.querySelectorAll("[data-offer-timer-for]").forEach((el) => {
+      const rideId = el.getAttribute("data-offer-timer-for");
+      const offer = rideId ? getOfferForRide(rideId) : null;
+      if (!offer || !["open", "countered"].includes(String(offer.status || ""))) {
+        el.hidden = true;
+        return;
+      }
+      const ride = (lastState?.rides || []).find((r) => r.id === rideId);
+      const searchDl = ride ? rideSearchDeadlineMs(ride) : null;
+      const deadline = computeOfferDeadlineMs(offer, { searchDeadlineMs: searchDl });
+      if (deadline == null) {
+        el.hidden = true;
+        return;
+      }
+      const remaining = deadline - Date.now();
+      el.hidden = false;
+      el.textContent =
+        remaining > 0 ? `آفر ${formatOfferCountdown(remaining)}` : "آفر ختم";
+    });
+    listEl.querySelectorAll("[data-search-timer-for]").forEach((el) => {
+      const rideId = el.getAttribute("data-search-timer-for");
+      const ride = (lastState?.rides || []).find((r) => r.id === rideId);
+      if (!ride) {
+        el.hidden = true;
+        return;
+      }
+      const deadline = rideSearchDeadlineMs(ride);
+      if (!deadline) {
+        el.hidden = true;
+        return;
+      }
+      const remaining = deadline - Date.now();
+      el.hidden = false;
+      el.textContent =
+        remaining > 0 ? `بکنگ ${formatOfferCountdown(remaining)}` : "بکنگ ختم";
+    });
+  }
 
   root.innerHTML = `
     <section class="radar-list" aria-label="دستیاب رائٹس">
@@ -63,6 +122,14 @@ export function initAvailableRidesList(root, opts) {
   function renderCard(ride) {
     const counterIds = new Set(getCounterRideIds());
     const hasCounter = counterIds.has(ride.id);
+    const offer = getOfferForRide(ride.id);
+    const searchDeadline = rideSearchDeadlineMs(ride);
+    const offerDeadline =
+      offer && ["open", "countered"].includes(String(offer.status || ""))
+        ? computeOfferDeadlineMs(offer, { searchDeadlineMs: searchDeadline })
+        : null;
+    const offerTimerVisible = offerDeadline != null && offerDeadline > Date.now();
+    const searchTimerVisible = searchDeadline > Date.now();
     const card = document.createElement("button");
     card.type = "button";
     card.className = "radar-card";
@@ -77,6 +144,8 @@ export function initAvailableRidesList(root, opts) {
         </div>
         <button type="button" class="radar-card__rate-btn" data-rate-btn aria-label="ریٹ کی تفصیل">ℹ️ ریٹ</button>
         ${hasCounter ? '<span class="radar-card__counter-badge">مسافر کا جواب</span>' : ""}
+        ${offerTimerVisible ? `<span class="radar-card__offer-timer" data-offer-timer-for="${escapeHtml(ride.id)}">آفر ${formatOfferCountdown(offerDeadline - Date.now())}</span>` : ""}
+        ${searchTimerVisible ? `<span class="radar-card__search-timer" data-search-timer-for="${escapeHtml(ride.id)}">بکنگ ${formatOfferCountdown(searchDeadline - Date.now())}</span>` : ""}
       </div>
       <div class="radar-card__route">
         <div class="radar-card__point radar-card__point--a">
@@ -141,6 +210,7 @@ export function initAvailableRidesList(root, opts) {
     }
     emptyEl.hidden = true;
     listEl.replaceChildren(...rides.map(renderCard));
+    updateOfferTimersOnCards();
   }
 
   function startSubscription() {
@@ -172,6 +242,8 @@ export function initAvailableRidesList(root, opts) {
     visible = true;
     root.hidden = false;
     requestAnimationFrame(() => root.querySelector(".radar-list")?.classList.add("is-visible"));
+    stopListOfferTick();
+    listOfferTick = setInterval(updateOfferTimersOnCards, 1000);
 
     const uid = getDriverUid();
     if (!options.resume) {
@@ -194,6 +266,7 @@ export function initAvailableRidesList(root, opts) {
    */
   function hide(options = {}) {
     visible = false;
+    stopListOfferTick();
     root.querySelector(".radar-list")?.classList.remove("is-visible");
     root.hidden = true;
     if (!options.keepSubscription) {
@@ -202,6 +275,7 @@ export function initAvailableRidesList(root, opts) {
   }
 
   function destroy() {
+    stopListOfferTick();
     hide({ keepSubscription: false });
     root.replaceChildren();
     lastState = null;

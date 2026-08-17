@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-08-15T16:16:35.661Z",
+  "results": [
+    {
+      "name": "first-attempt-without-leaflet-does-not-mark-ready",
+      "status": "PASS",
+      "detail": "{\"initCalls\":1,\"resizeCalls\":0,\"mapReady\":false}"
+    },
+    {
+      "name": "later-leaflet-availability-retries-and-marks-ready",
+      "status": "PASS",
+      "detail": "{\"initCalls\":2,\"resizeCalls\":2,\"mapReady\":true}"
+    },
+    {
+      "name": "repeated-success-does-not-create-duplicate-map",
+      "status": "PASS",
+      "detail": "{\"initCalls\":2,\"resizeCalls\":3,\"mapReady\":true}"
+    }
+  ]
+}

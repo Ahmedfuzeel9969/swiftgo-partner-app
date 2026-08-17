@@ -43,9 +43,10 @@ import {
   bootstrapAdminClaim as bootstrapAdminClaimClient,
   ensureFreshAuthUser,
   initSuperAdminAccess,
+  getOpsHealthSummaryClient,
   saveAdminDispatchSettings,
   saveAdminPricingSettings as saveAdminPricingSettingsClient,
-} from "./admin-settings-client.js?v=dispatch_dynamic_1";
+} from "./admin-settings-client.js?v=dispatch_slo_1";
 import {
   buildRideLocationReportViewModel,
   renderRideLocationReportPanelHtml,
@@ -143,9 +144,10 @@ const els = {
   status: document.getElementById("adminAuthStatus"),
   accessDenied: document.getElementById("accessDeniedOverlay"),
   accessDeniedDismiss: document.getElementById("accessDeniedDismissBtn"),
-  logoutBtn: document.getElementById("adminLogoutBtn"),
-  displayName: document.getElementById("adminDisplayName"),
-  displayEmail: document.getElementById("adminDisplayEmail"),
+  logoutBtn: document.getElementById("adminLogoutBtnSidebar"),
+  notifyBtn: document.getElementById("openNotificationSettingsBtnSidebar"),
+  displayName: document.getElementById("adminSidebarDisplayName"),
+  displayEmail: document.getElementById("adminSidebarDisplayEmail"),
   viewTitle: document.getElementById("adminViewTitle"),
   content: document.getElementById("adminContent"),
   statTotalRides: document.getElementById("statTotalRides"),
@@ -172,6 +174,14 @@ const els = {
   dispatchRadiusPreview: document.getElementById("dispatchRadiusPreview"),
   dispatchSaveBtn: document.getElementById("dispatchSaveBtn"),
   dispatchStatusNote: document.getElementById("dispatchStatusNote"),
+  dispatchSloReceipts: document.getElementById("dispatchSloReceipts"),
+  dispatchSloAvgDelivery: document.getElementById("dispatchSloAvgDelivery"),
+  dispatchSloBookingToCandidate: document.getElementById("dispatchSloBookingToCandidate"),
+  dispatchSloWithin5s: document.getElementById("dispatchSloWithin5s"),
+  dispatchSloBuckets: document.getElementById("dispatchSloBuckets"),
+  dispatchSloRefreshBtn: document.getElementById("dispatchSloRefreshBtn"),
+  dispatchSloNote: document.getElementById("dispatchSloNote"),
+  financeTabs: document.getElementById("financeTabs"),
   promoCodeForm: document.getElementById("promoCodeForm"),
   promoCodeInput: document.getElementById("promoCodeInput"),
   promoTypeInput: document.getElementById("promoTypeInput"),
@@ -643,8 +653,10 @@ function setActiveView(viewKey) {
   if (els.content) els.content.dataset.activeView = key;
 
   if (key === "finance") {
+    restoreFinanceTab();
     loadPricingSettings();
     loadDispatchSettings();
+    loadDispatchDeliverySlo();
     fetchAndRenderPromoCodes();
   }
 
@@ -1971,6 +1983,90 @@ function normalizePricingDocument(data) {
   };
 }
 
+const FINANCE_TAB_STORAGE_KEY = "swiftgo_admin_finance_tab";
+const FINANCE_TAB_KEYS = new Set(["rates", "dispatch", "latency", "promo"]);
+
+function setFinanceTab(tabKey, { persist = true } = {}) {
+  const key = FINANCE_TAB_KEYS.has(tabKey) ? tabKey : "rates";
+  document.querySelectorAll("[data-finance-tab]").forEach((btn) => {
+    const active = btn.dataset.financeTab === key;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  document.querySelectorAll("[data-finance-section]").forEach((panel) => {
+    const active = panel.dataset.financeSection === key;
+    panel.classList.toggle("is-active", active);
+    panel.hidden = !active;
+  });
+  if (persist) {
+    try {
+      localStorage.setItem(FINANCE_TAB_STORAGE_KEY, key);
+    } catch {
+      /* ignore */
+    }
+  }
+  if (key === "latency") {
+    loadDispatchDeliverySlo().catch(() => {});
+  }
+  if (key === "promo") {
+    fetchAndRenderPromoCodes();
+  }
+}
+
+function restoreFinanceTab() {
+  let saved = "rates";
+  try {
+    saved = localStorage.getItem(FINANCE_TAB_STORAGE_KEY) || "rates";
+  } catch {
+    saved = "rates";
+  }
+  setFinanceTab(saved, { persist: false });
+}
+
+function formatDispatchMs(ms) {
+  if (ms == null || !Number.isFinite(Number(ms))) return "—";
+  const value = Math.max(0, Math.round(Number(ms)));
+  if (value < 1000) return `${value} ms`;
+  return `${(value / 1000).toFixed(value >= 10000 ? 1 : 2)} s`;
+}
+
+async function loadDispatchDeliverySlo() {
+  if (!els.dispatchSloNote) return;
+  els.dispatchSloNote.textContent = "SLO لوڈ ہو رہی ہے…";
+  try {
+    const summary = await getOpsHealthSummaryClient();
+    const slo = summary?.dispatchDelivery || {};
+    const buckets = slo.buckets || {};
+    if (els.dispatchSloReceipts) {
+      els.dispatchSloReceipts.textContent = String(slo.receiptCount ?? 0);
+    }
+    if (els.dispatchSloAvgDelivery) {
+      els.dispatchSloAvgDelivery.textContent = formatDispatchMs(slo.averageDriverDeliveryMs);
+    }
+    if (els.dispatchSloBookingToCandidate) {
+      els.dispatchSloBookingToCandidate.textContent = formatDispatchMs(slo.averageBookingToCandidateMs);
+    }
+    if (els.dispatchSloWithin5s) {
+      els.dispatchSloWithin5s.textContent =
+        slo.within5SecondsRate == null ? "—" : `${slo.within5SecondsRate}%`;
+    }
+    if (els.dispatchSloBuckets) {
+      els.dispatchSloBuckets.textContent = `Buckets: ≤2s ${buckets.under2s || 0} · ≤5s ${
+        buckets.under5s || 0
+      } · ≤10s ${buckets.under10s || 0} · >10s ${buckets.over10s || 0} · missing ${
+        buckets.missing || 0
+      }`;
+    }
+    els.dispatchSloNote.textContent =
+      Number(slo.receiptCount) > 0
+        ? `آج (${summary.day || "today"}): ${slo.measuredCount || 0} measured receipts`
+        : `آج (${summary.day || "today"}): ابھی کوئی delivery receipt نہیں — نئی بکنگ کے بعد یہاں آئے گی۔`;
+  } catch (error) {
+    console.warn("[SwiftGo Admin] loadDispatchDeliverySlo", error);
+    els.dispatchSloNote.textContent = `SLO load failed: ${error?.message || "unknown"}`;
+  }
+}
+
 async function loadDispatchSettings() {
   const { db } = getFirebase();
   if (!db || !els.candidateDriverLimitInput) return;
@@ -2473,6 +2569,7 @@ function startLiveData() {
     .catch(() => {});
   loadPricingSettings().catch(() => {});
   loadDispatchSettings().catch(() => {});
+  loadDispatchDeliverySlo().catch(() => {});
   setStat(els.statTotalRides, null);
   setStat(els.statActiveDrivers, null);
   setRevenueStat(null);
@@ -2615,12 +2712,12 @@ function boot() {
     },
   });
   initAudioService({ storagePrefix: "swiftgo_admin_" });
-  initNotificationSettingsUI();
+  initNotificationSettingsUI({ openBtnId: "openNotificationSettingsBtnSidebar" });
   AudioService.requestBrowserNotificationPermission().catch(() => {});
   setActiveView("dashboard");
 
-  els.loginBtn?.addEventListener("click", signInWithGoogle);
   els.logoutBtn?.addEventListener("click", handleLogout);
+  els.loginBtn?.addEventListener("click", signInWithGoogle);
   els.accessDeniedDismiss?.addEventListener("click", hideAccessDenied);
   wireDriversTableActions();
   wireRechargeTableActions();
@@ -2631,6 +2728,14 @@ function boot() {
   wireLocationReportModal();
   els.pricingForm?.addEventListener("submit", savePricingSettings);
   els.dispatchForm?.addEventListener("submit", saveDispatchSettings);
+  els.dispatchSloRefreshBtn?.addEventListener("click", () => {
+    loadDispatchDeliverySlo().catch(() => {});
+  });
+  els.financeTabs?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-finance-tab]");
+    if (!btn || !els.financeTabs.contains(btn)) return;
+    setFinanceTab(btn.dataset.financeTab);
+  });
   for (const input of [els.dispatchRadiusKmInput, els.dispatchRadiusMetersInput]) {
     input?.addEventListener("input", updateDispatchRadiusPreview);
     input?.addEventListener("change", updateDispatchRadiusPreview);

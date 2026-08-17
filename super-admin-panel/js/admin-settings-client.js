@@ -82,3 +82,8 @@ export function bootstrapAdminClaim() {
 export function initSuperAdminAccess() {
   return callAdmin("initSuperAdminAccess", {});
 }
+
+/** Ops health + today's dispatch delivery SLO aggregates. */
+export function getOpsHealthSummaryClient() {
+  return callAdmin("getOpsHealthSummary", {});
+}

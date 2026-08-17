@@ -14,6 +14,31 @@ function call(name, data) {
 }
 
 /**
+ * Fire-and-forget dispatch telemetry. Server validates that this driver owns
+ * the candidate invitation before persisting the receipt.
+ */
+export function recordDispatchDeliveryReceiptClient({
+  rideId,
+  dispatchTraceId,
+  clientReceivedAtMs,
+  clientRenderedAtMs,
+}) {
+  if (!rideId || !dispatchTraceId) return Promise.resolve({ ok: false, reason: "missing_trace" });
+  return call("recordDispatchDeliveryReceipt", {
+    rideId,
+    dispatchTraceId,
+    clientReceivedAtMs,
+    clientRenderedAtMs,
+  }).catch((err) => {
+    console.info("[SwiftGo Latency] delivery receipt skipped", {
+      rideId,
+      code: String(err?.code || err?.message || "unknown"),
+    });
+    return { ok: false, reason: "call_failed" };
+  });
+}
+
+/**
  * Propose fare; ride stays open until customer accepts or counters.
  */
 export async function submitDriverOffer(params) {
@@ -47,6 +72,9 @@ export async function submitDriverOffer(params) {
     rideId,
     bidFare: bid,
     offerId: result?.offerId,
+    offerExpiresAtMs: result?.offerExpiresAtMs ?? null,
+    offerSubmittedAtMs: result?.offerSubmittedAtMs ?? null,
+    offerTimeoutSeconds: result?.offerTimeoutSeconds ?? null,
     pending: true,
     assigned: false,
   };

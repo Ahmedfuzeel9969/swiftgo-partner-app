@@ -1,0 +1,55 @@
+{
+  "title": "P2P Pipeline Root-Cause Report",
+  "generatedAt": "2026-08-05T01:20:00.000Z",
+  "status": "INVESTIGATION_COMPLETE_NO_FIX",
+  "failedStage": "ICE_CONNECTIVITY_BEFORE_DATACHANNEL_OPEN",
+  "observed": {
+    "customer": [
+      "p2p_answer_ready",
+      "p2p_firebase_fallback",
+      "lastSendAt=null",
+      "lastRecvAt=null",
+      "p2p_sends=0",
+      "p2p_receives=0"
+    ],
+    "driver": ["driver_p2p_unhealthy", "authUidPresent=false"],
+    "absent": ["p2p_channel_open", "p2p_healthy", "p2p_first_valid_fix"]
+  },
+  "verdict": "Signaling reaches answer_ready; WebRTC never becomes healthy because ICE/DataChannel open never completes. Comm modules are downstream of this failure.",
+  "hypotheses": [
+    {
+      "id": "A",
+      "priority": "primary",
+      "claim": "ICE never connects (STUN-only / cellular NAT; no TURN by default)",
+      "status": "BEST_FIT_PENDING_PIPELINE_DUMP"
+    },
+    {
+      "id": "B",
+      "priority": "secondary",
+      "claim": "Driver never applied remote answer (acceptRemoteAnswer skipped); authUidPresent=false is suspicious",
+      "status": "OPEN_PENDING_PIPELINE_DUMP"
+    },
+    {
+      "id": "C",
+      "claim": "Chat/Voice/Call/comm binding",
+      "status": "RULED_OUT_FOR_THIS_EVIDENCE"
+    }
+  ],
+  "instrumentation": {
+    "deployed": false,
+    "files": [
+      "driver-app/js/p2p-protocol.mjs",
+      "customer-app/js/p2p-protocol.mjs",
+      "driver-app/js/p2p-peer-session.mjs",
+      "customer-app/js/p2p-peer-session.mjs"
+    ],
+    "fieldCapture": "copy(JSON.stringify(window.__SWIFTGO_P2P_PIPELINE__, null, 2))",
+    "reportMarkdown": "tests/p2p-pipeline-root-cause-report.md"
+  },
+  "notDone": [
+    "no speculative fixes",
+    "no TURN enablement",
+    "no Chat/Voice/Call/Firebase/RideFlow/Billing/Location/Diagnostics changes",
+    "no hosting deploy"
+  ]
+}

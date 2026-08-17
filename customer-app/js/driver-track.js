@@ -24,6 +24,7 @@ import {
   resolveMarkerRotationDeg,
   timestampToMs,
 } from "./live-location-render.mjs";
+import { getFieldDiagnostics } from "./field-diagnostics.mjs";
 
 const FALLBACK_SPEED_KMH = 24;
 const FIT_BOUNDS_MS = 12_000;
@@ -41,6 +42,8 @@ let lastTrackedDriverId = "";
 let routeDisplayState = createRouteDisplayState();
 /** When true, skip Phase-1 straight approach line (road layers own the line). */
 let roadRouteLineSuppressed = false;
+let lastFreshnessDiagClass = "";
+let lastFreshnessDiagAt = 0;
 
 function haversineKm(a, b) {
   const R = 6371;
@@ -234,6 +237,32 @@ export function updateDriverTrack(ride, opts = {}) {
   if (els.trackRow) els.trackRow.hidden = false;
 
   // Freshness / status messaging (Urdu via i18n).
+  try {
+    const now = Date.now();
+    if (freshness !== lastFreshnessDiagClass || now - lastFreshnessDiagAt > 5_000) {
+      lastFreshnessDiagClass = freshness;
+      lastFreshnessDiagAt = now;
+      const msg =
+        freshness === FRESHNESS.STALE
+          ? "liveTrackLocationStale"
+          : freshness === FRESHNESS.DELAYED
+            ? "liveTrackLocationDelayed"
+            : freshness === FRESHNESS.UNKNOWN
+              ? "liveTrackLocationUnknownTime"
+              : freshness;
+      getFieldDiagnostics()?.record("freshness", {
+        ageMs: ageMs,
+        class: freshness,
+        uiMessage: msg,
+        hasValidLoc,
+        lat: loc?.lat,
+        lng: loc?.lng,
+      });
+    }
+  } catch {
+    /* ignore */
+  }
+
   if (freshness === FRESHNESS.UNKNOWN) {
     if (els.distance) els.distance.textContent = t("liveTrackLocationUnknownTime");
     if (els.eta) els.eta.hidden = true;

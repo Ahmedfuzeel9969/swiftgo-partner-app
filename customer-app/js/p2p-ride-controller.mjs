@@ -5,17 +5,23 @@
 import { P2P_STATE, P2P_EXECUTION_STATUSES } from "./p2p-protocol.mjs";
 import { createP2pPeerSession } from "./p2p-peer-session.mjs";
 import { createLiveLocationSourceArbiter } from "./live-location-source-arbiter.mjs";
-import {
-  publishRidePeerAnswerClient,
-  closeRidePeerSessionClient,
-  watchRidePeerSession,
-} from "./p2p-signaling-client.mjs";
+import { getFieldDiagnostics } from "./field-diagnostics.mjs";
+
+/** Lazy — app wrapper pulls Firebase https imports unsuitable for Node tests. */
+async function defaultEnsureIceConfiguration() {
+  const mod = await import("./p2p-ice-bootstrap.mjs");
+  return mod.ensureP2pIceConfiguration();
+}
 
 /**
  * @param {{
  *   onRenderFix?: (fix: object, meta: object) => void,
+ *   onChannelOpen?: () => void,
  *   onDiag?: (code: string) => void,
  *   RTCPeerConnection?: typeof RTCPeerConnection,
+ *   watchRidePeerSession?: Function,
+ *   publishRidePeerAnswerClient?: Function,
+ *   closeRidePeerSessionClient?: Function,
  * }} [opts]
  */
 export function createCustomerP2pController(opts = {}) {
@@ -31,8 +37,25 @@ export function createCustomerP2pController(opts = {}) {
   let boundSessionId = "";
   let closed = false;
   let answering = false;
-  let visible = true;
+  /** UI/map visibility only — must not tear down P2P when the screen is hidden. */
+  let uiVisible = true;
   let watching = false;
+  let lastOfferSdp = "";
+  let signalingMod = null;
+
+  async function signaling() {
+    if (opts.watchRidePeerSession || opts.publishRidePeerAnswerClient || opts.closeRidePeerSessionClient) {
+      return {
+        watchRidePeerSession: opts.watchRidePeerSession,
+        publishRidePeerAnswerClient: opts.publishRidePeerAnswerClient,
+        closeRidePeerSessionClient: opts.closeRidePeerSessionClient,
+      };
+    }
+    if (!signalingMod) {
+      signalingMod = await import("./p2p-signaling-client.mjs");
+    }
+    return signalingMod;
+  }
 
   function destroySession() {
     unwatch();
@@ -41,6 +64,7 @@ export function createCustomerP2pController(opts = {}) {
     const s = session;
     session = null;
     boundSessionId = "";
+    lastOfferSdp = "";
     if (s) void s.close({ reason: "destroy" });
     arbiter.noteP2pUnhealthy();
   }
@@ -49,45 +73,73 @@ export function createCustomerP2pController(opts = {}) {
     const id = rideId;
     if (!id) return;
     try {
-      await closeRidePeerSessionClient({ rideId: id });
+      const sig = await signaling();
+      await sig.closeRidePeerSessionClient?.({ rideId: id });
     } catch {
       /* ignore */
     }
   }
 
   async function answerOffer(docData) {
-    if (!visible || closed || answering) return;
+    if (closed || answering) return;
     const sid = String(docData?.sessionId || "");
     const offer = String(docData?.offer || "");
     if (!sid || !offer) return;
     if (String(docData.state || "") === "closed") return;
-    if (boundSessionId === sid && session) return;
+    // Same offer + live session: skip. Re-answer only when PC is actually gone.
+    if (boundSessionId === sid && session && offer === lastOfferSdp) {
+      const st = String(session.getState?.()?.state || "");
+      if (
+        st !== P2P_STATE.FIREBASE_FALLBACK &&
+        st !== P2P_STATE.CLOSED &&
+        st !== P2P_STATE.DISABLED
+      ) {
+        return;
+      }
+    }
 
     answering = true;
     try {
+      const sig = await signaling();
       destroySession();
       boundSessionId = sid;
+      lastOfferSdp = offer;
       session = createP2pPeerSession({
         role: "customer",
         RTCPeerConnection: opts.RTCPeerConnection,
+        ensureIceConfiguration: opts.ensureIceConfiguration || defaultEnsureIceConfiguration,
         onDiag: diag,
+        onChannelOpen: () => opts.onChannelOpen?.(),
         onState: (st) => {
           if (st === P2P_STATE.FIREBASE_FALLBACK || st === P2P_STATE.P2P_DEGRADED) {
             arbiter.noteP2pUnhealthy();
           }
         },
         onLocationFix: (fix) => {
+          try {
+            getFieldDiagnostics()?.record("p2p_receive", {
+              ok: true,
+              lat: fix?.lat,
+              lng: fix?.lng,
+              observedAt: fix?.observedAt ?? null,
+              sequence: fix?.sequence ?? null,
+            });
+          } catch {
+            /* ignore */
+          }
           arbiter.ingestP2p(fix, arbiter.getGeneration());
         },
         onLocalDescription: async (kind, sdp, meta) => {
           if (kind !== "answer") return;
-          await publishRidePeerAnswerClient({
+          await sig.publishRidePeerAnswerClient?.({
             rideId,
             answerSdp: sdp,
             peerSessionId: meta.peerSessionId,
           });
+          session?.noteAnswerUploaded?.(sdp);
         },
       });
+      session.setPipelineRideId?.(rideId);
       await session.startAsCustomer({
         peerSessionId: sid,
         trackingSessionId: String(docData.trackingSessionId || ""),
@@ -104,16 +156,21 @@ export function createCustomerP2pController(opts = {}) {
   function attachWatch(rid) {
     unwatch();
     watching = true;
-    unwatch = watchRidePeerSession(
-      rid,
-      (docData) => {
-        if (!docData || !visible) return;
-        void answerOffer(docData);
-      },
-      () => {
-        arbiter.noteP2pUnhealthy();
-      }
-    );
+    const onData = (docData) => {
+      if (!docData) return;
+      void answerOffer(docData);
+    };
+    const onError = () => {
+      arbiter.noteP2pUnhealthy();
+    };
+    if (typeof opts.watchRidePeerSession === "function") {
+      unwatch = opts.watchRidePeerSession(rid, onData, onError);
+      return;
+    }
+    void signaling().then((sig) => {
+      if (!watching || rideId !== rid || closed) return;
+      unwatch = sig.watchRidePeerSession(rid, onData, onError);
+    });
   }
 
   function bindRide(nextRideId) {
@@ -152,13 +209,13 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function setVisible(next) {
-    visible = Boolean(next);
-    if (!visible) {
-      session?.suspend?.();
-      arbiter.noteP2pUnhealthy();
-    } else if (rideId) {
-      attachWatch(rideId);
-    }
+    uiVisible = Boolean(next);
+    // Active-ride policy: screen hidden/background must not suspend or stop P2P.
+    // Signaling watch stays attached; resume only re-answers if the session is dead.
+  }
+
+  function isUiVisible() {
+    return uiVisible;
   }
 
   function syncForRide(ride, { isVisible = true } = {}) {
@@ -193,14 +250,19 @@ export function createCustomerP2pController(opts = {}) {
     bindRide,
     syncForRide,
     setVisible,
+    isUiVisible,
     ingestFirebaseLocation,
     stop,
     destroy,
     getArbiter: () => arbiter,
+    createCommTransport: () => session?.createCommTransport?.() || null,
+    createMediaBridge: () => session?.createMediaBridge?.() || null,
     getCounters: () => ({
       ...(session?.getCounters?.() || {}),
       ...(arbiter.getCounters?.() || {}),
     }),
     getState: () => session?.getState?.() || { state: P2P_STATE.DISABLED },
+    getPipeline: () => session?.getPipeline?.() || [],
+    getPipelineReport: () => session?.getPipelineReport?.() || null,
   };
 }

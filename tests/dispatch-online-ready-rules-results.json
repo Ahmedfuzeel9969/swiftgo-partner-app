@@ -1,0 +1,59 @@
+{
+  "generatedAt": "2026-08-02T10:17:26.896Z",
+  "summary": {
+    "pass": 8,
+    "fail": 0,
+    "blocked": 0,
+    "total": 8
+  },
+  "results": [
+    {
+      "name": "state-A-linked-offline-no-activeRideId",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-online-ready-rules"
+    },
+    {
+      "name": "state-B-linked-offline-activeRideId-null",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-online-ready-rules"
+    },
+    {
+      "name": "state-C-after-pin-link-refresh",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-online-ready-rules"
+    },
+    {
+      "name": "state-D-after-ride-activeRideId-cleared",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-online-ready-rules"
+    },
+    {
+      "name": "deny-other-driver",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-online-ready-rules"
+    },
+    {
+      "name": "deny-blocked-partner",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-online-ready-rules"
+    },
+    {
+      "name": "deny-owner-wallet-mutation",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-online-ready-rules"
+    },
+    {
+      "name": "payload-shape-matches-driver-app",
+      "status": "PASS",
+      "detail": "activeRideId,driverId,driverName,geoCell,hotspotId,location,locationGridCell,locationUpdatedAt,status,trackingSessionId,trackingSessionStartedAt",
+      "suite": "dispatch-online-ready-rules"
+    }
+  ]
+}

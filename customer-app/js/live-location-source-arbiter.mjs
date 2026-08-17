@@ -1,9 +1,17 @@
 /**
  * Phase 3 — single customer location-source arbiter (P2P vs Firebase).
  * One marker pipeline only; never move marker backward in observedAt.
+ *
+ * While P2P is healthy: do not render Firebase location.
+ * After P2P silence ≥ fallbackAfterMs (or explicit unhealthy): Firebase backup
+ * renders at most once per FIREBASE_BACKUP_READ_INTERVAL_MS.
  */
 
-import { P2P_DIAG, P2P_FALLBACK_AFTER_MS } from "./p2p-protocol.mjs";
+import {
+  P2P_DIAG,
+  P2P_FALLBACK_AFTER_MS,
+  FIREBASE_BACKUP_READ_INTERVAL_MS,
+} from "./p2p-protocol.mjs";
 
 /**
  * @typedef {{
@@ -21,6 +29,7 @@ import { P2P_DIAG, P2P_FALLBACK_AFTER_MS } from "./p2p-protocol.mjs";
  * @param {{
  *   nowMs?: () => number,
  *   fallbackAfterMs?: number,
+ *   firebaseBackupReadIntervalMs?: number,
  *   onDiag?: (code: string) => void,
  *   onRender?: (fix: ArbiterFix, meta: object) => void,
  * }} [opts]
@@ -28,6 +37,8 @@ import { P2P_DIAG, P2P_FALLBACK_AFTER_MS } from "./p2p-protocol.mjs";
 export function createLiveLocationSourceArbiter(opts = {}) {
   const nowMs = typeof opts.nowMs === "function" ? opts.nowMs : () => Date.now();
   const fallbackAfterMs = opts.fallbackAfterMs ?? P2P_FALLBACK_AFTER_MS;
+  const backupReadIntervalMs =
+    opts.firebaseBackupReadIntervalMs ?? FIREBASE_BACKUP_READ_INTERVAL_MS;
   const diag = opts.onDiag || (() => {});
   const onRender = opts.onRender || (() => {});
 
@@ -36,12 +47,15 @@ export function createLiveLocationSourceArbiter(opts = {}) {
   let lastRendered = null;
   let lastP2pAt = 0;
   let lastFirebase = null;
+  let lastFirebaseRenderAt = 0;
   let preferred = "firebase";
   let p2pHealthy = false;
 
   const counters = {
     p2pAccepted: 0,
     firebaseAccepted: 0,
+    firebaseThrottled: 0,
+    firebaseIgnoredWhileP2p: 0,
     staleRejected: 0,
     sourceSwitches: 0,
   };
@@ -116,24 +130,25 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     }
     ensureP2pHealth();
     lastFirebase = { ...fix, source: "firebase" };
-    counters.firebaseAccepted += 1;
 
     const ageP2p = lastP2pAt ? nowMs() - lastP2pAt : Infinity;
     if (p2pHealthy && preferred === "p2p" && ageP2p <= fallbackAfterMs) {
-      // Keep P2P preferred; accept Firebase only if strictly newer (not equal).
-      if (lastRendered && fix.observedAt < lastRendered.observedAt) {
-        counters.staleRejected += 1;
-        return false;
-      }
-      if (lastRendered && fix.observedAt === lastRendered.observedAt) {
-        // Equal timestamp while P2P is live: ignore duplicate Firebase echo.
-        counters.staleRejected += 1;
-        return false;
-      }
-    } else {
-      preferred = "firebase";
-      p2pHealthy = false;
+      // P2P primary — do not use Firebase location while healthy.
+      counters.firebaseIgnoredWhileP2p += 1;
+      return false;
     }
+
+    preferred = "firebase";
+    p2pHealthy = false;
+
+    const now = nowMs();
+    if (lastFirebaseRenderAt && now - lastFirebaseRenderAt < backupReadIntervalMs) {
+      counters.firebaseThrottled += 1;
+      return false;
+    }
+
+    lastFirebaseRenderAt = now;
+    counters.firebaseAccepted += 1;
     return render(lastFirebase, "firebase");
   }
 
@@ -142,7 +157,11 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     preferred = "firebase";
     // Accept newest Firebase without moving marker backward in time.
     if (lastFirebase && shouldReplace(lastRendered, lastFirebase)) {
-      render(lastFirebase, "fallback");
+      const now = nowMs();
+      if (!lastFirebaseRenderAt || now - lastFirebaseRenderAt >= backupReadIntervalMs) {
+        lastFirebaseRenderAt = now;
+        render(lastFirebase, "fallback");
+      }
       diag(P2P_DIAG.FIREBASE_FALLBACK);
     } else {
       diag(P2P_DIAG.FIREBASE_FALLBACK);
@@ -157,6 +176,7 @@ export function createLiveLocationSourceArbiter(opts = {}) {
       p2pHealthy,
       lastRendered,
       lastP2pAt,
+      lastFirebaseRenderAt,
       counters: { ...counters },
     };
   }
@@ -166,6 +186,7 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     lastRendered = null;
     lastP2pAt = 0;
     lastFirebase = null;
+    lastFirebaseRenderAt = 0;
     preferred = "firebase";
     p2pHealthy = false;
   }

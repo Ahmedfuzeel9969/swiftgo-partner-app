@@ -1,24 +1,24 @@
 {
   "suite": "p2p-webrtc",
-  "generatedAt": "2026-08-01T19:15:59.190Z",
+  "generatedAt": "2026-08-12T09:59:58.762Z",
   "totals": {
-    "pass": 82,
-    "fail": 0,
+    "pass": 78,
+    "fail": 2,
     "blocked": 1,
     "byCategory": {
       "unit": {
-        "pass": 59,
+        "pass": 64,
         "fail": 0,
         "blocked": 0
       },
       "static": {
-        "pass": 15,
-        "fail": 0,
+        "pass": 14,
+        "fail": 1,
         "blocked": 0
       },
       "rules": {
-        "pass": 8,
-        "fail": 0,
+        "pass": 0,
+        "fail": 1,
         "blocked": 0
       },
       "manual": {
@@ -135,9 +135,9 @@
       "category": "unit"
     },
     {
-      "name": "31-newer-firebase-beats-delayed-p2p",
+      "name": "31-p2p-primary-ignores-firebase-while-healthy",
       "status": "PASS",
-      "detail": "src=firebase",
+      "detail": "src=p2p lat=1",
       "suite": "p2p-webrtc",
       "category": "unit"
     },
@@ -180,6 +180,27 @@
       "name": "37-resume-firebase-before-p2p",
       "status": "PASS",
       "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "37b-silent-p2p-auto-degrades-to-firebase",
+      "status": "PASS",
+      "detail": "preferred=firebase lat=2",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "37c-ensureP2pHealth-marks-unhealthy",
+      "status": "PASS",
+      "detail": "healthy=false",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "37d-flush-pending-on-channel-open",
+      "status": "PASS",
+      "detail": "driver datachannel onopen flushes pending location",
       "suite": "p2p-webrtc",
       "category": "unit"
     },
@@ -240,7 +261,21 @@
       "category": "unit"
     },
     {
-      "name": "60-missing-turn-firebase-fallback-path",
+      "name": "60-default-stun-without-turn",
+      "status": "PASS",
+      "detail": "stun=true turn=false n=3",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "60c-turn-injected-with-stun",
+      "status": "PASS",
+      "detail": "stun=true turn=true n=4",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "60b-disable-default-stun",
       "status": "PASS",
       "detail": "",
       "suite": "p2p-webrtc",
@@ -319,7 +354,7 @@
     {
       "name": "01-assigned-driver-create-session",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1785612655772,\"protocolVersion\":1}",
+      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1786529698703,\"protocolVersion\":1}",
       "suite": "p2p-webrtc",
       "category": "unit"
     },
@@ -464,8 +499,8 @@
       "category": "static"
     },
     {
-      "name": "56-customer-hidden-suspends-session",
-      "status": "PASS",
+      "name": "56-customer-hidden-keeps-p2p-alive",
+      "status": "FAIL",
       "detail": "",
       "suite": "p2p-webrtc",
       "category": "static"
@@ -541,58 +576,9 @@
       "category": "static"
     },
     {
-      "name": "rules-01-driver-get",
-      "status": "PASS",
-      "detail": "",
-      "suite": "p2p-webrtc",
-      "category": "rules"
-    },
-    {
-      "name": "rules-02-customer-get",
-      "status": "PASS",
-      "detail": "",
-      "suite": "p2p-webrtc",
-      "category": "rules"
-    },
-    {
-      "name": "03-unrelated-customer-denied-rules",
-      "status": "PASS",
-      "detail": "",
-      "suite": "p2p-webrtc",
-      "category": "rules"
-    },
-    {
-      "name": "06-anonymous-denied-rules",
-      "status": "PASS",
-      "detail": "",
-      "suite": "p2p-webrtc",
-      "category": "rules"
-    },
-    {
-      "name": "07-list-query-denied",
-      "status": "PASS",
-      "detail": "rules-text",
-      "suite": "p2p-webrtc",
-      "category": "rules"
-    },
-    {
-      "name": "rules-client-write-denied",
-      "status": "PASS",
-      "detail": "rules-text",
-      "suite": "p2p-webrtc",
-      "category": "rules"
-    },
-    {
-      "name": "rules-client-delete-denied",
-      "status": "PASS",
-      "detail": "same write deny",
-      "suite": "p2p-webrtc",
-      "category": "rules"
-    },
-    {
-      "name": "08-terminal-ride-get-denied-rules",
-      "status": "PASS",
-      "detail": "",
+      "name": "rules-env",
+      "status": "FAIL",
+      "detail": "request to http://127.0.0.1:8080/emulator/v1/projects/demo-swiftgo-phase1-p2p-rules:securityRules failed, reason: connect ECONNREFUSED 127.0.0.1:8080",
       "suite": "p2p-webrtc",
       "category": "rules"
     },
@@ -613,7 +599,7 @@
   ],
   "timings": {
     "P2P_SEND_INTERVAL_MS": 3000,
-    "P2P_FALLBACK_AFTER_MS": 12000,
+    "P2P_FALLBACK_AFTER_MS": 30000,
     "P2P_SPARSE_ENTER_HYSTERESIS_MS": 5000,
     "P2P_SPARSE_EXIT_HYSTERESIS_MS": 3000,
     "RESPONSIVE_INTERVAL_MS": 4000,

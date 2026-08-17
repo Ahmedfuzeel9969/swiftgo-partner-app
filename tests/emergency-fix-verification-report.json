@@ -1,0 +1,193 @@
+{
+  "generatedAt": "2026-08-04T14:47:13.545Z",
+  "pass": 37,
+  "fail": 0,
+  "items": [
+    {
+      "item": "200m movement threshold",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "item": "5-minute idle checkpoint",
+      "result": "PASS",
+      "detail": "300000"
+    },
+    {
+      "item": "30-second P2P fallback",
+      "result": "PASS",
+      "detail": "30000"
+    },
+    {
+      "item": "15-second Firebase backup",
+      "result": "PASS",
+      "detail": "15000"
+    },
+    {
+      "item": "SSoT monorepo imports retained in source",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "no duplicate 12s/10m literals",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "CFG aliases still re-export runtime",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/partner/js rewritten to ./ imports",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/partner/js/location-checkpoint-policy.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/partner/js/p2p-protocol.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/partner/js/live-location-render.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/partner/js/location-envelope.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/partner/js/phase1-billing-diagnostics.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/partner/js resolve ./location-checkpoint-policy.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\partner\\js\\location-checkpoint-policy.mjs"
+    },
+    {
+      "item": "hosting-dist/partner/js resolve ./p2p-protocol.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\partner\\js\\p2p-protocol.mjs"
+    },
+    {
+      "item": "hosting-dist/partner/js resolve ./live-location-render.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\partner\\js\\live-location-render.mjs"
+    },
+    {
+      "item": "hosting-dist/partner/js resolve ./location-envelope.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\partner\\js\\location-envelope.mjs"
+    },
+    {
+      "item": "hosting-dist/customer/js rewritten to ./ imports",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/customer/js/location-checkpoint-policy.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/customer/js/p2p-protocol.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/customer/js/live-location-render.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/customer/js/location-envelope.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/customer/js/phase1-billing-diagnostics.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/customer/js resolve ./location-checkpoint-policy.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\customer\\js\\location-checkpoint-policy.mjs"
+    },
+    {
+      "item": "hosting-dist/customer/js resolve ./p2p-protocol.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\customer\\js\\p2p-protocol.mjs"
+    },
+    {
+      "item": "hosting-dist/customer/js resolve ./live-location-render.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\customer\\js\\live-location-render.mjs"
+    },
+    {
+      "item": "hosting-dist/customer/js resolve ./location-envelope.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\customer\\js\\location-envelope.mjs"
+    },
+    {
+      "item": "hosting-dist/js rewritten to ./ imports",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/js/location-checkpoint-policy.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/js/p2p-protocol.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/js/live-location-render.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/js/location-envelope.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/js/phase1-billing-diagnostics.mjs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "hosting-dist/js resolve ./location-checkpoint-policy.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\js\\location-checkpoint-policy.mjs"
+    },
+    {
+      "item": "hosting-dist/js resolve ./p2p-protocol.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\js\\p2p-protocol.mjs"
+    },
+    {
+      "item": "hosting-dist/js resolve ./live-location-render.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\js\\live-location-render.mjs"
+    },
+    {
+      "item": "hosting-dist/js resolve ./location-envelope.mjs",
+      "result": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\js\\location-envelope.mjs"
+    }
+  ],
+  "status": "PASS"
+}

@@ -98,15 +98,60 @@ export function normalizeRadarDoc(sourceCollection, id, data) {
     estimatedFare,
     riderUserId: String(data.userId || data.riderId || ""),
     riderRating: Number(data.riderRating ?? data.customerRating) || null,
+    dispatchTraceId: String(data.dispatchTraceId || "").slice(0, 80),
     createdAtMs: timestampToMs(data.createdAt),
+    expiresAtMs: rideSearchDeadlineMs(data) || null,
+    searchExpireMs: Number(data.searchExpireMs) || null,
+    rawStatus: String(data.status || "searching_driver"),
   };
 }
 
 function timestampToMs(value) {
   if (!value) return 0;
+  if (typeof value.toMillis === "function") return value.toMillis();
   if (typeof value.toDate === "function") return value.toDate().getTime();
   if (typeof value.seconds === "number") return value.seconds * 1000;
+  if (typeof value === "number") return value;
   return 0;
+}
+
+/** Server rides.expiresAt (or createdAt + searchExpireMs) — same rule as customer ride-flow. */
+export function rideSearchDeadlineMs(ride) {
+  const explicitMs = Number(ride?.expiresAtMs);
+  if (Number.isFinite(explicitMs) && explicitMs > 0) return explicitMs;
+  const fromExpiresAt = timestampToMs(ride?.expiresAt);
+  if (fromExpiresAt > 0) return fromExpiresAt;
+  const created = timestampToMs(ride?.createdAt) || Number(ride?.createdAtMs) || 0;
+  const perRideMs = Number(ride?.searchExpireMs);
+  if (created > 0 && Number.isFinite(perRideMs) && perRideMs > 0) return created + perRideMs;
+  if (created > 0) return created + 180_000;
+  return 0;
+}
+
+function isTerminalSearchStatus(status) {
+  return (
+    status === "expired" ||
+    status === "no_driver_found" ||
+    status.startsWith("cancelled") ||
+    status === "completed"
+  );
+}
+
+export function isRideSearchExpired(ride, nowMs = Date.now()) {
+  // Radar list uses status "pending" for UI — rawStatus holds Firestore rides.status.
+  const status = String(ride?.rawStatus || ride?.status || "");
+  if (isTerminalSearchStatus(status)) return true;
+  if (status && status !== "searching_driver" && status !== "pending") return true;
+  const deadline = rideSearchDeadlineMs(ride);
+  return deadline > 0 && nowMs >= deadline;
+}
+
+function isRadarRideExpired(ride, nowMs = Date.now()) {
+  const status = String(ride?.rawStatus || "searching_driver");
+  if (isTerminalSearchStatus(status)) return true;
+  if (status !== "searching_driver") return true;
+  const deadline = rideSearchDeadlineMs(ride);
+  return deadline > 0 && nowMs >= deadline;
 }
 
 /**
@@ -186,13 +231,32 @@ function classifyListenerError(err) {
   return "listen_error";
 }
 
+function usableCandidateRidePreview(preview) {
+  return (
+    preview &&
+    typeof preview === "object" &&
+    String(preview.status || "") === "searching_driver" &&
+    Number.isFinite(Number(preview.pickupLocation?.lat)) &&
+    Number.isFinite(Number(preview.pickupLocation?.lng)) &&
+    Number.isFinite(Number(preview.dropoffLocation?.lat)) &&
+    Number.isFinite(Number(preview.dropoffLocation?.lng))
+  );
+}
+
 /**
  * @param {string} driverUid
  * @param {(state: { rides: RadarRide[], source: "cache"|"remote", syncing: boolean, savedAt?: string, invitedCandidateCount?: number, rideFetchErrors?: number, listenerError?: string }) => void} onData
  * @param {() => { lat: number, lng: number } | null} getDriverPosition
  * @param {() => boolean} [getIsBusy] — when true, no radar feed (driver on active ride)
+ * @param {(ride: RadarRide, meta: { candidateId: string, receivedAtMs: number }) => void} [onCandidateHydrated]
  */
-export function subscribePendingRadarRides(driverUid, onData, getDriverPosition, getIsBusy) {
+export function subscribePendingRadarRides(
+  driverUid,
+  onData,
+  getDriverPosition,
+  getIsBusy,
+  onCandidateHydrated = () => {}
+) {
   if (!driverUid) return () => {};
   if (getIsBusy?.()) {
     onData({ rides: [], source: "remote", syncing: false });
@@ -201,8 +265,10 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition,
 
   const cached = readCachedRadarRides(driverUid);
   if (cached) {
+    const now = Date.now();
+    const alive = cached.rides.filter((r) => !isRadarRideExpired(r, now));
     onData({
-      rides: enrichRadarList(cached.rides, getDriverPosition()),
+      rides: enrichRadarList(alive, getDriverPosition()),
       source: "cache",
       syncing: true,
       savedAt: cached.savedAt,
@@ -222,6 +288,8 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition,
 
   const merged = new Map();
   let stopped = false;
+  /** @type {ReturnType<typeof setInterval> | null} */
+  let expiryTick = null;
 
   const emit = (syncing, meta = {}) => {
     if (stopped) return;
@@ -229,7 +297,9 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition,
       onData({ rides: [], source: "remote", syncing: false });
       return;
     }
-    const list = enrichRadarList([...merged.values()], getDriverPosition());
+    const now = Date.now();
+    const alive = [...merged.values()].filter((r) => !isRadarRideExpired(r, now));
+    const list = enrichRadarList(alive, getDriverPosition());
     persistRadar(
       driverUid,
       list.map(({ bidOptions, pickupDistanceKm, tripDistanceKm, riderRatingDisplay, ...core }) => core)
@@ -267,24 +337,33 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition,
           const rideId = cand.rideId;
           if (!rideId) return;
           try {
-            const rideSnap = await getDoc(doc(db, "rides", rideId));
-            if (!rideSnap.exists()) {
-              rideFetchErrors += 1;
-              return;
+            // New candidates contain a trusted server-written card preview.
+            // Legacy candidates still use the canonical ride read as fallback.
+            let data = cand.ridePreview;
+            if (!usableCandidateRidePreview(data)) {
+              const rideSnap = await getDoc(doc(db, "rides", rideId));
+              if (!rideSnap.exists()) {
+                rideFetchErrors += 1;
+                return;
+              }
+              data = rideSnap.data() || {};
             }
-            const data = rideSnap.data() || {};
             if (data.status !== "searching_driver") return;
-            next.set(
-              `rides:${rideId}`,
-              normalizeRadarDoc("rides", rideId, {
-                ...data,
-                candidateDistanceKm: cand.distanceKm,
-                candidateRingKm: cand.ringKm,
-              })
-            );
+            if (isRideSearchExpired(data)) return;
+            const ride = normalizeRadarDoc("rides", rideId, {
+              ...data,
+              dispatchTraceId: cand.dispatchTraceId || data.dispatchTraceId || "",
+              candidateDistanceKm: cand.distanceKm,
+              candidateRingKm: cand.ringKm,
+            });
+            next.set(`rides:${rideId}`, ride);
+            onCandidateHydrated(ride, {
+              candidateId: candDoc.id,
+              receivedAtMs: Date.now(),
+            });
           } catch (err) {
             rideFetchErrors += 1;
-            console.warn("[SwiftGo Radar] ride get", rideId, err);
+            console.warn("[SwiftGo Radar] candidate hydrate", rideId, err);
           }
         })
       );
@@ -307,8 +386,11 @@ export function subscribePendingRadarRides(driverUid, onData, getDriverPosition,
     }
   );
 
+  expiryTick = setInterval(() => emit(false), 1000);
+
   return () => {
     stopped = true;
+    if (expiryTick) clearInterval(expiryTick);
     unsubCand();
   };
 }

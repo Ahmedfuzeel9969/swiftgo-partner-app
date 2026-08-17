@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Nastaliq+Urdu:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="css/admin-style.css?v=dispatch_dynamic_1" />
+  <link rel="stylesheet" href="css/admin-style.css?v=sidebar_actions_only_1" />
 </head>
 <body>
   <!-- Login gate -->
@@ -109,6 +109,16 @@
           <span class="admin-nav-item__en">Recharge Requests</span>
         </button>
       </nav>
+      <div class="admin-sidebar__account" id="adminSidebarAccount">
+        <div class="admin-sidebar__identity">
+          <strong id="adminSidebarDisplayName">—</strong>
+          <span id="adminSidebarDisplayEmail">—</span>
+        </div>
+        <div class="admin-sidebar__account-actions">
+          <button type="button" class="admin-logout-btn" id="openNotificationSettingsBtnSidebar">نوٹیفکیشن</button>
+          <button type="button" class="admin-logout-btn" id="adminLogoutBtnSidebar">Logout</button>
+        </div>
+      </div>
     </aside>
 
     <div class="admin-main">
@@ -122,16 +132,6 @@
           <div class="admin-topbar__title">
             <p class="admin-topbar__eyebrow">Command Center</p>
             <h1 id="adminViewTitle">ڈیش بورڈ</h1>
-          </div>
-        </div>
-        <div class="admin-topbar__user">
-          <div class="admin-topbar__identity">
-            <strong id="adminDisplayName">—</strong>
-            <span id="adminDisplayEmail">—</span>
-          </div>
-          <div class="admin-topbar__actions">
-            <button type="button" class="admin-logout-btn admin-topbar__action" id="openNotificationSettingsBtn">نوٹیفکیشن</button>
-            <button type="button" class="admin-logout-btn admin-topbar__action" id="adminLogoutBtn">Logout</button>
           </div>
         </div>
       </header>
@@ -282,12 +282,32 @@
         </div>
 
         <div class="admin-view" id="viewFinance" data-view-panel="finance" hidden>
-          <div class="finance-panel finance-panel--wide">
+          <div class="finance-tabs" id="financeTabs" role="tablist" aria-label="مالی کنٹرول سیکشنز">
+            <button type="button" class="finance-tab is-active" role="tab" id="financeTabRates" data-finance-tab="rates" aria-selected="true" aria-controls="financeSectionRates">
+              ریٹس
+              <span>Rates</span>
+            </button>
+            <button type="button" class="finance-tab" role="tab" id="financeTabDispatch" data-finance-tab="dispatch" aria-selected="false" aria-controls="financeSectionDispatch">
+              ڈسپیچ
+              <span>Dispatch</span>
+            </button>
+            <button type="button" class="finance-tab" role="tab" id="financeTabLatency" data-finance-tab="latency" aria-selected="false" aria-controls="financeSectionLatency">
+              لیٹنسی
+              <span>Latency</span>
+            </button>
+            <button type="button" class="finance-tab" role="tab" id="financeTabPromo" data-finance-tab="promo" aria-selected="false" aria-controls="financeSectionPromo">
+              پرومو
+              <span>Promo</span>
+            </button>
+          </div>
+
+          <div class="finance-section is-active" id="financeSectionRates" data-finance-section="rates" role="tabpanel" aria-labelledby="financeTabRates">
+          <div class="finance-panel finance-panel--wide finance-panel--compact">
             <div class="finance-panel__head">
-              <h2>مالی کنٹرول</h2>
-              <p>ہر گاڑی · فاصلہ رینج · وقت/رفتار ریٹس · <code>settings/pricing.vehicles</code></p>
+              <h2>گاڑی ریٹس</h2>
+              <p>ہر گاڑی · بیس / فی کلومیٹر / کمیشن · <code>settings/pricing.vehicles</code></p>
             </div>
-            <form class="finance-form" id="pricingSettingsForm" novalidate>
+            <form class="finance-form finance-form--compact" id="pricingSettingsForm" novalidate>
               <div class="vehicle-rate-grid" id="vehicleRateGrid" aria-label="Per vehicle rates">
                 <!-- bike -->
                 <section class="vehicle-rate-card" data-vehicle-key="bike">
@@ -447,12 +467,16 @@
               </p>
               <p class="admin-live-note" id="pricingStatusNote" role="status" aria-live="polite"></p>
             </form>
+          </div>
+          </div>
 
-            <div class="finance-panel__head" style="margin-top:1.5rem">
+          <div class="finance-section" id="financeSectionDispatch" data-finance-section="dispatch" role="tabpanel" aria-labelledby="financeTabDispatch" hidden>
+          <div class="finance-panel finance-panel--wide finance-panel--compact">
+            <div class="finance-panel__head">
               <h2>ڈسپیچ · امیدوار ڈرائیورز</h2>
               <p>نئی بکنگ کتنے قریبی ڈرائیورز کو دکھے · <code>settings/dispatch</code></p>
             </div>
-            <form class="finance-form" id="dispatchSettingsForm" novalidate>
+            <form class="finance-form finance-form--compact finance-form--dispatch" id="dispatchSettingsForm" novalidate>
               <label class="finance-field" for="candidateDriverLimit">
                 <span class="finance-field__label" id="candidateDriverLimitLabel">امیدوار ڈرائیور حد / Candidate driver limit</span>
                 <input
@@ -565,8 +589,47 @@
               <p class="admin-live-note" id="dispatchStatusNote" role="status" aria-live="polite"></p>
             </form>
           </div>
+          </div>
+
+          <div class="finance-section" id="financeSectionLatency" data-finance-section="latency" role="tabpanel" aria-labelledby="financeTabLatency" hidden>
+          <div class="finance-panel finance-panel--wide finance-panel--compact">
+            <div class="finance-panel__head">
+              <h2>ڈسپیچ لیٹنسی · آج</h2>
+              <p>Driver delivery receipts سے آج کی SLO · <code>ops_metrics / dispatch_delivery</code></p>
+            </div>
+            <div class="dispatch-slo-panel dispatch-slo-panel--standalone" id="dispatchSloPanel" aria-live="polite">
+              <div class="dispatch-slo-grid">
+                <div class="dispatch-slo-stat">
+                  <span class="dispatch-slo-stat__label">Receipts</span>
+                  <strong class="dispatch-slo-stat__value" id="dispatchSloReceipts">—</strong>
+                </div>
+                <div class="dispatch-slo-stat">
+                  <span class="dispatch-slo-stat__label">Avg delivery</span>
+                  <strong class="dispatch-slo-stat__value" id="dispatchSloAvgDelivery">—</strong>
+                </div>
+                <div class="dispatch-slo-stat">
+                  <span class="dispatch-slo-stat__label">Booking → candidate</span>
+                  <strong class="dispatch-slo-stat__value" id="dispatchSloBookingToCandidate">—</strong>
+                </div>
+                <div class="dispatch-slo-stat">
+                  <span class="dispatch-slo-stat__label">≤ 5s rate</span>
+                  <strong class="dispatch-slo-stat__value" id="dispatchSloWithin5s">—</strong>
+                </div>
+              </div>
+              <p class="dispatch-slo-buckets" id="dispatchSloBuckets">Buckets: —</p>
+              <div class="dispatch-slo-actions">
+                <button type="button" class="finance-save-btn finance-save-btn--secondary" id="dispatchSloRefreshBtn">
+                  تازہ کریں
+                  <span class="finance-save-btn__en">Refresh SLO</span>
+                </button>
+              </div>
+              <p class="admin-live-note" id="dispatchSloNote" role="status" aria-live="polite"></p>
+            </div>
+          </div>
+          </div>
 
           <!-- Phase 42: Promo codes -->
+          <div class="finance-section" id="financeSectionPromo" data-finance-section="promo" role="tabpanel" aria-labelledby="financeTabPromo" hidden>
           <div class="promo-panel">
             <div class="promo-panel__head">
               <h2>پرومو کوڈز</h2>
@@ -614,6 +677,7 @@
               </table>
             </div>
             <p class="admin-live-note" id="promoCodesLiveNote" role="status" aria-live="polite"></p>
+          </div>
           </div>
         </div>
 
@@ -719,6 +783,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script type="module" src="js/admin-app.js?v=dispatch_dynamic_1"></script>
+  <script type="module" src="js/admin-app.js?v=sidebar_actions_only_1"></script>
 </body>
 </html>

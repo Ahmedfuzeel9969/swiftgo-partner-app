@@ -18,6 +18,8 @@ import {
 } from "./offer-client.js";
 import { checkCustomerBookingGate, listActiveCustomerBookings } from "./booking-gate.js";
 import {
+  bindDispatchSession,
+  createDispatchTraceId,
   startDispatchSession,
   markT1RideCreated,
   markT2MatchFromCreate,
@@ -53,6 +55,7 @@ import { createDisplayLocationPipeline } from "./display-location-pipeline.mjs";
 import { getMap, setAssignedDriverLocation } from "./map.js";
 import { getFirebase } from "./firebase.js";
 import { createRideLocationReportClient } from "./ride-location-report-client.mjs";
+import { createCustomerP2pBackgroundKeepalive } from "./p2p-background-keepalive.mjs";
 
 const SEARCH_TIMEOUT_MS = 180_000;
 const TRACKABLE_VIEW_STATUSES = new Set(["accepted", "arrived", "in_progress"]);
@@ -112,6 +115,8 @@ let displayPipeline = null;
 let customerLocationReport = null;
 let detachBrowserLifecycle = () => {};
 let detachingFromLifecycle = false;
+/** Android foreground service keeps the WebView process eligible for active P2P in background. */
+const customerP2pBackgroundKeepalive = createCustomerP2pBackgroundKeepalive();
 
 function ensureCustomerLocationReport() {
   if (customerLocationReport) return customerLocationReport;
@@ -182,7 +187,7 @@ function viewerDiag(code) {
   }
 }
 
-function clearLiveSubscriptions() {
+function clearLiveSubscriptions({ preserveP2p = false } = {}) {
   unsubscribeRide();
   unsubscribeRide = () => {};
   unsubscribeOffers();
@@ -191,7 +196,10 @@ function clearLiveSubscriptions() {
   unsubscribeVehicle = () => {};
   watchedVehicleId = "";
   stopDriverTrack();
-  void customerP2p?.stop({ closeRemote: false });
+  if (!preserveP2p) {
+    void customerP2p?.stop({ closeRemote: false });
+    void customerP2pBackgroundKeepalive.stop();
+  }
   twoLegRoutes?.setVisible(false);
 }
 
@@ -274,6 +282,9 @@ function ensureTwoLegRoutes() {
   displayPipeline = createDisplayLocationPipeline({
     onDisplayFrame: paintDisplayFrame,
     onRawFallback: paintDisplayFrame,
+    onRouteProgress: (progressM, activeLeg) => {
+      twoLegLayers?.setProgress?.(progressM, activeLeg);
+    },
     onDiag: (code) => {
       try {
         console.info(JSON.stringify({ type: "snap_diag", reason: String(code || "") }));
@@ -438,6 +449,7 @@ function ensureRideViewLifecycle() {
       if (!ride) {
         stopDriverTrack();
         void customerP2p?.stop({ closeRemote: true });
+        void customerP2pBackgroundKeepalive.stop();
         clearTwoLegRoutes();
         activeRide = null;
         clearActiveRideId();
@@ -480,7 +492,9 @@ function ensureRideViewLifecycle() {
     unsubscribeLive: () => {
       detachingFromLifecycle = true;
       try {
-        clearLiveSubscriptions();
+        // Customer background policy: Firebase listeners/rendering stop, but the
+        // active P2P session and Android keepalive remain alive until terminal.
+        clearLiveSubscriptions({ preserveP2p: true });
       } finally {
         detachingFromLifecycle = false;
       }
@@ -495,12 +509,14 @@ function ensureRideViewLifecycle() {
       if (activeRide) {
         customerP2p?.syncForRide(activeRide, { isVisible: true });
         syncTwoLegForRide(activeRide, { isVisible: true });
+        void customerP2pBackgroundKeepalive.syncForRide(activeRide);
       }
     },
     stopPresenceHeartbeat: () => {
       presenceClient?.stop();
       customerP2p?.setVisible(false);
       twoLegRoutes?.setVisible(false);
+      // Do not stop P2P or native keepalive here: this is the background path.
     },
   });
 
@@ -1037,6 +1053,7 @@ function showActiveRideState(status = "accepted") {
   const visible =
     typeof document === "undefined" || document.visibilityState !== "hidden";
   customerP2p?.syncForRide(activeRide, { isVisible: visible });
+  void customerP2pBackgroundKeepalive.syncForRide(activeRide);
   syncTwoLegForRide(activeRide, { isVisible: visible });
   if (!customerP2p && activeRide) updateDriverTrack(activeRide);
 
@@ -1050,6 +1067,7 @@ function showActiveRideState(status = "accepted") {
 function showInvoicePanel(ride) {
   stopDriverTrack();
   void customerP2p?.stop({ closeRemote: true });
+  void customerP2pBackgroundKeepalive.stop();
   clearTwoLegRoutes();
   els.searchingPanel?.classList.remove("is-visible");
   els.activePanel?.classList.remove("is-visible");
@@ -1106,6 +1124,7 @@ function resetToVehicleSelection(messageKey) {
   stopRideWatch();
   stopDriverTrack();
   void customerP2p?.stop({ closeRemote: true });
+  void customerP2pBackgroundKeepalive.stop();
   clearTwoLegRoutes();
   activeRide = null;
   clearActiveRideId();
@@ -1183,6 +1202,7 @@ function handleRideSnapshot(rawRide) {
     const visible =
       typeof document === "undefined" || document.visibilityState !== "hidden";
     customerP2p?.syncForRide(ride, { isVisible: visible });
+    void customerP2pBackgroundKeepalive.syncForRide(ride);
     syncTwoLegForRide(ride, { isVisible: visible });
     if (ride?.driverLocation) {
       customerP2p?.ingestFirebaseLocation(ride.driverLocation, ride);
@@ -1217,11 +1237,13 @@ function handleRideSnapshot(rawRide) {
   } else if (ride.status === "declined") {
     stopDriverTrack();
     void customerP2p?.stop({ closeRemote: true });
+    void customerP2pBackgroundKeepalive.stop();
     clearTwoLegRoutes();
     if (previousStatus !== "declined") resetToVehicleSelection("driverDeclined");
   } else if (ride.status === "completed") {
     stopDriverTrack();
     void customerP2p?.stop({ closeRemote: true });
+    void customerP2pBackgroundKeepalive.stop();
     clearTwoLegRoutes();
     if (previousStatus !== "completed") {
       stopRideWatch();
@@ -1263,6 +1285,8 @@ function handleRideSnapshot(rawRide) {
 export async function startRideRequest(state) {
   if (requesting || activeRide) return null;
   requesting = true;
+  onToast?.("بکنگ بنائی جا رہی ہے…");
+  announce("بکنگ بنائی جا رہی ہے");
 
   const route = getRouteInfo();
   const vehicleKey = state.vehicle || "";
@@ -1381,9 +1405,12 @@ export async function startRideRequest(state) {
     }
     pendingExtraBookingConfirm = false;
 
+    const dispatchTraceId = createDispatchTraceId();
+    startDispatchSession(dispatchTraceId);
     const bookT0 = performance.now();
     const created = await createCustomerBookingClient({
       confirmedExtraBooking: true,
+      dispatchTraceId,
       pickupLocation: {
         lat: route.pickup?.lat,
         lng: route.pickup?.lng,
@@ -1413,10 +1440,11 @@ export async function startRideRequest(state) {
       throw new Error("MISSING_RIDE_ID");
     }
 
-    startDispatchSession(rideId);
+    bindDispatchSession(rideId, dispatchTraceId);
     markT1RideCreated(rideId, {
       cfMs: Math.round(performance.now() - bookT0),
       serverLatencyMs: created.latencyMs ?? null,
+      dispatchTraceId,
     });
     markT2MatchFromCreate(rideId, {
       candidateCount: created.candidateCount ?? 0,
@@ -1442,9 +1470,6 @@ export async function startRideRequest(state) {
     showSearchingState();
     startSearchTimers(ride.id);
     attachRideWatch(ride.id);
-    if (!created.candidateCount && created.matchingStatus !== "candidates_ready") {
-      await matchCandidatesForRide(ride.id);
-    }
     const invited = created.matchingStatus === "candidates_ready" || Number(created.candidateCount) > 0;
     if (invited) {
       onToast?.(

@@ -2,6 +2,7 @@
 
 **Status:** **CLOSED / FROZEN**  
 **Recovery tag:** `ssot/package1-complete-20260806`  
+**Recovery commit:** `d32837b`  
 **Physical verification:** **PASS** (operator sign-off 2026-08-06)  
 **Live deploy:** `https://swiftgo-ride-app.web.app/partner/` · `js/driver-app.js?v=package1_ssot_step2_delete_1`
 

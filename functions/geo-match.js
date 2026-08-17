@@ -25,6 +25,23 @@ const {
 /** Cap geo cell fan-out per ring so large admin radius cannot spawn thousands of queries. */
 const MAX_GEO_CELLS_PER_RING = 48;
 const MAX_GEO_QUERY_BATCHES_PER_RING = 8;
+/** Bound parallel Firestore `in` queries: reduce serial latency without a fan-out burst. */
+const GEO_QUERY_CONCURRENCY = 4;
+
+async function runWithConcurrency(items, maxConcurrency, work) {
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.min(Math.max(1, maxConcurrency), items.length) },
+    async () => {
+      while (next < items.length) {
+        const index = next;
+        next += 1;
+        await work(items[index]);
+      }
+    }
+  );
+  await Promise.all(workers);
+}
 
 function toMillis(ts) {
   if (ts == null) return null;
@@ -112,8 +129,8 @@ async function loadAndSelectGeoCandidates(db, pickup, limit, opts = {}) {
       metrics.geoQueryBatchesCapped = true;
     }
 
-    for (const group of groups) {
-      if (!group.length) continue;
+    await runWithConcurrency(groups, GEO_QUERY_CONCURRENCY, async (group) => {
+      if (!group.length) return;
       metrics.queryCount += 1;
       try {
         const snap = await db
@@ -142,7 +159,7 @@ async function loadAndSelectGeoCandidates(db, pickup, limit, opts = {}) {
         metrics.queryErrors = (metrics.queryErrors || 0) + 1;
         console.warn("[geo-match] vehicle query failed:", String(queryErr?.message || queryErr));
       }
-    }
+    });
   }
 
   async function enrichPartners() {

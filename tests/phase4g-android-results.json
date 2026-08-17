@@ -1,7 +1,7 @@
 {
   "phase": "4G",
-  "generatedAt": "2026-07-28T10:44:59.721Z",
-  "pass": 24,
+  "generatedAt": "2026-08-17T05:34:48.132Z",
+  "pass": 31,
   "fail": 0,
   "blocked": 0,
   "results": [
@@ -27,6 +27,21 @@
     },
     {
       "name": "customer-deep-link",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer-p2p-keepalive-service-declared",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer-p2p-keepalive-service-java",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer-p2p-keepalive-plugin-java",
       "status": "PASS",
       "detail": ""
     },
@@ -62,6 +77,26 @@
     },
     {
       "name": "partner-fg-service-location",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "partner-location-service-declared",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "partner-location-service-java",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "partner-location-plugin-java",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "partner-bg-uploader-java",
       "status": "PASS",
       "detail": ""
     },

@@ -23,6 +23,7 @@ import { resolveDisplayHeading } from "./marker-heading.mjs";
  *   onRawFallback?: (fix: object) => void,
  *   onDiag?: (code: string) => void,
  *   onRerouteNeeded?: (info: {leg: string, origin: object, destination: object}) => void,
+ *   onRouteProgress?: (progressM: number, activeLeg: string) => void,
  *   nowMs?: () => number,
  *   raf?: Function,
  *   caf?: Function,
@@ -50,6 +51,13 @@ export function createDisplayLocationPipeline(opts = {}) {
         accuracyM: lastAccuracyM,
       });
       if (heading.headingDeg != null) lastHeading = heading.headingDeg;
+      if (Number.isFinite(pos.progressM)) {
+        try {
+          opts.onRouteProgress?.(pos.progressM, leg);
+        } catch {
+          /* ignore */
+        }
+      }
       onDisplay({
         ...pos,
         headingDeg: heading.headingDeg,
@@ -234,6 +242,11 @@ export function createDisplayLocationPipeline(opts = {}) {
       };
       counters.acceptedProjections += 1;
       if (projected.diag) diag(projected.diag);
+      try {
+        opts.onRouteProgress?.(prog.progressM, leg);
+      } catch {
+        /* ignore */
+      }
       motion.setImmediate(metrics, prog.progressM);
       return {
         mode: "snap",
@@ -259,6 +272,13 @@ export function createDisplayLocationPipeline(opts = {}) {
     };
     counters.acceptedProjections += 1;
     if (projected.diag) diag(projected.diag);
+
+    // Trim remaining route line immediately (Google Maps-style), then animate marker.
+    try {
+      opts.onRouteProgress?.(prog.progressM, leg);
+    } catch {
+      /* ignore */
+    }
 
     motion.animateTo({
       metrics,

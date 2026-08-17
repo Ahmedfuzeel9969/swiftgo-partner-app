@@ -1,0 +1,116 @@
+{
+  "suite": "cross-device-validation",
+  "phase": 4,
+  "title": "Cross-device validation report",
+  "generatedAt": "2026-08-04T14:47:11.304Z",
+  "method": "Code-path + shared-module proof (Driver runtime → shared diagnostics → Customer diagnostics → observed arbiter/checkpoint behaviour). Physical dual-handset field run not executed in this agent environment.",
+  "chain": [
+    "Driver runtime (location-checkpoint-policy + p2p-protocol)",
+    "Diagnostics CFG_* (shared/js/phase1-billing-diagnostics.mjs)",
+    "Customer diagnostics (same shared via wrapper)",
+    "Observed behaviour (customer arbiter fallback + driver checkpoint when P2P unhealthy)"
+  ],
+  "pass": 19,
+  "fail": 0,
+  "items": [
+    {
+      "item": "driver↔customer P2P_FALLBACK_AFTER_MS",
+      "result": "PASS",
+      "detail": "30000==30000"
+    },
+    {
+      "item": "driver↔customer P2P_DEGRADED_AFTER_MS",
+      "result": "PASS",
+      "detail": "9000"
+    },
+    {
+      "item": "driver↔customer FIREBASE_BACKUP_READ",
+      "result": "PASS",
+      "detail": "15000"
+    },
+    {
+      "item": "driver↔customer P2P_SEND_INTERVAL",
+      "result": "PASS",
+      "detail": "3000"
+    },
+    {
+      "item": "Driver runtime → Diagnostics movement",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "item": "Driver runtime → Diagnostics responsive",
+      "result": "PASS",
+      "detail": "4000"
+    },
+    {
+      "item": "Driver runtime → Diagnostics idle",
+      "result": "PASS",
+      "detail": "300000"
+    },
+    {
+      "item": "Driver runtime → Diagnostics P2P fallback",
+      "result": "PASS",
+      "detail": "30000"
+    },
+    {
+      "item": "Driver diagnostics wrapper → shared",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "Customer diagnostics wrapper → shared",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "item": "Driver≡Customer diagnostic CFG fallback",
+      "result": "PASS",
+      "detail": "30000"
+    },
+    {
+      "item": "Customer PHASE1_P2P_CONFIG ≡ protocol",
+      "result": "PASS",
+      "detail": "30000"
+    },
+    {
+      "item": "Customer PHASE1 freshness ≡ render",
+      "result": "PASS",
+      "detail": "15000/45000"
+    },
+    {
+      "item": "Observed behaviour: customer arbiter fallback uses same 30s",
+      "result": "PASS",
+      "detail": "preferred=firebase"
+    },
+    {
+      "item": "Observed behaviour: driver checkpoint responsive when P2P down",
+      "result": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "item": "Chain consistency: move threshold across reports",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "item": "Chain consistency: approach/trip intervals",
+      "result": "PASS",
+      "detail": "60000/30000"
+    },
+    {
+      "item": "Chain consistency: backup read",
+      "result": "PASS",
+      "detail": "15000"
+    },
+    {
+      "item": "driver↔customer p2p-protocol.mjs identical",
+      "result": "PASS",
+      "detail": "bytes=5646"
+    }
+  ],
+  "fieldPending": [
+    "Physical Driver+Customer phones observing Diagnostics screen copy reports side-by-side during a live ride"
+  ],
+  "status": "PASS — awaiting approval for Phase 5"
+}

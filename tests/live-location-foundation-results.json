@@ -1,0 +1,853 @@
+{
+  "pass": 114,
+  "fail": 0,
+  "blocked": 0,
+  "total": 114,
+  "summary": {
+    "unit": {
+      "pass": 76,
+      "fail": 0,
+      "blocked": 0
+    },
+    "emulator": {
+      "pass": 12,
+      "fail": 0,
+      "blocked": 0
+    },
+    "rules": {
+      "pass": 14,
+      "fail": 0,
+      "blocked": 0
+    },
+    "static": {
+      "pass": 12,
+      "fail": 0,
+      "blocked": 0
+    },
+    "writeEstimate": {
+      "estimate": true,
+      "activeRideMinutes": 20,
+      "fixEverySec": 4,
+      "currentArchitecture": {
+        "vehicleWrites": 300,
+        "clientRideWrites": 300,
+        "cfMirrorWrites": 300,
+        "totalFirestoreLocationWrites": 900
+      },
+      "phase1Repaired": {
+        "vehicleWrites": 300,
+        "clientRideWrites": 0,
+        "cfMirrorWrites": 300,
+        "totalFirestoreLocationWrites": 600
+      },
+      "futureP2PFallback": {
+        "vehicleWrites": 45,
+        "clientRideWrites": 0,
+        "cfMirrorWrites": 45,
+        "p2pUpdates": 255,
+        "totalFirestoreLocationWrites": 90,
+        "note": "Estimate only — P2P not implemented in Phase 1"
+      }
+    }
+  },
+  "results": [
+    {
+      "name": "01-valid-first-fix-accepted",
+      "status": "PASS",
+      "detail": "location_fix_accepted",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "02-invalid-lat-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "03-invalid-lng-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "04-poor-accuracy-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "05-duplicate-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "06-older-observedAt-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "07-lower-sequence-ignored",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "07b-equal-sequence-changed-coords-ooo",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "07c-equal-observedAt-increased-seq-ooo",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "08-new-session-accepted-when-start-newer",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "08b-new-sessionId-old-timestamp-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "08c-delayed-old-session-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "freshA-new-session-fresh-observedAt-accepted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "freshB-new-session-old-observedAt-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "freshC-new-session-future-observedAt-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "freshD-observedAt-inside-skew-tolerance-accepted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "freshE-same-session-ordering-unchanged",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "freshF-retired-session-still-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "freshG-first-ride-fix-requires-session-match",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "freshH-legacy-read-ok-enforced-write-not-bypassed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "sid-valid-min-length-3",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "sid-valid-64-char",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "sid-empty-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "sid-2-char-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "sid-65-char-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "sid-whitespace-only-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "sid-internal-spaces-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "sid-punctuation-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "sid-non-string-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "session-first-fix-matching-ids-pass",
+      "status": "PASS",
+      "detail": "ride_location_mirrored",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "session-first-fix-mismatch-fail",
+      "status": "PASS",
+      "detail": "location_fix_session_mismatch",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "session-later-fix-mismatch-fail",
+      "status": "PASS",
+      "detail": "location_fix_session_mismatch",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "session-missing-location-sessionId-fail",
+      "status": "PASS",
+      "detail": "location_fix_session_mismatch",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "session-legacy-evaluate-without-enforce-still-readable",
+      "status": "PASS",
+      "detail": "legacy evaluate ok; CF writes still enforce",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "session-enforce-first-fix-mismatch",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "09-impossible-jump-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "10-karachi-movement-accepted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "11-heading-preserved",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "12-null-heading-handled",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "13-derived-bearing-consecutive",
+      "status": "PASS",
+      "detail": "0",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "14-accepted-targets-pickup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "15-arrived-targets-pickup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "16-in-progress-targets-dropoff",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "17-terminal-stops-tracking",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "18-missing-pickup-safe",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "19-missing-dropoff-safe",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "coord-lat-0-valid",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "coord-lng-0-valid",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "coord-nan-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "coord-string-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "coord-out-of-range-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "fresh-receivedAt-wins-over-future-observedAt",
+      "status": "PASS",
+      "detail": "2647",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "fresh-timestamp-seconds-nanos",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "fresh-device-clock-10m-ahead-unknown",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "fresh-server-updatedAt-when-no-receivedAt",
+      "status": "PASS",
+      "detail": "600647",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "fresh-unknown-when-no-timestamps",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "25-delayed-after-threshold",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "26-stale-after-threshold",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "27-fresh-recovers",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "28-stale-stops-prediction",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "23-anim-follows-timestamps",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "24-interp-midpoint",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "heading-north-wrap",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "heading-rotation-gps-vs-derived",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "cf-tracking-in-progress-dropoff",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "write-estimate-phase1-lower",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "unit-terminal-ride-skip",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "queue-two-callbacks-one-session-start-stamp",
+      "status": "PASS",
+      "detail": "[{\"seq\":1,\"stamp\":true,\"sessionId\":\"s1\"},{\"seq\":2,\"stamp\":false,\"sessionId\":\"s1\"}]",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "queue-second-fix-follows-after-first",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "queue-three-rapid-coalesce-newest",
+      "status": "PASS",
+      "detail": "[1,3]",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "queue-offline-drops-pending",
+      "status": "PASS",
+      "detail": "[1]",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "queue-old-generation-cannot-write",
+      "status": "PASS",
+      "detail": "[2]",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "queue-completion-boundary-no-strand",
+      "status": "PASS",
+      "detail": "[1,99]",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "txn-race-newer-always-wins-x12",
+      "status": "PASS",
+      "detail": "ok=12/12",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "txn-race-distance-not-lost-or-doubled-x12",
+      "status": "PASS",
+      "detail": "ok=12/12",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "txn-retry-reevaluates-and-logs-once",
+      "status": "PASS",
+      "detail": "logs=1 seq=2",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "21-driver-no-direct-ride-location-write",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "static-session-server-timestamp",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "static-location-write-serializer",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "static-end-session-on-stop-watch",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "29-anim-cancel-terminal",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "30-anim-cancel-reassignment",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "31-simulated-traffic-not-live-label",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "32-privacy-safe-logs",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "33-ride-driverLocation-rule-retained",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "static-rules-session-immutability-helper",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "static-unknown-freshness-urdu",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "static-log-outside-transaction",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "static"
+    },
+    {
+      "name": "20-customer-receives-cf-mirrored-location",
+      "status": "PASS",
+      "detail": "ride_location_mirrored",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-concurrent-older-never-wins",
+      "status": "PASS",
+      "detail": "seq=3",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-duplicate-no-second-logical-update",
+      "status": "PASS",
+      "detail": "location_fix_duplicate",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "22-active-ride-distance-accumulation",
+      "status": "PASS",
+      "detail": "km=0.4",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-concurrent-correct-order-final",
+      "status": "PASS",
+      "detail": "seq=7",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-stress-race-newer-wins-x8",
+      "status": "PASS",
+      "detail": "ok=8/8 (write counts estimated)",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-terminal-no-update",
+      "status": "PASS",
+      "detail": "terminal_or_inactive",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-vehicle-mismatch-no-update",
+      "status": "PASS",
+      "detail": "vehicle_mismatch",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-seed-reads-vehicle-in-txn",
+      "status": "PASS",
+      "detail": "ride_location_mirrored",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-seed-rejects-session-mismatch",
+      "status": "PASS",
+      "detail": "location_fix_session_mismatch",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-trigger-mirrors-vehicle-write",
+      "status": "PASS",
+      "detail": "mirrored",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "emu-trigger-identical-update-idempotent",
+      "status": "PASS",
+      "detail": "updEq=true recv=true logs=0->0",
+      "suite": "live-location-foundation",
+      "category": "emulator"
+    },
+    {
+      "name": "rules-customer-can-read-own-mirrored-ride",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-unrelated-customer-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-unauthenticated-reader-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-assigned-driver-valid-envelope",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-other-driver-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-blocked-driver-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-matching-session-same-start-passes",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-mismatch-location-sessionId-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-same-session-changing-start-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-new-session-without-start-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-new-session-with-request-time-start-passes",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-independent-start-mutation-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-oversized-trackingSessionId-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    },
+    {
+      "name": "rules-invalid-trackingSessionId-charset-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "live-location-foundation",
+      "category": "rules"
+    }
+  ]
+}

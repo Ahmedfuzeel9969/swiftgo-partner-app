@@ -16,7 +16,7 @@ const MAX_SEARCH_RADIUS_METERS_EXTRA = 999;
 const MAX_DRIVER_OPEN_BARGAINS = 10;
 const MAX_CUSTOMER_ACTIVE_BOOKINGS = 4;
 /** Default stale threshold — mirrored in geo-cells.js STALE_LOCATION_MS. */
-const STALE_LOCATION_MS = 10 * 60 * 1000;
+const STALE_LOCATION_MS = 5 * 60 * 1000;
 /** Authoritative searching timeout — createdAt/expiresAt + this → terminal `expired`. */
 const SEARCH_EXPIRE_MS = 3 * 60 * 1000;
 

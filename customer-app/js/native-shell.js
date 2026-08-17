@@ -35,9 +35,12 @@ export async function getNetworkStatus() {
     return { connected: typeof navigator !== "undefined" ? navigator.onLine : true, connectionType: "unknown" };
   }
   try {
-    const mod = await import("@capacitor/network");
-    return await mod.Network.getStatus();
+    const native = window.Capacitor?.Plugins?.Network;
+    if (native?.getStatus) return await native.getStatus();
+    const mod = await import("https://cdn.jsdelivr.net/npm/@capacitor/network@6.0.3/+esm").catch(() => ({}));
+    if (mod?.Network?.getStatus) return await mod.Network.getStatus();
   } catch {
-    return { connected: navigator.onLine, connectionType: "unknown" };
+    /* fall through */
   }
+  return { connected: navigator.onLine, connectionType: "unknown" };
 }

@@ -62,34 +62,51 @@ export function resolveFreshness(ageMs) {
 }
 
 /**
- * Age of the mirrored driver location.
- * Priority:
- * 1. ride.driverLocation.receivedAt (server)
- * 2. ride.driverLocationUpdatedAt (server fallback)
- * 3. ride.driverLocation.observedAt (device — legacy only)
+ * Age of the mirrored driver location for UI freshness.
+ * Uses the newest trustworthy timestamp among server + client fields.
+ * Far-future device clocks (observedAt >> now) are ignored so they cannot
+ * force a permanent "fresh" state — and cannot hide a newer server time either.
  *
- * Future device clocks are not clamped to "fresh"; when only observedAt is
- * available and it is ahead of now, freshness is UNKNOWN.
+ * Candidates (newest wins):
+ * 1. ride.driverLocation.receivedAt (server)
+ * 2. ride.driverLocationUpdatedAt (server / arbiter)
+ * 3. ride.driverLocationReceivedAt (legacy client)
+ * 4. ride.driverLocation.observedAt (device) when not far ahead of now
+ *
+ * Why newest-wins: arbiter/P2P paints often keep a stale nested receivedAt via
+ * object spread while observedAt / driverLocationUpdatedAt are fresh. Preferring
+ * only receivedAt incorrectly showed "Fresh driver location unavailable".
  */
 export function locationAgeMs(ride, nowMs = Date.now()) {
   const loc = ride?.driverLocation;
+  const skewLimit = nowMs + 5_000;
+  const candidates = [];
+
   const receivedNested = timestampToMs(loc?.receivedAt);
-  if (receivedNested != null) return Math.max(0, nowMs - receivedNested);
+  if (receivedNested != null && receivedNested <= skewLimit) candidates.push(receivedNested);
 
   const updated = timestampToMs(ride?.driverLocationUpdatedAt);
-  if (updated != null) return Math.max(0, nowMs - updated);
+  if (updated != null && updated <= skewLimit) candidates.push(updated);
 
-  // Legacy client-only field (pre-Phase-1) — only if nested/server times absent.
   const legacyTop = timestampToMs(ride?.driverLocationReceivedAt);
-  if (legacyTop != null) return Math.max(0, nowMs - legacyTop);
+  if (legacyTop != null && legacyTop <= skewLimit) candidates.push(legacyTop);
 
   const observed = timestampToMs(loc?.observedAt);
-  if (observed == null) return null;
-  if (observed > nowMs + 5_000) {
-    // Device clock far ahead — do not treat as permanently fresh.
+  if (observed != null) {
+    if (observed > skewLimit) {
+      // Far-future device clock — ignore observedAt; fall through to other candidates.
+    } else {
+      candidates.push(observed);
+    }
+  }
+
+  if (!candidates.length) {
+    // Only a far-future observedAt (or nothing) → unknown freshness.
+    if (observed != null && observed > skewLimit) return null;
     return null;
   }
-  return Math.max(0, nowMs - observed);
+  const newest = Math.max(...candidates);
+  return Math.max(0, nowMs - newest);
 }
 
 export function computeAnimationDurationMs(prevObservedAt, nextObservedAt) {

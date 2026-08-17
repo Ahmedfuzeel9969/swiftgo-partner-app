@@ -1,0 +1,199 @@
+{
+  "generatedAt": "2026-08-17T05:32:19.493Z",
+  "mode": "dist",
+  "target": "F:\\ride-app\\hosting-dist",
+  "pass": 38,
+  "fail": 0,
+  "results": [
+    {
+      "name": "hosting-dist-exists",
+      "status": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist"
+    },
+    {
+      "name": "customer-root-html-loads",
+      "status": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\index.html"
+    },
+    {
+      "name": "customer-root-home-marker:id=\"screen-home\"",
+      "status": "PASS",
+      "detail": "index.html"
+    },
+    {
+      "name": "customer-root-home-marker:id=\"sheet\"",
+      "status": "PASS",
+      "detail": "index.html"
+    },
+    {
+      "name": "customer-root-home-marker:id=\"map\"",
+      "status": "PASS",
+      "detail": "index.html"
+    },
+    {
+      "name": "customer-root-entry-script",
+      "status": "PASS",
+      "detail": "js/app.js"
+    },
+    {
+      "name": "customer-root-entry-is-js",
+      "status": "PASS",
+      "detail": "js/app.js ct=text/javascript"
+    },
+    {
+      "name": "customer-root-import-graph-complete",
+      "status": "PASS",
+      "detail": "scanned=76"
+    },
+    {
+      "name": "customer-root-export-bindings-resolve",
+      "status": "PASS",
+      "detail": "modules=76"
+    },
+    {
+      "name": "customer-root-firebase-init-module",
+      "status": "PASS",
+      "detail": "js/firebase.js"
+    },
+    {
+      "name": "customer-root-p2p:p2p-ride-controller.mjs",
+      "status": "PASS",
+      "detail": "js/p2p-ride-controller.mjs"
+    },
+    {
+      "name": "customer-root-p2p:p2p-peer-session.mjs",
+      "status": "PASS",
+      "detail": "js/p2p-peer-session.mjs"
+    },
+    {
+      "name": "customer-alias-html-loads",
+      "status": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\customer\\index.html"
+    },
+    {
+      "name": "customer-alias-home-marker:id=\"screen-home\"",
+      "status": "PASS",
+      "detail": "customer/index.html"
+    },
+    {
+      "name": "customer-alias-home-marker:id=\"sheet\"",
+      "status": "PASS",
+      "detail": "customer/index.html"
+    },
+    {
+      "name": "customer-alias-home-marker:id=\"map\"",
+      "status": "PASS",
+      "detail": "customer/index.html"
+    },
+    {
+      "name": "customer-alias-entry-script",
+      "status": "PASS",
+      "detail": "js/app.js"
+    },
+    {
+      "name": "customer-alias-entry-is-js",
+      "status": "PASS",
+      "detail": "customer/js/app.js ct=text/javascript"
+    },
+    {
+      "name": "customer-alias-import-graph-complete",
+      "status": "PASS",
+      "detail": "scanned=76"
+    },
+    {
+      "name": "customer-alias-export-bindings-resolve",
+      "status": "PASS",
+      "detail": "modules=76"
+    },
+    {
+      "name": "customer-alias-firebase-init-module",
+      "status": "PASS",
+      "detail": "customer/js/firebase.js"
+    },
+    {
+      "name": "customer-alias-p2p:p2p-ride-controller.mjs",
+      "status": "PASS",
+      "detail": "customer/js/p2p-ride-controller.mjs"
+    },
+    {
+      "name": "customer-alias-p2p:p2p-peer-session.mjs",
+      "status": "PASS",
+      "detail": "customer/js/p2p-peer-session.mjs"
+    },
+    {
+      "name": "driver-html-loads",
+      "status": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\partner\\index.html"
+    },
+    {
+      "name": "driver-home-marker:id=\"driverHomeRoot\"",
+      "status": "PASS",
+      "detail": "partner/index.html"
+    },
+    {
+      "name": "driver-home-marker:js/driver-app.js",
+      "status": "PASS",
+      "detail": "partner/index.html"
+    },
+    {
+      "name": "driver-entry-script",
+      "status": "PASS",
+      "detail": "js/driver-app.js"
+    },
+    {
+      "name": "driver-entry-is-js",
+      "status": "PASS",
+      "detail": "partner/js/driver-app.js ct=text/javascript"
+    },
+    {
+      "name": "driver-import-graph-complete",
+      "status": "PASS",
+      "detail": "scanned=84"
+    },
+    {
+      "name": "driver-export-bindings-resolve",
+      "status": "PASS",
+      "detail": "modules=84"
+    },
+    {
+      "name": "driver-firebase-init-module",
+      "status": "PASS",
+      "detail": "partner/js/firebase.js"
+    },
+    {
+      "name": "driver-p2p:p2p-ride-controller.mjs",
+      "status": "PASS",
+      "detail": "partner/js/p2p-ride-controller.mjs"
+    },
+    {
+      "name": "driver-p2p:p2p-peer-session.mjs",
+      "status": "PASS",
+      "detail": "partner/js/p2p-peer-session.mjs"
+    },
+    {
+      "name": "driver-p2p:p2p-comm-panel.mjs",
+      "status": "PASS",
+      "detail": "partner/js/p2p-comm-panel.mjs"
+    },
+    {
+      "name": "asset-not-html:partner/js/phase1-billing-diagnostics.mjs",
+      "status": "PASS",
+      "detail": "ct=text/javascript len=12582"
+    },
+    {
+      "name": "asset-not-html:partner/js/route-provider-bootstrap.mjs",
+      "status": "PASS",
+      "detail": "ct=text/javascript len=1135"
+    },
+    {
+      "name": "asset-not-html:partner/js/p2p-comm-session.mjs",
+      "status": "PASS",
+      "detail": "ct=text/javascript len=15185"
+    },
+    {
+      "name": "asset-not-html:js/phase1-billing-diagnostics.mjs",
+      "status": "PASS",
+      "detail": "ct=text/javascript len=12582"
+    }
+  ]
+}

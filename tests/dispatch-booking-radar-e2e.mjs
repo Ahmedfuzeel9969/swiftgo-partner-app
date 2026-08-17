@@ -211,11 +211,13 @@ async function main() {
   let created;
   let bookingStartMs = 0;
   let bookingResponseMs = 0;
+  const dispatchTraceId = `dt_test_${Date.now().toString(36)}`;
   try {
     bookingStartMs = performance.now();
     created = (
       await httpsCallable(cust.functions, "createCustomerBooking")({
         confirmedExtraBooking: true,
+        dispatchTraceId,
         pickupLocation: pickup,
         dropoffLocation: dropoff,
         vehicleType: "Go",
@@ -251,6 +253,7 @@ async function main() {
     const t1 =
       ride.userId === customerUid &&
       ride.status === "searching_driver" &&
+      ride.dispatchTraceId === dispatchTraceId &&
       Number.isFinite(Number(ride.pickupLocation?.lat)) &&
       Number.isFinite(Number(ride.dropoffLocation?.lat)) &&
       ride.createdAt &&
@@ -258,6 +261,11 @@ async function main() {
       (ride.estimatedFare != null || ride.farePkr != null) &&
       ride.vehicleTypeKey;
     record("T1-ride-document-shape", t1 ? "PASS" : "FAIL");
+    record(
+      "T1-dispatch-trace-correlated",
+      created.dispatchTraceId === dispatchTraceId && ride.dispatchTraceId === dispatchTraceId ? "PASS" : "FAIL",
+      `trace=${ride.dispatchTraceId || "missing"}`
+    );
 
     record(
       "T2-matching-status",
@@ -282,8 +290,41 @@ async function main() {
       cand.rideId === rideId &&
       cand.driverId === driverUid &&
       cand.status === "invited" &&
+      cand.dispatchTraceId === dispatchTraceId &&
+      cand.ridePreview?.status === "searching_driver" &&
+      Number.isFinite(Number(cand.ridePreview?.pickupLocation?.lat)) &&
+      Number.isFinite(Number(cand.ridePreview?.dropoffLocation?.lat)) &&
       cand.createdAt;
     record("T4-candidate-doc", t4 ? "PASS" : "FAIL", candId);
+    record(
+      "T4-candidate-card-preview",
+      cand.ridePreview?.vehicleTypeKey === "go" && Number(cand.ridePreview?.estimatedFare) === 250
+        ? "PASS"
+        : "FAIL",
+      `vehicle=${cand.ridePreview?.vehicleTypeKey || "missing"} fare=${cand.ridePreview?.estimatedFare ?? "missing"}`
+    );
+
+    let deliveryReceipt;
+    try {
+      deliveryReceipt = (
+        await httpsCallable(drv.functions, "recordDispatchDeliveryReceipt")({
+          rideId,
+          dispatchTraceId,
+          clientReceivedAtMs: Date.now(),
+          clientRenderedAtMs: Date.now(),
+        })
+      )?.data;
+    } catch (err) {
+      deliveryReceipt = { ok: false, error: String(err?.message || err) };
+    }
+    const receiptSnap = await db.doc(`rides/${rideId}/dispatch_receipts/${driverUid}`).get();
+    record(
+      "T5-driver-delivery-receipt",
+      deliveryReceipt?.ok === true &&
+        receiptSnap.exists &&
+        receiptSnap.data()?.dispatchTraceId === dispatchTraceId,
+      `ok=${deliveryReceipt?.ok === true}`
+    );
 
     // T5 driver client query (same as ride-radar-service)
     const candQ = await driverCandidateQuery(drv.fsDb, driverUid);

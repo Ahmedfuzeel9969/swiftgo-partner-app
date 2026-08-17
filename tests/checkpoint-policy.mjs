@@ -27,6 +27,7 @@ import {
   BACKGROUND_APPROACH_INTERVAL_MS,
   BACKGROUND_TRIP_INTERVAL_MS,
   CHECKPOINT_POLICY,
+  IDLE_LOCATION_INTERVAL_MS,
   MIN_LOCATION_MOVE_M,
   RESPONSIVE_INTERVAL_MS,
   VIEWER_LEASE,
@@ -265,7 +266,7 @@ function unitPolicyTests() {
 
   record(
     "movement-threshold-documented",
-    MIN_LOCATION_MOVE_M === 10 ? "PASS" : "FAIL"
+    MIN_LOCATION_MOVE_M === 200 ? "PASS" : "FAIL"
   );
 
   const fakeLease = resolveViewerLeaseState({
@@ -435,9 +436,10 @@ async function unitPresenceConsumerTests() {
 
   const noRide = resolveCheckpointPolicy({ hasActiveRide: false });
   record(
-    "20-no-active-ride-preserves-dispatch-cadence",
+    "20-no-active-ride-idle-200m-or-5min",
     noRide.policy === CHECKPOINT_POLICY.NO_ACTIVE_RIDE &&
-      noRide.intervalMs === RESPONSIVE_INTERVAL_MS &&
+      noRide.intervalMs === IDLE_LOCATION_INTERVAL_MS &&
+      IDLE_LOCATION_INTERVAL_MS === 5 * 60_000 &&
       !noRide.hardInterval
       ? "PASS"
       : "FAIL"
