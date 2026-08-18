@@ -1,0 +1,119 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> ride-app@1.0.0 test:checkpoint-policy
+> firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 "node tests/checkpoint-policy.mjs"
+
+i  emulators: Starting emulators: auth, functions, firestore
+i  emulators: Detected demo project ID "demo-swiftgo-phase1", emulated services will use a demo configuration and attempts to access non-emulated services for this project will fail.
+i  firestore: Firestore Emulator logging to firestore-debug.log
++  firestore: Firestore Emulator was started in standard edition.
++  firestore: Firestore Emulator UI websocket is running on 9150.
+i  functions: Watching "F:\ride-app\functions" for Cloud Functions...
+!  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory.
+!  functions: Please note that there will be breaking changes when you upgrade.
+!  functions: Your requested "node" version "22" doesn't match your global version "24". Using node@24 from host.
+Serving at port 8960
+
++  functions: Loaded functions definitions from source: completeRideSettlement, bootstrapAdminClaim, initSuperAdminAccess, grantAdminClaim, revokeAdminClaim, setAdminEmailBootstrap, linkVehicleByPin, checkCustomerBookingGate, cancelAllSearchingBookings, createCustomerBooking, cancelCustomerBooking, previewCancellationFare, expireSearchingBooking, expireDueSearchingBookings, matchRideCandidates, submitRideOffer, counterRideOffer, rejectRideOffer, declineRideCandidate, withdrawRideOffer, cancelAssignedRideByDriver, cancelRideByAdmin, submitCompletedRideRating, finalizeAssignmentFromOffer, acceptCustomerInitialFare, setCandidateDriverLimit, saveAdminPricingSettings, getDispatchSettings, requestAccountDeletion, submitSupportReport, mirrorDriverLocationOnVehicleUpdate, getOpsHealthSummary, getGeoCellCoverageReport, refreshRideViewerPresence, createRidePeerOffer, publishRidePeerAnswer, closeRidePeerSession, submitRideBreadcrumbBatch.
++  functions[us-central1-completeRideSettlement]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/completeRideSettlement).
++  functions[us-central1-bootstrapAdminClaim]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/bootstrapAdminClaim).
++  functions[us-central1-initSuperAdminAccess]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/initSuperAdminAccess).
++  functions[us-central1-grantAdminClaim]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/grantAdminClaim).
++  functions[us-central1-revokeAdminClaim]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/revokeAdminClaim).
++  functions[us-central1-setAdminEmailBootstrap]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/setAdminEmailBootstrap).
++  functions[us-central1-linkVehicleByPin]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/linkVehicleByPin).
++  functions[us-central1-checkCustomerBookingGate]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/checkCustomerBookingGate).
++  functions[us-central1-cancelAllSearchingBookings]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/cancelAllSearchingBookings).
++  functions[us-central1-createCustomerBooking]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/createCustomerBooking).
++  functions[us-central1-cancelCustomerBooking]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/cancelCustomerBooking).
++  functions[us-central1-previewCancellationFare]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/previewCancellationFare).
++  functions[us-central1-expireSearchingBooking]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/expireSearchingBooking).
++  functions[us-central1-expireDueSearchingBookings]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/expireDueSearchingBookings).
++  functions[us-central1-matchRideCandidates]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/matchRideCandidates).
++  functions[us-central1-submitRideOffer]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/submitRideOffer).
++  functions[us-central1-counterRideOffer]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/counterRideOffer).
++  functions[us-central1-rejectRideOffer]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/rejectRideOffer).
++  functions[us-central1-declineRideCandidate]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/declineRideCandidate).
++  functions[us-central1-withdrawRideOffer]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/withdrawRideOffer).
++  functions[us-central1-cancelAssignedRideByDriver]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/cancelAssignedRideByDriver).
++  functions[us-central1-cancelRideByAdmin]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/cancelRideByAdmin).
++  functions[us-central1-submitCompletedRideRating]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/submitCompletedRideRating).
++  functions[us-central1-finalizeAssignmentFromOffer]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/finalizeAssignmentFromOffer).
++  functions[us-central1-acceptCustomerInitialFare]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/acceptCustomerInitialFare).
++  functions[us-central1-setCandidateDriverLimit]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/setCandidateDriverLimit).
++  functions[us-central1-saveAdminPricingSettings]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/saveAdminPricingSettings).
++  functions[us-central1-getDispatchSettings]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/getDispatchSettings).
++  functions[us-central1-requestAccountDeletion]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/requestAccountDeletion).
++  functions[us-central1-submitSupportReport]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/submitSupportReport).
++  functions[us-central1-mirrorDriverLocationOnVehicleUpdate]: firestore function initialized.
++  functions[us-central1-getOpsHealthSummary]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/getOpsHealthSummary).
++  functions[us-central1-getGeoCellCoverageReport]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/getGeoCellCoverageReport).
++  functions[us-central1-refreshRideViewerPresence]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/refreshRideViewerPresence).
++  functions[us-central1-createRidePeerOffer]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/createRidePeerOffer).
++  functions[us-central1-publishRidePeerAnswer]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/publishRidePeerAnswer).
++  functions[us-central1-closeRidePeerSession]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/closeRidePeerSession).
++  functions[us-central1-submitRideBreadcrumbBatch]: http function initialized (http://127.0.0.1:5001/demo-swiftgo-phase1/us-central1/submitRideBreadcrumbBatch).
+i  Running script: node tests/checkpoint-policy.mjs
+
+=== checkpoint-policy (Phase 2) ===
+
+✓ [static] 36-customer-reopen-integration-hooks — PASS
+✓ [static] 37-server-mirror-transactional — PASS
+✓ [static] 38-no-direct-client-ride-location-write — PASS
+✓ [static] S01-policy-module-wired — PASS
+✓ [static] S02-rules-trackable-status-gate — PASS
+✓ [static] S03-settlement-accuracy-documented — PASS
+✓ [static] S04-no-collection-query-in-consumer — PASS
+✓ [unit] 01-visible-responsive-4s — PASS: policy=RESPONSIVE_FIREBASE ms=4000
+✓ [unit] 02-hidden-accepted-60s — PASS
+✓ [unit] 03-hidden-arrived-60s — PASS
+✓ [unit] 04-hidden-in-progress-30s — PASS
+✓ [unit] 05-unknown-accepted-60s-safe — PASS
+✓ [unit] 06-unknown-in-progress-30s-safe — PASS
+✓ [unit] 07-presence-failure-does-not-stop — PASS
+✓ [unit] 08-visible-transition-immediate — PASS
+✓ [unit] 09-repeated-visible-no-burst — PASS: coalesced=2
+✓ [unit] 10-accepted-to-in-progress-immediate — PASS
+✓ [unit] 11-offline-online-immediate — PASS
+✓ [unit] 12-session-change-immediate — PASS
+✓ [unit] 13-old-generation-cannot-write — PASS
+✓ [unit] 39-no-cadence-cut-while-visible — PASS
+✓ [unit] 40-never-stop-during-execution — PASS
+✓ [unit] hard-interval-blocks-early-move — PASS
+✓ [unit] hard-interval-allows-heartbeat — PASS
+✓ [unit] movement-threshold-documented — PASS
+✓ [unit] 30-fake-client-expiry-cannot-keep-responsive — PASS
+✓ [unit] malformed-timestamp-failsafe — PASS
+✓ [unit] 28-lease-local-expiry-changes-policy — PASS: lease=VISIBLE
+✓ [unit] 28b-expiry-timer-fires — PASS: lease=EXPIRED
+✓ [unit] 29-expiry-timer-refresh-idempotent — PASS: timers=1
+✓ [unit] 14-old-ride-presence-callback-ignored — PASS
+✓ [unit] 15-ride-a-to-b-attaches-only-b — PASS
+✓ [unit] 16-terminal-detaches — PASS
+✓ [unit] 17-cancelled-detaches — PASS
+✓ [unit] 18-sign-out-detaches — PASS
+✓ [unit] 19-unlink-detaches — PASS
+✓ [unit] 07b-read-error-unknown-lease — PASS
+✓ [unit] 20-no-active-ride-preserves-dispatch-cadence — PASS
+✓ [unit] 21-presence-doc-specific-helper — PASS
+✓ [unit] 31-serializer-single-in-flight — PASS: max=1
+✓ [unit] 32-newest-pending-coalescing — PASS: writes=2
+✓ [unit] 33-rapid-transitions-no-strand — PASS: {"inFlight":true,"hasPending":false,"sessionStartStamped":false,"writesStarted":3,"writesCompleted":2}
+✓ [unit] 34-out-of-order-rejected — PASS
+✓ [unit] 35-duplicate-noop — PASS
+✓ [rules] 23-assigned-active-driver-get-allowed — PASS
+✓ [rules] 22-unrelated-driver-denied — PASS
+✓ [rules] 24-assigned-driver-list-denied — PASS
+✓ [rules] 25-owner-denied — PASS
+✓ [rules] 26-anonymous-denied — PASS
+[2026-08-02T05:56:48.384Z]  @firebase/firestore: Firestore (10.14.1): GrpcConnection RPC 'Write' stream 0x2d61136c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L423, false for 'update' @ L798
+[2026-08-02T05:56:48.417Z]  @firebase/firestore: Firestore (10.14.1): GrpcConnection RPC 'Write' stream 0x2d61136d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L423, false for 'create' @ L798, false for 'update' @ L423, false for 'update' @ L798
+[2026-08-02T05:56:48.432Z]  @firebase/firestore: Firestore (10.14.1): GrpcConnection RPC 'Write' stream 0x2d61136e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L423, false for 'delete' @ L798
+✓ [rules] 27-customer-cannot-write-presence — PASS
+✓ [rules] terminal-ride-driver-get-denied — PASS
+
+51 PASS / 0 FAIL / 51 total
+Wrote F:\ride-app\tests\checkpoint-policy-results.json
