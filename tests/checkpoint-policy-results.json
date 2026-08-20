@@ -1,15 +1,15 @@
 {
   "suite": "checkpoint-policy",
-  "pass": 51,
+  "pass": 53,
   "fail": 0,
-  "total": 51,
+  "total": 53,
   "byCategory": {
     "static": {
       "pass": 7,
       "fail": 0
     },
     "unit": {
-      "pass": 37,
+      "pass": 39,
       "fail": 0
     },
     "rules": {
@@ -75,35 +75,49 @@
       "category": "unit"
     },
     {
-      "name": "02-hidden-accepted-60s",
+      "name": "02-expired-healthy-accepted-sparse-60s",
       "status": "PASS",
       "detail": "",
       "suite": "checkpoint-policy",
       "category": "unit"
     },
     {
-      "name": "03-hidden-arrived-60s",
+      "name": "02b-expired-unhealthy-accepted-responsive-4s",
       "status": "PASS",
       "detail": "",
       "suite": "checkpoint-policy",
       "category": "unit"
     },
     {
-      "name": "04-hidden-in-progress-30s",
+      "name": "03-expired-healthy-arrived-sparse-60s",
       "status": "PASS",
       "detail": "",
       "suite": "checkpoint-policy",
       "category": "unit"
     },
     {
-      "name": "05-unknown-accepted-60s-safe",
+      "name": "04-expired-healthy-in-progress-sparse-30s",
       "status": "PASS",
       "detail": "",
       "suite": "checkpoint-policy",
       "category": "unit"
     },
     {
-      "name": "06-unknown-in-progress-30s-safe",
+      "name": "04b-expired-unhealthy-in-progress-responsive-4s",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "05-unknown-accepted-responsive-until-presence",
+      "status": "PASS",
+      "detail": "",
+      "suite": "checkpoint-policy",
+      "category": "unit"
+    },
+    {
+      "name": "06-unknown-in-progress-responsive-until-presence",
       "status": "PASS",
       "detail": "",
       "suite": "checkpoint-policy",
@@ -194,7 +208,7 @@
       "category": "unit"
     },
     {
-      "name": "30-fake-client-expiry-cannot-keep-responsive",
+      "name": "30-expired-unhealthy-fails-open-responsive",
       "status": "PASS",
       "detail": "",
       "suite": "checkpoint-policy",
@@ -278,7 +292,7 @@
       "category": "unit"
     },
     {
-      "name": "20-no-active-ride-preserves-dispatch-cadence",
+      "name": "20-no-active-ride-idle-200m-or-5min",
       "status": "PASS",
       "detail": "",
       "suite": "checkpoint-policy",
@@ -376,5 +390,5 @@
       "category": "rules"
     }
   ],
-  "generatedAt": "2026-08-03T11:01:09.249Z"
+  "generatedAt": "2026-08-20T04:48:09.139Z"
 }
