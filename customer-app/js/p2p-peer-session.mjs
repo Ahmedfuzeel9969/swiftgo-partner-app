@@ -5,12 +5,16 @@
  */
 
 import {
+  P2P_BACKPRESSURE_FLUSH_MS,
   P2P_BUFFERED_AMOUNT_HIGH,
+  P2P_CHANNEL_OPEN_TIMEOUT_MS,
   P2P_DATA_CHANNEL_LABEL,
   P2P_DIAG,
   P2P_DEGRADED_AFTER_MS,
   P2P_FALLBACK_AFTER_MS,
+  P2P_FIRST_ACK_TIMEOUT_MS,
   P2P_HEARTBEAT_INTERVAL_MS,
+  P2P_MAX_SENT_SEQUENCES_RETAINED,
   P2P_MAX_SDP_CHARS,
   P2P_RECONNECT_MAX_ATTEMPTS,
   P2P_SEND_INTERVAL_MS,
@@ -69,16 +73,25 @@ export function createP2pPeerSession(deps) {
   let lastValidFixAt = null;
   let lastAckAt = null;
   let lastHbAt = null;
+  let lastAckSequence = 0;
   let lastOutboundAt = null;
   let healthTimer = 0;
   let heartbeatTimer = 0;
   let reconnectTimer = 0;
+  let channelOpenTimer = 0;
+  let firstAckTimer = 0;
+  let backpressureFlushTimer = 0;
+  let cadenceFlushTimer = 0;
   let reconnectAttempt = 0;
   let pendingLoc = null;
+  let pendingLocGen = 0;
   let sendTimer = 0;
   let closed = false;
   let firstValidEmitted = false;
   let iceRestartAttempted = false;
+  let channelEverOpened = false;
+  /** @type {Set<number>} */
+  const sentSequences = new Set();
   let sessionMeta = null;
   let resumeFn = null;
   let suppressingCloseReconnect = false;
@@ -104,6 +117,9 @@ export function createP2pPeerSession(deps) {
     reconnectAttempts: 0,
     iceRestarts: 0,
     backpressureCoalesces: 0,
+    sendFailures: 0,
+    pendingCoalesces: 0,
+    acknowledgementsReceived: 0,
   };
 
   let firstPacketOut = false;
@@ -166,6 +182,127 @@ export function createP2pPeerSession(deps) {
       clearT(sendTimer);
       sendTimer = 0;
     }
+    if (channelOpenTimer) {
+      clearT(channelOpenTimer);
+      channelOpenTimer = 0;
+    }
+    if (firstAckTimer) {
+      clearT(firstAckTimer);
+      firstAckTimer = 0;
+    }
+    if (backpressureFlushTimer) {
+      clearT(backpressureFlushTimer);
+      backpressureFlushTimer = 0;
+    }
+    if (cadenceFlushTimer) {
+      clearT(cadenceFlushTimer);
+      cadenceFlushTimer = 0;
+    }
+  }
+
+  function clearPendingDeliveryState() {
+    pendingLoc = null;
+    pendingLocGen = 0;
+    sentSequences.clear();
+    lastAckSequence = 0;
+  }
+
+  function validateDriverAck(msg) {
+    const seq = Math.floor(Number(msg?.seq) || 0);
+    if (seq < 1) return { ok: false, reason: "invalid_sequence" };
+    if (seq > lastSequenceSent) return { ok: false, reason: "future_sequence" };
+    if (!sentSequences.has(seq)) return { ok: false, reason: "unsent_sequence" };
+    if (seq <= lastAckSequence) return { ok: false, reason: "duplicate_ack" };
+    return { ok: true, seq };
+  }
+
+  function pruneSentSequences() {
+    while (sentSequences.size > P2P_MAX_SENT_SEQUENCES_RETAINED) {
+      const oldest = Math.min(...sentSequences);
+      sentSequences.delete(oldest);
+    }
+  }
+
+  function trackSentSequence(seq) {
+    sentSequences.add(seq);
+    pruneSentSequences();
+  }
+
+  function releaseSentSequence(seq) {
+    sentSequences.delete(seq);
+  }
+
+  function isTransportAliveNow() {
+    if (channel?.readyState !== "open") return false;
+    const vals = [lastAckAt, lastHbAt, lastValidFixAt, lastOutboundAt]
+      .filter((v) => v != null && Number.isFinite(Number(v)))
+      .map((v) => Number(v));
+    if (!vals.length) return false;
+    return nowMs() - Math.max(...vals) <= P2P_FALLBACK_AFTER_MS;
+  }
+
+  function isLocDeliveryHealthyNow() {
+    if (role === "customer") {
+      const fixAge = lastValidFixAt != null ? nowMs() - lastValidFixAt : Infinity;
+      return fixAge <= P2P_DEGRADED_AFTER_MS;
+    }
+    const ackAge = lastAckAt != null ? nowMs() - lastAckAt : Infinity;
+    return (
+      channel?.readyState === "open" &&
+      lastSequenceSent > 0 &&
+      lastValidFixAt != null &&
+      ackAge <= P2P_DEGRADED_AFTER_MS
+    );
+  }
+
+  function scheduleChannelOpenTimeout(gen) {
+    clearT(channelOpenTimer);
+    channelOpenTimer = setT(() => {
+      channelOpenTimer = 0;
+      if (!isCurrent(gen) || channelEverOpened) return;
+      diag(P2P_DIAG.CHANNEL_OPEN_TIMEOUT);
+      setState(P2P_STATE.FIREBASE_FALLBACK, "channel_open_timeout");
+    }, P2P_CHANNEL_OPEN_TIMEOUT_MS);
+  }
+
+  function scheduleFirstAckTimeout(gen) {
+    if (firstAckTimer || role !== "driver") return;
+    firstAckTimer = setT(() => {
+      firstAckTimer = 0;
+      if (!isCurrent(gen) || lastAckSequence > 0) return;
+      diag(P2P_DIAG.ACK_TIMEOUT);
+      setState(P2P_STATE.FIREBASE_FALLBACK, "first_ack_timeout");
+    }, P2P_FIRST_ACK_TIMEOUT_MS);
+  }
+
+  function scheduleBackpressureFlush(gen) {
+    if (backpressureFlushTimer) return;
+    backpressureFlushTimer = setT(() => {
+      backpressureFlushTimer = 0;
+      if (!isCurrent(gen)) return;
+      flushPendingLoc(gen);
+    }, P2P_BACKPRESSURE_FLUSH_MS);
+  }
+
+  function scheduleCadenceFlush(gen, delayMs) {
+    if (cadenceFlushTimer) return;
+    const delay = Math.max(1, Math.ceil(Number(delayMs) || 0));
+    cadenceFlushTimer = setT(() => {
+      cadenceFlushTimer = 0;
+      if (!isCurrent(gen)) return;
+      flushPendingLoc(gen);
+    }, delay);
+  }
+
+  function offerLocationFix(fix, gen) {
+    if (!isCurrent(gen)) return false;
+    if (pendingLoc != null && pendingLocGen === gen) {
+      counters.pendingCoalesces += 1;
+      diag(P2P_DIAG.PENDING_COALESCED);
+    }
+    pendingLoc = fix;
+    pendingLocGen = gen;
+    return true;
   }
 
   function tearDownPc() {
@@ -221,35 +358,30 @@ export function createP2pPeerSession(deps) {
   function evaluateHealth() {
     if (!isCurrent() || state === P2P_STATE.CLOSED || state === P2P_STATE.DISABLED) return;
     if (state === P2P_STATE.SIGNALING) return;
-    // Allow leaving RECONNECTING once the channel is open again and traffic resumes.
     if (state === P2P_STATE.RECONNECTING && channel?.readyState !== "open") return;
     const now = nowMs();
-    const peerAt = lastPeerActivityAt();
-    const activityAge = peerAt != null ? now - peerAt : Infinity;
     if (role === "customer") {
-      if (activityAge <= P2P_DEGRADED_AFTER_MS) {
+      const fixAge = lastValidFixAt != null ? now - lastValidFixAt : Infinity;
+      if (fixAge <= P2P_DEGRADED_AFTER_MS) {
         setState(P2P_STATE.P2P_HEALTHY);
-      } else if (activityAge <= P2P_FALLBACK_AFTER_MS) {
+      } else if (fixAge <= P2P_FALLBACK_AFTER_MS) {
         setState(P2P_STATE.P2P_DEGRADED);
       } else {
         setState(P2P_STATE.FIREBASE_FALLBACK, "customer_activity_timeout");
-        // Driver owns reconnect/re-offer; customer keeps signaling watch.
       }
+      return;
+    }
+    const ackAge = lastAckAt != null ? now - lastAckAt : Infinity;
+    const sentLoc = lastSequenceSent > 0 && lastValidFixAt != null;
+    if (channel?.readyState === "open" && sentLoc && ackAge <= P2P_DEGRADED_AFTER_MS) {
+      setState(P2P_STATE.P2P_HEALTHY);
+    } else if (channel?.readyState === "open" && isTransportAliveNow()) {
+      setState(P2P_STATE.P2P_DEGRADED);
+    } else if (channel?.readyState === "open") {
+      setState(P2P_STATE.P2P_DEGRADED);
     } else {
-      // Driver: healthy only with recent inbound ACK/HB (proves half-open detection).
-      const inboundAt = lastInboundProofAt();
-      const inboundAge = inboundAt != null ? now - inboundAt : Infinity;
-      if (channel?.readyState === "open" && inboundAge <= P2P_DEGRADED_AFTER_MS) {
-        setState(P2P_STATE.P2P_HEALTHY);
-      } else if (channel?.readyState === "open" && inboundAge <= P2P_FALLBACK_AFTER_MS) {
-        setState(P2P_STATE.P2P_DEGRADED);
-      } else if (channel?.readyState === "open") {
-        // Keep channel; heartbeat will probe. Avoid reconnect storms while DC still open.
-        setState(P2P_STATE.P2P_DEGRADED);
-      } else {
-        setState(P2P_STATE.FIREBASE_FALLBACK, "driver_channel_down");
-        requestReconnect("channel_down");
-      }
+      setState(P2P_STATE.FIREBASE_FALLBACK, "driver_channel_down");
+      requestReconnect("channel_down");
     }
   }
 
@@ -364,6 +496,17 @@ export function createP2pPeerSession(deps) {
       diag(P2P_DIAG.INVALID_MESSAGE);
       return;
     }
+
+    if (validated.type === "ack" && role === "driver") {
+      const ackCheck = validateDriverAck(validated.message);
+      if (!ackCheck.ok) {
+        counters.invalidMessages += 1;
+        if (ackCheck.reason === "duplicate_ack") diag(P2P_DIAG.DUPLICATE_ACK_IGNORED);
+        else diag(P2P_DIAG.STALE_ACK_IGNORED);
+        return;
+      }
+    }
+
     counters.validMessages += 1;
     if (!firstPacketIn) {
       firstPacketIn = true;
@@ -396,8 +539,14 @@ export function createP2pPeerSession(deps) {
       }
       evaluateHealth();
     } else if (validated.type === "ack") {
+      const seq = Math.floor(Number(validated.message?.seq) || 0);
+      lastAckSequence = seq;
       lastAckAt = nowMs();
+      if (role === "driver") releaseSentSequence(seq);
       counters.acks += 1;
+      counters.acknowledgementsReceived += 1;
+      clearT(firstAckTimer);
+      firstAckTimer = 0;
       deps.onAck?.(validated.message);
       evaluateHealth();
     } else if (validated.type === "hb") {
@@ -414,9 +563,6 @@ export function createP2pPeerSession(deps) {
           lastOutboundAt = nowMs();
           counters.acks += 1;
         }
-      } else {
-        // Driver may also ACK customer HB so customer activity clock advances.
-        lastAckAt = nowMs();
       }
       evaluateHealth();
     } else if (validated.type === "close") {
@@ -450,6 +596,9 @@ export function createP2pPeerSession(deps) {
     );
     ch.onopen = () => {
       if (!isCurrent(gen)) return;
+      channelEverOpened = true;
+      clearT(channelOpenTimer);
+      channelOpenTimer = 0;
       counters.channelsOpened += 1;
       reconnectAttempt = 0;
       iceRestartAttempted = false;
@@ -464,7 +613,7 @@ export function createP2pPeerSession(deps) {
       scheduleHealthPoll(gen);
       scheduleHeartbeat(gen);
       evaluateHealth();
-      flushPendingLoc();
+      flushPendingLoc(gen);
       maybeSendHeartbeat();
       try {
         deps.onChannelOpen?.();
@@ -514,11 +663,13 @@ export function createP2pPeerSession(deps) {
     };
   }
 
-  function trySend(serialized) {
+  function trySend(serialized, { countBackpressure = true } = {}) {
     if (!channel || channel.readyState !== "open") return false;
     if (channel.bufferedAmount > P2P_BUFFERED_AMOUNT_HIGH) {
-      counters.backpressureCoalesces += 1;
-      diag(P2P_DIAG.BACKPRESSURE_COALESCED);
+      if (countBackpressure) {
+        counters.backpressureCoalesces += 1;
+        diag(P2P_DIAG.BACKPRESSURE_COALESCED);
+      }
       return false;
     }
     try {
@@ -533,6 +684,7 @@ export function createP2pPeerSession(deps) {
       }
       return true;
     } catch {
+      counters.sendFailures += 1;
       return false;
     }
   }
@@ -759,6 +911,22 @@ export function createP2pPeerSession(deps) {
       });
   }
 
+  /** Adopt server-authoritative assignmentVersion after offer upload or signaling refresh. */
+  function syncAssignmentVersion(nextAv) {
+    if (closed) return false;
+    const raw = Number(nextAv);
+    if (!Number.isFinite(raw) || raw < 1) return false;
+    const av = Math.floor(raw);
+    assignmentVersion = av;
+    if (sessionMeta) {
+      sessionMeta = { ...sessionMeta, assignmentVersion: av };
+    }
+    if (pendingLoc && channel?.readyState === "open") {
+      flushPendingLoc(generation);
+    }
+    return true;
+  }
+
   /**
    * Driver: create offer session.
    */
@@ -779,6 +947,8 @@ export function createP2pPeerSession(deps) {
     pipe.reset();
     tearDownPc();
     clearTimers();
+    clearPendingDeliveryState();
+    channelEverOpened = false;
     peerSessionId = isValidPeerSessionId(meta.peerSessionId)
       ? meta.peerSessionId
       : createPeerSessionId();
@@ -841,6 +1011,7 @@ export function createP2pPeerSession(deps) {
       reconnect: isReconnect,
     });
     setState(P2P_STATE.CONNECTING);
+    scheduleChannelOpenTimeout(gen);
     return { peerSessionId, generation: gen, sdp };
   }
 
@@ -907,6 +1078,8 @@ export function createP2pPeerSession(deps) {
     pipe.reset();
     tearDownPc();
     clearTimers();
+    clearPendingDeliveryState();
+    channelEverOpened = false;
     peerSessionId = String(meta.peerSessionId || "");
     trackingSessionId = String(meta.trackingSessionId || "").trim();
     assignmentVersion = Math.max(1, Math.floor(Number(meta.assignmentVersion) || 1));
@@ -995,42 +1168,94 @@ export function createP2pPeerSession(deps) {
       generation: gen,
     });
     setState(P2P_STATE.CONNECTING);
+    scheduleChannelOpenTimeout(gen);
     return { peerSessionId, generation: gen, sdp };
   }
 
   function enqueueLocationFix(fix) {
     if (closed || role !== "driver") return;
     if (state === P2P_STATE.CLOSED || state === P2P_STATE.DISABLED) return;
-    pendingLoc = fix;
-    flushPendingLoc();
-  }
-
-  function flushPendingLoc() {
-    if (!pendingLoc || role !== "driver") return;
-    if (channel?.readyState !== "open") return;
-    if (channel.bufferedAmount > P2P_BUFFERED_AMOUNT_HIGH) {
-      counters.backpressureCoalesces += 1;
-      diag(P2P_DIAG.BACKPRESSURE_COALESCED);
+    const gen = generation;
+    if (!channel || channel.readyState !== "open") {
+      offerLocationFix(fix, gen);
       return;
     }
-    const now = nowMs();
-    if (lastValidFixAt != null && now - lastValidFixAt < P2P_SEND_INTERVAL_MS * 0.5 && lastSequenceSent > 0) {
-      // Coalesce bursts; still keep newest pending until interval.
+    if (channel.bufferedAmount > P2P_BUFFERED_AMOUNT_HIGH) {
+      if (pendingLoc != null) {
+        counters.backpressureCoalesces += 1;
+        diag(P2P_DIAG.BACKPRESSURE_COALESCED);
+      }
+      offerLocationFix(fix, gen);
+      scheduleBackpressureFlush(gen);
+      return;
     }
-    lastSequenceSent += 1;
+    offerLocationFix(fix, gen);
+    flushPendingLoc(gen);
+  }
+
+  function flushPendingLoc(gen = generation) {
+    if (!pendingLoc || role !== "driver") return;
+    if (!isCurrent(gen)) {
+      pendingLoc = null;
+      pendingLocGen = 0;
+      return;
+    }
+    if (pendingLocGen !== gen) {
+      pendingLoc = null;
+      pendingLocGen = 0;
+      return;
+    }
+    if (channel?.readyState !== "open") return;
+    if (channel.bufferedAmount > P2P_BUFFERED_AMOUNT_HIGH) {
+      scheduleBackpressureFlush(gen);
+      return;
+    }
+
+    const now = nowMs();
+    const minGapMs = P2P_SEND_INTERVAL_MS * 0.5;
+    if (lastValidFixAt != null && now - lastValidFixAt < minGapMs && lastSequenceSent > 0) {
+      scheduleCadenceFlush(gen, minGapMs - (now - lastValidFixAt));
+      return;
+    }
+
+    const nextSeq = lastSequenceSent + 1;
+    if (sentSequences.has(nextSeq)) return;
+
     const built = buildP2pLocationMessage(pendingLoc, {
       peerSessionId,
       trackingSessionId,
       assignmentVersion,
-      sequence: lastSequenceSent,
+      sequence: nextSeq,
       role: "driver",
     });
-    pendingLoc = null;
-    if (!built.ok) return;
-    if (trySend(built.serialized)) {
+    if (!built.ok) {
+      pendingLoc = null;
+      pendingLocGen = 0;
+      return;
+    }
+
+    const prevSequenceSent = lastSequenceSent;
+    lastSequenceSent = nextSeq;
+    trackSentSequence(nextSeq);
+    if (trySend(built.serialized, { countBackpressure: false })) {
+      if (cadenceFlushTimer) {
+        clearT(cadenceFlushTimer);
+        cadenceFlushTimer = 0;
+      }
       counters.fixesSent += 1;
       lastValidFixAt = now;
       lastOutboundAt = now;
+      pendingLoc = null;
+      pendingLocGen = 0;
+      if (counters.fixesSent === 1) {
+        scheduleFirstAckTimeout(gen);
+      }
+    } else {
+      lastSequenceSent = prevSequenceSent;
+      releaseSentSequence(nextSeq);
+      if (channel.bufferedAmount > P2P_BUFFERED_AMOUNT_HIGH) {
+        scheduleBackpressureFlush(gen);
+      }
     }
   }
 
@@ -1059,7 +1284,7 @@ export function createP2pPeerSession(deps) {
     generation += 1;
     clearTimers();
     tearDownPc();
-    pendingLoc = null;
+    clearPendingDeliveryState();
     resumeFn = null;
     setState(P2P_STATE.CLOSED);
   }
@@ -1069,6 +1294,7 @@ export function createP2pPeerSession(deps) {
     // Do not mark closed — controller may restart without full destroy.
     clearTimers();
     tearDownPc();
+    clearPendingDeliveryState();
     setState(P2P_STATE.FIREBASE_FALLBACK, "suspend");
   }
 
@@ -1085,6 +1311,8 @@ export function createP2pPeerSession(deps) {
       reconnectAttempt,
       counters: { ...counters },
       isHealthy: state === P2P_STATE.P2P_HEALTHY,
+      isLocDeliveryHealthy: isLocDeliveryHealthyNow(),
+      isTransportAlive: isTransportAliveNow(),
       lastFallbackReason,
       firstPacketOut,
       firstPacketIn,
@@ -1253,6 +1481,7 @@ export function createP2pPeerSession(deps) {
     close,
     suspend,
     getState,
+    syncAssignmentVersion,
     getCounters: () => ({ ...counters }),
     getPipeline: () => pipe.getEvents(),
     getPipelineReport: () => pipe.buildReport(),
@@ -1297,8 +1526,13 @@ export function createP2pPeerSession(deps) {
           send: typeof sendFn === "function" ? sendFn : () => {},
           close: () => {},
         };
+        channelEverOpened = true;
         setState(P2P_STATE.CONNECTING);
       }
     },
+    _flushPendingForTest: (gen = generation) => flushPendingLoc(gen),
+    _getPendingGenForTest: () => pendingLocGen,
+    _getSentSequencesForTest: () => new Set(sentSequences),
+    _scheduleChannelOpenTimeoutForTest: (gen = generation) => scheduleChannelOpenTimeout(gen),
   };
 }

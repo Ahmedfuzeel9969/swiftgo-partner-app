@@ -186,7 +186,7 @@ function staticControllerNoPresenceGate() {
   );
   record(
     "controller-syncForRide-starts-for-execution-statuses",
-    fn.includes("P2P_EXECUTION_STATUSES.includes(status)") && fn.includes("void start({")
+    fn.includes("P2P_EXECUTION_STATUSES.includes(status)") && fn.includes("requestStart({")
       ? "PASS"
       : "FAIL"
   );

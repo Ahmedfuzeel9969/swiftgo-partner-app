@@ -43,6 +43,11 @@ export const P2P_DIAG = Object.freeze({
   SOURCE_FIREBASE: "location_source_firebase",
   ICE_RESTART: "p2p_ice_restart",
   HEARTBEAT_SENT: "p2p_heartbeat_sent",
+  CHANNEL_OPEN_TIMEOUT: "p2p_channel_open_timeout",
+  ACK_TIMEOUT: "p2p_ack_timeout",
+  STALE_ACK_IGNORED: "p2p_stale_ack_ignored",
+  DUPLICATE_ACK_IGNORED: "p2p_duplicate_ack_ignored",
+  PENDING_COALESCED: "p2p_pending_coalesced",
   /** Pipeline instrumentation (Offer→ICE→DC→Healthy). Codes only — no SDP/candidate PII. */
   PIPELINE_ICE_CONFIG: "p2p_pipeline_ice_config",
   PIPELINE_LOCAL_DESC: "p2p_pipeline_local_desc",
@@ -82,6 +87,10 @@ export const P2P_MAX_SDP_CHARS = 16_384;
 export const P2P_SESSION_TTL_MS = 15 * 60_000;
 export const P2P_DATA_CHANNEL_LABEL = "swiftgo-loc-v1";
 export const P2P_BUFFERED_AMOUNT_HIGH = 64 * 1024;
+export const P2P_CHANNEL_OPEN_TIMEOUT_MS = 30_000;
+export const P2P_FIRST_ACK_TIMEOUT_MS = 15_000;
+export const P2P_BACKPRESSURE_FLUSH_MS = 500;
+export const P2P_MAX_SENT_SEQUENCES_RETAINED = 256;
 
 /** Public STUN servers for NAT traversal (no secrets). Override via __SWIFTGO_P2P_ICE__. */
 export const DEFAULT_STUN_URLS = Object.freeze([

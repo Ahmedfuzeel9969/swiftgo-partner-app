@@ -2,14 +2,14 @@
   "suite": "customer-marker-motion-continuity",
   "dualPhysicalDevices": "BLOCKED",
   "dualPhysicalDevicesNote": "Agent cannot operate two real phones or Gmail accounts. Automated in-process dual-client path verified; physical dual-device run required on-device.",
-  "generatedAt": "2026-08-20T01:00:52.619Z",
+  "generatedAt": "2026-08-20T04:32:27.057Z",
   "pass": 5,
   "fail": 0,
   "blocked": 0,
   "paintCount": 21,
   "results": [
     {
-      "name": "e2e-p2p-continuous-paints",
+      "name": "e2e-p2p-continuous-paints-arbiter-ingest-only",
       "status": "PASS",
       "detail": "paints=10 preferred=p2p"
     },

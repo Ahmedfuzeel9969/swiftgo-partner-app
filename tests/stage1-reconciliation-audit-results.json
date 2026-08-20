@@ -1,0 +1,272 @@
+{
+  "stage": 1,
+  "reconciliation": true,
+  "generatedAt": "2026-08-20T04:32:30.727Z",
+  "commit": "d34cca44f718296a9a5c373f53697d85878f285e",
+  "compareBase": "origin/main",
+  "pass": 28,
+  "fail": 8,
+  "gapConfirmed": 6,
+  "preserveOk": 8,
+  "results": [
+    {
+      "id": "static-assignmentKey",
+      "name": "driver-controller has assignmentKey",
+      "status": "FAIL",
+      "detail": "main=true d34=false",
+      "category": "static"
+    },
+    {
+      "id": "static-runStartLoop",
+      "name": "driver-controller has runStartLoop",
+      "status": "FAIL",
+      "detail": "main=true d34=false",
+      "category": "static"
+    },
+    {
+      "id": "static-syncAssignmentVersion",
+      "name": "driver-controller has syncAssignmentVersion",
+      "status": "PASS",
+      "detail": "main=false d34=true",
+      "category": "static"
+    },
+    {
+      "id": "static-answerGeneration",
+      "name": "customer-controller missing answerGeneration on d34",
+      "status": "PASS",
+      "detail": "main=true d34=false",
+      "category": "static"
+    },
+    {
+      "id": "static-isOfferCurrent",
+      "name": "customer-controller missing isOfferCurrent on d34",
+      "status": "PASS",
+      "detail": "main=true d34=false",
+      "category": "static"
+    },
+    {
+      "id": "static-isAnswerStillValid",
+      "name": "customer-controller missing isAnswerStillValid on d34",
+      "status": "PASS",
+      "detail": "main=true d34=false",
+      "category": "static"
+    },
+    {
+      "id": "static-sentSequences",
+      "name": "driver-peer-session missing sentSequences on d34",
+      "status": "PASS",
+      "detail": "main=true d34=false",
+      "category": "static"
+    },
+    {
+      "id": "static-scheduleChannelOpenTimeout",
+      "name": "driver-peer-session missing scheduleChannelOpenTimeout on d34",
+      "status": "PASS",
+      "detail": "main=true d34=false",
+      "category": "static"
+    },
+    {
+      "id": "static-sendTimer",
+      "name": "driver-peer-session sendTimer d34-only vs main",
+      "status": "PASS",
+      "detail": "main=false d34=true",
+      "category": "static"
+    },
+    {
+      "id": "static-p2pEffectiveHealthy",
+      "name": "checkpoint-policy has p2pEffectiveHealthy",
+      "status": "PASS",
+      "detail": "main=true d34=true",
+      "category": "static"
+    },
+    {
+      "id": "static-activateFirebaseFallback",
+      "name": "arbiter has activateFirebaseFallback",
+      "status": "PASS",
+      "detail": "main=false d34=true",
+      "category": "static"
+    },
+    {
+      "id": "01",
+      "name": "driver-rideB-not-lost-while-rideA-offer-in-flight",
+      "status": "FAIL",
+      "detail": "offerRideId=ride_B currentRide=ride_B sessionAv=424242",
+      "category": "gap"
+    },
+    {
+      "id": "02",
+      "name": "gap-driver-late-offer-after-stop-leaves-disabled-session",
+      "status": "PASS",
+      "detail": "state=DISABLED",
+      "category": "gap"
+    },
+    {
+      "id": "03",
+      "name": "driver-stale-rideA-watch-blocked-from-poisoning-rideB",
+      "status": "PASS",
+      "detail": "avBefore=100 avAfter=100 sidB=ps_mt10xzq6_ee65bde47e5a633053abc799",
+      "category": "preserve"
+    },
+    {
+      "id": "04",
+      "name": "gap-customer-stale-answer-publishes-with-current-rideId-not-captured",
+      "status": "PASS",
+      "detail": "published=[\"ride_A4\",\"ride_B4\"]",
+      "category": "gap"
+    },
+    {
+      "id": "05",
+      "name": "gap-stale-p2p-fix-with-current-gen-renders-on-new-ride",
+      "status": "PASS",
+      "detail": "accepted=true renders=1",
+      "category": "gap"
+    },
+    {
+      "id": "06",
+      "name": "gap-no-sent-sequence-ack-validation",
+      "status": "FAIL",
+      "detail": "sentSequences present",
+      "category": "gap"
+    },
+    {
+      "id": "07",
+      "name": "gap-heartbeat-alone-can-mark-driver-session-healthy",
+      "status": "FAIL",
+      "detail": "healthy=false fixesSent=0",
+      "category": "gap"
+    },
+    {
+      "id": "08",
+      "name": "gap-rapid-gps-burst-sends-without-cadence-delay",
+      "status": "FAIL",
+      "detail": "sent=1 fixesSent=1 intervalMs=3000",
+      "category": "gap"
+    },
+    {
+      "id": "08b",
+      "name": "gap-flushPendingLoc-cadence-branch-has-no-return-or-schedule",
+      "status": "PASS",
+      "detail": "hasDelayedFlush=false",
+      "category": "gap"
+    },
+    {
+      "id": "09",
+      "name": "gap-send-failure-discards-pending-fix",
+      "status": "PASS",
+      "detail": "fixesSent=1",
+      "category": "gap"
+    },
+    {
+      "id": "10",
+      "name": "gap-d34-lacks-channel-open-timeout-present-on-main",
+      "status": "FAIL",
+      "detail": "d34=true main=true",
+      "category": "gap"
+    },
+    {
+      "id": "11",
+      "name": "gap-first-loc-without-ack-not-bounded-to-fallback",
+      "status": "PASS",
+      "detail": "state=P2P_DEGRADED healthy=false",
+      "category": "gap"
+    },
+    {
+      "id": "12",
+      "name": "gap-syncAssignmentVersion-coerces-0-undefined-negative-to-1",
+      "status": "FAIL",
+      "detail": "coercedTo1=0 rejected=4 baseline=424242",
+      "category": "gap"
+    },
+    {
+      "id": "13",
+      "name": "preserve-server-assignmentVersion-not-1",
+      "status": "PASS",
+      "detail": "serverAv=69901486",
+      "category": "preserve"
+    },
+    {
+      "id": "14",
+      "name": "preserve-driver-p2p-starts-without-viewer-presence-param",
+      "status": "PASS",
+      "detail": "viewerVisible removed from API",
+      "category": "preserve"
+    },
+    {
+      "id": "15",
+      "name": "preserve-unknown-unhealthy-responsive-4s",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000",
+      "category": "preserve"
+    },
+    {
+      "id": "16",
+      "name": "preserve-expired-unhealthy-responsive-4s",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000",
+      "category": "preserve"
+    },
+    {
+      "id": "17",
+      "name": "preserve-healthy-p2p-sparse-after-hysteresis",
+      "status": "PASS",
+      "detail": "P2P_SPARSE_TRIP@30000",
+      "category": "preserve"
+    },
+    {
+      "id": "18",
+      "name": "preserve-firebase-backup-interval-4s",
+      "status": "PASS",
+      "detail": "4000ms",
+      "category": "preserve"
+    },
+    {
+      "id": "19",
+      "name": "preserve-immediate-firebase-takeover-after-p2p-loss",
+      "status": "PASS",
+      "detail": "renders=2",
+      "category": "preserve"
+    },
+    {
+      "id": "J1",
+      "name": "audit-bg-still-reads-rideViewerPresence",
+      "status": "PASS",
+      "detail": "presence read still in transaction",
+      "category": "audit"
+    },
+    {
+      "id": "J2",
+      "name": "audit-bg-cadence-responsive-regardless-of-lease",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000",
+      "category": "audit"
+    },
+    {
+      "id": "J3",
+      "name": "audit-bg-cadence-not-hard-4s-min-only",
+      "status": "PASS",
+      "detail": "movement may write earlier than 4s",
+      "category": "audit"
+    },
+    {
+      "id": "J4",
+      "name": "audit-functions-index-load-timing",
+      "status": "WARN",
+      "detail": "samplesMs=247,1,3 max=247 avg=84",
+      "category": "audit"
+    },
+    {
+      "id": "H1",
+      "name": "audit-marker-motion-test-ingests-arbiter-directly",
+      "status": "PASS",
+      "detail": "not full P2P chain",
+      "category": "audit"
+    },
+    {
+      "id": "H2",
+      "name": "audit-stage2-rebuilds-envelope-manually",
+      "status": "PASS",
+      "detail": "manual envelope not channel.send",
+      "category": "audit"
+    }
+  ]
+}

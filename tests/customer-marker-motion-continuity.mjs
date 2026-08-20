@@ -1,9 +1,10 @@
 /**
- * Automated dual-client continuity proof for customer marker motion:
- * P2P preferred → silent P2P death → Firebase fallback → P2P recovery.
+ * Arbiter + display pipeline continuity (NOT P2P controllers or channel.send).
  *
- * This is NOT a substitute for two physical devices + Gmail accounts.
- * It exercises the real arbiter + display pipeline modules end-to-end in-process.
+ * Ingests fixes directly via arbiter.ingestP2p / arbiter.ingestFirebase to prove
+ * source arbitration and display painting — not driver/customer controller chain.
+ *
+ * For true controller full-chain motion, see tests/stage5-full-chain-marker-motion.mjs
  *
  * Run: node tests/customer-marker-motion-continuity.mjs
  */
@@ -60,7 +61,7 @@ function createFakeTimers() {
 }
 
 function main() {
-  console.log("\n=== customer marker motion continuity (automated dual-client path) ===\n");
+  console.log("\n=== customer marker motion continuity (arbiter + display only) ===\n");
 
   const timers = createFakeTimers();
   const paints = [];
@@ -137,7 +138,7 @@ function main() {
     arb.getState().preferred === "p2p" &&
     paints[paints.length - 1].lat > paints[0].lat;
   record(
-    "e2e-p2p-continuous-paints",
+    "e2e-p2p-continuous-paints-arbiter-ingest-only",
     p2pOk ? "PASS" : "FAIL",
     `paints=${afterP2p} preferred=${arb.getState().preferred}`
   );

@@ -418,8 +418,7 @@ function arbiterUnitTests() {
 
   record(
     "37d-flush-pending-on-channel-open",
-    read("driver-app/js/p2p-peer-session.mjs").includes("flushPendingLoc()") &&
-      /ch\.onopen\s*=\s*\(\)\s*=>\s*\{[\s\S]*?flushPendingLoc\(\)/.test(
+    /ch\.onopen\s*=\s*\(\)\s*=>\s*\{[\s\S]*?flushPendingLoc\(/.test(
         read("driver-app/js/p2p-peer-session.mjs")
       )
       ? "PASS"
@@ -1186,8 +1185,8 @@ function lifecycleStaticTests() {
   record(
     "56-customer-hidden-keeps-p2p-alive",
     read("customer-app/js/p2p-ride-controller.mjs").includes("must not suspend or stop P2P") &&
-      cust.includes("keepP2p") &&
-      !cust.includes("customerP2p?.setVisible(false)")
+      !read("customer-app/js/p2p-ride-controller.mjs").includes("session?.suspend") &&
+      cust.includes("Do not stop P2P")
       ? "PASS"
       : "FAIL",
     "",

@@ -1,8 +1,11 @@
 /**
- * Stage 5 — end-to-end marker motion through full customer chain.
+ * Stage 5 — peer-session bridge + arbiter/display pipeline (NOT full controller chain).
  *
- * Proves: driver GPS → driver P2P LOC → customer validation → arbiter →
- * display pipeline → increasing display coordinates; P2P fallback/recovery.
+ * Proves: driver peer session enqueue → serialized LOC via test hook → customer peer
+ * session validation → arbiter → display pipeline → marker motion; fallback/recovery.
+ *
+ * For real driver+customer controllers through channel.send, see:
+ * tests/stage5-full-chain-marker-motion.mjs
  *
  * Run: node tests/stage5-e2e-marker-motion.mjs
  */
@@ -17,6 +20,7 @@ import { createDisplayLocationPipeline } from "../customer-app/js/display-locati
 import {
   FIREBASE_BACKUP_READ_INTERVAL_MS,
   P2P_FALLBACK_AFTER_MS,
+  P2P_SEND_INTERVAL_MS,
 } from "../customer-app/js/p2p-protocol.mjs";
 
 const require = createRequire(import.meta.url);
@@ -95,7 +99,7 @@ function createFakeTimers() {
 }
 
 async function runE2eMarkerMotion() {
-  console.log("\n=== Stage 5 E2E — full pipeline marker motion ===\n");
+  console.log("\n=== Stage 5 peer-session bridge — arbiter/display motion ===\n");
 
   const ride = { driverId: "drv_stage5", vehicleId: "veh_stage5" };
   const serverAv = assignmentVersionFromRide(ride);
@@ -234,7 +238,8 @@ async function runE2eMarkerMotion() {
       headingDeg: 90,
     });
     p2pCoords.push({ lat, lng, observedAt });
-    timers.advance(500);
+    timers.advance(P2P_SEND_INTERVAL_MS);
+    driverSession._flushPendingForTest();
   }
 
   const drvSessionAv = driverSession.getState().assignmentVersion;
@@ -305,7 +310,8 @@ async function runE2eMarkerMotion() {
       observedAt: timers.nowMs(),
       accuracyM: 10,
     });
-    timers.advance(500);
+    timers.advance(P2P_SEND_INTERVAL_MS);
+    driverSession._flushPendingForTest();
   }
   const latAfterRecovery = displayFrames[displayFrames.length - 1]?.lat ?? 0;
   const arbStateRec = arb.getState();

@@ -93,6 +93,7 @@ async function testDriverOfferPublishesWithoutThrow() {
       trackingSessionId: "trk_recv_1",
       vehicleId: "veh_1",
     });
+    await new Promise((r) => setTimeout(r, 80));
     record(
       "driver-offer-publishes-without-referenceerror",
       offers.length === 1 && String(offers[0]?.offerSdp || "").includes("offer")
