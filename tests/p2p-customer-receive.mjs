@@ -114,6 +114,23 @@ async function testDriverOfferPublishesWithoutThrow() {
   } catch (e) {
     record("driver-stop-clears-session", "FAIL", e?.message || String(e));
   }
+
+  const offersBeforeHidden = offers.length;
+  drv.syncForRide({
+    ride: { id: "ride_recv_hidden", status: "in_progress", vehicleId: "veh_1" },
+    trackingSessionId: "trk_recv_hidden",
+  });
+  await new Promise((r) => setTimeout(r, 40));
+  record(
+    "driver-starts-p2p-without-viewer-presence",
+    offers.length > offersBeforeHidden ? "PASS" : "FAIL",
+    `offers=${offers.length} before=${offersBeforeHidden} state=${drv.getState().state}`
+  );
+  try {
+    await drv.stop({ closeRemote: true });
+  } catch {
+    /* ignore */
+  }
   void watchCb;
 }
 

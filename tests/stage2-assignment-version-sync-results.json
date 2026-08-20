@@ -1,0 +1,38 @@
+{
+  "stage": 2,
+  "generatedAt": "2026-08-20T01:00:47.555Z",
+  "pass": 6,
+  "fail": 0,
+  "results": [
+    {
+      "name": "controller-syncs-session-assignmentVersion-after-offer",
+      "status": "PASS",
+      "detail": "sessionAv=701144459 serverAv=701144459"
+    },
+    {
+      "name": "driver-loc-uses-authoritative-assignmentVersion",
+      "status": "PASS",
+      "detail": "locAv=950158955 serverAv=950158955"
+    },
+    {
+      "name": "customer-accepts-driver-loc-with-authoritative-assignmentVersion",
+      "status": "PASS",
+      "detail": "accepted"
+    },
+    {
+      "name": "wrong-assignment-still-rejected",
+      "status": "PASS",
+      "detail": "wrong_assignment"
+    },
+    {
+      "name": "stale-assignmentVersion-1-rejected-when-serverAv-differs",
+      "status": "PASS",
+      "detail": "wrong_assignment"
+    },
+    {
+      "name": "reconnect-preserves-authoritative-assignmentVersion",
+      "status": "PASS",
+      "detail": "sessionAv=939041707 serverAv=939041707"
+    }
+  ]
+}

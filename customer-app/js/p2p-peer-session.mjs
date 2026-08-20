@@ -1289,12 +1289,12 @@ export function createP2pPeerSession(deps) {
     createMediaBridge,
     /** Test helpers */
     _handleMessageForTest: handleMessage,
-    _setChannelOpenForTest: (open) => {
+    _setChannelOpenForTest: (open, sendFn) => {
       if (open) {
         channel = {
           readyState: "open",
           bufferedAmount: 0,
-          send: () => {},
+          send: typeof sendFn === "function" ? sendFn : () => {},
           close: () => {},
         };
         setState(P2P_STATE.CONNECTING);

@@ -362,7 +362,11 @@ export function followAssignedDriverIfEnabled(lat, lng) {
   attachFollowDriverListeners();
   const center = map.getCenter();
   const distM = distanceMetres({ lat: center.lat, lng: center.lng }, { lat, lng });
-  if (distM < FOLLOW_DRIVER_MIN_PAN_M) return;
+  const outside =
+    typeof map.getBounds === "function" && map.getBounds()
+      ? !map.getBounds().contains([lat, lng])
+      : distM >= FOLLOW_DRIVER_MIN_PAN_M;
+  if (!outside && distM < FOLLOW_DRIVER_MIN_PAN_M) return;
   map.panTo([lat, lng], { animate: true, duration: 0.45 });
 }
 

@@ -137,7 +137,11 @@ export function createDriverP2pController(opts = {}) {
       if (answeredSessionId === sid && answer === lastAcceptedAnswer) return;
       answeredSessionId = sid;
       lastAcceptedAnswer = answer;
-      assignmentVersion = Number(docData.assignmentVersion) || assignmentVersion;
+      const nextAv = Number(docData.assignmentVersion) || assignmentVersion;
+      if (nextAv !== assignmentVersion) {
+        assignmentVersion = nextAv;
+        session.syncAssignmentVersion?.(assignmentVersion);
+      }
       session.noteAnswerDownloaded?.(answer);
       void session.acceptRemoteAnswer(answer);
     };
@@ -225,6 +229,7 @@ export function createDriverP2pController(opts = {}) {
               assignmentVersion: assignmentVersion || undefined,
             });
             assignmentVersion = Number(res?.assignmentVersion) || meta.assignmentVersion || 1;
+            session?.syncAssignmentVersion?.(assignmentVersion);
             session?.noteOfferUploaded?.(sdp);
           } catch {
             ctrlCounters.offerPublishFailures += 1;
@@ -269,7 +274,7 @@ export function createDriverP2pController(opts = {}) {
     assignmentVersion = 0;
   }
 
-  function syncForRide({ ride, trackingSessionId: tid, viewerVisible }) {
+  function syncForRide({ ride, trackingSessionId: tid }) {
     if (closed) return;
     const status = String(ride?.status || "");
     const rid = String(ride?.id || "").trim();
@@ -277,10 +282,7 @@ export function createDriverP2pController(opts = {}) {
       void stop({ closeRemote: true });
       return;
     }
-    if (!viewerVisible) {
-      suspend();
-      return;
-    }
+    // Active execution rides keep P2P up regardless of customer viewer presence.
     void start({
       rideId: rid,
       trackingSessionId: tid,

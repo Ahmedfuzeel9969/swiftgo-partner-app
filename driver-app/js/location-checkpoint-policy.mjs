@@ -2,8 +2,9 @@
  * Phase 2 — adaptive Firebase location checkpoint policy (driver).
  *
  * Presence lease only selects cadence; it is never authorization.
- * Phase 3: when viewer VISIBLE and P2P healthy (hysteresis), use sparse
- * Firebase (~60s approach / ~30s trip); otherwise visible stays ~4s.
+ * Phase 3: sparse Firebase (~60s approach / ~30s trip) only when P2P is positively
+ * proven healthy (hysteresis). Any unproven/unhealthy P2P uses responsive ~4s,
+ * regardless of viewer lease (VISIBLE / UNKNOWN / EXPIRED).
  *
  * Settlement / distance accuracy note (mandatory Phase 2 documentation):
  * - Completed ride settlement uses fare fields, not GPS traveledDistanceKm.
@@ -187,40 +188,11 @@ export function resolveCheckpointPolicy(input = {}) {
   }
 
   const status = String(input.rideStatus || "");
-  const lease = String(input.viewerLease || VIEWER_LEASE.UNKNOWN);
   const isTrip = TRIP_STATUSES.includes(status);
   const isApproach = APPROACH_STATUSES.includes(status);
   const p2pHealthy = Boolean(input.p2pHealthy);
 
-  // Hidden/expired/unknown: Phase 2 background cadence (P2P not for unseen customers).
-  if (lease !== VIEWER_LEASE.VISIBLE) {
-    if (isTrip) {
-      const unknown = lease === VIEWER_LEASE.UNKNOWN;
-      return {
-        policy: unknown
-          ? CHECKPOINT_POLICY.SAFE_UNKNOWN_TRIP
-          : CHECKPOINT_POLICY.BACKGROUND_TRIP_CHECKPOINT,
-        intervalMs: BACKGROUND_TRIP_INTERVAL_MS,
-        hardInterval: true,
-        diag: unknown
-          ? CHECKPOINT_DIAG.POLICY_SAFE_UNKNOWN
-          : CHECKPOINT_DIAG.POLICY_BACKGROUND_TRIP,
-      };
-    }
-    const unknown = lease === VIEWER_LEASE.UNKNOWN || !isApproach;
-    return {
-      policy: unknown
-        ? CHECKPOINT_POLICY.SAFE_UNKNOWN_APPROACH
-        : CHECKPOINT_POLICY.BACKGROUND_APPROACH_CHECKPOINT,
-      intervalMs: BACKGROUND_APPROACH_INTERVAL_MS,
-      hardInterval: true,
-      diag: unknown
-        ? CHECKPOINT_DIAG.POLICY_SAFE_UNKNOWN
-        : CHECKPOINT_DIAG.POLICY_BACKGROUND_APPROACH,
-    };
-  }
-
-  // Visible + healthy P2P → sparse Firebase (30s trip / 60s approach).
+  // Sparse Firebase only when P2P is positively proven healthy (hysteresis upstream).
   if (p2pHealthy) {
     if (isTrip) {
       return {
@@ -238,7 +210,7 @@ export function resolveCheckpointPolicy(input = {}) {
     };
   }
 
-  // Visible + P2P unavailable/degraded/unknown → responsive ~4s.
+  // P2P not proven healthy: responsive ~4s regardless of viewer lease.
   return {
     policy: CHECKPOINT_POLICY.RESPONSIVE_FIREBASE,
     intervalMs: RESPONSIVE_INTERVAL_MS,
@@ -376,7 +348,7 @@ export function createCheckpointPolicyController(opts = {}) {
       hasActiveRide,
       rideStatus,
       viewerLease,
-      p2pHealthy: p2pEffectiveHealthy && viewerLease === VIEWER_LEASE.VISIBLE,
+      p2pHealthy: p2pEffectiveHealthy,
       idleIntervalMs: idleLocationIntervalMs,
     });
   }
@@ -470,11 +442,6 @@ export function createCheckpointPolicyController(opts = {}) {
       diag(CHECKPOINT_DIAG.PRESENCE_EXPIRED);
     }
     viewerLease = next;
-    if (next !== VIEWER_LEASE.VISIBLE) {
-      p2pRawHealthy = false;
-      p2pEffectiveHealthy = false;
-      p2pHealthySince = null;
-    }
     emitPolicyIfChanged();
     if (next === VIEWER_LEASE.VISIBLE && prev !== VIEWER_LEASE.VISIBLE) {
       requestImmediate("presence_visible");

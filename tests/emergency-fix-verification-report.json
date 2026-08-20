@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T14:47:13.545Z",
+  "generatedAt": "2026-08-20T01:00:52.110Z",
   "pass": 37,
   "fail": 0,
   "items": [
@@ -19,9 +19,9 @@
       "detail": "30000"
     },
     {
-      "item": "15-second Firebase backup",
+      "item": "4-second Firebase backup",
       "result": "PASS",
-      "detail": "15000"
+      "detail": "4000"
     },
     {
       "item": "SSoT monorepo imports retained in source",

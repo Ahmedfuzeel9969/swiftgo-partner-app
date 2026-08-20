@@ -188,36 +188,22 @@ function resolveViewerLeaseFromPresence(presenceData, nowMs) {
 
 /**
  * Server-authoritative cadence when native path is active (P2P assumed unavailable).
- * Visible customer → responsive 4s; else background 30s trip / 60s approach.
+ * Active rides always use responsive ~4s — presence lease does not slow fallback.
  */
 function resolveBackgroundUploadIntervalMs({ rideStatus, viewerLease }) {
+  void viewerLease;
   const status = String(rideStatus || "");
-  const lease = String(viewerLease || "UNKNOWN");
-  if (lease === "VISIBLE") {
+  if (TRIP_STATUSES.includes(status) || APPROACH_STATUSES.includes(status)) {
     return {
       intervalMs: RESPONSIVE_INTERVAL_MS,
       policy: "RESPONSIVE_FIREBASE",
       hardInterval: false,
     };
   }
-  if (TRIP_STATUSES.includes(status)) {
-    return {
-      intervalMs: BACKGROUND_TRIP_INTERVAL_MS,
-      policy: "BACKGROUND_TRIP_CHECKPOINT",
-      hardInterval: true,
-    };
-  }
-  if (APPROACH_STATUSES.includes(status)) {
-    return {
-      intervalMs: BACKGROUND_APPROACH_INTERVAL_MS,
-      policy: "BACKGROUND_APPROACH_CHECKPOINT",
-      hardInterval: true,
-    };
-  }
   return {
-    intervalMs: BACKGROUND_APPROACH_INTERVAL_MS,
-    policy: "SAFE_UNKNOWN_APPROACH",
-    hardInterval: true,
+    intervalMs: RESPONSIVE_INTERVAL_MS,
+    policy: "RESPONSIVE_FIREBASE",
+    hardInterval: false,
   };
 }
 

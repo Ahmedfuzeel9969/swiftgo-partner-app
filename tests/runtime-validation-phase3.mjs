@@ -81,7 +81,7 @@ row(
 row(
   "Firebase backup apply interval",
   CFG_FIREBASE_BACKUP_READ_INTERVAL_MS === FIREBASE_BACKUP_READ_INTERVAL_MS &&
-    FIREBASE_BACKUP_READ_INTERVAL_MS === 15_000,
+    FIREBASE_BACKUP_READ_INTERVAL_MS === 4_000,
   `ms=${CFG_FIREBASE_BACKUP_READ_INTERVAL_MS}`
 );
 
@@ -116,11 +116,23 @@ const bgApproach = resolveCheckpointPolicy({
   p2pHealthy: false,
 });
 row(
-  "checkpoint policy (background approach)",
-  bgApproach.policy === CHECKPOINT_POLICY.BACKGROUND_APPROACH_CHECKPOINT &&
-    bgApproach.intervalMs === BACKGROUND_APPROACH_INTERVAL_MS &&
-    CFG_BACKGROUND_APPROACH_INTERVAL_MS === BACKGROUND_APPROACH_INTERVAL_MS,
+  "checkpoint policy (expired unhealthy responsive)",
+  bgApproach.policy === CHECKPOINT_POLICY.RESPONSIVE_FIREBASE &&
+    bgApproach.intervalMs === RESPONSIVE_INTERVAL_MS,
   `${bgApproach.policy}@${bgApproach.intervalMs}`
+);
+
+const bgApproachHealthy = resolveCheckpointPolicy({
+  hasActiveRide: true,
+  rideStatus: "accepted",
+  viewerLease: VIEWER_LEASE.EXPIRED,
+  p2pHealthy: true,
+});
+row(
+  "checkpoint policy (expired healthy sparse approach)",
+  bgApproachHealthy.policy === CHECKPOINT_POLICY.P2P_SPARSE_APPROACH &&
+    bgApproachHealthy.intervalMs === BACKGROUND_APPROACH_INTERVAL_MS,
+  `${bgApproachHealthy.policy}@${bgApproachHealthy.intervalMs}`
 );
 
 const bgTrip = resolveCheckpointPolicy({
@@ -130,10 +142,9 @@ const bgTrip = resolveCheckpointPolicy({
   p2pHealthy: false,
 });
 row(
-  "checkpoint policy (background trip)",
-  bgTrip.policy === CHECKPOINT_POLICY.BACKGROUND_TRIP_CHECKPOINT &&
-    bgTrip.intervalMs === BACKGROUND_TRIP_INTERVAL_MS &&
-    CFG_BACKGROUND_TRIP_INTERVAL_MS === BACKGROUND_TRIP_INTERVAL_MS,
+  "checkpoint policy (expired unhealthy responsive trip)",
+  bgTrip.policy === CHECKPOINT_POLICY.RESPONSIVE_FIREBASE &&
+    bgTrip.intervalMs === RESPONSIVE_INTERVAL_MS,
   `${bgTrip.policy}@${bgTrip.intervalMs}`
 );
 

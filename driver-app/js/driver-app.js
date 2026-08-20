@@ -662,12 +662,10 @@ function syncDriverP2pForActiveRide() {
     destroyDriverRideCommChat();
     return;
   }
-  const lease = checkpointPolicy.getState?.()?.viewerLease;
-  const viewerVisible = lease === VIEWER_LEASE.VISIBLE;
+  // Presence affects Firebase checkpoint cadence only — not driver P2P transport.
   driverP2p.syncForRide({
     ride,
     trackingSessionId: locationTrackingSessionId,
-    viewerVisible,
   });
   syncDriverRideCommChat();
 }

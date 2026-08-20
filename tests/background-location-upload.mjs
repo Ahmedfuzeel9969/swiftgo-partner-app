@@ -109,8 +109,11 @@ function baseClaims(over = {}) {
     viewerLease: "EXPIRED",
   });
   record(
-    "cadence-hidden-trip-30s",
-    hiddenTrip.intervalMs === BACKGROUND_TRIP_INTERVAL_MS ? "PASS" : "FAIL",
+    "cadence-expired-native-upload-responsive",
+    hiddenTrip.intervalMs === RESPONSIVE_INTERVAL_MS &&
+      hiddenTrip.policy === "RESPONSIVE_FIREBASE"
+      ? "PASS"
+      : "FAIL",
     `${hiddenTrip.policy}:${hiddenTrip.intervalMs}`
   );
 
@@ -119,8 +122,11 @@ function baseClaims(over = {}) {
     viewerLease: "UNKNOWN",
   });
   record(
-    "cadence-unknown-approach-60s",
-    hiddenApproach.intervalMs === BACKGROUND_APPROACH_INTERVAL_MS ? "PASS" : "FAIL",
+    "cadence-unknown-approach-responsive",
+    hiddenApproach.intervalMs === RESPONSIVE_INTERVAL_MS &&
+      hiddenApproach.policy === "RESPONSIVE_FIREBASE"
+      ? "PASS"
+      : "FAIL",
     `${hiddenApproach.policy}:${hiddenApproach.intervalMs}`
   );
 }

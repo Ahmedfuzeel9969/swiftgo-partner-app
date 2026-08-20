@@ -1,6 +1,6 @@
 {
   "suite": "background-location-upload",
-  "generatedAt": "2026-08-17T10:27:13.683Z",
+  "generatedAt": "2026-08-20T01:00:53.678Z",
   "pass": 23,
   "fail": 0,
   "results": [
@@ -35,14 +35,14 @@
       "detail": "RESPONSIVE_FIREBASE:4000"
     },
     {
-      "name": "cadence-hidden-trip-30s",
+      "name": "cadence-expired-native-upload-responsive",
       "status": "PASS",
-      "detail": "BACKGROUND_TRIP_CHECKPOINT:30000"
+      "detail": "RESPONSIVE_FIREBASE:4000"
     },
     {
-      "name": "cadence-unknown-approach-60s",
+      "name": "cadence-unknown-approach-responsive",
       "status": "PASS",
-      "detail": "BACKGROUND_APPROACH_CHECKPOINT:60000"
+      "detail": "RESPONSIVE_FIREBASE:4000"
     },
     {
       "name": "write-gate-skip-interval",

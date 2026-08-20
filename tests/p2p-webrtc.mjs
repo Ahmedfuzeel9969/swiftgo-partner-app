@@ -671,21 +671,34 @@ function checkpointP2pPolicyTests() {
   );
 
   record(
-    "45-hidden-approach-60s",
+    "45-expired-unhealthy-approach-responsive",
     resolveCheckpointPolicy({
       hasActiveRide: true,
       rideStatus: "accepted",
       viewerLease: VIEWER_LEASE.EXPIRED,
-    }).intervalMs === BACKGROUND_APPROACH_INTERVAL_MS
+      p2pHealthy: false,
+    }).intervalMs === RESPONSIVE_INTERVAL_MS
       ? "PASS"
       : "FAIL"
   );
   record(
-    "46-hidden-trip-30s",
+    "46-expired-unhealthy-trip-responsive",
     resolveCheckpointPolicy({
       hasActiveRide: true,
       rideStatus: "in_progress",
       viewerLease: VIEWER_LEASE.EXPIRED,
+      p2pHealthy: false,
+    }).intervalMs === RESPONSIVE_INTERVAL_MS
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "46b-expired-healthy-trip-sparse",
+    resolveCheckpointPolicy({
+      hasActiveRide: true,
+      rideStatus: "in_progress",
+      viewerLease: VIEWER_LEASE.EXPIRED,
+      p2pHealthy: true,
     }).intervalMs === BACKGROUND_TRIP_INTERVAL_MS
       ? "PASS"
       : "FAIL"

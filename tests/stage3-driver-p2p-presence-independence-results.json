@@ -1,0 +1,68 @@
+{
+  "stage": 3,
+  "generatedAt": "2026-08-20T01:00:48.266Z",
+  "pass": 12,
+  "fail": 0,
+  "results": [
+    {
+      "name": "active-accepted-starts-p2p-without-presence",
+      "status": "PASS",
+      "detail": "state=CONNECTING offers=1"
+    },
+    {
+      "name": "active-arrived-starts-p2p-without-presence",
+      "status": "PASS",
+      "detail": "state=CONNECTING offers=1"
+    },
+    {
+      "name": "active-in_progress-starts-p2p-without-presence",
+      "status": "PASS",
+      "detail": "state=CONNECTING offers=1"
+    },
+    {
+      "name": "repeated-sync-does-not-suspend-active-p2p",
+      "status": "PASS",
+      "detail": "state=CONNECTING offers=1 first=1"
+    },
+    {
+      "name": "terminal-status-completed-stops-p2p",
+      "status": "PASS",
+      "detail": "state=DISABLED"
+    },
+    {
+      "name": "terminal-status-cancelled-stops-p2p",
+      "status": "PASS",
+      "detail": "state=DISABLED"
+    },
+    {
+      "name": "terminal-status-pending-stops-p2p",
+      "status": "PASS",
+      "detail": "state=DISABLED"
+    },
+    {
+      "name": "terminal-status-empty-stops-p2p",
+      "status": "PASS",
+      "detail": "state=DISABLED"
+    },
+    {
+      "name": "driver-app-syncDriverP2p-no-viewerVisible-param",
+      "status": "PASS",
+      "detail": "decoupled"
+    },
+    {
+      "name": "driver-app-no-driverP2p-suspend-calls",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "controller-syncForRide-no-viewerVisible-param",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "controller-syncForRide-starts-for-execution-statuses",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

@@ -230,18 +230,26 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function ingestFirebaseLocation(loc, rideMeta = {}) {
-    if (!loc || typeof loc.lat !== "number" || typeof loc.lng !== "number") return;
+    const lat = Number(loc?.lat);
+    const lng = Number(loc?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
     const observedAt =
       Number(loc.observedAt) ||
       Number(rideMeta.driverLocationUpdatedAt) ||
       Date.now();
     arbiter.ingestFirebase(
       {
-        lat: loc.lat,
-        lng: loc.lng,
+        lat,
+        lng,
         observedAt,
         sequence: Number(loc.sequence) || 0,
-        trackingSessionId: String(loc.trackingSessionId || rideMeta.trackingSessionId || ""),
+        trackingSessionId: String(
+          loc.trackingSessionId ||
+            loc.sessionId ||
+            rideMeta.driverTrackingSessionId ||
+            rideMeta.trackingSessionId ||
+            ""
+        ),
         assignmentVersion: Number(rideMeta.assignmentVersion) || 0,
         accuracyM: loc.accuracyM ?? loc.accuracy ?? null,
         headingDeg: loc.headingDeg ?? loc.heading ?? null,

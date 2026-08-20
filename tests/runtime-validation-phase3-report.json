@@ -2,8 +2,8 @@
   "suite": "runtime-validation",
   "phase": 3,
   "title": "Runtime Validation Proof",
-  "generatedAt": "2026-08-05T11:25:31.716Z",
-  "pass": 14,
+  "generatedAt": "2026-08-20T01:00:53.862Z",
+  "pass": 15,
   "fail": 0,
   "items": [
     {
@@ -34,7 +34,7 @@
     {
       "item": "Firebase backup apply interval",
       "result": "PASS",
-      "detail": "ms=15000"
+      "detail": "ms=4000"
     },
     {
       "item": "checkpoint policy (idle)",
@@ -47,14 +47,19 @@
       "detail": "RESPONSIVE_FIREBASE@4000"
     },
     {
-      "item": "checkpoint policy (background approach)",
+      "item": "checkpoint policy (expired unhealthy responsive)",
       "result": "PASS",
-      "detail": "BACKGROUND_APPROACH_CHECKPOINT@60000"
+      "detail": "RESPONSIVE_FIREBASE@4000"
     },
     {
-      "item": "checkpoint policy (background trip)",
+      "item": "checkpoint policy (expired healthy sparse approach)",
       "result": "PASS",
-      "detail": "BACKGROUND_TRIP_CHECKPOINT@30000"
+      "detail": "P2P_SPARSE_APPROACH@60000"
+    },
+    {
+      "item": "checkpoint policy (expired unhealthy responsive trip)",
+      "result": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
     },
     {
       "item": "checkpoint policy (sparse hysteresis diag≡runtime)",

@@ -1,13 +1,13 @@
 {
   "suite": "p2p-webrtc",
-  "generatedAt": "2026-08-12T09:59:58.762Z",
+  "generatedAt": "2026-08-20T01:00:51.323Z",
   "totals": {
-    "pass": 78,
+    "pass": 79,
     "fail": 2,
     "blocked": 1,
     "byCategory": {
       "unit": {
-        "pass": 64,
+        "pass": 65,
         "fail": 0,
         "blocked": 0
       },
@@ -310,14 +310,21 @@
       "category": "unit"
     },
     {
-      "name": "45-hidden-approach-60s",
+      "name": "45-expired-unhealthy-approach-responsive",
       "status": "PASS",
       "detail": "",
       "suite": "p2p-webrtc",
       "category": "unit"
     },
     {
-      "name": "46-hidden-trip-30s",
+      "name": "46-expired-unhealthy-trip-responsive",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "46b-expired-healthy-trip-sparse",
       "status": "PASS",
       "detail": "",
       "suite": "p2p-webrtc",
@@ -354,7 +361,7 @@
     {
       "name": "01-assigned-driver-create-session",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1786529698703,\"protocolVersion\":1}",
+      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1787188551238,\"protocolVersion\":1}",
       "suite": "p2p-webrtc",
       "category": "unit"
     },

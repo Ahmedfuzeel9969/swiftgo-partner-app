@@ -1,7 +1,7 @@
 {
   "suite": "p2p-customer-receive",
-  "generatedAt": "2026-08-17T10:27:11.437Z",
-  "pass": 8,
+  "generatedAt": "2026-08-20T01:00:52.312Z",
+  "pass": 9,
   "fail": 0,
   "results": [
     {
@@ -23,6 +23,11 @@
       "name": "driver-stop-clears-session",
       "status": "PASS",
       "detail": ""
+    },
+    {
+      "name": "driver-starts-p2p-without-viewer-presence",
+      "status": "PASS",
+      "detail": "offers=2 before=1 state=CONNECTING"
     },
     {
       "name": "customer-answers-initial-offer",

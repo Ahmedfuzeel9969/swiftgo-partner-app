@@ -759,6 +759,21 @@ export function createP2pPeerSession(deps) {
       });
   }
 
+  /** Adopt server-authoritative assignmentVersion after offer upload or signaling refresh. */
+  function syncAssignmentVersion(nextAv) {
+    if (closed) return false;
+    const av = Math.max(1, Math.floor(Number(nextAv) || 0));
+    if (!Number.isFinite(av) || av < 1) return false;
+    assignmentVersion = av;
+    if (sessionMeta) {
+      sessionMeta = { ...sessionMeta, assignmentVersion: av };
+    }
+    if (pendingLoc && channel?.readyState === "open") {
+      flushPendingLoc();
+    }
+    return true;
+  }
+
   /**
    * Driver: create offer session.
    */
@@ -1253,6 +1268,7 @@ export function createP2pPeerSession(deps) {
     close,
     suspend,
     getState,
+    syncAssignmentVersion,
     getCounters: () => ({ ...counters }),
     getPipeline: () => pipe.getEvents(),
     getPipelineReport: () => pipe.buildReport(),
@@ -1289,12 +1305,12 @@ export function createP2pPeerSession(deps) {
     createMediaBridge,
     /** Test helpers */
     _handleMessageForTest: handleMessage,
-    _setChannelOpenForTest: (open) => {
+    _setChannelOpenForTest: (open, sendFn) => {
       if (open) {
         channel = {
           readyState: "open",
           bufferedAmount: 0,
-          send: () => {},
+          send: typeof sendFn === "function" ? sendFn : () => {},
           close: () => {},
         };
         setState(P2P_STATE.CONNECTING);

@@ -67,7 +67,7 @@ export const P2P_DEGRADED_AFTER_MS = 9_000;
 /** No valid peer activity → Firebase fallback. */
 export const P2P_FALLBACK_AFTER_MS = 30_000;
 /** While on Firebase backup, apply at most one location render per this interval. */
-export const FIREBASE_BACKUP_READ_INTERVAL_MS = 15_000;
+export const FIREBASE_BACKUP_READ_INTERVAL_MS = 4_000;
 /** Idle heartbeat — only when no recent LOC/ACK/HB outbound (low traffic). */
 export const P2P_HEARTBEAT_INTERVAL_MS = 12_000;
 /** Require healthy this long before sparse Firebase (anti-flap). */

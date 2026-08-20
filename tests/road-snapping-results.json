@@ -1,7 +1,7 @@
 {
   "suite": "road-snapping",
   "phase": 5,
-  "generatedAt": "2026-08-17T03:50:59.754Z",
+  "generatedAt": "2026-08-20T01:01:01.548Z",
   "thresholds": {
     "SNAP_HIGH_DISTANCE_M": 25,
     "SNAP_MAX_DISTANCE_M": 55,
@@ -596,21 +596,21 @@
     {
       "name": "68-400-point-repeated-fixes",
       "status": "PASS",
-      "detail": "{\"label\":\"400-local-window\",\"n\":800,\"medianMs\":0.017299999999977445,\"p95Ms\":0.07159999999998945,\"maxMs\":2.4913999999999987}",
+      "detail": "{\"label\":\"400-local-window\",\"n\":800,\"medianMs\":0.03489999999999327,\"p95Ms\":0.10869999999999891,\"maxMs\":1.4402999999999793}",
       "suite": "road-snapping",
       "category": "unit"
     },
     {
       "name": "69-large-fixture-bounded",
       "status": "PASS",
-      "detail": "{\"label\":\"1200-wide-search-miss\",\"n\":400,\"medianMs\":0.6580000000000155,\"p95Ms\":2.093999999999994,\"maxMs\":4.428500000000042}",
+      "detail": "{\"label\":\"1200-wide-search-miss\",\"n\":400,\"medianMs\":0.9039999999999964,\"p95Ms\":2.300999999999931,\"maxMs\":52.072}",
       "suite": "road-snapping",
       "category": "unit"
     },
     {
       "name": "H29-performance-median-p95-max",
       "status": "PASS",
-      "detail": "{\"smallStats\":{\"label\":\"small-bent\",\"n\":1000,\"medianMs\":0.003100000000017644,\"p95Ms\":0.008600000000001273,\"maxMs\":0.4411999999999807},\"local\":{\"label\":\"400-local-window\",\"n\":800,\"medianMs\":0.017299999999977445,\"p95Ms\":0.07159999999998945,\"maxMs\":2.4913999999999987},\"miss\":{\"label\":\"1200-wide-search-miss\",\"n\":400,\"medianMs\":0.6580000000000155,\"p95Ms\":2.093999999999994,\"maxMs\":4.428500000000042}}",
+      "detail": "{\"smallStats\":{\"label\":\"small-bent\",\"n\":1000,\"medianMs\":0.0039000000000442014,\"p95Ms\":0.009699999999952524,\"maxMs\":0.09420000000000073},\"local\":{\"label\":\"400-local-window\",\"n\":800,\"medianMs\":0.03489999999999327,\"p95Ms\":0.10869999999999891,\"maxMs\":1.4402999999999793},\"miss\":{\"label\":\"1200-wide-search-miss\",\"n\":400,\"medianMs\":0.9039999999999964,\"p95Ms\":2.300999999999931,\"maxMs\":52.072}}",
       "suite": "road-snapping",
       "category": "unit"
     },

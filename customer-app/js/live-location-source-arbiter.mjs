@@ -112,13 +112,21 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     return true;
   }
 
+  function activateFirebaseFallback() {
+    const wasP2pPrimary = p2pHealthy && preferred === "p2p";
+    p2pHealthy = false;
+    preferred = "firebase";
+    if (wasP2pPrimary) {
+      // Responsive fallback: first Firebase render after P2P loss must not wait out the prior throttle window.
+      lastFirebaseRenderAt = 0;
+    }
+    diag(P2P_DIAG.FIREBASE_FALLBACK);
+  }
+
   function ensureP2pHealth() {
     if (!p2pHealthy) return;
     if (!lastP2pAt || nowMs() - lastP2pAt > fallbackAfterMs) {
-      // Dead/silent P2P: prefer Firebase without waiting for an explicit session error.
-      p2pHealthy = false;
-      preferred = "firebase";
-      diag(P2P_DIAG.FIREBASE_FALLBACK);
+      activateFirebaseFallback();
     }
   }
 
@@ -166,8 +174,7 @@ export function createLiveLocationSourceArbiter(opts = {}) {
   }
 
   function noteP2pUnhealthy() {
-    p2pHealthy = false;
-    preferred = "firebase";
+    activateFirebaseFallback();
     // Accept newest Firebase without moving marker backward in time.
     if (lastFirebase && shouldReplace(lastRendered, lastFirebase)) {
       const now = nowMs();
@@ -175,9 +182,6 @@ export function createLiveLocationSourceArbiter(opts = {}) {
         lastFirebaseRenderAt = now;
         render(lastFirebase, "fallback");
       }
-      diag(P2P_DIAG.FIREBASE_FALLBACK);
-    } else {
-      diag(P2P_DIAG.FIREBASE_FALLBACK);
     }
   }
 
