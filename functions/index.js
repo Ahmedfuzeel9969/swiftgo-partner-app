@@ -80,6 +80,7 @@ const { submitRideBreadcrumbBatch } = require("./breadcrumb-batch");
 const { submitRideLocationReportSection } = require("./ride-location-report");
 const {
   issueBackgroundLocationCredential,
+  refreshBackgroundLocationCredential,
   ingestBackgroundDriverLocation,
 } = require("./background-location-upload");
 
@@ -1204,6 +1205,53 @@ exports.issueBackgroundLocationCredential = onCall(
         ttlMs: request.data?.ttlMs,
       })
     );
+  }
+);
+
+/**
+ * Native HTTPS credential rotation (no Firebase Auth SDK).
+ * Accepts a still-valid scoped HMAC token; revalidates assignment; returns successor.
+ */
+exports.refreshBackgroundDriverLocationCredential = onRequest(
+  { region: "us-central1", cors: true, secrets: [backgroundLocationUploadSecret] },
+  async (req, res) => {
+    if (req.method === "OPTIONS") {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type");
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      res.status(405).json({ ok: false, reason: "METHOD_NOT_ALLOWED" });
+      return;
+    }
+    try {
+      const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      const result = await refreshBackgroundLocationCredential(db, {
+        token: body.token,
+      });
+      const status =
+        result?.ok === true
+          ? 200
+          : result?.reason === "TOKEN_EXPIRED" ||
+              result?.reason === "INVALID_SIGNATURE" ||
+              result?.reason === "INVALID_TOKEN"
+            ? 401
+            : result?.reason === "SECRET_NOT_CONFIGURED"
+              ? 503
+              : 403;
+      res.status(status).json(result);
+    } catch (err) {
+      logger.error("refreshBackgroundDriverLocationCredential_failed", {
+        code: err?.code || null,
+        message: String(err?.message || err).slice(0, 200),
+      });
+      await recordFunctionError(db, "refreshBackgroundDriverLocationCredential", err).catch(
+        () => {}
+      );
+      res.status(500).json({ ok: false, reason: "INTERNAL" });
+    }
   }
 );
 

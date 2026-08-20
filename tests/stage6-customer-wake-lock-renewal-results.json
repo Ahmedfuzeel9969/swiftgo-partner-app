@@ -1,0 +1,68 @@
+{
+  "stage": 6,
+  "scope": "customer-wake-lock-renewal",
+  "finding": "A7",
+  "generatedAt": "2026-08-20T12:01:30.463Z",
+  "summary": {
+    "pass": 10,
+    "fail": 0,
+    "blocked": 1
+  },
+  "results": [
+    {
+      "name": "bounded-wake-lock-chunk-10-minutes",
+      "status": "PASS",
+      "detail": "each acquire remains time-bounded"
+    },
+    {
+      "name": "renew-before-expiry-scheduler",
+      "status": "PASS",
+      "detail": "Handler renews ~2 min before timeout"
+    },
+    {
+      "name": "renew-release-before-reacquire",
+      "status": "PASS",
+      "detail": "no duplicate concurrent locks"
+    },
+    {
+      "name": "stop-cancels-renewal-and-releases",
+      "status": "PASS",
+      "detail": "ACTION_STOP drops timer + lock immediately"
+    },
+    {
+      "name": "destroy-releases-wake-lock",
+      "status": "PASS",
+      "detail": "service teardown clears native hold"
+    },
+    {
+      "name": "webrtc-limitation-documented",
+      "status": "PASS",
+      "detail": "native keepalive != WebView session recovery"
+    },
+    {
+      "name": "js-terminal-stop-still-wired",
+      "status": "PASS",
+      "detail": "terminal ride path stops foreground service from JS"
+    },
+    {
+      "name": "no-indefinite-wake-lock-acquire",
+      "status": "PASS",
+      "detail": "never calls unbounded acquire()"
+    },
+    {
+      "name": "sim-renew-at-8-minutes",
+      "status": "PASS",
+      "detail": "renewDelayMs=480000"
+    },
+    {
+      "name": "sim-25min-ride-gets-3-renewals",
+      "status": "PASS",
+      "detail": "25 min active service exceeds old single 10 min bound"
+    },
+    {
+      "name": "android-runtime-deep-background-10min",
+      "status": "BLOCKED",
+      "detail": "Requires device soak; static + simulated timeline only"
+    }
+  ]
+}

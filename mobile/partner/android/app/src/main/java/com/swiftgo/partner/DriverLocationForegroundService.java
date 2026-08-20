@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.os.Build;
@@ -46,6 +47,7 @@ public class DriverLocationForegroundService extends Service {
   public static final String EXTRA_TRACKING_SESSION_ID = "trackingSessionId";
   public static final String EXTRA_ASSIGNMENT_TOKEN = "assignmentSessionToken";
   public static final String EXTRA_UPLOAD_URL = "uploadUrl";
+  public static final String EXTRA_REFRESH_URL = "refreshUrl";
   public static final String EXTRA_TOKEN = "token";
   public static final String EXTRA_TOKEN_EXPIRES_AT = "tokenExpiresAtMs";
   public static final String EXTRA_RIDE_STATUS = "rideStatus";
@@ -55,6 +57,11 @@ public class DriverLocationForegroundService extends Service {
   private static final String CHANNEL_ID = "swiftgo_driver_location";
   private static final int NOTIFICATION_ID = 47201;
   private static final long WEB_ALIVE_TIMEOUT_MS = 15_000L;
+  private static final String BINDING_PREFS = "swiftgo_driver_location_binding";
+  private static final String KEY_BINDING_ACTIVE = "active";
+  private static final String KEY_BINDING_RIDE_ID = "rideId";
+  private static final String KEY_BINDING_RIDE_STATUS = "rideStatus";
+  private static final String KEY_BINDING_INTERVAL_MS = "intervalMs";
 
   private static volatile DriverLocationForegroundService instance;
   private static volatile boolean running;
@@ -85,13 +92,23 @@ public class DriverLocationForegroundService extends Service {
     running = true;
     fusedClient = LocationServices.getFusedLocationProviderClient(this);
     uploader = new BackgroundLocationUploader(this);
+    uploader.setPermanentBindingInvalidListener(
+        reason -> stopSelfSafe("binding_invalid:" + reason));
     ensureChannel();
   }
 
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
     if (intent == null) {
-      return START_STICKY;
+      if (restoreStickyBinding()) {
+        startAsForeground();
+        startLocationUpdates();
+        lastWebAliveAtMs = 0L;
+        notifyPluginState("restored_sticky");
+        return START_STICKY;
+      }
+      stopSelfSafe("sticky_no_binding");
+      return START_NOT_STICKY;
     }
     String action = intent.getAction() != null ? intent.getAction() : ACTION_START;
     if (ACTION_STOP.equals(action)) {
@@ -101,7 +118,13 @@ public class DriverLocationForegroundService extends Service {
     if (ACTION_UPDATE_CREDENTIAL.equals(action)) {
       String token = intent.getStringExtra(EXTRA_TOKEN);
       long exp = intent.getLongExtra(EXTRA_TOKEN_EXPIRES_AT, 0L);
-      if (uploader != null) uploader.updateCredential(token, exp);
+      String refreshUrl = intent.getStringExtra(EXTRA_REFRESH_URL);
+      if (uploader != null) {
+        uploader.updateCredential(token, exp);
+        if (refreshUrl != null && !refreshUrl.trim().isEmpty()) {
+          uploader.updateRefreshUrl(refreshUrl);
+        }
+      }
       notifyPluginState("credential_updated");
       return START_STICKY;
     }
@@ -113,10 +136,12 @@ public class DriverLocationForegroundService extends Service {
     }
     if (ACTION_UPDATE_SESSION.equals(action)) {
       applyStartExtras(intent);
+      persistActiveBinding();
       return START_STICKY;
     }
 
     applyStartExtras(intent);
+    persistActiveBinding();
     startAsForeground();
     startLocationUpdates();
     lastWebAliveAtMs = System.currentTimeMillis();
@@ -124,16 +149,46 @@ public class DriverLocationForegroundService extends Service {
     return START_STICKY;
   }
 
+  private void persistActiveBinding() {
+    if (rideId.isEmpty() || rideStatus.isEmpty()) return;
+    getBindingPrefs()
+        .edit()
+        .putBoolean(KEY_BINDING_ACTIVE, true)
+        .putString(KEY_BINDING_RIDE_ID, rideId)
+        .putString(KEY_BINDING_RIDE_STATUS, rideStatus)
+        .putLong(KEY_BINDING_INTERVAL_MS, intervalMs)
+        .apply();
+  }
+
+  private boolean restoreStickyBinding() {
+    SharedPreferences prefs = getBindingPrefs();
+    if (!prefs.getBoolean(KEY_BINDING_ACTIVE, false)) return false;
+    rideId = safe(prefs.getString(KEY_BINDING_RIDE_ID, ""));
+    rideStatus = safe(prefs.getString(KEY_BINDING_RIDE_STATUS, ""));
+    intervalMs = Math.max(2_000L, prefs.getLong(KEY_BINDING_INTERVAL_MS, 4_000L));
+    if (rideId.isEmpty() || rideStatus.isEmpty()) return false;
+    return uploader != null && uploader.hasPersistedUploadConfig();
+  }
+
+  private void clearPersistedBinding() {
+    getBindingPrefs().edit().clear().apply();
+  }
+
+  private SharedPreferences getBindingPrefs() {
+    return getSharedPreferences(BINDING_PREFS, MODE_PRIVATE);
+  }
+
   private void applyStartExtras(Intent intent) {
     rideId = safe(intent.getStringExtra(EXTRA_RIDE_ID));
     rideStatus = safe(intent.getStringExtra(EXTRA_RIDE_STATUS));
     intervalMs = Math.max(2_000L, intent.getLongExtra(EXTRA_INTERVAL_MS, 4_000L));
     String uploadUrl = safe(intent.getStringExtra(EXTRA_UPLOAD_URL));
+    String refreshUrl = safe(intent.getStringExtra(EXTRA_REFRESH_URL));
     String token = safe(intent.getStringExtra(EXTRA_TOKEN));
     long exp = intent.getLongExtra(EXTRA_TOKEN_EXPIRES_AT, 0L);
     int lastSeq = intent.getIntExtra(EXTRA_LAST_SEQUENCE, 0);
     if (uploader != null) {
-      uploader.configure(uploadUrl, token, exp, lastSeq);
+      uploader.configure(uploadUrl, refreshUrl, token, exp, lastSeq);
     }
   }
 
@@ -256,6 +311,11 @@ public class DriverLocationForegroundService extends Service {
   }
 
   private void stopSelfSafe(String reason) {
+    clearPersistedBinding();
+    if (uploader != null) {
+      uploader.clearQueue();
+      uploader.clearCredentialState();
+    }
     try {
       if (fusedClient != null && locationCallback != null) {
         fusedClient.removeLocationUpdates(locationCallback);

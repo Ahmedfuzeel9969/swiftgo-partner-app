@@ -37,6 +37,8 @@ final class BackgroundLocationUploader {
   private static final long BASE_RETRY_MS = 2_000L;
   private static final long MAX_RETRY_MS = 60_000L;
   private static final long QUEUE_RETRY_INTERVAL_MS = 15_000L;
+  /** Renew while token still valid — before WebView JS refresh may be dead. */
+  private static final long RENEW_BEFORE_MS = 3 * 60_000L;
 
   private final Context appContext;
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -46,6 +48,7 @@ final class BackgroundLocationUploader {
   private Runnable queueRetryRunnable;
 
   private volatile String uploadUrl = "";
+  private volatile String refreshUrl = "";
   private volatile String token = "";
   private volatile long tokenExpiresAtMs = 0L;
   private volatile int lastSequence = 0;
@@ -55,11 +58,21 @@ final class BackgroundLocationUploader {
   private volatile int queuedCount = 0;
   private volatile String lastReason = "";
 
+  interface PermanentBindingInvalidListener {
+    void onPermanentBindingInvalid(String reason);
+  }
+
+  private volatile PermanentBindingInvalidListener bindingInvalidListener;
+
   BackgroundLocationUploader(Context context) {
     this.appContext = context.getApplicationContext();
     loadPrefs();
     registerNetworkCallback();
     scheduleQueueRetry();
+  }
+
+  void setPermanentBindingInvalidListener(PermanentBindingInvalidListener listener) {
+    this.bindingInvalidListener = listener;
   }
 
   private void registerNetworkCallback() {
@@ -101,19 +114,31 @@ final class BackgroundLocationUploader {
         new Runnable() {
           @Override
           public void run() {
-            if (queuedCount > 0) requestFlush();
+            executor.execute(
+                () -> {
+                  tryRenewCredentialLocked();
+                  if (queuedCount > 0) flushLocked();
+                });
             mainHandler.postDelayed(this, QUEUE_RETRY_INTERVAL_MS);
           }
         };
     mainHandler.postDelayed(queueRetryRunnable, QUEUE_RETRY_INTERVAL_MS);
   }
 
-  void configure(String uploadUrl, String token, long tokenExpiresAtMs, int lastSequence) {
+  void configure(String uploadUrl, String refreshUrl, String token, long tokenExpiresAtMs, int lastSequence) {
     this.uploadUrl = uploadUrl != null ? uploadUrl.trim() : "";
+    this.refreshUrl = deriveRefreshUrl(this.uploadUrl, refreshUrl);
     this.token = token != null ? token.trim() : "";
     this.tokenExpiresAtMs = tokenExpiresAtMs;
     if (lastSequence > this.lastSequence) this.lastSequence = lastSequence;
     savePrefs();
+  }
+
+  void updateRefreshUrl(String refreshUrl) {
+    if (refreshUrl != null && !refreshUrl.trim().isEmpty()) {
+      this.refreshUrl = refreshUrl.trim();
+      savePrefs();
+    }
   }
 
   void updateCredential(String token, long tokenExpiresAtMs) {
@@ -139,6 +164,10 @@ final class BackgroundLocationUploader {
 
   int getLastSequence() {
     return lastSequence;
+  }
+
+  boolean hasPersistedUploadConfig() {
+    return uploadUrl != null && !uploadUrl.isEmpty();
   }
 
   boolean hasValidCredential(long nowMs) {
@@ -207,9 +236,16 @@ final class BackgroundLocationUploader {
         });
   }
 
+  void clearCredentialState() {
+    token = "";
+    tokenExpiresAtMs = 0L;
+    savePrefs();
+  }
+
   private void flushLocked() {
     if (!flushing.compareAndSet(false, true)) return;
     try {
+      tryRenewCredentialLocked();
       long now = System.currentTimeMillis();
       if (!hasValidCredential(now)) {
         lastReason = "credential_missing_or_expired";
@@ -237,7 +273,14 @@ final class BackgroundLocationUploader {
           backoff = BASE_RETRY_MS;
           continue;
         }
-        if (isAuthFailure(result.reason)) {
+        if (isPermanentBindingInvalid(result.reason)) {
+          lastReason = result.reason;
+          writeQueue(new JSONArray());
+          queuedCount = 0;
+          notifyPermanentBindingInvalid(result.reason);
+          break;
+        }
+        if (isRecoverableAuthFailure(result.reason)) {
           lastReason = result.reason;
           remaining.add(item);
           // Stop — need credential refresh from web when possible.
@@ -278,13 +321,95 @@ final class BackgroundLocationUploader {
             || reason.contains("noop"));
   }
 
-  private boolean isAuthFailure(String reason) {
+  private boolean isRecoverableAuthFailure(String reason) {
     return "TOKEN_EXPIRED".equals(reason)
         || "INVALID_SIGNATURE".equals(reason)
-        || "INVALID_TOKEN".equals(reason)
-        || "ASSIGNMENT_TOKEN_MISMATCH".equals(reason)
+        || "INVALID_TOKEN".equals(reason);
+  }
+
+  private boolean isPermanentBindingInvalid(String reason) {
+    return "ASSIGNMENT_TOKEN_MISMATCH".equals(reason)
         || "NOT_ASSIGNED_DRIVER".equals(reason)
-        || "RIDE_NOT_ACTIVE".equals(reason);
+        || "RIDE_NOT_ACTIVE".equals(reason)
+        || "VEHICLE_MISMATCH".equals(reason);
+  }
+
+  private void notifyPermanentBindingInvalid(String reason) {
+    PermanentBindingInvalidListener listener = bindingInvalidListener;
+    if (listener == null) return;
+    mainHandler.post(() -> listener.onPermanentBindingInvalid(reason));
+  }
+
+  private static String deriveRefreshUrl(String uploadUrl, String explicit) {
+    if (explicit != null && !explicit.trim().isEmpty()) return explicit.trim();
+    if (uploadUrl == null || uploadUrl.isEmpty()) return "";
+    if (uploadUrl.contains("ingestBackgroundDriverLocation")) {
+      return uploadUrl.replace(
+          "ingestBackgroundDriverLocation", "refreshBackgroundDriverLocationCredential");
+    }
+    return "";
+  }
+
+  /** Renew via HTTPS while the current token is still valid. */
+  private void tryRenewCredentialLocked() {
+    long now = System.currentTimeMillis();
+    if (refreshUrl == null || refreshUrl.isEmpty()) return;
+    if (token == null || token.isEmpty()) return;
+    if (tokenExpiresAtMs <= now + 5_000L) return;
+    if (tokenExpiresAtMs > now + RENEW_BEFORE_MS) return;
+
+    RefreshResult result = postRefresh();
+    if (result.ok && result.token != null && !result.token.isEmpty()) {
+      token = result.token.trim();
+      if (result.expiresAtMs > 0L) tokenExpiresAtMs = result.expiresAtMs;
+      savePrefs();
+      lastReason = "credential_renewed";
+    } else if (isPermanentBindingInvalid(result.reason)) {
+      lastReason = result.reason;
+      writeQueue(new JSONArray());
+      queuedCount = 0;
+      notifyPermanentBindingInvalid(result.reason);
+    } else if (result.reason != null && !result.reason.isEmpty()) {
+      lastReason = result.reason;
+    }
+  }
+
+  private RefreshResult postRefresh() {
+    RefreshResult out = new RefreshResult();
+    HttpURLConnection conn = null;
+    try {
+      URL url = new URL(refreshUrl);
+      conn = (HttpURLConnection) url.openConnection();
+      conn.setConnectTimeout(12_000);
+      conn.setReadTimeout(12_000);
+      conn.setRequestMethod("POST");
+      conn.setDoOutput(true);
+      conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+      JSONObject body = new JSONObject();
+      body.put("token", token);
+      byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
+      conn.setFixedLengthStreamingMode(bytes.length);
+      try (OutputStream os = conn.getOutputStream()) {
+        os.write(bytes);
+      }
+      int code = conn.getResponseCode();
+      String response = readStream(code >= 400 ? conn.getErrorStream() : conn.getInputStream());
+      JSONObject parsed = response.isEmpty() ? new JSONObject() : new JSONObject(response);
+      out.ok = parsed.optBoolean("ok", code >= 200 && code < 300);
+      if (out.ok) {
+        out.token = parsed.optString("token", "");
+        out.expiresAtMs = parsed.optLong("expiresAtMs", 0L);
+        out.reason = "credential_renewed";
+      } else {
+        out.reason = parsed.optString("reason", code >= 200 && code < 300 ? "refresh_denied" : "http_" + code);
+      }
+    } catch (Exception e) {
+      out.ok = false;
+      out.reason = "network_error";
+    } finally {
+      if (conn != null) conn.disconnect();
+    }
+    return out;
   }
 
   private UploadResult postFix(JSONObject fix, boolean force) {
@@ -363,9 +488,13 @@ final class BackgroundLocationUploader {
   private void loadPrefs() {
     SharedPreferences p = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     uploadUrl = p.getString("uploadUrl", "");
+    refreshUrl = p.getString("refreshUrl", "");
     token = p.getString("token", "");
     tokenExpiresAtMs = p.getLong("tokenExpiresAtMs", 0L);
     lastSequence = p.getInt("lastSequence", 0);
+    if (refreshUrl == null || refreshUrl.isEmpty()) {
+      refreshUrl = deriveRefreshUrl(uploadUrl, "");
+    }
   }
 
   private void savePrefs() {
@@ -373,6 +502,7 @@ final class BackgroundLocationUploader {
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         .edit()
         .putString("uploadUrl", uploadUrl)
+        .putString("refreshUrl", refreshUrl)
         .putString("token", token)
         .putLong("tokenExpiresAtMs", tokenExpiresAtMs)
         .putInt("lastSequence", lastSequence)
@@ -401,5 +531,12 @@ final class BackgroundLocationUploader {
     boolean accepted;
     String reason = "";
     int httpCode;
+  }
+
+  static final class RefreshResult {
+    boolean ok;
+    String token = "";
+    long expiresAtMs;
+    String reason = "";
   }
 }

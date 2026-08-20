@@ -8,7 +8,9 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.PowerManager;
 
 import androidx.annotation.Nullable;
@@ -19,6 +21,10 @@ import androidx.core.app.NotificationCompat;
  *
  * The WebRTC session itself remains in the existing WebView JavaScript. This
  * service neither subscribes to Firestore nor performs a Firebase fallback.
+ *
+ * Wake locks are held in bounded 10-minute chunks and renewed while this
+ * foreground service is active. That raises CPU/process eligibility for JS
+ * WebRTC but does not recreate a WebRTC session after complete WebView death.
  */
 public final class CustomerP2pKeepAliveForegroundService extends Service {
   static final String ACTION_START = "com.swiftgo.customer.action.START_P2P_KEEPALIVE";
@@ -28,8 +34,14 @@ public final class CustomerP2pKeepAliveForegroundService extends Service {
 
   private static final String CHANNEL_ID = "swiftgo_customer_p2p";
   private static final int NOTIFICATION_ID = 47202;
+  /** Bounded chunk — renewed while the foreground service remains active. */
+  private static final long WAKE_LOCK_DURATION_MS = 10 * 60_000L;
+  /** Renew before timeout so deep-background rides stay CPU-eligible for WebView P2P. */
+  private static final long WAKE_LOCK_RENEW_LEAD_MS = 2 * 60_000L;
 
   private PowerManager.WakeLock wakeLock;
+  private final Handler mainHandler = new Handler(Looper.getMainLooper());
+  private Runnable wakeLockRenewRunnable;
 
   @Override
   public void onCreate() {
@@ -89,37 +101,63 @@ public final class CustomerP2pKeepAliveForegroundService extends Service {
   }
 
   private void acquireWakeLock() {
+    renewWakeLockBounded();
+  }
+
+  private void renewWakeLockBounded() {
     try {
       PowerManager power = (PowerManager) getSystemService(Context.POWER_SERVICE);
-      if (power == null || (wakeLock != null && wakeLock.isHeld())) return;
-      wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SwiftGo:CustomerP2P");
-      wakeLock.setReferenceCounted(false);
-      // Bounded guard; active JS refreshes/restarts as needed, avoiding an indefinite lock.
-      wakeLock.acquire(10 * 60_000L);
+      if (power == null) return;
+      if (wakeLock != null && wakeLock.isHeld()) {
+        try {
+          wakeLock.release();
+        } catch (Exception ignored) {
+        }
+      }
+      if (wakeLock == null) {
+        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SwiftGo:CustomerP2P");
+        wakeLock.setReferenceCounted(false);
+      }
+      wakeLock.acquire(WAKE_LOCK_DURATION_MS);
+      scheduleWakeLockRenewal();
     } catch (Exception ignored) {
       // Foreground-service priority remains useful if OEM rejects wake locks.
     }
   }
 
-  private void stopSafely() {
+  private void scheduleWakeLockRenewal() {
+    cancelWakeLockRenewal();
+    long delayMs = Math.max(60_000L, WAKE_LOCK_DURATION_MS - WAKE_LOCK_RENEW_LEAD_MS);
+    wakeLockRenewRunnable = this::renewWakeLockBounded;
+    mainHandler.postDelayed(wakeLockRenewRunnable, delayMs);
+  }
+
+  private void cancelWakeLockRenewal() {
+    if (wakeLockRenewRunnable != null) {
+      mainHandler.removeCallbacks(wakeLockRenewRunnable);
+      wakeLockRenewRunnable = null;
+    }
+  }
+
+  private void releaseWakeLock() {
+    cancelWakeLockRenewal();
     if (wakeLock != null && wakeLock.isHeld()) {
       try {
         wakeLock.release();
       } catch (Exception ignored) {
       }
     }
+  }
+
+  private void stopSafely() {
+    releaseWakeLock();
     stopForeground(true);
     stopSelf();
   }
 
   @Override
   public void onDestroy() {
-    if (wakeLock != null && wakeLock.isHeld()) {
-      try {
-        wakeLock.release();
-      } catch (Exception ignored) {
-      }
-    }
+    releaseWakeLock();
     super.onDestroy();
   }
 

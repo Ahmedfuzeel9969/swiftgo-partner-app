@@ -1,0 +1,112 @@
+{
+  "stage": 5,
+  "scope": "android-service-lifecycle",
+  "generatedAt": "2026-08-20T12:01:30.397Z",
+  "summary": {
+    "pass": 19,
+    "fail": 0,
+    "blocked": 1
+  },
+  "results": [
+    {
+      "name": "null-intent-restores-foreground-and-gps",
+      "status": "PASS",
+      "detail": "onStartCommand(null) rehydrates service state"
+    },
+    {
+      "name": "null-intent-no-binding-stops-not-sticky",
+      "status": "PASS",
+      "detail": "invalid sticky restart stops safely"
+    },
+    {
+      "name": "persisted-active-binding",
+      "status": "PASS",
+      "detail": "ride binding survives process death"
+    },
+    {
+      "name": "restore-requires-upload-config",
+      "status": "PASS",
+      "detail": "sticky restore needs persisted uploader URL"
+    },
+    {
+      "name": "android-runtime-sticky-restore",
+      "status": "BLOCKED",
+      "detail": "Requires Android instrumentation harness"
+    },
+    {
+      "name": "permanent-binding-includes-RIDE_NOT_ACTIVE",
+      "status": "PASS",
+      "detail": "BackgroundLocationUploader.isPermanentBindingInvalid"
+    },
+    {
+      "name": "permanent-binding-includes-NOT_ASSIGNED_DRIVER",
+      "status": "PASS",
+      "detail": "BackgroundLocationUploader.isPermanentBindingInvalid"
+    },
+    {
+      "name": "permanent-binding-includes-ASSIGNMENT_TOKEN_MISMATCH",
+      "status": "PASS",
+      "detail": "BackgroundLocationUploader.isPermanentBindingInvalid"
+    },
+    {
+      "name": "permanent-binding-includes-VEHICLE_MISMATCH",
+      "status": "PASS",
+      "detail": "BackgroundLocationUploader.isPermanentBindingInvalid"
+    },
+    {
+      "name": "recoverable-auth-includes-TOKEN_EXPIRED",
+      "status": "PASS",
+      "detail": "recoverable auth separated from terminal stop"
+    },
+    {
+      "name": "recoverable-auth-includes-INVALID_SIGNATURE",
+      "status": "PASS",
+      "detail": "recoverable auth separated from terminal stop"
+    },
+    {
+      "name": "recoverable-auth-includes-INVALID_TOKEN",
+      "status": "PASS",
+      "detail": "recoverable auth separated from terminal stop"
+    },
+    {
+      "name": "terminal-flush-clears-queue-and-notifies",
+      "status": "PASS",
+      "detail": "permanent rejection does not retain backlog"
+    },
+    {
+      "name": "recoverable-auth-retains-queue",
+      "status": "PASS",
+      "detail": "TOKEN_EXPIRED etc. still wait for web refresh"
+    },
+    {
+      "name": "service-wires-terminal-stop-listener",
+      "status": "PASS",
+      "detail": "uploader permanent rejection stops foreground service"
+    },
+    {
+      "name": "stop-clears-binding-queue-credentials",
+      "status": "PASS",
+      "detail": "stopSelfSafe clears persisted native state"
+    },
+    {
+      "name": "refresh-denial-can-stop-service",
+      "status": "PASS",
+      "detail": "HTTPS refresh denial with terminal reason stops tracking"
+    },
+    {
+      "name": "sim-terminal-stops-and-clears",
+      "status": "PASS",
+      "detail": "RIDE_NOT_ACTIVE halts flush with empty queue"
+    },
+    {
+      "name": "sim-recoverable-retains-item",
+      "status": "PASS",
+      "detail": "TOKEN_EXPIRED keeps item for later retry"
+    },
+    {
+      "name": "sim-transient-does-not-stop",
+      "status": "PASS",
+      "detail": "network/5xx path does not trigger terminal stop"
+    }
+  ]
+}

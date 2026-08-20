@@ -1,6 +1,10 @@
 /**
  * Phase 3 — driver P2P ride controller (offer + send locations).
  * One geolocation watch remains elsewhere; this only consumes validated fixes.
+ *
+ * Startup-attempt identity (rideId + trackingSessionId + generation) is immutable
+ * for in-flight stale checks. Established assignment identity (syncedAssignmentVersion)
+ * is updated when the server returns an authoritative AV and drives same-ride reuse.
  */
 
 import { P2P_STATE, P2P_EXECUTION_STATUSES } from "./p2p-protocol.mjs";
@@ -15,6 +19,11 @@ async function defaultEnsureIceConfiguration() {
 function assignmentKey(rideId, trackingSessionId, assignmentVersion) {
   const av = Math.max(0, Math.floor(Number(assignmentVersion) || 0));
   return `${String(rideId || "").trim()}|${String(trackingSessionId || "").trim()}|${av}`;
+}
+
+/** Immutable in-flight start identity — deliberately excludes assignmentVersion. */
+function attemptIdentityKey(rideId, trackingSessionId) {
+  return `${String(rideId || "").trim()}|${String(trackingSessionId || "").trim()}`;
 }
 
 /** Known authoritative AV (>=1) or 0 when bootstrap has not completed yet. */
@@ -53,7 +62,7 @@ export function createDriverP2pController(opts = {}) {
   let trackingSessionId = "";
   let vehicleId = "";
   let assignmentVersion = 0;
-  /** Server-authoritative assignment identity for reconnect + stale guards. */
+  /** Server-authoritative assignment identity for reconnect + same-ride reuse. */
   let syncedAssignmentVersion = 0;
   let closed = false;
   let starting = false;
@@ -89,8 +98,46 @@ export function createDriverP2pController(opts = {}) {
     return assignmentKey(rideId, trackingSessionId, syncedAssignmentVersion);
   }
 
-  function isStartCurrent(gen, key) {
-    return !closed && gen === startupGeneration && key === currentAssignmentKey();
+  function currentAttemptKey() {
+    return attemptIdentityKey(rideId, trackingSessionId);
+  }
+
+  /**
+   * In-flight start remains valid when generation matches and the attempt's
+   * ride/tracking identity still owns the controller — not when AV is later
+   * established from the server.
+   */
+  function isStartCurrent(gen, attemptKey) {
+    return (
+      !closed &&
+      gen === startupGeneration &&
+      attemptKey === currentAttemptKey()
+    );
+  }
+
+  function applyAuthoritativeAssignmentVersion(nextAv) {
+    const av = Math.floor(Number(nextAv) || 0);
+    if (av < 1) return;
+    assignmentVersion = av;
+    syncedAssignmentVersion = av;
+    session?.syncAssignmentVersion?.(av);
+  }
+
+  /**
+   * Same live session should be reused when ride+tracking match and either:
+   * - incoming AV is unknown (0) while we already own this ride, or
+   * - incoming AV matches the established authoritative AV, or
+   * - both sides are still in bootstrap (AV unknown).
+   * A genuine different authoritative AV invalidates the session.
+   */
+  function shouldReuseLiveSession(rid, tid, incomingAv) {
+    if (!session) return false;
+    if (rideId !== rid || trackingSessionId !== tid) return false;
+    const incoming = Math.floor(Number(incomingAv) || 0);
+    if (syncedAssignmentVersion >= 1) {
+      return incoming < 1 || incoming === syncedAssignmentVersion;
+    }
+    return incoming < 1 || incoming === assignmentVersion;
   }
 
   function abortStaleAttempt(localSession, localUnwatch) {
@@ -165,8 +212,8 @@ export function createDriverP2pController(opts = {}) {
     pendingTarget = null;
   }
 
-  function scheduleWatchRetry(rid, gen, key) {
-    if (closed || rideId !== rid || !isStartCurrent(gen, key)) return;
+  function scheduleWatchRetry(rid, gen, attemptKey) {
+    if (closed || rideId !== rid || !isStartCurrent(gen, attemptKey)) return;
     if (watchRetryAttempt >= MAX_WATCH_RETRIES) return;
     if (watchRetryTimer) return;
     const delayMs = Math.min(30_000, 1_000 * 2 ** watchRetryAttempt);
@@ -174,13 +221,13 @@ export function createDriverP2pController(opts = {}) {
     ctrlCounters.watchRetries += 1;
     watchRetryTimer = setTimeout(() => {
       watchRetryTimer = null;
-      if (!closed && rideId === rid && isStartCurrent(gen, key)) {
-        void attachAnswerWatch(rid, gen, key);
+      if (!closed && rideId === rid && isStartCurrent(gen, attemptKey)) {
+        void attachAnswerWatch(rid, gen, attemptKey);
       }
     }, delayMs);
   }
 
-  async function attachAnswerWatch(rid, gen, key) {
+  async function attachAnswerWatch(rid, gen, attemptKey) {
     if (watchRetryTimer) {
       clearTimeout(watchRetryTimer);
       watchRetryTimer = null;
@@ -188,7 +235,7 @@ export function createDriverP2pController(opts = {}) {
     unwatch();
     const localSession = session;
     const onData = (docData) => {
-      if (!isStartCurrent(gen, key) || localSession !== session || !docData) return;
+      if (!isStartCurrent(gen, attemptKey) || localSession !== session || !docData) return;
       watchRetryAttempt = 0;
       if (String(docData.state || "") === "closed") return;
       const sid = String(docData.sessionId || "");
@@ -198,21 +245,22 @@ export function createDriverP2pController(opts = {}) {
       if (answeredSessionId === sid && answer === lastAcceptedAnswer) return;
       answeredSessionId = sid;
       lastAcceptedAnswer = answer;
-      const nextAv = Number(docData.assignmentVersion) || assignmentVersion;
-      if (nextAv !== assignmentVersion) {
-        assignmentVersion = nextAv;
-        session.syncAssignmentVersion?.(assignmentVersion);
+      const nextAv = Math.floor(Number(docData.assignmentVersion) || 0);
+      if (nextAv >= 1) {
+        applyAuthoritativeAssignmentVersion(nextAv);
       }
       session.noteAnswerDownloaded?.(answer);
       void session.acceptRemoteAnswer(answer);
     };
     const onError = () => {
-      if (!isStartCurrent(gen, key) || localSession !== session) return;
+      if (!isStartCurrent(gen, attemptKey) || localSession !== session) return;
       ctrlCounters.watchErrors += 1;
-      scheduleWatchRetry(rid, gen, key);
+      scheduleWatchRetry(rid, gen, attemptKey);
     };
     const sig = await signaling();
-    if (!isStartCurrent(gen, key) || localSession !== session || closed || rideId !== rid) return;
+    if (!isStartCurrent(gen, attemptKey) || localSession !== session || closed || rideId !== rid) {
+      return;
+    }
     if (typeof sig.watchRidePeerSession === "function") {
       unwatch = sig.watchRidePeerSession(rid, onData, onError);
     }
@@ -243,9 +291,7 @@ export function createDriverP2pController(opts = {}) {
     );
     if (!rid || !tid) return;
 
-    const key = assignmentKey(rid, tid, av);
-
-    if (session && currentAssignmentKey() === key) {
+    if (shouldReuseLiveSession(rid, tid, av)) {
       const st = String(session.getState?.()?.state || "");
       if (
         st === P2P_STATE.P2P_HEALTHY ||
@@ -261,12 +307,15 @@ export function createDriverP2pController(opts = {}) {
     }
 
     const prevPendingKey = pendingTarget
-      ? assignmentKey(
-          pendingTarget.rideId,
-          pendingTarget.trackingSessionId,
-          pendingTarget.assignmentVersion
-        )
+      ? attemptIdentityKey(pendingTarget.rideId, pendingTarget.trackingSessionId)
       : null;
+    const nextAttemptKey = attemptIdentityKey(rid, tid);
+    const establishedChanged =
+      syncedAssignmentVersion >= 1 &&
+      av >= 1 &&
+      av !== syncedAssignmentVersion &&
+      rideId === rid &&
+      trackingSessionId === tid;
 
     pendingTarget = {
       rideId: rid,
@@ -275,9 +324,12 @@ export function createDriverP2pController(opts = {}) {
       vehicleId: String(target?.vehicleId || ""),
     };
 
-    if (starting && (prevPendingKey !== key || currentAssignmentKey() !== key)) {
+    if (starting && (prevPendingKey !== nextAttemptKey || establishedChanged || currentAttemptKey() !== nextAttemptKey)) {
       startupGeneration += 1;
-    } else if (prevPendingKey && prevPendingKey !== key) {
+    } else if (prevPendingKey && prevPendingKey !== nextAttemptKey) {
+      startupGeneration += 1;
+    } else if (establishedChanged && !starting) {
+      // Genuine AV change on same ride/tracking — bump so any in-flight start aborts.
       startupGeneration += 1;
     }
 
@@ -295,11 +347,7 @@ export function createDriverP2pController(opts = {}) {
 
         startupGeneration += 1;
         const gen = startupGeneration;
-        const key = assignmentKey(
-          target.rideId,
-          target.trackingSessionId,
-          target.assignmentVersion
-        );
+        const attemptKey = attemptIdentityKey(target.rideId, target.trackingSessionId);
 
         ctrlCounters.startAttempts += 1;
         destroySession();
@@ -311,7 +359,7 @@ export function createDriverP2pController(opts = {}) {
 
         let localUnwatch = () => {};
         const sig = await signaling();
-        if (!isStartCurrent(gen, key)) continue;
+        if (!isStartCurrent(gen, attemptKey)) continue;
 
         const localSession = createP2pPeerSession({
           role: "driver",
@@ -330,7 +378,7 @@ export function createDriverP2pController(opts = {}) {
           onChannelOpen: () => opts.onChannelOpen?.(),
           onLocalDescription: async (kind, sdp, meta) => {
             if (kind !== "offer") return;
-            if (!isStartCurrent(gen, key) || localSession !== session) return;
+            if (!isStartCurrent(gen, attemptKey) || localSession !== session) return;
             lastPublishedOffer = String(sdp || "");
             answeredSessionId = "";
             try {
@@ -344,11 +392,10 @@ export function createDriverP2pController(opts = {}) {
               const offerAv = serverOfferAssignmentVersion(target.assignmentVersion);
               if (offerAv != null) offerPayload.assignmentVersion = offerAv;
               const res = await sig.createRidePeerOfferClient?.(offerPayload);
-              if (!isStartCurrent(gen, key) || localSession !== session) return;
+              if (!isStartCurrent(gen, attemptKey) || localSession !== session) return;
               const nextAv = Math.floor(Number(res?.assignmentVersion) || 0);
               if (nextAv >= 1) {
-                assignmentVersion = nextAv;
-                session?.syncAssignmentVersion?.(nextAv);
+                applyAuthoritativeAssignmentVersion(nextAv);
               }
               session?.noteOfferUploaded?.(sdp);
             } catch {
@@ -366,16 +413,16 @@ export function createDriverP2pController(opts = {}) {
           assignmentVersion: target.assignmentVersion >= 1 ? target.assignmentVersion : 0,
         });
 
-        if (!isStartCurrent(gen, key)) {
+        if (!isStartCurrent(gen, attemptKey)) {
           abortStaleAttempt(localSession, localUnwatch);
           session = null;
           continue;
         }
 
-        await attachAnswerWatch(target.rideId, gen, key);
+        await attachAnswerWatch(target.rideId, gen, attemptKey);
         localUnwatch = unwatch;
 
-        if (!isStartCurrent(gen, key)) {
+        if (!isStartCurrent(gen, attemptKey)) {
           abortStaleAttempt(localSession, localUnwatch);
           session = null;
           continue;
@@ -488,5 +535,7 @@ export function createDriverP2pController(opts = {}) {
     _getSessionForTest: () => session,
     _getControllerAssignmentVersion: () => assignmentVersion,
     _getSyncedAssignmentVersion: () => syncedAssignmentVersion,
+    _getCurrentAssignmentKey: () => currentAssignmentKey(),
+    _getCurrentAttemptKey: () => currentAttemptKey(),
   };
 }

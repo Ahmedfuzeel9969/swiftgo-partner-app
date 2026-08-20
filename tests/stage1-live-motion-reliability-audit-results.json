@@ -1,0 +1,272 @@
+{
+  "stage": 1,
+  "suite": "live-motion-reliability-audit",
+  "auditedCommit": "459eb271fa83e8f1c3bad9fe61b5512a79503306",
+  "productionChanges": false,
+  "generatedAt": "2026-08-20T09:59:12.349Z",
+  "pass": 33,
+  "fail": 0,
+  "blocked": 3,
+  "confirmed": 8,
+  "git": {
+    "branch": "chore/local-unpushed-files-20260818",
+    "head": "459eb271fa83e8f1c3bad9fe61b5512a79503306",
+    "ahead": 19,
+    "behind": 51,
+    "workingTree": "M customer-app/js/p2p-location-envelope.mjs\n M customer-app/js/p2p-peer-session.mjs\n M customer-app/js/p2p-protocol.mjs\n M driver-app/js/background-location-native.mjs\n M driver-app/js/p2p-location-envelope.mjs\n M driver-app/js/p2p-peer-session.mjs\n M driver-app/js/p2p-protocol.mjs\n M driver-app/js/p2p-ride-controller.mjs\n M functions/background-location-upload.js\n M functions/index.js\n M mobile/partner/android/app/src/main/java/com/swiftgo/partner/BackgroundLocationUploader.java\n M mobile/partner/android/app/src/main/java/com/swiftgo/partner/DriverLocationForegroundService.java\n M mobile/partner/android/app/src/main/java/com/swiftgo/partner/DriverLocationPlugin.java\n M tests/background-location-upload-results.json\n M tests/hosting-startup-health-results.json\n M tests/stage2-driver-controller-reconciliation-results.json\n M tests/stage3-driver-p2p-presence-independence-results.json\n M tests/stage4-failed-send-retry-results.json\n M tests/stage4-peer-session-delivery-results.json\n M tests/stage5-full-chain-marker-motion-results.json\n M tests/stage6-native-fallback-audit-results.json\n?? driver-app/js/background-location-credential-policy.mjs\n?? tests/stage1-live-motion-reliability-audit-results.json\n?? tests/stage1-live-motion-reliability-audit.mjs\n?? tests/stage2-ack-semantics-results.json\n?? tests/stage2-ack-semantics.mjs\n?? tests/stage3-assignment-identity-stability-results.json\n?? tests/stage3-assignment-identity-stability.mjs\n?? tests/stage4-native-credential-continuity-results.json\n?? tests/stage4-native-credential-continuity.mjs"
+  },
+  "results": [
+    {
+      "finding": "A1",
+      "name": "hb-alone-before-loc-not-loc-healthy",
+      "status": "PASS",
+      "detail": "locHealthy=false transport=true fixesSent=0",
+      "severity": "CRITICAL"
+    },
+    {
+      "finding": "A1",
+      "name": "customer-rejects-stale-loc",
+      "status": "PASS",
+      "detail": "fixesReceived=0 invalid=1",
+      "severity": "CRITICAL"
+    },
+    {
+      "finding": "A1",
+      "name": "driver-sent-loc-seq-1",
+      "status": "PASS",
+      "detail": "fixesSent=1",
+      "severity": "CRITICAL"
+    },
+    {
+      "finding": "A1",
+      "name": "heartbeat-after-rejected-loc-falsely-proves-loc-delivery",
+      "status": "FIXED",
+      "detail": "locHealthy=false locAcks=0 custFixes=0 hbRecv=1",
+      "severity": "CRITICAL"
+    },
+    {
+      "finding": "A2",
+      "name": "bootstrap-establishes-authoritative-controller-av",
+      "status": "PASS",
+      "detail": "ctrlAv=808061107 serverAv=808061107",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A2",
+      "name": "synced-assignment-version-stays-bootstrap-zero",
+      "status": "FIXED",
+      "detail": "syncedAv=808061107 ctrlAv=808061107",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A2",
+      "name": "repeated-sync-rotates-session-or-reoffers",
+      "status": "FIXED",
+      "detail": "sameRef=true peerBefore=ps_mt1cm3v0_38e4cacd0b1a6fd8d7382561 peerAfter=ps_mt1cm3v0_38e4cacd0b1a6fd8d7382561 offers=1->1 gen=1->1",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A3",
+      "name": "cache-includes-vehicleId",
+      "status": "FIXED",
+      "detail": "credentialCacheMatches",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A3",
+      "name": "cache-includes-assignmentSessionToken",
+      "status": "FIXED",
+      "detail": "credentialCacheMatches",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A3",
+      "name": "vehicle-change-still-reuses-cache",
+      "status": "CONFIRMED",
+      "detail": "old predicate vs new policy",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A3",
+      "name": "assignment-token-change-still-reuses-cache",
+      "status": "CONFIRMED",
+      "detail": "old predicate vs new policy",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A4",
+      "name": "default-credential-ttl-15min",
+      "status": "PASS",
+      "detail": "900000ms",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A4",
+      "name": "js-refresh-interval-8min",
+      "status": "PASS",
+      "detail": "refreshTimer interval",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A4",
+      "name": "native-uploader-has-https-renewal",
+      "status": "FIXED",
+      "detail": "BackgroundLocationUploader pre-expiry renewal",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A4",
+      "name": "native-only-updateCredential-from-intent",
+      "status": "PASS",
+      "detail": "requires JS/web intent",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A4",
+      "name": "expired-credential-rejected-at-ingest",
+      "status": "PASS",
+      "detail": "TOKEN_EXPIRED",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A4",
+      "name": "expired-token-queues-fix-no-native-renewal",
+      "status": "PASS",
+      "detail": "uploader retains queue on auth failure; service has no renewal",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A4",
+      "name": "android-runtime-webview-dead-renewal",
+      "status": "BLOCKED",
+      "detail": "No Robolectric/JUnit harness in repo; static + token TTL proof only",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A5",
+      "name": "null-intent-returns-start-sticky-only",
+      "status": "PASS",
+      "detail": "onStartCommand(null) early return",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A5",
+      "name": "no-persisted-binding-restore",
+      "status": "PASS",
+      "detail": "no on-disk active ride binding",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A5",
+      "name": "android-runtime-sticky-restore",
+      "status": "BLOCKED",
+      "detail": "Requires Android instrumentation; static inspection only",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A6",
+      "name": "isAuthFailure-includes-RIDE_NOT_ACTIVE",
+      "status": "PASS",
+      "detail": "BackgroundLocationUploader.isAuthFailure",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A6",
+      "name": "isAuthFailure-includes-NOT_ASSIGNED_DRIVER",
+      "status": "PASS",
+      "detail": "BackgroundLocationUploader.isAuthFailure",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A6",
+      "name": "isAuthFailure-includes-ASSIGNMENT_TOKEN_MISMATCH",
+      "status": "PASS",
+      "detail": "BackgroundLocationUploader.isAuthFailure",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A6",
+      "name": "auth-failure-retains-queued-item",
+      "status": "PASS",
+      "detail": "flush loop breaks with item still queued",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A6",
+      "name": "no-terminal-stop-signal-to-service",
+      "status": "CONFIRMED",
+      "detail": "auth-failure flush path retains queue; no service stop hook",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A6",
+      "name": "gps-continues-after-terminal-response",
+      "status": "PASS",
+      "detail": "service unaware of terminal upload reasons",
+      "severity": "HIGH"
+    },
+    {
+      "finding": "A7",
+      "name": "wake-lock-duration-10-minutes",
+      "status": "PASS",
+      "detail": "acquireWakeLock timeout",
+      "severity": "MEDIUM"
+    },
+    {
+      "finding": "A7",
+      "name": "no-native-wake-lock-renewal-timer",
+      "status": "CONFIRMED",
+      "detail": "single bounded acquire; no renewal scheduler",
+      "severity": "MEDIUM"
+    },
+    {
+      "finding": "A7",
+      "name": "held-lock-skips-reacquire",
+      "status": "PASS",
+      "detail": "onStartCommand will not extend expired lock",
+      "severity": "MEDIUM"
+    },
+    {
+      "finding": "A7",
+      "name": "android-runtime-deep-background-10min",
+      "status": "BLOCKED",
+      "detail": "Requires device/soak test; static 10min bounded acquire documented",
+      "severity": "MEDIUM"
+    },
+    {
+      "finding": "A8",
+      "name": "invalid-missing-sequence-coerced-not-rejected",
+      "status": "CONFIRMED",
+      "detail": "accepted=true reason=location_fix_accepted",
+      "severity": "MEDIUM"
+    },
+    {
+      "finding": "A8",
+      "name": "invalid-sequence-zero-coerced-not-rejected",
+      "status": "CONFIRMED",
+      "detail": "accepted=true reason=location_fix_accepted",
+      "severity": "MEDIUM"
+    },
+    {
+      "finding": "A8",
+      "name": "invalid-sequence-negative-coerced-not-rejected",
+      "status": "CONFIRMED",
+      "detail": "accepted=true reason=location_fix_accepted",
+      "severity": "MEDIUM"
+    },
+    {
+      "finding": "A8",
+      "name": "invalid-sequence-nan-coerced-not-rejected",
+      "status": "CONFIRMED",
+      "detail": "accepted=true reason=location_fix_accepted",
+      "severity": "MEDIUM"
+    },
+    {
+      "finding": "A8",
+      "name": "ingest-uses-math-max-sequence-coercion",
+      "status": "PASS",
+      "detail": "ingestBackgroundDriverLocation sequence line",
+      "severity": "MEDIUM"
+    }
+  ]
+}

@@ -104,6 +104,8 @@ public class DriverLocationPlugin extends Plugin {
         DriverLocationForegroundService.EXTRA_ASSIGNMENT_TOKEN,
         call.getString("assignmentSessionToken", ""));
     intent.putExtra(DriverLocationForegroundService.EXTRA_UPLOAD_URL, uploadUrl);
+    intent.putExtra(
+        DriverLocationForegroundService.EXTRA_REFRESH_URL, call.getString("refreshUrl", ""));
     intent.putExtra(DriverLocationForegroundService.EXTRA_TOKEN, token);
     intent.putExtra(
         DriverLocationForegroundService.EXTRA_TOKEN_EXPIRES_AT,
@@ -144,6 +146,8 @@ public class DriverLocationPlugin extends Plugin {
     intent.putExtra(
         DriverLocationForegroundService.EXTRA_TOKEN_EXPIRES_AT,
         call.getLong("tokenExpiresAtMs", 0L));
+    intent.putExtra(
+        DriverLocationForegroundService.EXTRA_REFRESH_URL, call.getString("refreshUrl", ""));
     getContext().startService(intent);
     JSObject ret = new JSObject();
     ret.put("ok", true);
@@ -175,6 +179,8 @@ public class DriverLocationPlugin extends Plugin {
         DriverLocationForegroundService.EXTRA_LAST_SEQUENCE, call.getInt("lastSequence", 0));
     intent.putExtra(
         DriverLocationForegroundService.EXTRA_UPLOAD_URL, call.getString("uploadUrl", ""));
+    intent.putExtra(
+        DriverLocationForegroundService.EXTRA_REFRESH_URL, call.getString("refreshUrl", ""));
     intent.putExtra(
         DriverLocationForegroundService.EXTRA_TOKEN, call.getString("token", ""));
     intent.putExtra(

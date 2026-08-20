@@ -10,13 +10,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createP2pPeerSession } from "../driver-app/js/p2p-peer-session.mjs";
-import { P2P_SEND_INTERVAL_MS } from "../driver-app/js/p2p-protocol.mjs";
+import { P2P_SEND_INTERVAL_MS, P2P_MIN_LOC_GAP_MS } from "../driver-app/js/p2p-protocol.mjs";
 import * as custProtocol from "../customer-app/js/p2p-protocol.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "tests/stage5-cadence-contract-results.json");
 
-const MIN_GAP_MS = P2P_SEND_INTERVAL_MS * 0.5;
+const MIN_GAP_MS = P2P_MIN_LOC_GAP_MS;
 
 const results = [];
 function record(name, status, detail = "") {
@@ -99,15 +99,23 @@ function testConfiguredInterval() {
   );
   record(
     "driver-customer-interval-parity",
-    custProtocol.P2P_SEND_INTERVAL_MS === P2P_SEND_INTERVAL_MS ? "PASS" : "FAIL",
-    `customer=${custProtocol.P2P_SEND_INTERVAL_MS}`
+    custProtocol.P2P_SEND_INTERVAL_MS === P2P_SEND_INTERVAL_MS &&
+      custProtocol.P2P_MIN_LOC_GAP_MS === P2P_MIN_LOC_GAP_MS
+      ? "PASS"
+      : "FAIL",
+    `customer=${custProtocol.P2P_SEND_INTERVAL_MS} minGap=${custProtocol.P2P_MIN_LOC_GAP_MS}`
+  );
+  record(
+    "named-min-loc-gap-constant",
+    P2P_MIN_LOC_GAP_MS === P2P_SEND_INTERVAL_MS * 0.5 ? "PASS" : "FAIL",
+    `P2P_MIN_LOC_GAP_MS=${P2P_MIN_LOC_GAP_MS}`
   );
 }
 
 function testStaticCadenceImplementation() {
   const src = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8");
   const checks = [
-    ["flushPendingLoc-minGap-half-interval", /minGapMs = P2P_SEND_INTERVAL_MS \* 0\.5/],
+    ["flushPendingLoc-uses-named-min-gap", /minGapMs = P2P_MIN_LOC_GAP_MS/],
     ["scheduleCadenceFlush-present", /function scheduleCadenceFlush/],
     ["cadence-gate-requires-prior-send", /lastSequenceSent > 0/],
     ["pending-coalescing", /pendingLoc = fix/],

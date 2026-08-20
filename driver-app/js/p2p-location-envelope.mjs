@@ -3,11 +3,22 @@
  */
 
 import {
+  P2P_ACK_KIND,
   P2P_MAX_MESSAGE_BYTES,
   P2P_MESSAGE_TYPE,
   P2P_PROTOCOL_VERSION,
   isValidPeerSessionId,
 } from "./p2p-protocol.mjs";
+
+export { P2P_ACK_KIND };
+
+/** @returns {"loc"|"hb"|""} */
+export function classifyAckKind(msg) {
+  const k = String(msg?.ackKind || "").trim().toLowerCase();
+  if (k === P2P_ACK_KIND.LOC) return P2P_ACK_KIND.LOC;
+  if (k === P2P_ACK_KIND.HB) return P2P_ACK_KIND.HB;
+  return "";
+}
 
 const MAX_ACCEPT_ACCURACY_M = 80;
 const MAX_FIX_AGE_MS = 30_000;
@@ -72,9 +83,14 @@ export function buildP2pLocationMessage(input, ctx) {
 }
 
 export function buildP2pAckMessage(ctx) {
+  const ackKind = String(ctx.ackKind || P2P_ACK_KIND.LOC).trim().toLowerCase();
+  if (ackKind !== P2P_ACK_KIND.LOC && ackKind !== P2P_ACK_KIND.HB) {
+    return { ok: false, reason: "invalid_ack_kind" };
+  }
   const msg = {
     v: P2P_PROTOCOL_VERSION,
     type: P2P_MESSAGE_TYPE.ACK,
+    ackKind,
     peerSessionId: ctx.peerSessionId,
     trackingSessionId: String(ctx.trackingSessionId || ""),
     assignmentVersion: Math.max(1, Math.floor(Number(ctx.assignmentVersion) || 1)),

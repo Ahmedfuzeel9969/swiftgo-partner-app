@@ -14,6 +14,12 @@ export const P2P_MESSAGE_TYPE = Object.freeze({
   CLOSE: "close",
 });
 
+/** Explicit ACK purpose — loc delivery vs transport heartbeat response. */
+export const P2P_ACK_KIND = Object.freeze({
+  LOC: "loc",
+  HB: "hb",
+});
+
 export const P2P_STATE = Object.freeze({
   DISABLED: "DISABLED",
   SIGNALING: "SIGNALING",
@@ -65,8 +71,18 @@ export const P2P_DIAG = Object.freeze({
   PIPELINE_FALLBACK_REASON: "p2p_pipeline_fallback_reason",
 });
 
-/** Expected direct fix cadence while healthy. */
+/**
+ * Target LOC send cadence while healthy (~3s).
+ * Successful sends may be closer than this: see P2P_MIN_LOC_GAP_MS.
+ */
 export const P2P_SEND_INTERVAL_MS = 3_000;
+/**
+ * Minimum spacing between successful LOC channel sends.
+ * Intentional half of P2P_SEND_INTERVAL_MS for smoother marker motion under
+ * continuous GPS; coalescing still collapses bursts to one pending fix.
+ * Do not raise to full interval without motion/battery comparison tests.
+ */
+export const P2P_MIN_LOC_GAP_MS = P2P_SEND_INTERVAL_MS * 0.5;
 /** Channel open but no valid peer activity → degraded. */
 export const P2P_DEGRADED_AFTER_MS = 9_000;
 /** No valid peer activity → Firebase fallback. */

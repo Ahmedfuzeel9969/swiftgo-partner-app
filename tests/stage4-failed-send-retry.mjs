@@ -266,7 +266,10 @@ function testStaticSendFailureRetry() {
   );
   record(
     "static-cadence-half-interval-preserved",
-    src.includes("P2P_SEND_INTERVAL_MS * 0.5") ? "PASS" : "FAIL",
+    src.includes("P2P_MIN_LOC_GAP_MS") &&
+      proto.includes("P2P_MIN_LOC_GAP_MS = P2P_SEND_INTERVAL_MS * 0.5")
+      ? "PASS"
+      : "FAIL",
     `intervalMs=${P2P_SEND_INTERVAL_MS}`
   );
 }

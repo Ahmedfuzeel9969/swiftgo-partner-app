@@ -4,8 +4,15 @@
  */
 
 import { isNativeShell, getNativePlatform } from "./native-shell.js";
+import {
+  credentialCacheMatches,
+  resolveRefreshUrl,
+  DEFAULT_UPLOAD_BASE,
+} from "./background-location-credential-policy.mjs";
 
-const DEFAULT_UPLOAD_BASE = "https://us-central1-swiftgo-ride-app.cloudfunctions.net";
+export { credentialCacheMatches, resolveRefreshUrl };
+
+const DEFAULT_UPLOAD_BASE_LOCAL = DEFAULT_UPLOAD_BASE;
 
 function resolveUploadUrl(explicit) {
   const raw = String(explicit || "").trim();
@@ -17,7 +24,12 @@ function resolveUploadUrl(explicit) {
   } catch {
     /* ignore */
   }
-  return `${DEFAULT_UPLOAD_BASE}/ingestBackgroundDriverLocation`;
+  return `${DEFAULT_UPLOAD_BASE_LOCAL}/ingestBackgroundDriverLocation`;
+}
+
+/** @param {string} uploadUrl @param {string} [explicit] */
+export function resolveRefreshUrlFromUpload(uploadUrl, explicit) {
+  return resolveRefreshUrl(uploadUrl, explicit);
 }
 
 function getPlugin() {
@@ -85,29 +97,30 @@ export function createBackgroundLocationNativeController(opts = {}) {
 
   async function ensureCredential(binding) {
     const now = nowMs();
-    if (
-      lastCredential?.token &&
-      Number(lastCredential.expiresAtMs) > now + 60_000 &&
-      lastCredential.rideId === binding.rideId &&
-      lastCredential.trackingSessionId === binding.trackingSessionId
-    ) {
+    if (credentialCacheMatches(lastCredential, binding, now)) {
       return lastCredential;
     }
     const issued = await callIssueCredential(binding);
     if (!issued?.ok || !issued?.token) {
       throw new Error(issued?.reason || "CREDENTIAL_ISSUE_FAILED");
     }
+    const uploadUrl = resolveUploadUrl(
+      issued.uploadUrl ||
+        (issued.uploadPath ? `${DEFAULT_UPLOAD_BASE_LOCAL}${issued.uploadPath}` : "")
+    );
     lastCredential = {
       token: issued.token,
       expiresAtMs: Number(issued.expiresAtMs) || now + 15 * 60_000,
       ttlMs: Number(issued.ttlMs) || 15 * 60_000,
       rideId: binding.rideId,
+      vehicleId: binding.vehicleId,
       trackingSessionId: binding.trackingSessionId,
-      uploadUrl: resolveUploadUrl(
-        issued.uploadUrl ||
-          (issued.uploadPath
-            ? `${DEFAULT_UPLOAD_BASE}${issued.uploadPath}`
-            : "")
+      assignmentSessionToken: binding.assignmentSessionToken,
+      driverUid: binding.driverUid || "",
+      uploadUrl,
+      refreshUrl: resolveRefreshUrl(
+        uploadUrl,
+        issued.refreshPath ? `${DEFAULT_UPLOAD_BASE_LOCAL}${issued.refreshPath}` : ""
       ),
     };
     return lastCredential;
@@ -177,6 +190,7 @@ export function createBackgroundLocationNativeController(opts = {}) {
           plugin.updateCredential?.({
             token: cred.token,
             tokenExpiresAtMs: cred.expiresAtMs,
+            refreshUrl: cred.refreshUrl || resolveRefreshUrl(cred.uploadUrl),
           })
         )
         .catch(() => {});
@@ -234,6 +248,7 @@ export function createBackgroundLocationNativeController(opts = {}) {
         token: "",
         expiresAtMs: 0,
         uploadUrl: resolveUploadUrl(""),
+        refreshUrl: resolveRefreshUrl(""),
       };
     }
 
@@ -248,6 +263,7 @@ export function createBackgroundLocationNativeController(opts = {}) {
       intervalMs: lastBinding.intervalMs,
       lastSequence: lastBinding.lastSequence,
       uploadUrl: cred.uploadUrl || "",
+      refreshUrl: cred.refreshUrl || resolveRefreshUrl(cred.uploadUrl || ""),
       token: cred.token || "",
       tokenExpiresAtMs: cred.expiresAtMs || 0,
     });
@@ -266,6 +282,7 @@ export function createBackgroundLocationNativeController(opts = {}) {
     clearTimers();
     started = false;
     lastBinding = null;
+    lastCredential = null;
     const plugin = handle || getPlugin();
     handle = null;
     try {
@@ -308,7 +325,10 @@ export function createBackgroundLocationNativeController(opts = {}) {
     return {
       expiresAtMs: lastCredential.expiresAtMs,
       rideId: lastCredential.rideId,
+      vehicleId: lastCredential.vehicleId,
       trackingSessionId: lastCredential.trackingSessionId,
+      assignmentSessionToken: lastCredential.assignmentSessionToken,
+      driverUid: lastCredential.driverUid,
     };
   }
 
@@ -324,5 +344,8 @@ export function createBackgroundLocationNativeController(opts = {}) {
     getLastCredentialMeta,
     getDiagnostics,
     isAvailable: () => isNativeShell() && getNativePlatform() === "android" && Boolean(getPlugin()),
+    /** Test helpers */
+    _ensureCredentialForTest: ensureCredential,
+    _getLastCredentialForTest: () => (lastCredential ? { ...lastCredential } : null),
   };
 }

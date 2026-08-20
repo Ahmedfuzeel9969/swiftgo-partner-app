@@ -5,6 +5,7 @@
  */
 
 import {
+  P2P_ACK_KIND,
   P2P_BACKPRESSURE_FLUSH_MS,
   P2P_BUFFERED_AMOUNT_HIGH,
   P2P_CHANNEL_OPEN_TIMEOUT_MS,
@@ -18,6 +19,7 @@ import {
   P2P_MAX_SDP_CHARS,
   P2P_RECONNECT_MAX_ATTEMPTS,
   P2P_SEND_FAILURE_RETRY_MS,
+  P2P_MIN_LOC_GAP_MS,
   P2P_SEND_INTERVAL_MS,
   P2P_STATE,
   createPeerSessionId,
@@ -29,6 +31,7 @@ import {
   buildP2pAckMessage,
   buildP2pHbMessage,
   buildP2pLocationMessage,
+  classifyAckKind,
   validateP2pMessage,
 } from "./p2p-location-envelope.mjs";
 import { createPipelineRecorder, countSdpCandidates } from "./p2p-pipeline-trace.mjs";
@@ -73,6 +76,7 @@ export function createP2pPeerSession(deps) {
   let lastSequenceRecv = 0;
   let lastValidFixAt = null;
   let lastAckAt = null;
+  let lastLocAckAt = null;
   let lastHbAt = null;
   let lastAckSequence = 0;
   let lastOutboundAt = null;
@@ -248,7 +252,7 @@ export function createP2pPeerSession(deps) {
       const fixAge = lastValidFixAt != null ? nowMs() - lastValidFixAt : Infinity;
       return fixAge <= P2P_DEGRADED_AFTER_MS;
     }
-    const ackAge = lastAckAt != null ? nowMs() - lastAckAt : Infinity;
+    const ackAge = lastLocAckAt != null ? nowMs() - lastLocAckAt : Infinity;
     return (
       channel?.readyState === "open" &&
       lastSequenceSent > 0 &&
@@ -271,7 +275,7 @@ export function createP2pPeerSession(deps) {
     if (firstAckTimer || role !== "driver") return;
     firstAckTimer = setT(() => {
       firstAckTimer = 0;
-      if (!isCurrent(gen) || lastAckSequence > 0) return;
+      if (!isCurrent(gen) || lastLocAckAt != null) return;
       diag(P2P_DIAG.ACK_TIMEOUT);
       setState(P2P_STATE.FIREBASE_FALLBACK, "first_ack_timeout");
     }, P2P_FIRST_ACK_TIMEOUT_MS);
@@ -382,9 +386,9 @@ export function createP2pPeerSession(deps) {
       }
       return;
     }
-    const ackAge = lastAckAt != null ? now - lastAckAt : Infinity;
+    const locAckAge = lastLocAckAt != null ? now - lastLocAckAt : Infinity;
     const sentLoc = lastSequenceSent > 0 && lastValidFixAt != null;
-    if (channel?.readyState === "open" && sentLoc && ackAge <= P2P_DEGRADED_AFTER_MS) {
+    if (channel?.readyState === "open" && sentLoc && locAckAge <= P2P_DEGRADED_AFTER_MS) {
       setState(P2P_STATE.P2P_HEALTHY);
     } else if (channel?.readyState === "open" && isTransportAliveNow()) {
       setState(P2P_STATE.P2P_DEGRADED);
@@ -509,12 +513,15 @@ export function createP2pPeerSession(deps) {
     }
 
     if (validated.type === "ack" && role === "driver") {
-      const ackCheck = validateDriverAck(validated.message);
-      if (!ackCheck.ok) {
-        counters.invalidMessages += 1;
-        if (ackCheck.reason === "duplicate_ack") diag(P2P_DIAG.DUPLICATE_ACK_IGNORED);
-        else diag(P2P_DIAG.STALE_ACK_IGNORED);
-        return;
+      const ackKind = classifyAckKind(validated.message);
+      if (ackKind === P2P_ACK_KIND.LOC) {
+        const ackCheck = validateDriverAck(validated.message);
+        if (!ackCheck.ok) {
+          counters.invalidMessages += 1;
+          if (ackCheck.reason === "duplicate_ack") diag(P2P_DIAG.DUPLICATE_ACK_IGNORED);
+          else diag(P2P_DIAG.STALE_ACK_IGNORED);
+          return;
+        }
       }
     }
 
@@ -542,8 +549,9 @@ export function createP2pPeerSession(deps) {
           trackingSessionId,
           assignmentVersion,
           sequence: validated.fix.sequence,
+          ackKind: P2P_ACK_KIND.LOC,
         });
-        if (trySend(ack.serialized)) {
+        if (ack.ok && trySend(ack.serialized)) {
           lastOutboundAt = nowMs();
           counters.acks += 1;
         }
@@ -551,13 +559,23 @@ export function createP2pPeerSession(deps) {
       evaluateHealth();
     } else if (validated.type === "ack") {
       const seq = Math.floor(Number(validated.message?.seq) || 0);
-      lastAckSequence = seq;
+      const ackKind = classifyAckKind(validated.message);
       lastAckAt = nowMs();
-      if (role === "driver") releaseSentSequence(seq);
+      if (role === "driver") {
+        if (ackKind === P2P_ACK_KIND.LOC) {
+          lastAckSequence = seq;
+          lastLocAckAt = nowMs();
+          releaseSentSequence(seq);
+          counters.acknowledgementsReceived += 1;
+          clearT(firstAckTimer);
+          firstAckTimer = 0;
+        } else {
+          lastHbAt = nowMs();
+        }
+      } else {
+        lastAckSequence = seq;
+      }
       counters.acks += 1;
-      counters.acknowledgementsReceived += 1;
-      clearT(firstAckTimer);
-      firstAckTimer = 0;
       deps.onAck?.(validated.message);
       evaluateHealth();
     } else if (validated.type === "hb") {
@@ -569,8 +587,9 @@ export function createP2pPeerSession(deps) {
           trackingSessionId,
           assignmentVersion,
           sequence: Math.floor(Number(validated.message?.seq) || lastSequenceRecv || 0),
+          ackKind: P2P_ACK_KIND.HB,
         });
-        if (trySend(ack.serialized)) {
+        if (ack.ok && trySend(ack.serialized)) {
           lastOutboundAt = nowMs();
           counters.acks += 1;
         }
@@ -970,6 +989,7 @@ export function createP2pPeerSession(deps) {
     lastSequenceRecv = 0;
     lastValidFixAt = null;
     lastAckAt = null;
+    lastLocAckAt = null;
     lastHbAt = null;
     lastOutboundAt = null;
     firstValidEmitted = false;
@@ -1097,6 +1117,7 @@ export function createP2pPeerSession(deps) {
     assignmentVersion = Math.max(1, Math.floor(Number(meta.assignmentVersion) || 1));
     lastValidFixAt = null;
     lastAckAt = null;
+    lastLocAckAt = null;
     lastHbAt = null;
     lastOutboundAt = null;
     iceRestartAttempted = false;
@@ -1225,7 +1246,7 @@ export function createP2pPeerSession(deps) {
     }
 
     const now = nowMs();
-    const minGapMs = P2P_SEND_INTERVAL_MS * 0.5;
+    const minGapMs = P2P_MIN_LOC_GAP_MS;
     if (lastValidFixAt != null && now - lastValidFixAt < minGapMs && lastSequenceSent > 0) {
       scheduleCadenceFlush(gen, minGapMs - (now - lastValidFixAt));
       return;

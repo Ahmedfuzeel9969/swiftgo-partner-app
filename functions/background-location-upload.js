@@ -36,6 +36,20 @@ const MAX_CREDENTIAL_TTL_MS = 30 * 60_000;
 const LOCATION_GRID_DEG = 0.009;
 const PRESENCE_COLLECTION = "rideViewerPresence";
 
+/**
+ * Background ingest requires an explicit finite integer sequence >= 1.
+ * Missing / 0 / negative / NaN must not coerce to 1.
+ * @param {unknown} raw
+ * @returns {number|null}
+ */
+function parseRequiredSequence(raw) {
+  if (raw == null || raw === "") return null;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return null;
+  if (n < 1) return null;
+  return n;
+}
+
 function readUploadSecret() {
   const secret = String(
     process.env.BACKGROUND_LOCATION_UPLOAD_SECRET ||
@@ -341,7 +355,54 @@ async function issueBackgroundLocationCredential(db, input = {}) {
     ttlMs: minted.ttlMs,
     rideStatus: String(ride.status || ""),
     uploadPath: minted.uploadPath,
+    refreshPath: "/refreshBackgroundDriverLocationCredential",
   };
+}
+
+/**
+ * Rotate a still-valid upload credential after revalidating live assignment.
+ * Requires a non-expired token — native clients renew before expiry.
+ * @param {FirebaseFirestore.Firestore} db
+ * @param {{
+ *   token: string,
+ *   ttlMs?: number,
+ *   secret?: string|null,
+ *   nowMs?: number,
+ * }} input
+ */
+async function refreshBackgroundLocationCredential(db, input = {}) {
+  const nowMs = Number.isFinite(input.nowMs) ? input.nowMs : Date.now();
+  const verified = verifyBackgroundLocationCredential(input.token, {
+    secret: input.secret,
+    nowMs,
+  });
+  if (!verified.ok) {
+    return { ok: false, reason: verified.reason };
+  }
+  const claims = verified.claims;
+  try {
+    const issued = await issueBackgroundLocationCredential(db, {
+      driverUid: claims.driverUid,
+      rideId: claims.rideId,
+      vehicleId: claims.vehicleId,
+      trackingSessionId: claims.trackingSessionId,
+      assignmentSessionToken: claims.assignmentSessionToken,
+      ttlMs: input.ttlMs,
+      nowMs,
+      secret: input.secret,
+    });
+    return {
+      ok: true,
+      token: issued.token,
+      expiresAtMs: issued.expiresAtMs,
+      ttlMs: issued.ttlMs,
+      uploadPath: issued.uploadPath,
+      refreshPath: issued.refreshPath,
+    };
+  } catch (err) {
+    const reason = String(err?.message || err || "REFRESH_DENIED").trim();
+    return { ok: false, reason };
+  }
 }
 
 /**
@@ -365,9 +426,9 @@ async function ingestBackgroundDriverLocation(db, input = {}) {
     return { ok: false, accepted: false, reason: verified.reason };
   }
   const claims = verified.claims;
-  const sequence = Math.max(1, Math.floor(Number(input.fix?.sequence) || 0));
-  if (!sequence) {
-    return { ok: false, accepted: false, reason: LOCATION_DIAG.INVALID };
+  const sequence = parseRequiredSequence(input.fix?.sequence);
+  if (sequence == null) {
+    return { ok: false, accepted: false, reason: "INVALID_SEQUENCE" };
   }
 
   const normalized = normalizeLocationFix(input.fix || {}, {
@@ -520,6 +581,7 @@ module.exports = {
   BACKGROUND_APPROACH_INTERVAL_MS,
   BACKGROUND_TRIP_INTERVAL_MS,
   DEFAULT_CREDENTIAL_TTL_MS,
+  parseRequiredSequence,
   mintBackgroundLocationCredential,
   verifyBackgroundLocationCredential,
   resolveBackgroundUploadIntervalMs,
@@ -527,6 +589,7 @@ module.exports = {
   resolveViewerLeaseFromPresence,
   presenceDocId,
   issueBackgroundLocationCredential,
+  refreshBackgroundLocationCredential,
   ingestBackgroundDriverLocation,
   readUploadSecret,
 };

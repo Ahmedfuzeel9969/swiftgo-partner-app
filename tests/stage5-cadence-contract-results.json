@@ -1,7 +1,7 @@
 {
   "stage": 5,
   "area": "cadence-contract-audit",
-  "generatedAt": "2026-08-20T07:20:34.952Z",
+  "generatedAt": "2026-08-20T12:01:30.263Z",
   "configuredIntervalMs": 3000,
   "minimumSpacingMs": 1500,
   "earliestTwoSuccessfulSendsMs": 1500,
@@ -10,7 +10,7 @@
   "rationale": "flushPendingLoc uses minGapMs = P2P_SEND_INTERVAL_MS * 0.5 as minimum spacing between successful LOC sends while coalescing bursts into pendingLoc. Same logic exists on origin/main. Stricter 3000ms would slow marker motion without improving coalescing.",
   "markerMotionImpactIfStrict3000": "Harmful — customer would receive at most ~0.33 Hz vs current ~0.67 Hz cap under continuous GPS.",
   "batteryNetworkImpact": "Current half-interval cap already limits sustained P2P LOC to ~0.67/s; coalescing collapses bursts to one pending fix.",
-  "pass": 15,
+  "pass": 16,
   "fail": 0,
   "results": [
     {
@@ -26,10 +26,15 @@
     {
       "name": "driver-customer-interval-parity",
       "status": "PASS",
-      "detail": "customer=3000"
+      "detail": "customer=3000 minGap=1500"
     },
     {
-      "name": "static-flushPendingLoc-minGap-half-interval",
+      "name": "named-min-loc-gap-constant",
+      "status": "PASS",
+      "detail": "P2P_MIN_LOC_GAP_MS=1500"
+    },
+    {
+      "name": "static-flushPendingLoc-uses-named-min-gap",
       "status": "PASS",
       "detail": ""
     },
