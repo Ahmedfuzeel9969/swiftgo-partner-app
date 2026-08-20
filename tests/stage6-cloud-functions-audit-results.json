@@ -2,17 +2,17 @@
   "stage": 6,
   "suite": "cloud-functions-audit",
   "honestDescription": "Read-only audit: rideViewerPresence ingest read, 4s responsive cadence chain, functions index load timing",
-  "generatedAt": "2026-08-20T04:32:25.393Z",
+  "generatedAt": "2026-08-20T07:20:39.853Z",
   "deployAuthorized": false,
   "deployBlocked": false,
   "functionsLoad": {
     "deployBlocked": false,
-    "maxMs": 401,
-    "avgMs": 382,
+    "maxMs": 345,
+    "avgMs": 341,
     "samples": [
-      401,
-      362,
-      383
+      343,
+      335,
+      345
     ],
     "exportCount": 47
   },
@@ -26,9 +26,9 @@
       "detail": "rideViewerPresence constant"
     },
     {
-      "name": "ingest-reads-presence-in-transaction",
+      "name": "ingest-no-presenceSnap",
       "status": "PASS",
-      "detail": "tx.get rideViewerPresence during ingest"
+      "detail": "rideViewerPresence not read during ingest"
     },
     {
       "name": "cadence-ignores-viewerLease-for-interval",
@@ -123,12 +123,12 @@
     {
       "name": "presence-read-not-used-for-cadence-gating",
       "status": "PASS",
-      "detail": "viewerLease returned in ingest response only"
+      "detail": "native ingest returns viewerLease=UNKNOWN; client owns lease policy"
     },
     {
       "name": "functions-index-cold-load-under-10s",
       "status": "PASS",
-      "detail": "samplesMs=401,362,383 max=401 avg=382"
+      "detail": "samplesMs=343,335,345 max=345 avg=341"
     },
     {
       "name": "functions-index-export-surface",
@@ -138,14 +138,15 @@
     {
       "name": "deploy-discovery-risk",
       "status": "PASS",
-      "detail": "max load 401ms — deploy analysis should succeed locally"
+      "detail": "max load 345ms — deploy analysis should succeed locally"
     }
   ],
   "findings": [
-    "ingestBackgroundDriverLocation still reads rideViewerPresence in the ingest transaction for viewerLease diagnostics.",
+    "Native ingest no longer reads rideViewerPresence — authorization uses HMAC credential + ride/vehicle binding only.",
     "resolveBackgroundUploadIntervalMs ignores viewerLease — active rides always RESPONSIVE_FIREBASE@4000ms (d34 behavior preserved).",
+    "4000ms is a soft responsive target (hardInterval=false); movement >= 25m may write earlier.",
     "Client arbiter FIREBASE_BACKUP_READ_INTERVAL_MS, checkpoint RESPONSIVE_INTERVAL_MS, CF RESPONSIVE_INTERVAL_MS, and Android default intervalMs=4000 are aligned.",
     "BACKGROUND_APPROACH/TRIP interval constants remain exported but unused by native upload cadence resolver (sparse cadence is client checkpoint path when P2P healthy).",
-    "Fresh-process functions/index.js load max=401ms avg=382ms (Firebase deploy dry-run succeeded in this environment)."
+    "Fresh-process functions/index.js load max=345ms avg=341ms (Firebase deploy dry-run succeeded in this environment)."
   ]
 }

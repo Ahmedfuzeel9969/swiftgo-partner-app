@@ -13,10 +13,24 @@ async function defaultEnsureIceConfiguration() {
 }
 
 function assignmentKey(rideId, trackingSessionId, assignmentVersion) {
-  return `${String(rideId || "").trim()}|${String(trackingSessionId || "").trim()}|${Math.max(
-    1,
-    Math.floor(Number(assignmentVersion) || 0)
-  )}`;
+  const av = Math.max(0, Math.floor(Number(assignmentVersion) || 0));
+  return `${String(rideId || "").trim()}|${String(trackingSessionId || "").trim()}|${av}`;
+}
+
+/** Known authoritative AV (>=1) or 0 when bootstrap has not completed yet. */
+function normalizeAssignmentVersion(raw, ...fallbacks) {
+  const explicit = Math.floor(Number(raw) || 0);
+  if (explicit >= 1) return explicit;
+  for (const fb of fallbacks) {
+    const n = Math.floor(Number(fb) || 0);
+    if (n >= 1) return n;
+  }
+  return 0;
+}
+
+function serverOfferAssignmentVersion(av) {
+  const n = Math.floor(Number(av) || 0);
+  return n >= 1 ? n : undefined;
 }
 
 /**
@@ -207,7 +221,8 @@ export function createDriverP2pController(opts = {}) {
   function triggerReconnect() {
     if (closed || !rideId || !trackingSessionId || !session) return;
     answeredSessionId = "";
-    const av = assignmentVersion || syncedAssignmentVersion || 1;
+    const av = normalizeAssignmentVersion(assignmentVersion, syncedAssignmentVersion);
+    if (av < 1) return;
     session.scheduleReconnect(() => {
       void session.startAsDriver({
         trackingSessionId,
@@ -221,7 +236,11 @@ export function createDriverP2pController(opts = {}) {
     if (closed) return;
     const rid = String(target?.rideId || "").trim();
     const tid = String(target?.trackingSessionId || "").trim();
-    const av = Math.max(1, Math.floor(Number(target?.assignmentVersion) || syncedAssignmentVersion || 0));
+    const av = normalizeAssignmentVersion(
+      target?.assignmentVersion,
+      syncedAssignmentVersion,
+      rideId === rid ? assignmentVersion : 0
+    );
     if (!rid || !tid) return;
 
     const key = assignmentKey(rid, tid, av);
@@ -315,22 +334,22 @@ export function createDriverP2pController(opts = {}) {
             lastPublishedOffer = String(sdp || "");
             answeredSessionId = "";
             try {
-              const res = await sig.createRidePeerOfferClient?.({
+              const offerPayload = {
                 rideId: target.rideId,
                 offerSdp: sdp,
                 peerSessionId: meta.peerSessionId,
                 trackingSessionId: meta.trackingSessionId,
                 vehicleId: target.vehicleId || undefined,
-                assignmentVersion: target.assignmentVersion || undefined,
-              });
+              };
+              const offerAv = serverOfferAssignmentVersion(target.assignmentVersion);
+              if (offerAv != null) offerPayload.assignmentVersion = offerAv;
+              const res = await sig.createRidePeerOfferClient?.(offerPayload);
               if (!isStartCurrent(gen, key) || localSession !== session) return;
-              const nextAv =
-                Number(res?.assignmentVersion) ||
-                meta.assignmentVersion ||
-                target.assignmentVersion ||
-                1;
-              assignmentVersion = nextAv;
-              session?.syncAssignmentVersion?.(nextAv);
+              const nextAv = Math.floor(Number(res?.assignmentVersion) || 0);
+              if (nextAv >= 1) {
+                assignmentVersion = nextAv;
+                session?.syncAssignmentVersion?.(nextAv);
+              }
               session?.noteOfferUploaded?.(sdp);
             } catch {
               ctrlCounters.offerPublishFailures += 1;
@@ -344,7 +363,7 @@ export function createDriverP2pController(opts = {}) {
 
         await localSession.startAsDriver({
           trackingSessionId: target.trackingSessionId,
-          assignmentVersion: target.assignmentVersion || 1,
+          assignmentVersion: target.assignmentVersion >= 1 ? target.assignmentVersion : 0,
         });
 
         if (!isStartCurrent(gen, key)) {
@@ -467,5 +486,7 @@ export function createDriverP2pController(opts = {}) {
     _getPendingTarget: () => (pendingTarget ? { ...pendingTarget } : null),
     _getRideId: () => rideId,
     _getSessionForTest: () => session,
+    _getControllerAssignmentVersion: () => assignmentVersion,
+    _getSyncedAssignmentVersion: () => syncedAssignmentVersion,
   };
 }

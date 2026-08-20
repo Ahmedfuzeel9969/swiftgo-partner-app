@@ -1,0 +1,65 @@
+{
+  "stage": 4,
+  "area": "failed-send-retry",
+  "generatedAt": "2026-08-20T07:20:33.177Z",
+  "retryDelayMs": 500,
+  "pass": 11,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-scheduleSendFailureRetry",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-send-failure-retry-constant",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-cadence-half-interval-preserved",
+      "status": "PASS",
+      "detail": "intervalMs=3000"
+    },
+    {
+      "name": "failed-send-retries-without-new-gps",
+      "status": "PASS",
+      "detail": "afterFirst=0 afterRetry=1 attempts=2 lat=24.86"
+    },
+    {
+      "name": "retry-sends-newest-coalesced-fix",
+      "status": "PASS",
+      "detail": "fixesSent=1 lat=24.861 coalesces=1"
+    },
+    {
+      "name": "close-cancels-pending-retry",
+      "status": "PASS",
+      "detail": "fixesSent=0 attempts=1"
+    },
+    {
+      "name": "generation-bump-cancels-stale-retry",
+      "status": "PASS",
+      "detail": "attempts=1 sent=0"
+    },
+    {
+      "name": "backpressure-still-defers-send",
+      "status": "PASS",
+      "detail": "sent=0 backpressureCoalesces=0"
+    },
+    {
+      "name": "backpressure-flush-still-delivers",
+      "status": "PASS",
+      "detail": "fixesSent=1"
+    },
+    {
+      "name": "ack-validation-rejects-future-sequence",
+      "status": "PASS",
+      "detail": "invalid=1"
+    },
+    {
+      "name": "ack-validation-accepts-sent-sequence",
+      "status": "PASS",
+      "detail": "acks=1"
+    }
+  ]
+}

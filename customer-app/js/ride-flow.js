@@ -56,6 +56,15 @@ import { getMap, setAssignedDriverLocation, followAssignedDriverIfEnabled, setFo
 import { getFirebase } from "./firebase.js";
 import { createRideLocationReportClient } from "./ride-location-report-client.mjs";
 import { createCustomerP2pBackgroundKeepalive } from "./p2p-background-keepalive.mjs";
+import { assignmentVersionFromRide } from "../../shared/js/breadcrumb-schema.mjs";
+
+function customerP2pSyncOpts(ride, isVisible) {
+  const opts = { isVisible };
+  if (ride?.driverId || ride?.vehicleId) {
+    opts.assignmentVersion = assignmentVersionFromRide(ride);
+  }
+  return opts;
+}
 
 const SEARCH_TIMEOUT_MS = 180_000;
 const TRACKABLE_VIEW_STATUSES = new Set(["accepted", "arrived", "in_progress"]);
@@ -512,7 +521,7 @@ function ensureRideViewLifecycle() {
       presenceClient.start({ rideId, generation: gen });
       customerP2p?.setVisible(true);
       if (activeRide) {
-        customerP2p?.syncForRide(activeRide, { isVisible: true });
+        customerP2p?.syncForRide(activeRide, customerP2pSyncOpts(activeRide, true));
         syncTwoLegForRide(activeRide, { isVisible: true });
         void customerP2pBackgroundKeepalive.syncForRide(activeRide);
       }
@@ -1057,7 +1066,7 @@ function showActiveRideState(status = "accepted") {
   updateActiveRideStatusUi(status);
   const visible =
     typeof document === "undefined" || document.visibilityState !== "hidden";
-  customerP2p?.syncForRide(activeRide, { isVisible: visible });
+  customerP2p?.syncForRide(activeRide, customerP2pSyncOpts(activeRide, visible));
   void customerP2pBackgroundKeepalive.syncForRide(activeRide);
   syncTwoLegForRide(activeRide, { isVisible: visible });
   if (!customerP2p && activeRide) updateDriverTrack(activeRide);
@@ -1206,7 +1215,7 @@ function handleRideSnapshot(rawRide) {
     maybeStartPresenceForActiveRide();
     const visible =
       typeof document === "undefined" || document.visibilityState !== "hidden";
-    customerP2p?.syncForRide(ride, { isVisible: visible });
+    customerP2p?.syncForRide(ride, customerP2pSyncOpts(ride, visible));
     void customerP2pBackgroundKeepalive.syncForRide(ride);
     syncTwoLegForRide(ride, { isVisible: visible });
     if (ride?.driverLocation) {

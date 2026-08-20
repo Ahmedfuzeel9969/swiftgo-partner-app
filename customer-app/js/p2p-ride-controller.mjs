@@ -70,6 +70,8 @@ export function createCustomerP2pController(opts = {}) {
     watchErrors: 0,
     watchRetries: 0,
     staleAborts: 0,
+    reassignmentSessionDestroys: 0,
+    staleAssignmentFixes: 0,
   };
 
   function invokeUnwatch(fn) {
@@ -128,6 +130,15 @@ export function createCustomerP2pController(opts = {}) {
     lastOfferSdp = "";
     if (s) void s.close({ reason: "destroy" });
     arbiter.noteP2pUnhealthy();
+  }
+
+  function destroySessionIfAssignmentMismatch(nextAv) {
+    if (!session || nextAv < 1) return;
+    const sessionAv = Math.floor(Number(session.getState?.()?.assignmentVersion) || 0);
+    if (sessionAv >= 1 && sessionAv !== nextAv) {
+      ctrlCounters.reassignmentSessionDestroys += 1;
+      destroySession();
+    }
   }
 
   async function closeSignaling(forRideId = rideId) {
@@ -267,6 +278,15 @@ export function createCustomerP2pController(opts = {}) {
           },
           onLocationFix: (fix) => {
             if (localSession !== session) return;
+            const fixAv = Math.floor(Number(fix?.assignmentVersion) || 0);
+            if (
+              expectedAssignmentVersion > 0 &&
+              fixAv > 0 &&
+              fixAv !== expectedAssignmentVersion
+            ) {
+              ctrlCounters.staleAssignmentFixes += 1;
+              return;
+            }
             try {
               getFieldDiagnostics()?.record("p2p_receive", {
                 ok: true,
@@ -347,12 +367,16 @@ export function createCustomerP2pController(opts = {}) {
         return;
       }
       watchRetryAttempt = 0;
+      const docAv = Math.floor(Number(docData.assignmentVersion) || 0);
+      if (session) {
+        destroySessionIfAssignmentMismatch(docAv);
+      }
       if (isOfferCurrent(docData, watchRideId)) {
         pendingOfferDoc = docData;
       } else if (
         expectedAssignmentVersion > 0 &&
-        Number(docData.assignmentVersion) > 0 &&
-        Number(docData.assignmentVersion) !== expectedAssignmentVersion
+        docAv > 0 &&
+        docAv !== expectedAssignmentVersion
       ) {
         pendingOfferDoc = null;
         return;
@@ -451,12 +475,9 @@ export function createCustomerP2pController(opts = {}) {
       invalidateWatch();
       pendingOfferDoc = null;
       destroySession();
-    } else if (
-      nextAv > 0 &&
-      nextAv !== expectedAssignmentVersion &&
-      (answering || session)
-    ) {
+    } else if (nextAv > 0 && nextAv !== expectedAssignmentVersion) {
       invalidateAnswerState();
+      destroySessionIfAssignmentMismatch(nextAv);
     }
 
     expectedAssignmentVersion = nextAv;

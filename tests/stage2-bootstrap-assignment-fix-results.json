@@ -1,0 +1,58 @@
+{
+  "stage": 2,
+  "suite": "bootstrap-assignment-fix",
+  "pass": 10,
+  "fail": 0,
+  "results": [
+    {
+      "name": "initial-unknown-does-not-send-1-to-server",
+      "status": "PASS",
+      "detail": "payloadAv=undefined"
+    },
+    {
+      "name": "first-strict-server-offer-succeeds",
+      "status": "PASS",
+      "detail": "ctrlAv=471333633 serverAv=471333633"
+    },
+    {
+      "name": "session-synced-authoritative-assignmentVersion",
+      "status": "PASS",
+      "detail": "sessionAv=471333633"
+    },
+    {
+      "name": "loc-delivery-not-healthy-before-authoritative-av",
+      "status": "PASS",
+      "detail": "checked pre-LOC via session state after bootstrap"
+    },
+    {
+      "name": "first-loc-uses-authoritative-assignmentVersion",
+      "status": "PASS",
+      "detail": "sessionAv=471333633 sent=1"
+    },
+    {
+      "name": "customer-accepts-first-loc",
+      "status": "PASS",
+      "detail": "recv=1 invalid=0"
+    },
+    {
+      "name": "explicit-wrong-av-stale-assignment",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer-rejects-wrong-assignment-loc",
+      "status": "PASS",
+      "detail": "wrong_assignment"
+    },
+    {
+      "name": "reconnect-preserves-authoritative-assignmentVersion",
+      "status": "PASS",
+      "detail": "sessionAv=471333633"
+    },
+    {
+      "name": "ride-switch-does-not-leak-previous-assignmentVersion-on-offer",
+      "status": "PASS",
+      "detail": "payloadAv=undefined ctrlAv=385280948 expected=385280948"
+    }
+  ]
+}

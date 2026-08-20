@@ -51,7 +51,9 @@ check(
 );
 check(
   "foreground-firebase-policy-unchanged",
-  flow.includes("startPresenceHeartbeat") && flow.includes("customerP2p?.syncForRide(activeRide, { isVisible: true })"),
+  flow.includes("startPresenceHeartbeat") &&
+    (flow.includes("customerP2pSyncOpts(activeRide, true)") ||
+      flow.includes("customerP2p?.syncForRide(activeRide, { isVisible: true })")),
   "visible path remains the existing P2P/Firebase policy"
 );
 check(

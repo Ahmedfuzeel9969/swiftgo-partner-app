@@ -1,0 +1,92 @@
+{
+  "stage": 5,
+  "area": "cadence-contract-audit",
+  "generatedAt": "2026-08-20T07:20:34.952Z",
+  "configuredIntervalMs": 3000,
+  "minimumSpacingMs": 1500,
+  "earliestTwoSuccessfulSendsMs": 1500,
+  "halfIntervalIntentional": true,
+  "productionChangeRequired": false,
+  "rationale": "flushPendingLoc uses minGapMs = P2P_SEND_INTERVAL_MS * 0.5 as minimum spacing between successful LOC sends while coalescing bursts into pendingLoc. Same logic exists on origin/main. Stricter 3000ms would slow marker motion without improving coalescing.",
+  "markerMotionImpactIfStrict3000": "Harmful — customer would receive at most ~0.33 Hz vs current ~0.67 Hz cap under continuous GPS.",
+  "batteryNetworkImpact": "Current half-interval cap already limits sustained P2P LOC to ~0.67/s; coalescing collapses bursts to one pending fix.",
+  "pass": 15,
+  "fail": 0,
+  "results": [
+    {
+      "name": "configured-p2p-send-interval-ms",
+      "status": "PASS",
+      "detail": "P2P_SEND_INTERVAL_MS=3000"
+    },
+    {
+      "name": "computed-min-gap-is-half-interval",
+      "status": "PASS",
+      "detail": "minGapMs=1500"
+    },
+    {
+      "name": "driver-customer-interval-parity",
+      "status": "PASS",
+      "detail": "customer=3000"
+    },
+    {
+      "name": "static-flushPendingLoc-minGap-half-interval",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-scheduleCadenceFlush-present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-cadence-gate-requires-prior-send",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-pending-coalescing",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "first-loc-sent-immediately",
+      "status": "PASS",
+      "detail": "fixesSent=1"
+    },
+    {
+      "name": "second-send-blocked-before-half-interval",
+      "status": "PASS",
+      "detail": "fixesSent=1 gapMs=1499"
+    },
+    {
+      "name": "second-send-allowed-at-half-interval",
+      "status": "PASS",
+      "detail": "fixesSent=2 secondLat=24.861 gapMs=1500"
+    },
+    {
+      "name": "third-send-at-1500ms-not-3000ms-from-previous",
+      "status": "PASS",
+      "detail": "afterTwo=2 afterThree=3 spacingMs=1500"
+    },
+    {
+      "name": "rapid-burst-coalesces-immediate-send",
+      "status": "PASS",
+      "detail": "sent=1 fixesSent=1 coalesces=3"
+    },
+    {
+      "name": "scheduled-cadence-timer-delivers-coalesced-fix",
+      "status": "PASS",
+      "detail": "fixesSent=2 secondLat=24.865"
+    },
+    {
+      "name": "sustained-rate-capped-by-half-interval",
+      "status": "PASS",
+      "detail": "fixesSent=5 maxExpected~=5 windowMs=6000"
+    },
+    {
+      "name": "audit-verdict-no-production-change",
+      "status": "PASS",
+      "detail": "minGap=1500ms earliestPair=1500ms"
+    }
+  ]
+}

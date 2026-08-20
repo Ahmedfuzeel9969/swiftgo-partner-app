@@ -404,17 +404,10 @@ async function ingestBackgroundDriverLocation(db, input = {}) {
       return { ok: false, accepted: false, reason: "ASSIGNMENT_TOKEN_MISMATCH" };
     }
 
-    const customerUid = String(ride.userId || "").trim();
-    let viewerLease = "UNKNOWN";
-    if (customerUid) {
-      const presenceSnap = await tx.get(
-        db.collection(PRESENCE_COLLECTION).doc(presenceDocId(claims.rideId, customerUid))
-      );
-      viewerLease = resolveViewerLeaseFromPresence(
-        presenceSnap.exists ? presenceSnap.data() : null,
-        nowMs
-      );
-    }
+    // Native HTTPS ingest does not read rideViewerPresence. Authorization uses the
+    // HMAC credential + ride/vehicle binding above; cadence uses responsive 4s policy
+    // regardless of viewer lease (client checkpoint policy owns lease semantics).
+    const viewerLease = "UNKNOWN";
 
     const vehicleSnap = await tx.get(vehicleRef);
     if (!vehicleSnap.exists) {

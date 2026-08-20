@@ -90,6 +90,7 @@ export const P2P_BUFFERED_AMOUNT_HIGH = 64 * 1024;
 export const P2P_CHANNEL_OPEN_TIMEOUT_MS = 30_000;
 export const P2P_FIRST_ACK_TIMEOUT_MS = 15_000;
 export const P2P_BACKPRESSURE_FLUSH_MS = 500;
+export const P2P_SEND_FAILURE_RETRY_MS = 500;
 export const P2P_MAX_SENT_SEQUENCES_RETAINED = 256;
 
 /** Public STUN servers for NAT traversal (no secrets). Override via __SWIFTGO_P2P_ICE__. */

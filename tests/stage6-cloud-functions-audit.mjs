@@ -48,14 +48,14 @@ function auditBackgroundUploadPresenceAndCadence() {
     src.includes('PRESENCE_COLLECTION = "rideViewerPresence"') ? "PASS" : "FAIL",
     "rideViewerPresence constant"
   );
+  const ingestBlock = src.slice(
+    src.indexOf("async function ingestBackgroundDriverLocation"),
+    src.indexOf("module.exports")
+  );
   record(
-    "ingest-reads-presence-in-transaction",
-    src.includes("presenceSnap") &&
-      src.includes("PRESENCE_COLLECTION") &&
-      src.includes("resolveViewerLeaseFromPresence")
-      ? "PASS"
-      : "FAIL",
-    "tx.get rideViewerPresence during ingest"
+    "ingest-no-presenceSnap",
+    !ingestBlock.includes("presenceSnap") ? "PASS" : "FAIL",
+    "rideViewerPresence not read during ingest"
   );
   record(
     "cadence-ignores-viewerLease-for-interval",
@@ -286,7 +286,7 @@ function auditPresenceDiagnosticsOnly() {
     readUtf8("functions/background-location-upload.js").includes("void viewerLease")
       ? "PASS"
       : "FAIL",
-    "viewerLease returned in ingest response only"
+    "native ingest returns viewerLease=UNKNOWN; client owns lease policy"
   );
 }
 
@@ -316,8 +316,9 @@ async function main() {
     fail,
     results,
     findings: [
-      "ingestBackgroundDriverLocation still reads rideViewerPresence in the ingest transaction for viewerLease diagnostics.",
+      "Native ingest no longer reads rideViewerPresence — authorization uses HMAC credential + ride/vehicle binding only.",
       "resolveBackgroundUploadIntervalMs ignores viewerLease — active rides always RESPONSIVE_FIREBASE@4000ms (d34 behavior preserved).",
+      "4000ms is a soft responsive target (hardInterval=false); movement >= 25m may write earlier.",
       "Client arbiter FIREBASE_BACKUP_READ_INTERVAL_MS, checkpoint RESPONSIVE_INTERVAL_MS, CF RESPONSIVE_INTERVAL_MS, and Android default intervalMs=4000 are aligned.",
       "BACKGROUND_APPROACH/TRIP interval constants remain exported but unused by native upload cadence resolver (sparse cadence is client checkpoint path when P2P healthy).",
       timing.maxMs != null

@@ -17,6 +17,7 @@ import {
   P2P_MAX_SENT_SEQUENCES_RETAINED,
   P2P_MAX_SDP_CHARS,
   P2P_RECONNECT_MAX_ATTEMPTS,
+  P2P_SEND_FAILURE_RETRY_MS,
   P2P_SEND_INTERVAL_MS,
   P2P_STATE,
   createPeerSessionId,
@@ -67,7 +68,7 @@ export function createP2pPeerSession(deps) {
   let channel = null;
   let peerSessionId = "";
   let trackingSessionId = "";
-  let assignmentVersion = 1;
+  let assignmentVersion = 0;
   let lastSequenceSent = 0;
   let lastSequenceRecv = 0;
   let lastValidFixAt = null;
@@ -242,6 +243,7 @@ export function createP2pPeerSession(deps) {
   }
 
   function isLocDeliveryHealthyNow() {
+    if (assignmentVersion < 1) return false;
     if (role === "customer") {
       const fixAge = lastValidFixAt != null ? nowMs() - lastValidFixAt : Infinity;
       return fixAge <= P2P_DEGRADED_AFTER_MS;
@@ -292,6 +294,15 @@ export function createP2pPeerSession(deps) {
       if (!isCurrent(gen)) return;
       flushPendingLoc(gen);
     }, delay);
+  }
+
+  function scheduleSendFailureRetry(gen) {
+    if (sendTimer) return;
+    sendTimer = setT(() => {
+      sendTimer = 0;
+      if (!isCurrent(gen)) return;
+      flushPendingLoc(gen);
+    }, P2P_SEND_FAILURE_RETRY_MS);
   }
 
   function offerLocationFix(fix, gen) {
@@ -900,9 +911,10 @@ export function createP2pPeerSession(deps) {
   }
 
   function rememberSession(meta = {}) {
+    const rawAv = Math.floor(Number(meta.assignmentVersion) || assignmentVersion || 0);
     sessionMeta = {
       trackingSessionId: String(meta.trackingSessionId || trackingSessionId || "").trim(),
-      assignmentVersion: Math.max(1, Math.floor(Number(meta.assignmentVersion) || assignmentVersion || 1)),
+      assignmentVersion: rawAv >= 1 ? rawAv : 0,
     };
     resumeFn = () =>
       startAsDriver({
@@ -953,7 +965,7 @@ export function createP2pPeerSession(deps) {
       ? meta.peerSessionId
       : createPeerSessionId();
     trackingSessionId = String(meta.trackingSessionId || "").trim();
-    assignmentVersion = Math.max(1, Math.floor(Number(meta.assignmentVersion) || 1));
+    assignmentVersion = Math.max(0, Math.floor(Number(meta.assignmentVersion) || 0));
     lastSequenceSent = 0;
     lastSequenceRecv = 0;
     lastValidFixAt = null;
@@ -1195,6 +1207,7 @@ export function createP2pPeerSession(deps) {
 
   function flushPendingLoc(gen = generation) {
     if (!pendingLoc || role !== "driver") return;
+    if (assignmentVersion < 1) return;
     if (!isCurrent(gen)) {
       pendingLoc = null;
       pendingLocGen = 0;
@@ -1255,6 +1268,8 @@ export function createP2pPeerSession(deps) {
       releaseSentSequence(nextSeq);
       if (channel.bufferedAmount > P2P_BUFFERED_AMOUNT_HIGH) {
         scheduleBackpressureFlush(gen);
+      } else {
+        scheduleSendFailureRetry(gen);
       }
     }
   }
@@ -1518,11 +1533,11 @@ export function createP2pPeerSession(deps) {
     createMediaBridge,
     /** Test helpers */
     _handleMessageForTest: handleMessage,
-    _setChannelOpenForTest: (open, sendFn) => {
+    _setChannelOpenForTest: (open, sendFn, opts = {}) => {
       if (open) {
         channel = {
           readyState: "open",
-          bufferedAmount: 0,
+          bufferedAmount: Math.max(0, Math.floor(Number(opts.bufferedAmount) || 0)),
           send: typeof sendFn === "function" ? sendFn : () => {},
           close: () => {},
         };
