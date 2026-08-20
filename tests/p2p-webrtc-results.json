@@ -1,9 +1,9 @@
 {
   "suite": "p2p-webrtc",
-  "generatedAt": "2026-08-20T01:00:51.323Z",
+  "generatedAt": "2026-08-20T04:43:08.672Z",
   "totals": {
-    "pass": 79,
-    "fail": 2,
+    "pass": 88,
+    "fail": 0,
     "blocked": 1,
     "byCategory": {
       "unit": {
@@ -12,13 +12,13 @@
         "blocked": 0
       },
       "static": {
-        "pass": 14,
-        "fail": 1,
+        "pass": 15,
+        "fail": 0,
         "blocked": 0
       },
       "rules": {
-        "pass": 0,
-        "fail": 1,
+        "pass": 8,
+        "fail": 0,
         "blocked": 0
       },
       "manual": {
@@ -361,7 +361,7 @@
     {
       "name": "01-assigned-driver-create-session",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1787188551238,\"protocolVersion\":1}",
+      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1787201886202,\"protocolVersion\":1}",
       "suite": "p2p-webrtc",
       "category": "unit"
     },
@@ -507,7 +507,7 @@
     },
     {
       "name": "56-customer-hidden-keeps-p2p-alive",
-      "status": "FAIL",
+      "status": "PASS",
       "detail": "",
       "suite": "p2p-webrtc",
       "category": "static"
@@ -583,9 +583,58 @@
       "category": "static"
     },
     {
-      "name": "rules-env",
-      "status": "FAIL",
-      "detail": "request to http://127.0.0.1:8080/emulator/v1/projects/demo-swiftgo-phase1-p2p-rules:securityRules failed, reason: connect ECONNREFUSED 127.0.0.1:8080",
+      "name": "rules-01-driver-get",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "rules-02-customer-get",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "03-unrelated-customer-denied-rules",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "06-anonymous-denied-rules",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "07-list-query-denied",
+      "status": "PASS",
+      "detail": "rules-text",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "rules-client-write-denied",
+      "status": "PASS",
+      "detail": "rules-text",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "rules-client-delete-denied",
+      "status": "PASS",
+      "detail": "same write deny",
+      "suite": "p2p-webrtc",
+      "category": "rules"
+    },
+    {
+      "name": "08-terminal-ride-get-denied-rules",
+      "status": "PASS",
+      "detail": "",
       "suite": "p2p-webrtc",
       "category": "rules"
     },
