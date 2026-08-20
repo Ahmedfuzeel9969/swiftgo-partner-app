@@ -468,8 +468,7 @@ export function createCustomerP2pController(opts = {}) {
     const nextAv = Math.max(0, Math.floor(Number(rideAssignmentVersion) || 0));
     const rideChanged = Boolean(rid && rideId && rid !== rideId);
 
-    setVisible(isVisible);
-
+    // Invalidate before bind/visibility so stale answer/watch cannot race the new ride.
     if (rideChanged) {
       invalidateAnswerState();
       invalidateWatch();
@@ -483,11 +482,15 @@ export function createCustomerP2pController(opts = {}) {
     expectedAssignmentVersion = nextAv;
 
     if (!rid || !P2P_EXECUTION_STATUSES.includes(status)) {
+      setVisible(isVisible);
       void stop({ closeRemote: true });
       return;
     }
 
+    // Bind ride identity before visibility updates (main a1d82e4 ordering).
+    // Branch keeps P2P alive while hidden; setVisible must not tear down the session.
     bindRide(rid);
+    setVisible(isVisible);
 
     if (ride?.driverLocation) {
       ingestFirebaseLocation(ride.driverLocation, ride);

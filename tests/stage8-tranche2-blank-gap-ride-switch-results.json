@@ -1,0 +1,97 @@
+{
+  "stage": 8,
+  "tranche": 2,
+  "scope": "blank-gap-and-ride-switch",
+  "generatedAt": "2026-08-20T14:09:30.849Z",
+  "summary": {
+    "pass": 17,
+    "fail": 0
+  },
+  "results": [
+    {
+      "name": "idle-approach-trip-fallback-secondary",
+      "status": "PASS",
+      "detail": "polylines=1 color=#2563eb"
+    },
+    {
+      "name": "idle-approach-legacy-not-suppressed",
+      "status": "PASS",
+      "detail": "trip-only fallback must not suppress legacy approach line"
+    },
+    {
+      "name": "approach-fallback-visible",
+      "status": "PASS",
+      "detail": "dash=8 10"
+    },
+    {
+      "name": "approach-fallback-suppresses-legacy",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "approach-ready-visible",
+      "status": "PASS",
+      "detail": "color=#16a34a"
+    },
+    {
+      "name": "approach-ready-suppresses-legacy",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "idle-to-ready-never-blank",
+      "status": "PASS",
+      "detail": "idle=true ready=true"
+    },
+    {
+      "name": "drawable-helper-approach-fallback",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "stale-layers-cleared",
+      "status": "PASS",
+      "detail": "drawn=1 removed=1"
+    },
+    {
+      "name": "static-ride-flow-suppression-helper",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-trip-fallback-secondary-branch",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-answerIdentity-includes-sessionId",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-watch-generation-guards",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-bindRide-before-setVisible",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-hidden-does-not-suspend-p2p",
+      "status": "PASS",
+      "detail": "preserve branch background-keepalive policy vs main suspend-on-hide"
+    },
+    {
+      "name": "ride-switch-bumps-watch-generation",
+      "status": "PASS",
+      "detail": "genA=2 genB=5 ride=ride_B watches=1"
+    },
+    {
+      "name": "hidden-keeps-watching",
+      "status": "PASS",
+      "detail": "watching=true visible=false"
+    }
+  ]
+}

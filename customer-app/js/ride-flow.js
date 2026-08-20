@@ -49,7 +49,10 @@ import {
 import { createViewerPresenceClient } from "./viewer-presence-client.mjs";
 import { createCustomerP2pController } from "./p2p-ride-controller.mjs";
 import { createTwoLegRouteController } from "./two-leg-route-controller.mjs";
-import { createTwoLegRouteLayers } from "./two-leg-route-layers.mjs";
+import {
+  createTwoLegRouteLayers,
+  shouldSuppressLegacyApproachLine,
+} from "./two-leg-route-layers.mjs";
 import { resolveRouteProvider } from "./road-route-provider.mjs";
 import { createDisplayLocationPipeline } from "./display-location-pipeline.mjs";
 import { getMap, setAssignedDriverLocation, followAssignedDriverIfEnabled, setFollowDriverEnabled } from "./map.js";
@@ -367,7 +370,7 @@ function ensureTwoLegRoutes() {
         model?.trip?.status === "ready" ||
         model?.approach?.status === "fallback" ||
         model?.trip?.status === "fallback";
-      setRoadRouteLineSuppressed(Boolean(hasRoad && model?.emphasis !== "none"));
+      setRoadRouteLineSuppressed(shouldSuppressLegacyApproachLine(model));
       twoLegLayers?.render(model);
       syncDisplayPipelineFromModel(model);
       if (hasRoad && !model.fittedOnceForRide) {

@@ -9,6 +9,26 @@ import {
   initNotificationSettingsUI,
 } from "./audio-service.js";
 
+import {
+  normalizeIdlePublishConfig,
+  parseFirestoreTimestampMs,
+  IDLE_PUBLISH_BOUNDS,
+  IDLE_PUBLISH_DEFAULTS,
+  IDLE_PUBLISH_PRESETS,
+} from "./idle-publish-config.mjs";
+import {
+  normalizeLocationReportingConfig,
+  LOCATION_REPORTING_DEFAULTS,
+  LOCATION_REPORTING_BOUNDS,
+  LOCATION_REPORTING_UPLOAD_MODES,
+  LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED,
+  requiresPeriodicInterval,
+} from "./location-reporting-config.mjs";
+import {
+  buildRideLocationReportViewModel,
+  renderRideLocationReportPanelHtml,
+  RIDE_LOCATION_REPORT_COLLECTION,
+} from "./ride-location-report-view.mjs";
 import { firebaseConfig } from "./firebase-config.js";
 import { getFirebase, isFirebaseConfigured } from "./firebase.js?v=dispatch_dynamic_1";
 import {
@@ -40,18 +60,22 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
 import {
+  approveOwnerAccessClient,
+  rejectOwnerAccessClient,
+} from "./admin-owner-applications-client.js?v=owner_apps_1";
+import {
   bootstrapAdminClaim as bootstrapAdminClaimClient,
   ensureFreshAuthUser,
   initSuperAdminAccess,
-  getOpsHealthSummaryClient,
   saveAdminDispatchSettings,
+  saveAdminLocationReportingSettings,
   saveAdminPricingSettings as saveAdminPricingSettingsClient,
-} from "./admin-settings-client.js?v=dispatch_slo_1";
+} from "./admin-settings-client.js?v=dispatch_dynamic_1";
 import {
-  buildRideLocationReportViewModel,
-  renderRideLocationReportPanelHtml,
-  RIDE_LOCATION_REPORT_COLLECTION,
-} from "./ride-location-report-view.mjs";
+  CANONICAL_VEHICLE_IDS,
+  DEFAULT_PRICING as CATALOG_DEFAULT_PRICING,
+  DEFAULT_VEHICLE_RATES as CATALOG_DEFAULT_VEHICLE_RATES,
+} from "./vehicle-catalog.mjs";
 
 /** Sole authorized Super Admin (Owner). No driver may enter Command Center. */
 const SUPER_ADMIN_EMAIL = "fuzail1158@gmail.com";
@@ -96,25 +120,14 @@ async function isAuthorizedAdminAsync(user) {
   return isAuthorizedAdmin(user);
 }
 
-const DEFAULT_VEHICLE_RATES = Object.freeze({
-  bike: Object.freeze({ baseFare: 40, perKmRate: 15, commissionPercent: 10 }),
-  go: Object.freeze({ baseFare: 100, perKmRate: 35, commissionPercent: 10 }),
-  "go-plus": Object.freeze({ baseFare: 130, perKmRate: 40, commissionPercent: 10 }),
-  business: Object.freeze({ baseFare: 200, perKmRate: 60, commissionPercent: 10 }),
-  "bike-cargo": Object.freeze({ baseFare: 60, perKmRate: 20, commissionPercent: 10 }),
-  suzuki: Object.freeze({ baseFare: 250, perKmRate: 50, commissionPercent: 10 }),
-  truck: Object.freeze({ baseFare: 500, perKmRate: 80, commissionPercent: 10 }),
-});
+const DEFAULT_VEHICLE_RATES = CATALOG_DEFAULT_VEHICLE_RATES;
 
 const DEFAULT_PRICING = Object.freeze({
-  baseFare: DEFAULT_VEHICLE_RATES.go.baseFare,
-  perKmRate: DEFAULT_VEHICLE_RATES.go.perKmRate,
-  commissionPercent: DEFAULT_VEHICLE_RATES.go.commissionPercent,
+  ...CATALOG_DEFAULT_PRICING,
   walletThreshold: -500,
-  vehicles: DEFAULT_VEHICLE_RATES,
 });
 
-const VEHICLE_RATE_KEYS = Object.freeze(Object.keys(DEFAULT_VEHICLE_RATES));
+const VEHICLE_RATE_KEYS = Object.freeze([...CANONICAL_VEHICLE_IDS]);
 
 const VIEW_TITLES = {
   dashboard: "ڈیش بورڈ",
@@ -123,6 +136,7 @@ const VIEW_TITLES = {
   users: "صارفین اور گاڑیاں",
   finance: "مالی کنٹرول",
   "recharge-requests": "ریچارج درخواستیں",
+  "owner-applications": "مالک درخواستیں",
   "live-map": "لائیو نقشہ",
 };
 
@@ -144,10 +158,9 @@ const els = {
   status: document.getElementById("adminAuthStatus"),
   accessDenied: document.getElementById("accessDeniedOverlay"),
   accessDeniedDismiss: document.getElementById("accessDeniedDismissBtn"),
-  logoutBtn: document.getElementById("adminLogoutBtnSidebar"),
-  notifyBtn: document.getElementById("openNotificationSettingsBtnSidebar"),
-  displayName: document.getElementById("adminSidebarDisplayName"),
-  displayEmail: document.getElementById("adminSidebarDisplayEmail"),
+  logoutBtn: document.getElementById("adminLogoutBtn"),
+  displayName: document.getElementById("adminDisplayName"),
+  displayEmail: document.getElementById("adminDisplayEmail"),
   viewTitle: document.getElementById("adminViewTitle"),
   content: document.getElementById("adminContent"),
   statTotalRides: document.getElementById("statTotalRides"),
@@ -166,22 +179,36 @@ const els = {
   dispatchForm: document.getElementById("dispatchSettingsForm"),
   candidateDriverLimitInput: document.getElementById("candidateDriverLimit"),
   idleLocationIntervalSecondsInput: document.getElementById("idleLocationIntervalSeconds"),
+  idleLocationIntervalPreset: document.getElementById("idleLocationIntervalPreset"),
   idleLocationMoveMetersInput: document.getElementById("idleLocationMoveMeters"),
-  offerTimeoutSecondsInput: document.getElementById("offerTimeoutSeconds"),
-  searchTimeoutSecondsInput: document.getElementById("searchTimeoutSeconds"),
+  idleLocationMovePreset: document.getElementById("idleLocationMovePreset"),
+  idleHighMoveWarning: document.getElementById("idleHighMoveWarning"),
+  idleMovementTriggerDisabledInput: document.getElementById("idleMovementTriggerDisabled"),
+  idleDiagnosticDurationMinutes: document.getElementById("idleDiagnosticDurationMinutes"),
+  idleDiagnosticReason: document.getElementById("idleDiagnosticReason"),
+  idleDiagnosticRedWarning: document.getElementById("idleDiagnosticRedWarning"),
+  idleDiagnosticExpiryDisplay: document.getElementById("idleDiagnosticExpiryDisplay"),
+  idleReturnSafeDefaultsBtn: document.getElementById("idleReturnSafeDefaultsBtn"),
   dispatchRadiusKmInput: document.getElementById("dispatchRadiusKm"),
   dispatchRadiusMetersInput: document.getElementById("dispatchRadiusMeters"),
   dispatchRadiusPreview: document.getElementById("dispatchRadiusPreview"),
   dispatchSaveBtn: document.getElementById("dispatchSaveBtn"),
   dispatchStatusNote: document.getElementById("dispatchStatusNote"),
-  dispatchSloReceipts: document.getElementById("dispatchSloReceipts"),
-  dispatchSloAvgDelivery: document.getElementById("dispatchSloAvgDelivery"),
-  dispatchSloBookingToCandidate: document.getElementById("dispatchSloBookingToCandidate"),
-  dispatchSloWithin5s: document.getElementById("dispatchSloWithin5s"),
-  dispatchSloBuckets: document.getElementById("dispatchSloBuckets"),
-  dispatchSloRefreshBtn: document.getElementById("dispatchSloRefreshBtn"),
-  dispatchSloNote: document.getElementById("dispatchSloNote"),
-  financeTabs: document.getElementById("financeTabs"),
+  locationReportingForm: document.getElementById("locationReportingSettingsForm"),
+  locationReportingEnabled: document.getElementById("locationReportingEnabled"),
+  locationReportingUploadMode: document.getElementById("locationReportingUploadMode"),
+  locationReportingPeriodicField: document.getElementById("locationReportingPeriodicField"),
+  locationReportingPeriodicInterval: document.getElementById("locationReportingPeriodicInterval"),
+  locationReportingUploadOnAnomaly: document.getElementById("locationReportingUploadOnAnomaly"),
+  locationReportingFinalRequired: document.getElementById("locationReportingFinalRequired"),
+  locationReportingCollectDriver: document.getElementById("locationReportingCollectDriver"),
+  locationReportingCollectCustomer: document.getElementById("locationReportingCollectCustomer"),
+  locationReportingCollectFirebase: document.getElementById("locationReportingCollectFirebase"),
+  locationReportingCollectP2p: document.getElementById("locationReportingCollectP2p"),
+  locationReportingRetentionDays: document.getElementById("locationReportingRetentionDays"),
+  locationReportingSaveBtn: document.getElementById("locationReportingSaveBtn"),
+  locationReportingSuccessMessage: document.getElementById("locationReportingSuccessMessage"),
+  locationReportingStatusNote: document.getElementById("locationReportingStatusNote"),
   promoCodeForm: document.getElementById("promoCodeForm"),
   promoCodeInput: document.getElementById("promoCodeInput"),
   promoTypeInput: document.getElementById("promoTypeInput"),
@@ -197,12 +224,18 @@ const els = {
   locationReportModal: document.getElementById("locationReportModal"),
   locationReportModalBackdrop: document.getElementById("locationReportModalBackdrop"),
   locationReportModalCloseBtn: document.getElementById("locationReportModalCloseBtn"),
+  locationReportModalTitle: document.getElementById("locationReportModalTitle"),
   locationReportModalRideId: document.getElementById("locationReportModalRideId"),
   locationReportModalBody: document.getElementById("locationReportModalBody"),
   rechargeRequestsSection: document.getElementById("rechargeRequestsSection"),
   rechargeRequestsTableBody: document.getElementById("rechargeRequestsTableBody"),
   rechargeRequestsCount: document.getElementById("rechargeRequestsCount"),
   rechargeRequestsLiveNote: document.getElementById("rechargeRequestsLiveNote"),
+  ownerApplicationsSection: document.getElementById("ownerApplicationsSection"),
+  ownerApplicationsTableBody: document.getElementById("ownerApplicationsTableBody"),
+  ownerApplicationsCount: document.getElementById("ownerApplicationsCount"),
+  ownerApplicationsLiveNote: document.getElementById("ownerApplicationsLiveNote"),
+  ownerApplicationsRefreshBtn: document.getElementById("ownerApplicationsRefreshBtn"),
   adminToast: document.getElementById("adminToast"),
   vehiclesTableBody: document.getElementById("vehiclesTableBody"),
   vehiclesTableCount: document.getElementById("vehiclesTableCount"),
@@ -230,6 +263,10 @@ let partnerDriversCache = [];
 let allRidesCache = [];
 /** @type {Array<Record<string, unknown>>} */
 let pendingRechargeCache = [];
+/** @type {Array<Record<string, unknown>>} */
+let pendingOwnerApplicationsCache = [];
+let ownerApplicationsFetchInFlight = false;
+let ownerApplicationsLastReadCount = 0;
 let pricingLoaded = false;
 let pricingSuccessTimer = 0;
 let cachedWalletThreshold = DEFAULT_PRICING.walletThreshold;
@@ -557,7 +594,7 @@ async function persistPricingSettings(values) {
 function updateFinanceWriteUi() {
   // Save buttons stay clickable — errors show on submit. Avoid disabled+wait cursor (Windows spinning circle on hover).
   const blocked = adminCanWriteSettings === false;
-  for (const btn of [els.pricingSaveBtn, els.dispatchSaveBtn]) {
+  for (const btn of [els.pricingSaveBtn, els.dispatchSaveBtn, els.locationReportingSaveBtn]) {
     if (!btn || btn.classList.contains("is-saving")) continue;
     btn.disabled = false;
     btn.classList.toggle("finance-save-btn--blocked", blocked);
@@ -653,10 +690,9 @@ function setActiveView(viewKey) {
   if (els.content) els.content.dataset.activeView = key;
 
   if (key === "finance") {
-    restoreFinanceTab();
     loadPricingSettings();
     loadDispatchSettings();
-    loadDispatchDeliverySlo();
+    loadLocationReportingSettings();
     fetchAndRenderPromoCodes();
   }
 
@@ -666,6 +702,10 @@ function setActiveView(viewKey) {
 
   if (key === "recharge-requests") {
     fetchAndRenderRechargeRequests();
+  }
+
+  if (key === "owner-applications") {
+    fetchOwnerApplicationsOnDemand();
   }
 
   if (key === "live-map") {
@@ -732,6 +772,206 @@ function wireRechargeTableActions() {
     const driverId = btn.getAttribute("data-recharge-driver");
     if (!requestId || !driverId) return;
     approveRechargeRequest(requestId, { driverId, amount }, btn);
+  });
+}
+
+const OWNER_APPLICATIONS_FETCH_LIMIT = 50;
+
+function renderOwnerApplicationsTable(applications = pendingOwnerApplicationsCache) {
+  if (!els.ownerApplicationsTableBody) return;
+
+  if (!applications.length) {
+    els.ownerApplicationsTableBody.innerHTML = `
+      <tr class="owner-applications-table__empty">
+        <td colspan="5">کوئی زیر التواء مالک درخواست نہیں۔</td>
+      </tr>`;
+  } else {
+    els.ownerApplicationsTableBody.innerHTML = applications
+      .map((application) => {
+        const date = escapeHtml(formatAdminRideDate(application.createdAt));
+        const fullName = escapeHtml(application.fullName || "—");
+        const businessName = escapeHtml(application.businessName || "—");
+        const uid = escapeHtml(String(application.uid || application.id || "").slice(0, 12));
+        const appId = escapeHtml(application.id || application.uid || "");
+        return `
+          <tr data-owner-app-id="${appId}">
+            <td><time class="rides-table__date">${date}</time></td>
+            <td>${fullName}</td>
+            <td>${businessName}</td>
+            <td><code class="rides-table__id">${uid}…</code></td>
+            <td class="owner-applications-table__actions">
+              <button
+                type="button"
+                class="account-action-btn btn-unblock"
+                data-owner-approve="${appId}"
+              >منظور کریں</button>
+              <button
+                type="button"
+                class="account-action-btn btn-block"
+                data-owner-reject="${appId}"
+              >مسترد کریں</button>
+            </td>
+          </tr>`;
+      })
+      .join("");
+  }
+
+  if (els.ownerApplicationsCount) {
+    els.ownerApplicationsCount.textContent = `${applications.length} pending`;
+  }
+}
+
+async function fetchOwnerApplicationsOnDemand() {
+  const { db } = getFirebase();
+  if (!db) return;
+
+  if (ownerApplicationsFetchInFlight) return;
+  ownerApplicationsFetchInFlight = true;
+
+  if (els.ownerApplicationsLiveNote) {
+    els.ownerApplicationsLiveNote.textContent = "لوڈ ہو رہا ہے…";
+  }
+  if (!pendingOwnerApplicationsCache.length && els.ownerApplicationsTableBody) {
+    els.ownerApplicationsTableBody.innerHTML = `
+      <tr class="owner-applications-table__empty">
+        <td colspan="5">لوڈ ہو رہا ہے...</td>
+      </tr>`;
+  }
+
+  try {
+    const pendingQuery = query(
+      collection(db, "owner_applications"),
+      where("status", "==", "pending"),
+      limit(OWNER_APPLICATIONS_FETCH_LIMIT)
+    );
+    const snapshot = await getDocs(pendingQuery);
+    ownerApplicationsLastReadCount = snapshot.size;
+
+    pendingOwnerApplicationsCache = snapshot.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }))
+      .sort((a, b) => parseFirestoreTimestampMs(b.createdAt) - parseFirestoreTimestampMs(a.createdAt));
+
+    renderOwnerApplicationsTable(pendingOwnerApplicationsCache);
+    if (els.ownerApplicationsLiveNote) {
+      els.ownerApplicationsLiveNote.textContent = `${pendingOwnerApplicationsCache.length} زیر التواء · ${ownerApplicationsLastReadCount} دستاویزات پڑھی گئیں`;
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] owner applications fetch failed");
+    pendingOwnerApplicationsCache = [];
+    renderOwnerApplicationsTable([]);
+    if (els.ownerApplicationsLiveNote) {
+      els.ownerApplicationsLiveNote.textContent = permissionHint(error);
+    }
+    showAdminToast("مالک درخواستیں لوڈ نہیں ہو سکیں۔");
+  } finally {
+    ownerApplicationsFetchInFlight = false;
+  }
+}
+
+async function approveOwnerApplication(targetUid, button) {
+  const uid = String(targetUid || "").trim();
+  if (!uid) return;
+
+  const application = pendingOwnerApplicationsCache.find(
+    (item) => item.id === uid || item.uid === uid
+  );
+  const label = application?.fullName || uid.slice(0, 8);
+  const confirmed = window.confirm(
+    `کیا آپ واقعی "${label}" کو مالک کے طور پر منظور کرنا چاہتے ہیں؟\nApprove fleet owner access?`
+  );
+  if (!confirmed) return;
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "منظوری…";
+  }
+
+  try {
+    await approveOwnerAccessClient({ targetUid: uid });
+    pendingOwnerApplicationsCache = pendingOwnerApplicationsCache.filter(
+      (item) => item.id !== uid && item.uid !== uid
+    );
+    renderOwnerApplicationsTable(pendingOwnerApplicationsCache);
+    showAdminToast("مالک درخواست منظور ہو گئی۔");
+    if (els.ownerApplicationsLiveNote) {
+      els.ownerApplicationsLiveNote.textContent = "درخواست منظور · فہرست تازہ";
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] approve owner application failed");
+    if (button) {
+      button.disabled = false;
+      button.textContent = "منظور کریں";
+    }
+    showAdminToast(
+      error?.code === "permission-denied" || error?.message === "SUPER_ADMIN_ONLY"
+        ? "صرف سپر ایڈمن منظور کر سکتا ہے۔"
+        : "مالک منظوری ناکام۔ دوبارہ کوشش کریں۔"
+    );
+  }
+}
+
+async function rejectOwnerApplication(targetUid, button) {
+  const uid = String(targetUid || "").trim();
+  if (!uid) return;
+
+  const reason = window.prompt(
+    "مسترد کرنے کی وجہ (مختصر) · Rejection reason:",
+    "درخواست مکمل نہیں"
+  );
+  if (reason == null) return;
+  const trimmed = String(reason).trim();
+  if (!trimmed) {
+    showAdminToast("مسترد کرنے کی وجہ درکار ہے۔");
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "مسترد…";
+  }
+
+  try {
+    await rejectOwnerAccessClient({ targetUid: uid, reason: trimmed });
+    pendingOwnerApplicationsCache = pendingOwnerApplicationsCache.filter(
+      (item) => item.id !== uid && item.uid !== uid
+    );
+    renderOwnerApplicationsTable(pendingOwnerApplicationsCache);
+    showAdminToast("مالک درخواست مسترد ہو گئی۔");
+    if (els.ownerApplicationsLiveNote) {
+      els.ownerApplicationsLiveNote.textContent = "درخواست مسترد · فہرست تازہ";
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] reject owner application failed");
+    if (button) {
+      button.disabled = false;
+      button.textContent = "مسترد کریں";
+    }
+    showAdminToast(
+      error?.code === "permission-denied" || error?.message === "SUPER_ADMIN_ONLY"
+        ? "صرف سپر ایڈمن مسترد کر سکتا ہے۔"
+        : "مالک مستردی ناکام۔ دوبارہ کوشش کریں۔"
+    );
+  }
+}
+
+function wireOwnerApplicationsActions() {
+  els.ownerApplicationsTableBody?.addEventListener("click", (event) => {
+    const approveBtn = event.target.closest("[data-owner-approve]");
+    if (approveBtn) {
+      approveOwnerApplication(approveBtn.getAttribute("data-owner-approve"), approveBtn);
+      return;
+    }
+    const rejectBtn = event.target.closest("[data-owner-reject]");
+    if (rejectBtn) {
+      rejectOwnerApplication(rejectBtn.getAttribute("data-owner-reject"), rejectBtn);
+    }
+  });
+
+  els.ownerApplicationsRefreshBtn?.addEventListener("click", () => {
+    fetchOwnerApplicationsOnDemand();
   });
 }
 
@@ -1399,8 +1639,10 @@ function closeRideLocationReportModal() {
   if (!els.locationReportModal) return;
   els.locationReportModal.hidden = true;
   els.locationReportModal.setAttribute("aria-hidden", "true");
-  releaseLocationReportModalTrap?.();
-  releaseLocationReportModalTrap = null;
+  if (typeof releaseLocationReportModalTrap === "function") {
+    releaseLocationReportModalTrap();
+    releaseLocationReportModalTrap = null;
+  }
   if (locationReportModalReturnFocus instanceof HTMLElement) {
     locationReportModalReturnFocus.focus();
     locationReportModalReturnFocus = null;
@@ -1415,15 +1657,13 @@ async function openRideLocationReportModal(rideId, rideMeta = null) {
     allRidesCache.find((row) => String(row.id || "") === String(rideId)) ||
     null;
 
-  locationReportModalReturnFocus =
-    document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  locationReportModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   els.locationReportModal.hidden = false;
   els.locationReportModal.setAttribute("aria-hidden", "false");
   if (els.locationReportModalRideId) {
     els.locationReportModalRideId.textContent = `Ride ID: ${rideId}`;
   }
-  els.locationReportModalBody.innerHTML =
-    `<p class="location-report-loading">لوڈ ہو رہا ہے…</p>`;
+  els.locationReportModalBody.innerHTML = `<p class="location-report-loading">لوڈ ہو رہا ہے…</p>`;
   releaseLocationReportModalTrap = trapFocus(els.locationReportModal, {
     initialFocus: els.locationReportModalCloseBtn || els.locationReportModalBody,
   });
@@ -1431,8 +1671,7 @@ async function openRideLocationReportModal(rideId, rideMeta = null) {
 
   const { db } = getFirebase();
   if (!db) {
-    els.locationReportModalBody.innerHTML =
-      `<p class="location-report-empty">Firestore is not configured.</p>`;
+    els.locationReportModalBody.innerHTML = `<p class="location-report-empty">Firestore is not configured.</p>`;
     return;
   }
 
@@ -1451,16 +1690,17 @@ async function openRideLocationReportModal(rideId, rideMeta = null) {
       error?.code === "permission-denied"
         ? "Permission denied reading rideLocationReports."
         : `Could not load report: ${error?.message || "unknown error"}`;
-    els.locationReportModalBody.innerHTML =
-      `<p class="location-report-empty">${escapeHtml(msg)}</p>`;
+    els.locationReportModalBody.innerHTML = `<p class="location-report-empty">${escapeHtml(msg)}</p>`;
   }
 }
 
 function wireAllRidesReportActions() {
   els.allRidesTableBody?.addEventListener("click", (event) => {
     const btn = event.target.closest("[data-open-location-report]");
-    const rideId = btn?.getAttribute("data-open-location-report");
-    if (rideId) openRideLocationReportModal(rideId);
+    if (!btn) return;
+    const rideId = btn.getAttribute("data-open-location-report");
+    if (!rideId) return;
+    openRideLocationReportModal(rideId);
   });
 }
 
@@ -1468,7 +1708,8 @@ function wireLocationReportModal() {
   els.locationReportModalBackdrop?.addEventListener("click", closeRideLocationReportModal);
   els.locationReportModalCloseBtn?.addEventListener("click", closeRideLocationReportModal);
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && els.locationReportModal && !els.locationReportModal.hidden) {
+    if (event.key !== "Escape") return;
+    if (els.locationReportModal && !els.locationReportModal.hidden) {
       closeRideLocationReportModal();
     }
   });
@@ -1503,14 +1744,6 @@ function renderAllRidesTable(rides = allRidesCache) {
         const rideId = escapeHtml(ride.id || "");
         return `
           <tr data-ride-id="${rideId}">
-            <td>
-              <button
-                type="button"
-                class="rides-table__report-btn"
-                data-open-location-report="${rideId}"
-                aria-label="لوکیشن رپورٹ دیکھیں ${rideId}"
-              >پوری رپورٹ</button>
-            </td>
             <td><time class="rides-table__date">${date}</time></td>
             <td><code class="rides-table__id" title="${escapeHtml(ride.userId || "")}">${customer}</code></td>
             <td>${driver}</td>
@@ -1518,6 +1751,14 @@ function renderAllRidesTable(rides = allRidesCache) {
             <td><strong class="rides-table__money">${fare}</strong></td>
             <td><strong class="rides-table__money rides-table__money--cut">${commission}</strong></td>
             <td>${rating}</td>
+            <td>
+              <button
+                type="button"
+                class="rides-table__report-btn"
+                data-open-location-report="${rideId}"
+                aria-label="لوکیشن رپورٹ دیکھیں ${rideId}"
+              >رپورٹ</button>
+            </td>
           </tr>`;
       })
       .join("");
@@ -1983,87 +2224,86 @@ function normalizePricingDocument(data) {
   };
 }
 
-const FINANCE_TAB_STORAGE_KEY = "swiftgo_admin_finance_tab";
-const FINANCE_TAB_KEYS = new Set(["rates", "dispatch", "latency", "promo"]);
+function syncIdlePresetSelect(presetEl, valueInput, presets) {
+  if (!presetEl || !valueInput) return;
+  const val = Number(valueInput.value);
+  const match = presets.find((p) => p === val);
+  presetEl.value = match != null ? String(match) : "custom";
+}
 
-function setFinanceTab(tabKey, { persist = true } = {}) {
-  const key = FINANCE_TAB_KEYS.has(tabKey) ? tabKey : "rates";
-  document.querySelectorAll("[data-finance-tab]").forEach((btn) => {
-    const active = btn.dataset.financeTab === key;
-    btn.classList.toggle("is-active", active);
-    btn.setAttribute("aria-selected", active ? "true" : "false");
-  });
-  document.querySelectorAll("[data-finance-section]").forEach((panel) => {
-    const active = panel.dataset.financeSection === key;
-    panel.classList.toggle("is-active", active);
-    panel.hidden = !active;
-  });
-  if (persist) {
-    try {
-      localStorage.setItem(FINANCE_TAB_STORAGE_KEY, key);
-    } catch {
-      /* ignore */
-    }
+function applyIdlePresetFromSelect(presetEl, valueInput, presets) {
+  if (!presetEl || !valueInput) return;
+  const chosen = presetEl.value;
+  if (chosen !== "custom" && presets.includes(Number(chosen))) {
+    valueInput.value = chosen;
   }
-  if (key === "latency") {
-    loadDispatchDeliverySlo().catch(() => {});
-  }
-  if (key === "promo") {
-    fetchAndRenderPromoCodes();
+  updateIdleMoveWarnings();
+}
+
+function updateIdleMoveWarnings() {
+  const moveM = Math.round(Number(els.idleLocationMoveMetersInput?.value));
+  if (els.idleHighMoveWarning) {
+    const show =
+      Number.isInteger(moveM) && moveM > IDLE_PUBLISH_BOUNDS.highMoveWarningMeters;
+    els.idleHighMoveWarning.hidden = !show;
   }
 }
 
-function restoreFinanceTab() {
-  let saved = "rates";
+function updateIdleDiagnosticUi(normalized, raw = {}) {
+  const disabled = normalized?.idleMovementTriggerDisabled === true;
+  if (els.idleMovementTriggerDisabledInput) {
+    els.idleMovementTriggerDisabledInput.checked = disabled;
+  }
+  if (els.idleDiagnosticRedWarning) {
+    els.idleDiagnosticRedWarning.hidden = !disabled;
+  }
+  if (els.idleDiagnosticExpiryDisplay) {
+    if (disabled && normalized?.idleDiagnosticExpiresAtMs) {
+      const expires = new Date(normalized.idleDiagnosticExpiresAtMs);
+      els.idleDiagnosticExpiryDisplay.textContent = `تشخیصی موڈ ختم: ${expires.toLocaleString("ur-PK")} تک`;
+    } else {
+      els.idleDiagnosticExpiryDisplay.textContent = disabled
+        ? "تشخیصی موڈ فعال — میعاد ظاہر نہیں"
+        : "";
+    }
+  }
+  if (els.idleDiagnosticReason && raw?.idleDiagnosticReason && typeof raw.idleDiagnosticReason === "string") {
+    els.idleDiagnosticReason.value = raw.idleDiagnosticReason.slice(0, 80);
+  }
+}
+
+async function returnIdleToSafeDefaults() {
+  const confirmed = window.confirm(
+    "محفوظ ڈیفالٹ: 4s / 10m / حرکت publish فعال / تشخیصی موڈ بند۔\nکیا آپ محفوظ کرنا چاہتے ہیں؟"
+  );
+  if (!confirmed) return;
+  const liveUser = getFirebase().auth?.currentUser || currentAdminUser;
+  if (!liveUser) {
+    showAdminToast("براہ کرم دوبارہ لاگ اِن کریں");
+    return;
+  }
   try {
-    saved = localStorage.getItem(FINANCE_TAB_STORAGE_KEY) || "rates";
-  } catch {
-    saved = "rates";
-  }
-  setFinanceTab(saved, { persist: false });
-}
-
-function formatDispatchMs(ms) {
-  if (ms == null || !Number.isFinite(Number(ms))) return "—";
-  const value = Math.max(0, Math.round(Number(ms)));
-  if (value < 1000) return `${value} ms`;
-  return `${(value / 1000).toFixed(value >= 10000 ? 1 : 2)} s`;
-}
-
-async function loadDispatchDeliverySlo() {
-  if (!els.dispatchSloNote) return;
-  els.dispatchSloNote.textContent = "SLO لوڈ ہو رہی ہے…";
-  try {
-    const summary = await getOpsHealthSummaryClient();
-    const slo = summary?.dispatchDelivery || {};
-    const buckets = slo.buckets || {};
-    if (els.dispatchSloReceipts) {
-      els.dispatchSloReceipts.textContent = String(slo.receiptCount ?? 0);
-    }
-    if (els.dispatchSloAvgDelivery) {
-      els.dispatchSloAvgDelivery.textContent = formatDispatchMs(slo.averageDriverDeliveryMs);
-    }
-    if (els.dispatchSloBookingToCandidate) {
-      els.dispatchSloBookingToCandidate.textContent = formatDispatchMs(slo.averageBookingToCandidateMs);
-    }
-    if (els.dispatchSloWithin5s) {
-      els.dispatchSloWithin5s.textContent =
-        slo.within5SecondsRate == null ? "—" : `${slo.within5SecondsRate}%`;
-    }
-    if (els.dispatchSloBuckets) {
-      els.dispatchSloBuckets.textContent = `Buckets: ≤2s ${buckets.under2s || 0} · ≤5s ${
-        buckets.under5s || 0
-      } · ≤10s ${buckets.under10s || 0} · >10s ${buckets.over10s || 0} · missing ${
-        buckets.missing || 0
-      }`;
-    }
-    els.dispatchSloNote.textContent =
-      Number(slo.receiptCount) > 0
-        ? `آج (${summary.day || "today"}): ${slo.measuredCount || 0} measured receipts`
-        : `آج (${summary.day || "today"}): ابھی کوئی delivery receipt نہیں — نئی بکنگ کے بعد یہاں آئے گی۔`;
+    await prepareAdminSaveForWrite(liveUser);
   } catch (error) {
-    console.warn("[SwiftGo Admin] loadDispatchDeliverySlo", error);
-    els.dispatchSloNote.textContent = `SLO load failed: ${error?.message || "unknown"}`;
+    showAdminToast(adminSaveErrorMessage(error));
+    return;
+  }
+  setFinanceSaveBusy(els.dispatchSaveBtn, true);
+  try {
+    const limit = Number(els.candidateDriverLimitInput?.value) || 10;
+    await saveAdminDispatchSettings({
+      candidateDriverLimit: limit,
+      idleLocationIntervalMs: IDLE_PUBLISH_DEFAULTS.idleLocationIntervalMs,
+      idleLocationMoveMeters: IDLE_PUBLISH_DEFAULTS.idleLocationMoveMeters,
+      idleMovementTriggerDisabled: false,
+    });
+    showAdminToast("محفوظ ڈیفالٹ سیٹنگز لاگو ہو گئیں");
+    await loadDispatchSettings();
+  } catch (error) {
+    showAdminToast(adminSaveErrorMessage(error));
+  } finally {
+    setFinanceSaveBusy(els.dispatchSaveBtn, false);
+    updateFinanceWriteUi();
   }
 }
 
@@ -2077,35 +2317,26 @@ async function loadDispatchSettings() {
     els.candidateDriverLimitInput.value =
       Number.isInteger(limit) && limit >= 1 && limit <= 100 ? String(limit) : "10";
 
-    const idleIntervalMs =
-      data.idleLocationIntervalMs != null && Number.isFinite(Number(data.idleLocationIntervalMs))
-        ? Math.round(Number(data.idleLocationIntervalMs))
-        : 4_000;
-    const idleSeconds = Math.max(1, Math.min(1800, Math.round(idleIntervalMs / 1000)));
+    const normalizedIdle = normalizeIdlePublishConfig(data, { nowMs: Date.now() });
+    const idleSeconds = Math.round(normalizedIdle.idleLocationIntervalMs / 1000);
     if (els.idleLocationIntervalSecondsInput) {
       els.idleLocationIntervalSecondsInput.value = String(idleSeconds);
     }
-    const idleMove =
-      data.idleLocationMoveMeters != null && Number.isFinite(Number(data.idleLocationMoveMeters))
-        ? Math.round(Number(data.idleLocationMoveMeters))
-        : 10;
+    syncIdlePresetSelect(
+      els.idleLocationIntervalPreset,
+      els.idleLocationIntervalSecondsInput,
+      IDLE_PUBLISH_PRESETS.intervalSeconds
+    );
     if (els.idleLocationMoveMetersInput) {
-      els.idleLocationMoveMetersInput.value = String(Math.max(1, Math.min(5000, idleMove)));
+      els.idleLocationMoveMetersInput.value = String(normalizedIdle.idleLocationMoveMeters);
     }
-    const offerTimeout =
-      data.offerTimeoutSeconds != null && Number.isFinite(Number(data.offerTimeoutSeconds))
-        ? Math.round(Number(data.offerTimeoutSeconds))
-        : 30;
-    if (els.offerTimeoutSecondsInput) {
-      els.offerTimeoutSecondsInput.value = String(Math.max(5, Math.min(300, offerTimeout)));
-    }
-    const searchTimeout =
-      data.searchTimeoutSeconds != null && Number.isFinite(Number(data.searchTimeoutSeconds))
-        ? Math.round(Number(data.searchTimeoutSeconds))
-        : 180;
-    if (els.searchTimeoutSecondsInput) {
-      els.searchTimeoutSecondsInput.value = String(Math.max(30, Math.min(600, searchTimeout)));
-    }
+    syncIdlePresetSelect(
+      els.idleLocationMovePreset,
+      els.idleLocationMoveMetersInput,
+      IDLE_PUBLISH_PRESETS.moveMeters
+    );
+    updateIdleMoveWarnings();
+    updateIdleDiagnosticUi(normalizedIdle, data);
 
     const totalMeters =
       data.maxSearchRadiusMeters != null && Number.isFinite(Number(data.maxSearchRadiusMeters))
@@ -2119,8 +2350,8 @@ async function loadDispatchSettings() {
 
     if (els.dispatchStatusNote) {
       els.dispatchStatusNote.textContent = snapshot.exists()
-        ? `موجودہ: ${els.candidateDriverLimitInput.value} ڈرائیور · idle ${els.idleLocationIntervalSecondsInput?.value || 4}s / ${els.idleLocationMoveMetersInput?.value || 10}m · offer ${els.offerTimeoutSecondsInput?.value || 30}s · search ${els.searchTimeoutSecondsInput?.value || 180}s · ${formatDispatchRadiusPreview(totalMeters)} · settings/dispatch`
-        : "Default 10 drivers · idle 4s / 10m · offer 30s · search 180s · 3 km — document not found yet.";
+        ? `موجودہ: ${els.candidateDriverLimitInput.value} ڈرائیور · idle ${els.idleLocationIntervalSecondsInput?.value || 4}s / ${els.idleLocationMoveMetersInput?.value || 10}m · ${formatDispatchRadiusPreview(totalMeters)} · settings/dispatch`
+        : "Default 10 drivers · idle 4s / 10m · 3 km — document not found yet.";
     }
   } catch (error) {
     console.warn("[SwiftGo Admin] loadDispatchSettings", error);
@@ -2163,32 +2394,50 @@ async function saveDispatchSettings(event) {
   }
 
   const idleSeconds = Math.round(Number(els.idleLocationIntervalSecondsInput?.value));
-  if (!Number.isInteger(idleSeconds) || idleSeconds < 1 || idleSeconds > 1800) {
+  if (
+    !Number.isInteger(idleSeconds) ||
+    idleSeconds < IDLE_PUBLISH_BOUNDS.intervalMsMin / 1000 ||
+    idleSeconds > IDLE_PUBLISH_BOUNDS.intervalMsMax / 1000
+  ) {
     if (els.dispatchStatusNote) {
-      els.dispatchStatusNote.textContent = "Idle interval must be 1–1800 seconds.";
+      els.dispatchStatusNote.textContent =
+        "ویٹنگ لوکیشن وقفہ 4 سے 300 سیکنڈ کے درمیان ہونا چاہیے۔ / Idle interval must be 4–300 seconds.";
     }
     return;
   }
   const idleMoveMeters = Math.round(Number(els.idleLocationMoveMetersInput?.value));
-  if (!Number.isInteger(idleMoveMeters) || idleMoveMeters < 1 || idleMoveMeters > 5000) {
+  if (
+    !Number.isInteger(idleMoveMeters) ||
+    idleMoveMeters < IDLE_PUBLISH_BOUNDS.moveMetersMin ||
+    idleMoveMeters > IDLE_PUBLISH_BOUNDS.moveMetersMax
+  ) {
     if (els.dispatchStatusNote) {
-      els.dispatchStatusNote.textContent = "Idle move threshold must be 1–5000 meters.";
+      els.dispatchStatusNote.textContent =
+        "ویٹنگ حرکت حد 10 سے 5000 میٹر کے درمیان ہونی چاہیے۔ / Idle move threshold must be 10–5000 meters.";
     }
     return;
   }
-  const offerTimeoutSeconds = Math.round(Number(els.offerTimeoutSecondsInput?.value));
-  if (!Number.isInteger(offerTimeoutSeconds) || offerTimeoutSeconds < 5 || offerTimeoutSeconds > 300) {
-    if (els.dispatchStatusNote) {
-      els.dispatchStatusNote.textContent = "Offer timeout must be 5–300 seconds.";
+
+  const diagnosticEnabled = Boolean(els.idleMovementTriggerDisabledInput?.checked);
+  const diagnosticDurationMin = Math.round(Number(els.idleDiagnosticDurationMinutes?.value));
+  if (diagnosticEnabled) {
+    if (
+      !Number.isInteger(diagnosticDurationMin) ||
+      diagnosticDurationMin < IDLE_PUBLISH_BOUNDS.diagnosticDurationMinutesMin ||
+      diagnosticDurationMin > IDLE_PUBLISH_BOUNDS.diagnosticDurationMinutesMax
+    ) {
+      if (els.dispatchStatusNote) {
+        els.dispatchStatusNote.textContent =
+          "تشخیصی مدت 1 سے 30 منٹ کے درمیان ہونی چاہیے۔";
+      }
+      return;
     }
-    return;
-  }
-  const searchTimeoutSeconds = Math.round(Number(els.searchTimeoutSecondsInput?.value));
-  if (!Number.isInteger(searchTimeoutSeconds) || searchTimeoutSeconds < 30 || searchTimeoutSeconds > 600) {
-    if (els.dispatchStatusNote) {
-      els.dispatchStatusNote.textContent = "بکنگ تلاش وقت 30–600 سیکنڈ ہونا چاہیے۔";
-    }
-    return;
+    const confirmed = window.confirm(
+      "تشخیصی موڈ: حرکت کی بنیاد پر لوکیشن publish بند ہو جائے گی۔\n" +
+        "صرف وقت وقفہ سے publish ہوگا۔ ڈسپیچ درستگی متاثر ہو سکتی ہے۔\n" +
+        "کیا آپ واقعی جاری رکھنا چاہتے ہیں؟"
+    );
+    if (!confirmed) return;
   }
 
   const { km, meters, totalMeters, totalKm } = parseDispatchRadiusInputs();
@@ -2226,7 +2475,7 @@ async function saveDispatchSettings(event) {
   setFinanceSaveBusy(els.dispatchSaveBtn, true);
   if (els.dispatchStatusNote) els.dispatchStatusNote.textContent = "محفوظ ہو رہا ہے…";
   try {
-    await saveAdminDispatchSettings({
+    const payload = {
       candidateDriverLimit: limit,
       dispatchRadiusKm: km,
       dispatchRadiusMeters: meters,
@@ -2234,13 +2483,19 @@ async function saveDispatchSettings(event) {
       maxSearchRadiusMeters: totalMeters,
       idleLocationIntervalMs: idleSeconds * 1000,
       idleLocationMoveMeters: idleMoveMeters,
-      offerTimeoutSeconds,
-      searchTimeoutSeconds,
-    });
+      idleMovementTriggerDisabled: diagnosticEnabled,
+    };
+    if (diagnosticEnabled) {
+      payload.idleDiagnosticDurationMinutes = diagnosticDurationMin;
+      const reason = String(els.idleDiagnosticReason?.value || "").trim().slice(0, 80);
+      if (reason) payload.idleDiagnosticReason = reason;
+    }
+    await saveAdminDispatchSettings(payload);
     if (els.dispatchStatusNote) {
-      els.dispatchStatusNote.textContent = `محفوظ: ${limit} ڈرائیور · idle ${idleSeconds}s / ${idleMoveMeters}m · offer ${offerTimeoutSeconds}s · search ${searchTimeoutSeconds}s · ${formatDispatchRadiusPreview(totalMeters)}`;
+      els.dispatchStatusNote.textContent = `محفوظ: ${limit} ڈرائیور · idle ${idleSeconds}s / ${idleMoveMeters}m · ${formatDispatchRadiusPreview(totalMeters)}`;
     }
     showAdminToast("ڈسپیچ سیٹنگ محفوظ ہو گئی");
+    await loadDispatchSettings();
   } catch (error) {
     console.error("[Financial Settings Error]:", error?.code, error?.message);
     const msg = adminSaveErrorMessage(error);
@@ -2248,6 +2503,219 @@ async function saveDispatchSettings(event) {
     showAdminToast(msg);
   } finally {
     setFinanceSaveBusy(els.dispatchSaveBtn, false);
+    updateFinanceWriteUi();
+  }
+}
+
+let locationReportingSuccessTimer = 0;
+
+function hideLocationReportingSuccess() {
+  window.clearTimeout(locationReportingSuccessTimer);
+  if (els.locationReportingSuccessMessage) els.locationReportingSuccessMessage.hidden = true;
+}
+
+function showLocationReportingSuccess() {
+  hideLocationReportingSuccess();
+  if (!els.locationReportingSuccessMessage) return;
+  els.locationReportingSuccessMessage.hidden = false;
+  locationReportingSuccessTimer = window.setTimeout(() => {
+    if (els.locationReportingSuccessMessage) els.locationReportingSuccessMessage.hidden = true;
+  }, 3000);
+}
+
+function updateLocationReportingFieldVisibility() {
+  const mode = String(els.locationReportingUploadMode?.value || "ride_end");
+  const showPeriodic = requiresPeriodicInterval(mode);
+  if (els.locationReportingPeriodicField) {
+    els.locationReportingPeriodicField.hidden = !showPeriodic;
+  }
+  if (mode === "disabled" && els.locationReportingEnabled) {
+    els.locationReportingEnabled.checked = false;
+    els.locationReportingEnabled.disabled = true;
+  } else if (els.locationReportingEnabled) {
+    els.locationReportingEnabled.disabled = false;
+  }
+}
+
+function fillLocationReportingForm(config = {}) {
+  const normalized = normalizeLocationReportingConfig(config);
+  if (els.locationReportingEnabled) {
+    els.locationReportingEnabled.checked = normalized.enabled === true;
+  }
+  if (els.locationReportingUploadMode) {
+    const mode = LOCATION_REPORTING_UPLOAD_MODES.includes(normalized.uploadMode)
+      ? normalized.uploadMode
+      : LOCATION_REPORTING_DEFAULTS.uploadMode;
+    els.locationReportingUploadMode.value = LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED.includes(mode)
+      ? mode
+      : "ride_end";
+  }
+  if (els.locationReportingPeriodicInterval) {
+    els.locationReportingPeriodicInterval.value = String(normalized.periodicIntervalMinutes);
+  }
+  if (els.locationReportingUploadOnAnomaly) {
+    els.locationReportingUploadOnAnomaly.checked = normalized.uploadOnAnomaly === true;
+  }
+  if (els.locationReportingFinalRequired) {
+    els.locationReportingFinalRequired.checked = normalized.finalUploadRequired === true;
+  }
+  if (els.locationReportingCollectDriver) {
+    els.locationReportingCollectDriver.checked = normalized.collectDriverMetrics === true;
+  }
+  if (els.locationReportingCollectCustomer) {
+    els.locationReportingCollectCustomer.checked = normalized.collectCustomerMetrics === true;
+  }
+  if (els.locationReportingCollectFirebase) {
+    els.locationReportingCollectFirebase.checked = normalized.collectFirebaseMetrics === true;
+  }
+  if (els.locationReportingCollectP2p) {
+    els.locationReportingCollectP2p.checked = normalized.collectP2pMetrics === true;
+  }
+  if (els.locationReportingRetentionDays) {
+    els.locationReportingRetentionDays.value = String(normalized.retentionDays);
+  }
+  updateLocationReportingFieldVisibility();
+}
+
+function readLocationReportingFormValues() {
+  const uploadMode = String(els.locationReportingUploadMode?.value || "").trim();
+  if (!LOCATION_REPORTING_UPLOAD_MODES.includes(uploadMode)) {
+    throw new Error("اپ لوڈ موڈ درست نہیں۔");
+  }
+  if (!LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED.includes(uploadMode)) {
+    throw new Error("یہ اپ لوڈ موڈ ابھی لاگو نہیں — ride_end یا disabled منتخب کریں۔");
+  }
+  const retentionDays = Math.round(Number(els.locationReportingRetentionDays?.value));
+  if (
+    !Number.isInteger(retentionDays) ||
+    retentionDays < LOCATION_REPORTING_BOUNDS.retentionDaysMin ||
+    retentionDays > LOCATION_REPORTING_BOUNDS.retentionDaysMax
+  ) {
+    throw new Error(
+      `Retention ${LOCATION_REPORTING_BOUNDS.retentionDaysMin}–${LOCATION_REPORTING_BOUNDS.retentionDaysMax} دن کے درمیان ہونی چاہیے۔`
+    );
+  }
+  let periodicIntervalMinutes = Math.round(Number(els.locationReportingPeriodicInterval?.value));
+  if (requiresPeriodicInterval(uploadMode)) {
+    if (
+      !Number.isInteger(periodicIntervalMinutes) ||
+      periodicIntervalMinutes < LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMin ||
+      periodicIntervalMinutes > LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMax
+    ) {
+      throw new Error(
+        `وقفہ ${LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMin}–${LOCATION_REPORTING_BOUNDS.periodicIntervalMinutesMax} منٹ کے درمیان ہونا چاہیے۔`
+      );
+    }
+  } else {
+    periodicIntervalMinutes = LOCATION_REPORTING_DEFAULTS.periodicIntervalMinutes;
+  }
+
+  const enabled =
+    uploadMode === "disabled" ? false : Boolean(els.locationReportingEnabled?.checked);
+
+  return {
+    enabled,
+    uploadMode,
+    periodicIntervalMinutes,
+    uploadOnAnomaly: Boolean(els.locationReportingUploadOnAnomaly?.checked),
+    finalUploadRequired: Boolean(els.locationReportingFinalRequired?.checked),
+    collectDriverMetrics: Boolean(els.locationReportingCollectDriver?.checked),
+    collectCustomerMetrics: Boolean(els.locationReportingCollectCustomer?.checked),
+    collectFirebaseMetrics: Boolean(els.locationReportingCollectFirebase?.checked),
+    collectP2pMetrics: Boolean(els.locationReportingCollectP2p?.checked),
+    retentionDays,
+  };
+}
+
+async function loadLocationReportingSettings() {
+  const { db } = getFirebase();
+  if (!db) {
+    fillLocationReportingForm(LOCATION_REPORTING_DEFAULTS);
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent = "Firestore is not configured.";
+    }
+    return;
+  }
+
+  if (els.locationReportingStatusNote) {
+    els.locationReportingStatusNote.textContent = "لوکیشن رپورٹنگ سیٹنگز لوڈ ہو رہی ہیں…";
+  }
+
+  try {
+    const snapshot = await getDoc(doc(db, "settings", "locationReporting"));
+    const data = snapshot.exists() ? snapshot.data() : null;
+    fillLocationReportingForm(data || {});
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent = snapshot.exists()
+        ? `موجودہ: ${els.locationReportingUploadMode?.value || "ride_end"} · retention ${els.locationReportingRetentionDays?.value || 30}d · settings/locationReporting`
+        : "Defaults loaded — document not found yet.";
+    }
+  } catch (error) {
+    console.warn("[SwiftGo Admin] loadLocationReportingSettings", error);
+    fillLocationReportingForm(LOCATION_REPORTING_DEFAULTS);
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent =
+        error?.code === "permission-denied"
+          ? "Permission denied reading settings/locationReporting."
+          : `Could not load location reporting: ${error?.message || "unknown error"}`;
+    }
+  }
+}
+
+async function saveLocationReportingSettings(event) {
+  event.preventDefault();
+  hideLocationReportingSuccess();
+
+  const liveUser = getFirebase().auth?.currentUser || currentAdminUser;
+  if (!liveUser) {
+    const msg = "براہ کرم دوبارہ لاگ اِن کریں — سیشن / ٹوکن کی تجدید درکار ہے";
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+    return;
+  }
+
+  try {
+    const ready = await prepareAdminSaveForWrite(liveUser);
+    if (!ready && !isAuthorizedAdmin(getFirebase().auth?.currentUser || currentAdminUser)) {
+      const msg = "آپ کے اکاؤنٹ کے پاس سوپر ایڈمن کے حقوق نہیں ہیں";
+      if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+      showAdminToast(msg);
+      return;
+    }
+  } catch (error) {
+    const msg = adminSaveErrorMessage(error);
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+    return;
+  }
+
+  let payload;
+  try {
+    payload = readLocationReportingFormValues();
+  } catch (error) {
+    const msg = String(error?.message || "Invalid form");
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+    return;
+  }
+
+  setFinanceSaveBusy(els.locationReportingSaveBtn, true);
+  if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = "محفوظ ہو رہا ہے…";
+
+  try {
+    await ensureFreshAuthUser();
+    await saveAdminLocationReportingSettings(payload);
+    fillLocationReportingForm(payload);
+    showLocationReportingSuccess();
+    if (els.locationReportingStatusNote) {
+      els.locationReportingStatusNote.textContent = `محفوظ: ${payload.uploadMode} · retention ${payload.retentionDays}d · settings/locationReporting`;
+    }
+  } catch (error) {
+    const msg = adminSaveErrorMessage(error);
+    if (els.locationReportingStatusNote) els.locationReportingStatusNote.textContent = msg;
+    showAdminToast(msg);
+  } finally {
+    setFinanceSaveBusy(els.locationReportingSaveBtn, false);
     updateFinanceWriteUi();
   }
 }
@@ -2569,7 +3037,7 @@ function startLiveData() {
     .catch(() => {});
   loadPricingSettings().catch(() => {});
   loadDispatchSettings().catch(() => {});
-  loadDispatchDeliverySlo().catch(() => {});
+  loadLocationReportingSettings().catch(() => {});
   setStat(els.statTotalRides, null);
   setStat(els.statActiveDrivers, null);
   setRevenueStat(null);
@@ -2590,7 +3058,7 @@ function startLiveData() {
   if (els.allRidesTableBody) {
     els.allRidesTableBody.innerHTML = `
       <tr class="rides-table__empty">
-        <td colspan="7">لوڈ ہو رہا ہے...</td>
+        <td colspan="8">لوڈ ہو رہا ہے...</td>
       </tr>`;
   }
   if (els.allRidesLiveNote) els.allRidesLiveNote.textContent = "";
@@ -2712,15 +3180,16 @@ function boot() {
     },
   });
   initAudioService({ storagePrefix: "swiftgo_admin_" });
-  initNotificationSettingsUI({ openBtnId: "openNotificationSettingsBtnSidebar" });
+  initNotificationSettingsUI();
   AudioService.requestBrowserNotificationPermission().catch(() => {});
   setActiveView("dashboard");
 
-  els.logoutBtn?.addEventListener("click", handleLogout);
   els.loginBtn?.addEventListener("click", signInWithGoogle);
+  els.logoutBtn?.addEventListener("click", handleLogout);
   els.accessDeniedDismiss?.addEventListener("click", hideAccessDenied);
   wireDriversTableActions();
   wireRechargeTableActions();
+  wireOwnerApplicationsActions();
   wireVehiclesTableActions();
   wireGlobalTakeControl();
   wirePromoTableActions();
@@ -2728,13 +3197,49 @@ function boot() {
   wireLocationReportModal();
   els.pricingForm?.addEventListener("submit", savePricingSettings);
   els.dispatchForm?.addEventListener("submit", saveDispatchSettings);
-  els.dispatchSloRefreshBtn?.addEventListener("click", () => {
-    loadDispatchDeliverySlo().catch(() => {});
-  });
-  els.financeTabs?.addEventListener("click", (event) => {
-    const btn = event.target.closest("[data-finance-tab]");
-    if (!btn || !els.financeTabs.contains(btn)) return;
-    setFinanceTab(btn.dataset.financeTab);
+  els.locationReportingForm?.addEventListener("submit", saveLocationReportingSettings);
+  els.locationReportingUploadMode?.addEventListener("change", updateLocationReportingFieldVisibility);
+  els.idleReturnSafeDefaultsBtn?.addEventListener("click", returnIdleToSafeDefaults);
+  els.idleLocationIntervalPreset?.addEventListener("change", () =>
+    applyIdlePresetFromSelect(
+      els.idleLocationIntervalPreset,
+      els.idleLocationIntervalSecondsInput,
+      IDLE_PUBLISH_PRESETS.intervalSeconds
+    )
+  );
+  els.idleLocationMovePreset?.addEventListener("change", () =>
+    applyIdlePresetFromSelect(
+      els.idleLocationMovePreset,
+      els.idleLocationMoveMetersInput,
+      IDLE_PUBLISH_PRESETS.moveMeters
+    )
+  );
+  for (const input of [
+    els.idleLocationIntervalSecondsInput,
+    els.idleLocationMoveMetersInput,
+  ]) {
+    input?.addEventListener("input", () => {
+      if (input === els.idleLocationIntervalSecondsInput) {
+        syncIdlePresetSelect(
+          els.idleLocationIntervalPreset,
+          els.idleLocationIntervalSecondsInput,
+          IDLE_PUBLISH_PRESETS.intervalSeconds
+        );
+      }
+      if (input === els.idleLocationMoveMetersInput) {
+        syncIdlePresetSelect(
+          els.idleLocationMovePreset,
+          els.idleLocationMoveMetersInput,
+          IDLE_PUBLISH_PRESETS.moveMeters
+        );
+        updateIdleMoveWarnings();
+      }
+    });
+  }
+  els.idleMovementTriggerDisabledInput?.addEventListener("change", () => {
+    if (els.idleDiagnosticRedWarning) {
+      els.idleDiagnosticRedWarning.hidden = !els.idleMovementTriggerDisabledInput.checked;
+    }
   });
   for (const input of [els.dispatchRadiusKmInput, els.dispatchRadiusMetersInput]) {
     input?.addEventListener("input", updateDispatchRadiusPreview);

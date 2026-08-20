@@ -2,22 +2,22 @@
   "stage": 6,
   "suite": "cloud-functions-audit",
   "honestDescription": "Read-only audit: rideViewerPresence ingest read, 4s responsive cadence chain, functions index load timing",
-  "generatedAt": "2026-08-20T07:20:39.853Z",
+  "generatedAt": "2026-08-20T10:46:37.661Z",
   "deployAuthorized": false,
   "deployBlocked": false,
   "functionsLoad": {
     "deployBlocked": false,
-    "maxMs": 345,
-    "avgMs": 341,
+    "maxMs": 4695,
+    "avgMs": 1881,
     "samples": [
-      343,
-      335,
-      345
+      4695,
+      438,
+      509
     ],
-    "exportCount": 47
+    "exportCount": 48
   },
-  "pass": 24,
-  "warn": 0,
+  "pass": 23,
+  "warn": 1,
   "fail": 0,
   "results": [
     {
@@ -128,17 +128,17 @@
     {
       "name": "functions-index-cold-load-under-10s",
       "status": "PASS",
-      "detail": "samplesMs=343,335,345 max=345 avg=341"
+      "detail": "samplesMs=4695,438,509 max=4695 avg=1881"
     },
     {
       "name": "functions-index-export-surface",
       "status": "PASS",
-      "detail": "exports≈47 (monolithic index.js)"
+      "detail": "exports≈48 (monolithic index.js)"
     },
     {
       "name": "deploy-discovery-risk",
-      "status": "PASS",
-      "detail": "max load 345ms — deploy analysis should succeed locally"
+      "status": "WARN",
+      "detail": "max load 4695ms — under 10s but heavy; cold AV/disk may timeout"
     }
   ],
   "findings": [
@@ -147,6 +147,6 @@
     "4000ms is a soft responsive target (hardInterval=false); movement >= 25m may write earlier.",
     "Client arbiter FIREBASE_BACKUP_READ_INTERVAL_MS, checkpoint RESPONSIVE_INTERVAL_MS, CF RESPONSIVE_INTERVAL_MS, and Android default intervalMs=4000 are aligned.",
     "BACKGROUND_APPROACH/TRIP interval constants remain exported but unused by native upload cadence resolver (sparse cadence is client checkpoint path when P2P healthy).",
-    "Fresh-process functions/index.js load max=345ms avg=341ms (Firebase deploy dry-run succeeded in this environment)."
+    "Fresh-process functions/index.js load max=4695ms avg=1881ms (Firebase deploy dry-run succeeded in this environment)."
   ]
 }

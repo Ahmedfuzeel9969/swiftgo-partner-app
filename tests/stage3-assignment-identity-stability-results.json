@@ -1,7 +1,7 @@
 {
   "stage": 3,
   "suite": "assignment-identity-stability",
-  "generatedAt": "2026-08-20T12:01:21.170Z",
+  "generatedAt": "2026-08-20T13:20:14.311Z",
   "pass": 12,
   "fail": 0,
   "results": [
@@ -18,7 +18,7 @@
     {
       "name": "same-ride-resync-10x-same-session",
       "status": "PASS",
-      "detail": "sameRef=true peer=ps_mt1gz5ix_7336ed69a2f5575dbb9f497a"
+      "detail": "sameRef=true peer=ps_mt1jslo8_31b3cbe0b190fe84266f3898"
     },
     {
       "name": "same-ride-resync-10x-no-extra-offer",

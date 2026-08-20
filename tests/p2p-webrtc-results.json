@@ -1,14 +1,14 @@
 {
   "suite": "p2p-webrtc",
-  "generatedAt": "2026-08-20T07:21:06.299Z",
+  "generatedAt": "2026-08-20T10:47:43.686Z",
   "totals": {
-    "pass": 88,
-    "fail": 0,
+    "pass": 87,
+    "fail": 1,
     "blocked": 1,
     "byCategory": {
       "unit": {
-        "pass": 65,
-        "fail": 0,
+        "pass": 64,
+        "fail": 1,
         "blocked": 0
       },
       "static": {
@@ -234,8 +234,8 @@
     },
     {
       "name": "39b-fix-plus-ack-healthy-driver",
-      "status": "PASS",
-      "detail": "P2P_HEALTHY invalid=0 fixesSent=1",
+      "status": "FAIL",
+      "detail": "P2P_DEGRADED invalid=0 fixesSent=1",
       "suite": "p2p-webrtc",
       "category": "unit"
     },
@@ -361,7 +361,7 @@
     {
       "name": "01-assigned-driver-create-session",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1787211364004,\"protocolVersion\":1}",
+      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1787223757703,\"protocolVersion\":1}",
       "suite": "p2p-webrtc",
       "category": "unit"
     },

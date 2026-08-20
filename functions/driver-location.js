@@ -15,6 +15,7 @@ const {
   isValidLatLng,
   isValidTrackingSessionId,
   logLocationDiag,
+  resolveCommittedTrustAnchorMs,
   timestampToMs,
   toVehicleLocationField,
 } = require("./live-location-envelope");
@@ -112,12 +113,19 @@ function buildDriverLocationPatch(vehicle, ride) {
     timestampToMs(ride?.driverTrackingSessionStartedAt) ||
     timestampToMs(previous?.sessionStartedAt) ||
     0;
+  const hasCommittedTrustAnchor =
+    vehicle?.locationUpdatedAt != null && vehicle?.locationUpdatedAt !== "";
+  const committedTrustAnchorMs = resolveCommittedTrustAnchorMs(vehicle);
+  const serverNowMs = Date.now();
 
   const gate = evaluateFixAgainstPrevious(previous, incoming, {
     enforceSessionConsistency: true,
     vehicleSessionId,
     vehicleSessionStartedMs,
     previousSessionStartedMs,
+    trustAnchorMs: committedTrustAnchorMs,
+    hasCommittedTrustAnchor,
+    serverNowMs,
   });
   if (!gate.accept) {
     return { skip: true, reason: gate.reason };

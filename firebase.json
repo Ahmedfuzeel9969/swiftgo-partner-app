@@ -8,8 +8,9 @@
       "**/node_modules/**"
     ],
     "predeploy": [
+      "node tools/hosting-deploy-integrity.mjs",
       "node tools/build-hosting.mjs",
-      "node tools/hosting-startup-health.mjs"
+      "node tools/hosting-deploy-integrity.mjs --verify-build"
     ],
     "redirects": [
       {
@@ -29,7 +30,15 @@
         "destination": "/partner/index.html"
       },
       {
+        "source": "/partner/**",
+        "destination": "/partner/index.html"
+      },
+      {
         "source": "/owner",
+        "destination": "/owner/index.html"
+      },
+      {
+        "source": "/owner/**",
         "destination": "/owner/index.html"
       },
       {
@@ -37,8 +46,20 @@
         "destination": "/admin/index.html"
       },
       {
+        "source": "/admin/**",
+        "destination": "/admin/index.html"
+      },
+      {
         "source": "/customer",
         "destination": "/customer/index.html"
+      },
+      {
+        "source": "/customer/**",
+        "destination": "/customer/index.html"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
       }
     ],
     "headers": [

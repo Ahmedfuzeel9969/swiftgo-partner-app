@@ -108,6 +108,13 @@ service cloud.firestore {
      * C) trackingSessionStartedAt may not change independently.
      * E) location.sessionId must equal trackingSessionId.
      */
+    /** Driver vehicle writes must stamp locationUpdatedAt with authoritative request.time. */
+    function vehicleLocationUpdatedAtOk() {
+      return request.resource.data.keys().hasAll(['locationUpdatedAt'])
+        && request.resource.data.locationUpdatedAt is timestamp
+        && request.resource.data.locationUpdatedAt == request.time;
+    }
+
     function vehicleTrackingSessionFieldsOk() {
       let keys = request.resource.data.diff(resource.data).affectedKeys();
       let sessionChanged = keys.hasAny(['trackingSessionId']);
@@ -144,7 +151,7 @@ service cloud.firestore {
         && request.resource.data.location.lat <= 90
         && request.resource.data.location.lng >= -180
         && request.resource.data.location.lng <= 180
-        && request.resource.data.locationUpdatedAt is timestamp
+        && vehicleLocationUpdatedAtOk()
         && request.resource.data.locationGridCell is string
         && isValidVehicleGeoCell(request.resource.data.geoCell)
         && (
@@ -555,6 +562,7 @@ service cloud.firestore {
         && request.resource.data.location.lng >= -180
         && request.resource.data.location.lng <= 180
         && request.resource.data.status in ['online', 'in_ride']
+        && vehicleLocationUpdatedAtOk()
         && vehicleTrackingSessionFieldsOk();
 
       allow update: if isSignedIn()
@@ -600,7 +608,7 @@ service cloud.firestore {
         isSuperAdmin() || request.auth.uid == partnerId
       );
 
-      // Partners may create owner/driver profiles only — never self-assign admin_driver.
+      // Partners may create driver profiles only — owner role is Admin-SDK via approveOwnerAccess.
       // Financial aggregates must start at zero if present.
       allow create: if isSignedIn()
         && request.auth.uid == partnerId
@@ -610,7 +618,7 @@ service cloud.firestore {
         )
         && (
           !request.resource.data.keys().hasAny(['role'])
-          || request.resource.data.role in ['owner', 'driver']
+          || request.resource.data.role == 'driver'
         )
         && (
           !('walletBalance' in request.resource.data)
@@ -747,6 +755,16 @@ service cloud.firestore {
         && isValidDriverApplication(request.resource.data);
 
       allow update, delete: if false;
+    }
+
+    // ── owner_applications/{uid} ── (Task 3B: fleet-owner approval queue; Admin SDK writes only)
+    match /owner_applications/{appId} {
+      allow read: if isSignedIn() && (
+        isSuperAdmin()
+        || (request.auth.uid == appId && resource.data.uid == request.auth.uid)
+      );
+
+      allow create, update, delete: if false;
     }
 
     // ── rechargeRequests/{requestId} ── (Phase 37: wallet top-up approvals)

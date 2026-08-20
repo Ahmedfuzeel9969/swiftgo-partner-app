@@ -1,29 +1,16 @@
 {
   "stage": 8,
   "scope": "targeted-main-alignment-audit",
-  "generatedAt": "2026-08-20T12:01:32.741Z",
+  "generatedAt": "2026-08-20T13:20:28.376Z",
   "branch": "chore/local-unpushed-files-20260818",
-  "branchSha": "459eb271fa83e8f1c3bad9fe61b5512a79503306",
+  "branchSha": "18b7fc4d5f28385cbebaa8f5f265061706054eac",
   "mainSha": "1e3a0cf524a0907d88f086a2e2182f380f2d9057",
   "mergeBase": "b8e0247df69114eb44b9e5eef28b3d85cf0734f5",
-  "ahead": 19,
+  "ahead": 20,
   "behind": 51,
   "uncommittedProductionChanges": [
-    "M customer-app/js/p2p-location-envelope.mjs",
-    " M customer-app/js/p2p-peer-session.mjs",
-    " M customer-app/js/p2p-protocol.mjs",
-    " M driver-app/js/background-location-native.mjs",
-    " M driver-app/js/p2p-location-envelope.mjs",
-    " M driver-app/js/p2p-peer-session.mjs",
-    " M driver-app/js/p2p-protocol.mjs",
-    " M driver-app/js/p2p-ride-controller.mjs",
-    " M functions/background-location-upload.js",
-    " M functions/index.js",
-    " M mobile/customer/android/app/src/main/java/com/swiftgo/customer/CustomerP2pKeepAliveForegroundService.java",
-    " M mobile/partner/android/app/src/main/java/com/swiftgo/partner/BackgroundLocationUploader.java",
-    " M mobile/partner/android/app/src/main/java/com/swiftgo/partner/DriverLocationForegroundService.java",
-    " M mobile/partner/android/app/src/main/java/com/swiftgo/partner/DriverLocationPlugin.java",
-    "?? driver-app/js/background-location-credential-policy.mjs"
+    "M functions/driver-location.js",
+    " M functions/live-location-envelope.js"
   ],
   "note": "Stages 2–7 reliability fixes are present in the working tree but NOT committed to HEAD. Classifications treat working tree as the intended branch tip for motion code.",
   "fileClassifications": [
@@ -229,7 +216,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 101,
+        "elapsedMs": 317,
         "stdoutTail": "{\"type\":\"checkpoint_policy_diag\",\"reason\":\"checkpoint_presence_expired\"}\n✓ checkpoint-responsive-when-not-loc-healthy — PASS: RESPONSIVE_FIREBASE@4000 hard=false\n✓ checkpoint-sparse-only-after-explicit-loc-healthy-hysteresis — PASS: P2P_SPARSE_TRIP@30000\n\nStage 2 ACK semantics: 8 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage2-ack-semantics-results.json\n\n"
       },
       {
@@ -237,7 +224,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 938,
+        "elapsedMs": 1180,
         "stdoutTail": "\n✓ reconnect-preserves-authoritative-assignmentVersion — PASS: sessionAv=471333633\n✓ ride-switch-does-not-leak-previous-assignmentVersion-on-offer — PASS: payloadAv=undefined ctrlAv=385280948 expected=385280948\n\nStage 2 bootstrap fix: 10 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage2-bootstrap-assignment-fix-results.json\n\n"
       },
       {
@@ -245,7 +232,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 3286,
+        "elapsedMs": 3452,
         "stdoutTail": "=== In-flight start remains valid when AV establishes ===\n\n✓ inflight-start-survives-authoritative-av-sync — PASS: sameSession=true staleAborts=0 synced=147401163 state=CONNECTING\n\nStage 3 assignment identity: 12 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage3-assignment-identity-stability-results.json\n\n"
       },
       {
@@ -253,7 +240,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 1087,
+        "elapsedMs": 1197,
         "stdoutTail": "✓ new-assignment-loc-accepted — PASS: renders=1\n✓ watch-new-offer-destroys-stale-session — PASS: sameRef=false\n✓ no-coordinate-rollback-from-stale-assignment — PASS: rollback=false keptNew=true renders=0\n\nStage 3 same-ride reassignment: 12 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage3-same-ride-reassignment-results.json\n\n"
       },
       {
@@ -261,7 +248,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 774,
+        "elapsedMs": 634,
         "stdoutTail": "✓ driver-app-no-driverP2p-suspend-calls — PASS\n✓ controller-syncForRide-no-viewerVisible-param — PASS\n✓ controller-syncForRide-starts-for-execution-statuses — PASS\n\nStage 3 summary: 12 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage3-driver-p2p-presence-independence-results.json\n\n"
       },
       {
@@ -269,7 +256,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 4135,
+        "elapsedMs": 4059,
         "stdoutTail": "✓ backpressure-flush-still-delivers — PASS: fixesSent=1\n✓ ack-validation-rejects-future-sequence — PASS: invalid=1\n✓ ack-validation-accepts-sent-sequence — PASS: acks=1\n\nStage 4 failed send retry: 11 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage4-failed-send-retry-results.json\n\n"
       },
       {
@@ -277,7 +264,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 268,
+        "elapsedMs": 325,
         "stdoutTail": "✓ cadence-coalesces-rapid-gps-burst — PASS: sent=1 fixesSent=1 intervalMs=3000\n✓ send-failure-retains-newest-pending-fix — PASS: fixesSent=1 sendFailures=1\n✓ syncAssignmentVersion-rejects-invalid-inputs — PASS: baseline=424242 after=424242\n\nStage 4 peer session delivery: 12 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage4-peer-session-delivery-results.json\n\n"
       },
       {
@@ -285,7 +272,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 224,
+        "elapsedMs": 1800,
         "stdoutTail": "=== No P2P-unhealthy + sparse dead zone ===\n\n✓ unhealthy-p2p-never-sparse-for-active-ride — PASS\n\nStage 4 summary: 13 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage4-responsive-firebase-fallback-results.json\n\n"
       },
       {
@@ -293,7 +280,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 190,
+        "elapsedMs": 226,
         "stdoutTail": "✓ native-renew-before-flush — PASS\n✓ plugin-passes-refresh-url — PASS\n✗ android-runtime-webview-dead-30min-soak — BLOCKED: Requires device soak; static + server refresh tests only\n\nStage 4 native credential: 18 PASS / 0 FAIL / 1 BLOCKED\nWrote F:\\ride-app\\tests\\stage4-native-credential-continuity-results.json\n\n"
       },
       {
@@ -301,7 +288,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 614,
+        "elapsedMs": 1427,
         "stdoutTail": "✓ p2p-loss-responsive-firebase-takeover — PASS: fbFrames=3 preferred=firebase\n✓ p2p-recovery-no-coordinate-rollback — PASS: before=24.862899999999996 after=24.863499999999995 preferred=p2p\n✓ stale-ride-loc-blocked-after-ride-switch — PASS: renders=1 afterA=1\n\nStage 5 full-chain: 10 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage5-full-chain-marker-motion-results.json\n\n"
       },
       {
@@ -309,7 +296,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 1800,
+        "elapsedMs": 1777,
         "stdoutTail": "✓ scheduled-cadence-timer-delivers-coalesced-fix — PASS: fixesSent=2 secondLat=24.865\n✓ sustained-rate-capped-by-half-interval — PASS: fixesSent=5 maxExpected~=5 windowMs=6000\n✓ audit-verdict-no-production-change — PASS: minGap=1500ms earliestPair=1500ms\n\nStage 5 cadence contract: 16 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage5-cadence-contract-results.json\n\n"
       },
       {
@@ -317,7 +304,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 96,
+        "elapsedMs": 78,
         "stdoutTail": "✓ sim-terminal-stops-and-clears — PASS: RIDE_NOT_ACTIVE halts flush with empty queue\n✓ sim-recoverable-retains-item — PASS: TOKEN_EXPIRED keeps item for later retry\n✓ sim-transient-does-not-stop — PASS: network/5xx path does not trigger terminal stop\n\nStage 5 android service lifecycle: 19 PASS / 0 FAIL / 1 BLOCKED\nWrote F:\\ride-app\\tests\\stage5-android-service-lifecycle-results.json\n\n"
       },
       {
@@ -325,7 +312,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 80,
+        "elapsedMs": 139,
         "stdoutTail": "✓ sim-renew-at-8-minutes — PASS: renewDelayMs=480000\n✓ sim-25min-ride-gets-3-renewals — PASS: 25 min active service exceeds old single 10 min bound\n✗ android-runtime-deep-background-10min — BLOCKED: Requires device soak; static + simulated timeline only\n\nStage 6 customer wake lock: 10 PASS / 0 FAIL / 1 BLOCKED\nWrote F:\\ride-app\\tests\\stage6-customer-wake-lock-renewal-results.json\n\n"
       },
       {
@@ -333,7 +320,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 199,
+        "elapsedMs": 314,
         "stdoutTail": "✓ ingest-response-viewerLease-unknown — PASS: UNKNOWN\n✓ ingest-cadence-skip-before-4s-small-move — PASS: accepted=false reason=CADENCE_SKIP policy=RESPONSIVE_FIREBASE\n✓ audit-verdict-documented — PASS: responsive target (hardInterval=false); movement >= 25m may write earlier\n\nStage 6 native fallback audit: 21 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage6-native-fallback-audit-results.json\n\n"
       },
       {
@@ -341,7 +328,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 191,
+        "elapsedMs": 207,
         "stdoutTail": "✓ protocol-documents-min-gap-intent — PASS\n✓ flush-uses-named-min-gap — PASS\n✓ no-production-cadence-tightening — PASS: kept intentional half-interval; did not force strict 3000ms\n\nStage 7 sequence strictness: 24 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage7-sequence-strictness-results.json\n\n"
       },
       {
@@ -349,7 +336,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 197,
+        "elapsedMs": 301,
         "stdoutTail": "✓ android-webview-alive-gate\n✓ manifest-fg-location-service\n✓ mainactivity-registers-plugin\n✓ uploader-network-reconnect-flush\n✓ driver-native-diagnostics-merge — gps=7 ack=5\n\nBackground location: 23 PASS / 0 FAIL\n"
       },
       {
@@ -357,7 +344,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 80,
+        "elapsedMs": 96,
         "stdoutTail": "✓ terminal-ride-stops-native-keepalive — terminal/session teardown stops service\n✓ native-bridge-is-android-only\n✓ manifest-declares-foreground-service\n✓ service-survives-task-removal\n✓ mainactivity-registers-customer-plugin\n\nCustomer background P2P: 9 PASS / 0 FAIL\n"
       },
       {
@@ -365,7 +352,7 @@
         "status": "PASS",
         "required": true,
         "exitCode": 0,
-        "elapsedMs": 1581,
+        "elapsedMs": 1471,
         "stdoutTail": "✓ driver-starts-p2p-without-viewer-presence — PASS: offers=2 before=1 state=CONNECTING\n✓ customer-answers-initial-offer — PASS: answers=1\n✓ customer-hidden-keeps-p2p-session — PASS: CONNECTING\n✓ customer-resume-no-duplicate-when-session-alive — PASS: answers=1 before=1\n✓ customer-watch-error-retries-signaling — PASS: watchCalls=2 errors=1 retries=1\n\np2p-customer-receive: 9 PASS / 0 FAIL\n"
       },
       {

@@ -8,9 +8,9 @@
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { logger } = require("firebase-functions");
-const { onDocumentCreated, onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentWritten, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { initializeApp, getApps } = require("firebase-admin/app");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { createDispatchTimer, withDispatchTimeout } = require("./dispatch-latency");
 const {
   evaluateCustomerBookingGate,
@@ -47,16 +47,24 @@ const {
   bootstrapAdminClaim,
   initSuperAdminAccess,
   grantAdminClaim,
+  grantSuperAdminClaim,
   revokeAdminClaim,
   setAdminEmailBootstrap,
   isAdminAuth,
   ensureCallerCanAdminWrite,
+  requestTouchesDiagnosticControls,
+  isCallerAuthorizedForDiagnostic,
 } = require("./admin-claims");
 const { linkVehicleByPin } = require("./pin-link");
 const {
   requestAccountDeletion: performAccountDeletionRequest,
   submitSupportReport: performSupportReport,
 } = require("./account-deletion");
+const {
+  requestOwnerAccess: performRequestOwnerAccess,
+  approveOwnerAccess: performApproveOwnerAccess,
+  rejectOwnerAccess: performRejectOwnerAccess,
+} = require("./owner-onboarding");
 const {
   recordFunctionError,
   recordSettlementFailure,
@@ -68,6 +76,7 @@ const {
 } = require("./ops-monitor");
 const { reportGeoCellCoverage } = require("./geo-coverage");
 const { mirrorDriverLocationToRide } = require("./driver-location");
+const { applyRideLifecycleTimestampStamp } = require("./ride-lifecycle-timestamps");
 const { settleRide } = require("./settlement");
 const { refreshRideViewerPresence } = require("./ride-viewer-presence");
 const {
@@ -83,6 +92,12 @@ const {
   refreshBackgroundLocationCredential,
   ingestBackgroundDriverLocation,
 } = require("./background-location-upload");
+
+/**
+ * Main-alignment note (Stage 8 tranche 4):
+ * Owner/admin/lifecycle exports ported from origin/main.
+ * Keep branch-only background location HTTPS exports (issue/refresh/ingest) below.
+ */
 
 if (!getApps().length) {
   initializeApp();
@@ -180,6 +195,14 @@ exports.initSuperAdminAccess = onCall({ region: "us-central1" }, async (request)
 exports.grantAdminClaim = onCall({ region: "us-central1" }, async (request) => {
   try {
     return await grantAdminClaim(db, request.auth, request.data?.uid);
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+exports.grantSuperAdminClaim = onCall({ region: "us-central1" }, async (request) => {
+  try {
+    return await grantSuperAdminClaim(db, request.auth, request.data?.uid);
   } catch (err) {
     throw mapErr(err);
   }
@@ -724,8 +747,21 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
   if (!request.auth?.uid || !(await ensureCallerCanAdminWrite(db, request.auth))) {
     throw new HttpsError("permission-denied", "ADMIN_ONLY");
   }
+  if (requestTouchesDiagnosticControls(request.data)) {
+    if (!(await isCallerAuthorizedForDiagnostic(db, request.auth))) {
+      throw new HttpsError("permission-denied", "SUPER_ADMIN_DIAGNOSTIC_ONLY");
+    }
+  }
   try {
     const { validateCandidateDriverLimit, validateSearchRadius, buildSearchRingsKm } = require("./matching");
+    const {
+      validateIdleIntervalMsForCallable,
+      validateIdleMoveMetersForCallable,
+      validateIdleMovementTriggerDisabledForCallable,
+      validateDiagnosticDurationMinutesForCallable,
+      sanitizeDiagnosticReason,
+      IDLE_DIAGNOSTIC_MAX_DURATION_MS,
+    } = require("./idle-publish-config");
     const limit = validateCandidateDriverLimit(request.data?.candidateDriverLimit);
 
     let radius = null;
@@ -758,18 +794,48 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
     };
 
     if (request.data?.idleLocationIntervalMs != null) {
-      const idleMs = Math.round(Number(request.data.idleLocationIntervalMs));
-      if (!Number.isFinite(idleMs) || idleMs < 1_000 || idleMs > 30 * 60_000) {
+      const idleMs = request.data.idleLocationIntervalMs;
+      if (!validateIdleIntervalMsForCallable(idleMs)) {
         throw new HttpsError("invalid-argument", "IDLE_INTERVAL_OUT_OF_RANGE");
       }
       payload.idleLocationIntervalMs = idleMs;
     }
     if (request.data?.idleLocationMoveMeters != null) {
-      const moveM = Math.round(Number(request.data.idleLocationMoveMeters));
-      if (!Number.isFinite(moveM) || moveM < 1 || moveM > 5_000) {
+      const moveM = request.data.idleLocationMoveMeters;
+      if (!validateIdleMoveMetersForCallable(moveM)) {
         throw new HttpsError("invalid-argument", "IDLE_MOVE_OUT_OF_RANGE");
       }
       payload.idleLocationMoveMeters = moveM;
+    }
+    if (request.data?.idleDiagnosticExpiresAt != null) {
+      throw new HttpsError("invalid-argument", "IDLE_DIAGNOSTIC_EXPIRY_CLIENT_FORBIDDEN");
+    }
+    if (request.data?.idleMovementTriggerDisabled != null) {
+      if (!validateIdleMovementTriggerDisabledForCallable(request.data.idleMovementTriggerDisabled)) {
+        throw new HttpsError("invalid-argument", "IDLE_MOVEMENT_TRIGGER_FLAG_INVALID");
+      }
+      if (request.data.idleMovementTriggerDisabled === true) {
+        const durationMin = request.data?.idleDiagnosticDurationMinutes;
+        if (!validateDiagnosticDurationMinutesForCallable(durationMin)) {
+          throw new HttpsError("invalid-argument", "IDLE_DIAGNOSTIC_DURATION_OUT_OF_RANGE");
+        }
+        const durationMs = durationMin * 60_000;
+        if (durationMs > IDLE_DIAGNOSTIC_MAX_DURATION_MS) {
+          throw new HttpsError("invalid-argument", "IDLE_DIAGNOSTIC_DURATION_OUT_OF_RANGE");
+        }
+        payload.idleMovementTriggerDisabled = true;
+        payload.idleDiagnosticExpiresAt = Timestamp.fromMillis(Date.now() + durationMs);
+        payload.idleDiagnosticEnabledBy = request.auth.uid;
+        payload.idleDiagnosticEnabledAt = FieldValue.serverTimestamp();
+        const reason = sanitizeDiagnosticReason(request.data?.idleDiagnosticReason);
+        if (reason) payload.idleDiagnosticReason = reason;
+      } else {
+        payload.idleMovementTriggerDisabled = false;
+        payload.idleDiagnosticExpiresAt = FieldValue.delete();
+        payload.idleDiagnosticEnabledBy = FieldValue.delete();
+        payload.idleDiagnosticEnabledAt = FieldValue.delete();
+        payload.idleDiagnosticReason = FieldValue.delete();
+      }
     }
     if (request.data?.offerTimeoutSeconds != null) {
       const offerSec = Math.round(Number(request.data.offerTimeoutSeconds));
@@ -815,6 +881,8 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       searchRingsKm: payload.searchRingsKm,
       idleLocationIntervalMs: payload.idleLocationIntervalMs ?? null,
       idleLocationMoveMeters: payload.idleLocationMoveMeters ?? null,
+      idleMovementTriggerDisabled: payload.idleMovementTriggerDisabled ?? null,
+      idleDiagnosticExpiresAt: payload.idleDiagnosticExpiresAt ?? null,
       offerTimeoutSeconds: payload.offerTimeoutSeconds ?? null,
     };
   } catch (err) {
@@ -970,6 +1038,38 @@ exports.requestAccountDeletion = onCall({ region: "us-central1" }, async (reques
   }
 });
 
+exports.requestOwnerAccess = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await performRequestOwnerAccess(db, request.auth, request.data || {});
+  } catch (err) {
+    console.error("[requestOwnerAccess]", err?.message || err);
+    throw mapErr(err);
+  }
+});
+
+/** Task 3B — super-admin grants partners.role = owner (Admin SDK only). */
+exports.approveOwnerAccess = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await performApproveOwnerAccess(db, request.auth, request.data || {});
+  } catch (err) {
+    console.error("[approveOwnerAccess]", err?.message || err);
+    throw mapErr(err);
+  }
+});
+
+/** Task 3C — super-admin rejects pending owner application. */
+exports.rejectOwnerAccess = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await performRejectOwnerAccess(db, request.auth, request.data || {});
+  } catch (err) {
+    console.error("[rejectOwnerAccess]", err?.message || err);
+    throw mapErr(err);
+  }
+});
+
 /** Phase 4E — complaint / support report (does not alter ledger). */
 exports.submitSupportReport = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
@@ -987,6 +1087,26 @@ exports.submitSupportReport = onCall({ region: "us-central1" }, async (request) 
     throw mapErr(err);
   }
 });
+
+/** Server-authoritative driverArrivedAt / tripStartedAt for location reporting lifecycle. */
+exports.stampRideLifecycleTimestamps = onDocumentUpdated(
+  { document: "rides/{rideId}", region: "us-central1" },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!after) return;
+    try {
+      await applyRideLifecycleTimestampStamp(
+        db,
+        event.params.rideId,
+        before || {},
+        after
+      );
+    } catch (err) {
+      console.warn("[stampRideLifecycleTimestamps]", err?.message || err);
+    }
+  }
+);
 
 /** Mirror assigned driver GPS onto rides; rematch when driver becomes matchable. */
 exports.mirrorDriverLocationOnVehicleUpdate = onDocumentWritten(

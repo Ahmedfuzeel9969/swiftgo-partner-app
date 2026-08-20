@@ -1,0 +1,97 @@
+{
+  "stage": 8,
+  "tranche": 4,
+  "scope": "owner-admin-lifecycle-hosting",
+  "generatedAt": "2026-08-20T14:14:36.742Z",
+  "summary": {
+    "pass": 17,
+    "fail": 0
+  },
+  "results": [
+    {
+      "name": "owner-onboarding-module-present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "lifecycle-timestamps-module-present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "grantSuperAdminClaim-exported",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "index-exports-owner-callables",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "index-exports-grantSuperAdminClaim",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "index-exports-lifecycle-stamp",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "index-keeps-background-location-exports",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "index-diagnostic-idle-gated",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-owner-applications-admin-sdk-only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-partners-create-driver-only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-keeps-vehicleLocationUpdatedAtOk",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting-predeploy-integrity-build",
+      "status": "PASS",
+      "detail": "[\"node tools/hosting-deploy-integrity.mjs\",\"node tools/build-hosting.mjs\",\"node tools/hosting-deploy-integrity.mjs --verify-build\"] (startup-health kept as npm script; phase1 cross-app imports)"
+    },
+    {
+      "name": "hosting-startup-health-tool-retained",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting-tools-present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "auth-surface-routing-shared",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "admin-owner-applications-ui-wired",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "firebase-catch-all-rewrite",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

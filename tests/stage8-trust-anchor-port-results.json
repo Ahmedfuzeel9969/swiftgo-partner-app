@@ -1,0 +1,107 @@
+{
+  "stage": 8,
+  "tranche": 1,
+  "scope": "trust-anchor-port",
+  "generatedAt": "2026-08-20T14:08:04.602Z",
+  "summary": {
+    "pass": 19,
+    "fail": 0
+  },
+  "results": [
+    {
+      "name": "rules-defines-vehicleLocationUpdatedAtOk",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-online-ready-uses-helper",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-location-update-uses-helper",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rules-not-timestamp-only-on-online-ready",
+      "status": "PASS",
+      "detail": "must require == request.time, not merely timestamp type"
+    },
+    {
+      "name": "resolve-accepts-timestamp-shape",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "resolve-rejects-plain-number",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "resolve-rejects-string",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "trusted-recency-accepts-near-anchor",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "trusted-recency-rejects-too-old",
+      "status": "PASS",
+      "detail": "location_fix_out_of_order"
+    },
+    {
+      "name": "trusted-recency-rejects-far-future",
+      "status": "PASS",
+      "detail": "location_fix_out_of_order"
+    },
+    {
+      "name": "anchor-bounds-rejects-far-future-anchor",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "anchor-bounds-accepts-current",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "first-fix-prefers-committed-anchor",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "first-fix-falls-back-to-session-start",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "evaluate-first-fix-uses-trust-anchor-accept",
+      "status": "PASS",
+      "detail": "location_fix_accepted"
+    },
+    {
+      "name": "evaluate-first-fix-uses-trust-anchor-reject",
+      "status": "PASS",
+      "detail": "location_fix_out_of_order"
+    },
+    {
+      "name": "driver-location-imports-resolveCommittedTrustAnchorMs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "driver-location-passes-trust-anchor-ctx",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "driver-location-no-typo-StartedMs-field",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

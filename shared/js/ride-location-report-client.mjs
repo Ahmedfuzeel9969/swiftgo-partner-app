@@ -29,7 +29,7 @@ export const RIDE_LOCATION_REPORT_FINAL_FLUSH_TIMEOUT_MS = 4_000;
 /**
  * @param {Record<string, unknown>} checkpoint
  * @param {Record<string, unknown>} p2p
- * @param {Record<string, unknown>} [nativeDiag]
+ * @param {Record<string, unknown>} [nativeDiag] native background-upload counters
  */
 export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}, nativeDiag = {}) {
   const rawGps = Number(checkpoint.rawGpsFixes) || 0;

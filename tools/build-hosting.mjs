@@ -2,13 +2,23 @@
  * Package the four independent apps into hosting-dist/ for Firebase Hosting.
  * Usage: node tools/build-hosting.mjs
  *
- * POLICY: Never overlay live/hybrid Customer or Driver JS onto this output.
- * Deploy only a coherent tree from this script, then run
- * tools/hosting-startup-health.mjs (firebase.json predeploy).
+ * Build order (deterministic):
+ *   1. Sync functions vehicle catalog (functions/ only)
+ *   2. Copy every app tree into hosting-dist/
+ *   3. Copy static legal / .well-known assets
+ *   4. Overlay canonical shared/js modules LAST into each dist js/ folder
+ *   5. Stamp hosting-dist/.hosting-source.json with git HEAD
+ *
+ * Source app trees are never mutated during Hosting packaging.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync, execSync } from "node:child_process";
+import {
+  HOSTING_DIST_JS_TARGETS,
+  SHARED_JS_MODULES,
+} from "./hosting-build-config.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -41,46 +51,6 @@ function copyApp(srcRel, destRel) {
   copyDir(src, dest);
 }
 
-/** Canonical Phase 4/5 modules — fan out into each app package (no dual editable copies). */
-const SHARED_JS_MODULES = [
-  "geometry-quality.mjs",
-  "marker-heading.mjs",
-  "route-geometry.mjs",
-  "road-route-provider.mjs",
-  "route-provider-bootstrap.mjs",
-  "two-leg-route-controller.mjs",
-  "two-leg-route-layers.mjs",
-  "route-projection.mjs",
-  "route-progress.mjs",
-  "route-motion-controller.mjs",
-  "off-route-detector.mjs",
-  "display-location-pipeline.mjs",
-  "breadcrumb-schema.mjs",
-  "field-diagnostics.mjs",
-  "phase1-billing-diagnostics.mjs",
-  "phase1-billing-reports.mjs",
-  "phase2-runtime-verification.mjs",
-  "phase2-runtime-reports.mjs",
-  "phase3-billing-proof.mjs",
-  "phase3-billing-reports.mjs",
-  "diagnostics-screen-core.mjs",
-  "p2p-comm-protocol.mjs",
-  "p2p-comm-session.mjs",
-  "p2p-comm-router.mjs",
-  "p2p-comm-voice.mjs",
-  "p2p-comm-call.mjs",
-  "p2p-comm-panel.mjs",
-  "p2p-comm-module.mjs",
-  "p2p-pipeline-trace.mjs",
-  "p2p-ice-bootstrap-core.mjs",
-  "location-reporting-config.mjs",
-  "location-reporting-config-cache.mjs",
-  "ride-location-local-counter-store.mjs",
-  "ride-location-report-client.mjs",
-  "ride-location-report-pending-queue.mjs",
-  "ride-location-report-schema.mjs",
-];
-
 function syncSharedJsInto(destJsDir) {
   const sharedDir = path.join(ROOT, "shared", "js");
   ensureDir(destJsDir);
@@ -89,82 +59,91 @@ function syncSharedJsInto(destJsDir) {
     if (!fs.existsSync(from)) {
       throw new Error(`Missing canonical shared module: shared/js/${name}`);
     }
-    if (name === "phase1-billing-diagnostics.mjs") {
-      // Monorepo source imports ../../driver-app|customer-app (Node tests).
-      // Hosting packages apps as /partner and /customer — rewrite to local ./ deps.
-      let content = fs.readFileSync(from, "utf8");
-      for (const [fromPath, toPath] of PHASE1_HOSTING_IMPORT_REWRITES) {
-        content = content.split(fromPath).join(toPath);
-      }
-      fs.writeFileSync(path.join(destJsDir, name), content);
-    } else {
-      fs.copyFileSync(from, path.join(destJsDir, name));
-    }
+    fs.copyFileSync(from, path.join(destJsDir, name));
   }
-  // Ensure SSoT runtime modules sit beside rewritten phase1 imports.
-  for (const dep of PHASE1_RUNTIME_DEPS) {
-    const src = path.join(ROOT, dep.from);
-    if (!fs.existsSync(src)) {
-      throw new Error(`Missing phase1 runtime dep: ${dep.from}`);
-    }
-    fs.copyFileSync(src, path.join(destJsDir, dep.name));
-  }
+  const catalogJsonFrom = path.join(ROOT, "shared", "vehicle-catalog.json");
+  const catalogJsonTo = path.join(destJsDir, "..", "vehicle-catalog.json");
+  fs.copyFileSync(catalogJsonFrom, catalogJsonTo);
 }
 
-/** Hosting-safe rewrite for phase1 diagnostics (keeps monorepo source imports intact). */
-const PHASE1_HOSTING_IMPORT_REWRITES = [
-  ["../../driver-app/js/location-checkpoint-policy.mjs", "./location-checkpoint-policy.mjs"],
-  ["../../driver-app/js/p2p-protocol.mjs", "./p2p-protocol.mjs"],
-  ["../../customer-app/js/live-location-render.mjs", "./live-location-render.mjs"],
-  ["../../driver-app/js/location-envelope.mjs", "./location-envelope.mjs"],
-];
+function main() {
+  const syncCatalog = spawnSync(process.execPath, [path.join(ROOT, "tools", "sync-vehicle-catalog.mjs")], {
+    cwd: ROOT,
+    stdio: "inherit",
+  });
+  if (syncCatalog.status !== 0) {
+    throw new Error("sync-vehicle-catalog failed");
+  }
 
-/** Pure runtime constant modules required by rewritten phase1 imports. */
-const PHASE1_RUNTIME_DEPS = [
-  { from: "driver-app/js/location-checkpoint-policy.mjs", name: "location-checkpoint-policy.mjs" },
-  { from: "driver-app/js/p2p-protocol.mjs", name: "p2p-protocol.mjs" },
-  { from: "customer-app/js/live-location-render.mjs", name: "live-location-render.mjs" },
-  { from: "driver-app/js/location-envelope.mjs", name: "location-envelope.mjs" },
-];
+  rmrf(DIST);
+  ensureDir(DIST);
 
-rmrf(DIST);
-ensureDir(DIST);
+  // Step 1 — copy application packages (never mutate source trees here).
+  copyApp("customer-app", ".");
+  copyApp("customer-app", "customer");
+  copyApp("driver-app", "partner");
+  copyApp("owner-app", "owner");
+  copyApp("super-admin-panel", "admin");
 
-// Customer app at site root and mirrored under /customer/
-copyApp("customer-app", ".");
-copyApp("customer-app", "customer");
+  // Step 2 — static assets.
+  copyDir(path.join(ROOT, "legal"), path.join(DIST, "legal"));
+  const wellKnownSrc = path.join(ROOT, "hosting-static", ".well-known");
+  if (fs.existsSync(wellKnownSrc)) {
+    copyDir(wellKnownSrc, path.join(DIST, ".well-known"));
+  }
 
-// Driver app stays at /partner/ (God Mode + legacy bookmarks)
-copyApp("driver-app", "partner");
+  // Step 3 — canonical shared overlays LAST so stale app-local copies cannot win.
+  for (const rel of HOSTING_DIST_JS_TARGETS) {
+    syncSharedJsInto(path.join(DIST, ...rel.split("/")));
+  }
 
-// Replace thin re-export wrappers with self-contained canonical copies for Hosting.
-syncSharedJsInto(path.join(DIST, "js"));
-syncSharedJsInto(path.join(DIST, "customer", "js"));
-syncSharedJsInto(path.join(DIST, "partner", "js"));
-// Optional inspection path
-syncSharedJsInto(path.join(DIST, "shared", "js"));
+  // Step 3b — full shared/js mirror into dist shared/ only (not app folders).
+  // Customer/partner import graphs resolve ../../shared/js/*; do not replace
+  // app-local wrappers with diagnostics modules that import ../../driver-app/*.
+  const sharedSrc = path.join(ROOT, "shared", "js");
+  const sharedDist = path.join(DIST, "shared", "js");
+  ensureDir(sharedDist);
+  for (const entry of fs.readdirSync(sharedSrc, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    if (!entry.name.endsWith(".mjs") && !entry.name.endsWith(".js")) continue;
+    fs.copyFileSync(path.join(sharedSrc, entry.name), path.join(sharedDist, entry.name));
+  }
 
-// Fleet owner app at /owner/
-copyApp("owner-app", "owner");
+  console.info("[build-hosting] packaged apps into hosting-dist/");
+  console.info("  /              <- customer-app");
+  console.info("  /customer/     <- customer-app");
+  console.info("  /partner/      <- driver-app");
+  console.info("  /owner/        <- owner-app");
+  console.info("  /admin/        <- super-admin-panel");
+  console.info("  /legal/        <- privacy, terms, data-use drafts");
+  console.info("  /.well-known/  <- assetlinks draft (if present)");
+  console.info("  shared/js      <- canonical road modules (also inlined into app js/)");
 
-// Super Admin under /admin/
-copyApp("super-admin-panel", "admin");
-
-// Phase 4E — draft legal pages (static; served before SPA rewrites when file exists)
-copyDir(path.join(ROOT, "legal"), path.join(DIST, "legal"));
-
-// Phase free-tier — Digital Asset Links draft (fingerprints must be replaced before verify)
-const wellKnownSrc = path.join(ROOT, "hosting-static", ".well-known");
-if (fs.existsSync(wellKnownSrc)) {
-  copyDir(wellKnownSrc, path.join(DIST, ".well-known"));
+  let headSha = "unknown";
+  try {
+    headSha = execSync("git rev-parse HEAD", { cwd: ROOT, encoding: "utf8" }).trim();
+  } catch {
+    console.warn("[build-hosting] warning: could not resolve git HEAD for hosting source stamp");
+  }
+  fs.writeFileSync(
+    path.join(DIST, ".hosting-source.json"),
+    JSON.stringify(
+      {
+        headSha,
+        builtAt: new Date().toISOString(),
+        builder: "tools/build-hosting.mjs",
+      },
+      null,
+      2
+    ) + "\n"
+  );
+  console.info(`[build-hosting] source stamp HEAD ${headSha}`);
 }
 
-console.info("[build-hosting] packaged apps into hosting-dist/");
-console.info("  /              <- customer-app");
-console.info("  /customer/     <- customer-app");
-console.info("  /partner/      <- driver-app");
-console.info("  /owner/        <- owner-app");
-console.info("  /admin/        <- super-admin-panel");
-console.info("  /legal/        <- privacy, terms, data-use drafts");
-console.info("  /.well-known/  <- assetlinks draft (if present)");
-console.info("  shared/js      <- canonical road modules (also inlined into app js/)");
+const isMain =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
+  main();
+}

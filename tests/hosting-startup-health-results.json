@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-08-20T04:46:32.023Z",
+  "generatedAt": "2026-08-20T14:13:23.930Z",
   "mode": "dist",
   "target": "F:\\ride-app\\hosting-dist",
-  "pass": 38,
-  "fail": 0,
+  "pass": 35,
+  "fail": 3,
   "results": [
     {
       "name": "hosting-dist-exists",
@@ -42,13 +42,13 @@
     },
     {
       "name": "customer-root-import-graph-complete",
-      "status": "PASS",
-      "detail": "scanned=76"
+      "status": "FAIL",
+      "detail": "missing=driver-app/js/location-checkpoint-policy.mjs, driver-app/js/p2p-protocol.mjs, customer-app/js/live-location-render.mjs, driver-app/js/location-envelope.mjs htmlFallback=— scanned=84"
     },
     {
       "name": "customer-root-export-bindings-resolve",
       "status": "PASS",
-      "detail": "modules=76"
+      "detail": "modules=80"
     },
     {
       "name": "customer-root-firebase-init-module",
@@ -97,13 +97,13 @@
     },
     {
       "name": "customer-alias-import-graph-complete",
-      "status": "PASS",
-      "detail": "scanned=76"
+      "status": "FAIL",
+      "detail": "missing=driver-app/js/location-checkpoint-policy.mjs, driver-app/js/p2p-protocol.mjs, customer-app/js/live-location-render.mjs, driver-app/js/location-envelope.mjs htmlFallback=— scanned=84"
     },
     {
       "name": "customer-alias-export-bindings-resolve",
       "status": "PASS",
-      "detail": "modules=76"
+      "detail": "modules=80"
     },
     {
       "name": "customer-alias-firebase-init-module",
@@ -147,13 +147,13 @@
     },
     {
       "name": "driver-import-graph-complete",
-      "status": "PASS",
-      "detail": "scanned=84"
+      "status": "FAIL",
+      "detail": "missing=driver-app/js/location-checkpoint-policy.mjs, driver-app/js/p2p-protocol.mjs, customer-app/js/live-location-render.mjs, driver-app/js/location-envelope.mjs htmlFallback=— scanned=97"
     },
     {
       "name": "driver-export-bindings-resolve",
       "status": "PASS",
-      "detail": "modules=84"
+      "detail": "modules=93"
     },
     {
       "name": "driver-firebase-init-module",
@@ -178,22 +178,22 @@
     {
       "name": "asset-not-html:partner/js/phase1-billing-diagnostics.mjs",
       "status": "PASS",
-      "detail": "ct=text/javascript len=12582"
+      "detail": "ct=text/javascript len=153"
     },
     {
       "name": "asset-not-html:partner/js/route-provider-bootstrap.mjs",
       "status": "PASS",
-      "detail": "ct=text/javascript len=1135"
+      "detail": "ct=text/javascript len=151"
     },
     {
       "name": "asset-not-html:partner/js/p2p-comm-session.mjs",
       "status": "PASS",
-      "detail": "ct=text/javascript len=15185"
+      "detail": "ct=text/javascript len=143"
     },
     {
       "name": "asset-not-html:js/phase1-billing-diagnostics.mjs",
       "status": "PASS",
-      "detail": "ct=text/javascript len=12582"
+      "detail": "ct=text/javascript len=153"
     }
   ]
 }

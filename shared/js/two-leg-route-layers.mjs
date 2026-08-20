@@ -53,6 +53,32 @@ const STYLE = {
 
 const FIT_PADDING = { paddingTopLeft: [48, 110], paddingBottomRight: [48, 300] };
 
+/** @param {object | null | undefined} leg */
+export function legHasDrawableGeometry(leg) {
+  if (!leg) return false;
+  const geometry = leg.renderGeometry || leg.geometry;
+  return Array.isArray(geometry) && geometry.length >= 2;
+}
+
+/** Approach leg has verified or fallback geometry ready to own the map line. */
+export function isApproachLegDrawable(approach) {
+  if (!approach) return false;
+  if (approach.status === LEG_STATUS.CLEARED) return false;
+  if (approach.status !== LEG_STATUS.READY && approach.status !== LEG_STATUS.FALLBACK) {
+    return false;
+  }
+  return legHasDrawableGeometry(approach);
+}
+
+/**
+ * Suppress Phase-1 straight driver→pickup line only when two-leg approach geometry is drawable.
+ * Trip-only fallback must not suppress the legacy approach line.
+ */
+export function shouldSuppressLegacyApproachLine(model) {
+  if (!model || model.emphasis === ROUTE_EMPHASIS.NONE) return false;
+  return isApproachLegDrawable(model.approach);
+}
+
 /**
  * @param {{
  *   getMap?: () => object|null,
@@ -233,12 +259,16 @@ export function createTwoLegRouteLayers(opts = {}) {
     const approach = model.approach;
     const trip = model.trip;
 
-    const approachReady =
-      approach &&
-      (approach.status === LEG_STATUS.READY || approach.status === LEG_STATUS.FALLBACK) &&
-      approach.status !== LEG_STATUS.CLEARED;
+    const approachReady = isApproachLegDrawable(approach);
     const tripReady =
-      trip && (trip.status === LEG_STATUS.READY || trip.status === LEG_STATUS.FALLBACK);
+      trip &&
+      (trip.status === LEG_STATUS.READY || trip.status === LEG_STATUS.FALLBACK) &&
+      legHasDrawableGeometry(trip);
+    const showTripFallbackSecondary =
+      emphasis === ROUTE_EMPHASIS.APPROACH &&
+      !approachReady &&
+      tripReady &&
+      trip.fallback === true;
 
     approachMetrics = approachReady && !approach.fallback ? metricsFor(approach) : null;
     tripMetrics = tripReady && !trip.fallback ? metricsFor(trip) : null;
@@ -257,7 +287,7 @@ export function createTwoLegRouteLayers(opts = {}) {
       approachLayer = remove(approachLayer);
     }
 
-    // Trip = BLUE (pickup → destination). Solid blue before and after Start Ride.
+    // Trip layer — verified road, or subdued cached pickup→dropoff while approach is pending.
     if (tripReady && !trip.fallback) {
       const activeTrip = emphasis === ROUTE_EMPHASIS.TRIP;
       const geo = visibleGeometry(trip, tripMetrics, activeTrip);
@@ -266,13 +296,20 @@ export function createTwoLegRouteLayers(opts = {}) {
         toLatLngs(geo),
         activeTrip ? STYLE.tripProminent : STYLE.tripSecondary
       );
+    } else if (showTripFallbackSecondary) {
+      tripLayer = setPolyline(
+        tripLayer,
+        toLatLngs(trip.renderGeometry || trip.geometry),
+        STYLE.tripSecondary
+      );
     } else {
       tripLayer = remove(tripLayer);
     }
 
+    // Fallback dashed (separate layer) when the active navigation leg is fallback.
     const activeFallback =
-      (emphasis === ROUTE_EMPHASIS.APPROACH && approach?.fallback) ||
-      (emphasis === ROUTE_EMPHASIS.TRIP && trip?.fallback);
+      (emphasis === ROUTE_EMPHASIS.APPROACH && approachReady && approach?.fallback) ||
+      (emphasis === ROUTE_EMPHASIS.TRIP && tripReady && trip?.fallback);
     if (activeFallback) {
       const leg = emphasis === ROUTE_EMPHASIS.TRIP ? trip : approach;
       const m = emphasis === ROUTE_EMPHASIS.TRIP ? tripMetrics : approachMetrics;

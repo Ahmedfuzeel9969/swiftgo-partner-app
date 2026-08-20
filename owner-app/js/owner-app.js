@@ -29,6 +29,11 @@ import {
   writeBatch,
   deleteField,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {
+  isSuperAdminBootstrapEmail,
+  resolveSurfaceEntry,
+} from "./auth-surface-routing.mjs";
+import { requestOwnerAccessClient } from "./owner-onboarding-client.js";
 import { requestRideSettlement } from "./settlement-client.js";
 import { hashVehiclePin } from "./pin-hash.js";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
@@ -88,6 +93,7 @@ const els = {
   btnReturnToOwner: document.getElementById("btnReturnToOwner"),
   authOverlay: document.getElementById("driverAuthOverlay"),
   googleLoginBtn: document.getElementById("driverGoogleLoginBtn"),
+  ownerRequestAccessBtn: document.getElementById("ownerRequestAccessBtn"),
   authStatus: document.getElementById("driverAuthStatus"),
   header: document.getElementById("partnerHeader"),
   mapElement: document.getElementById("driverMap"),
@@ -272,6 +278,11 @@ function hideAuthOverlay() {
   }, 340);
 }
 
+/** Legacy role picker removed from HTML — keep calls safe for admin-driver paths. */
+function hideRoleSelection() {
+  if (els.roleOverlay) els.roleOverlay.hidden = true;
+}
+
 async function ensureDevDriverProfile(user) {
   const { db } = getFirebase();
   const driverRef = doc(db, "drivers", user.uid);
@@ -290,6 +301,40 @@ async function ensureDevDriverProfile(user) {
   return profile;
 }
 
+function setOwnerAccessRequestVisible(visible) {
+  if (els.ownerRequestAccessBtn) els.ownerRequestAccessBtn.hidden = !visible;
+}
+
+async function submitOwnerAccessRequest() {
+  const user = currentDriver;
+  if (!user) return;
+  setOwnerAccessRequestVisible(false);
+  setLoginBusy(true);
+  setAuthStatus("مالک رسائی کی درخواست بھیجی جا رہی ہے...");
+  try {
+    const result = await requestOwnerAccessClient({
+      fullName: user.displayName || "",
+    });
+    if (result?.status === "pending") {
+      setAuthStatus("درخواست موصول ہو گئی۔ سپر ایڈمن کی منظوری کا انتظار کریں۔");
+      showAuthOverlay("درخواست موصول ہو گئی۔ سپر ایڈمن کی منظوری کا انتظار کریں۔");
+      return;
+    }
+    if (result?.status === "already_owner") {
+      await activateAuthenticatedDriver(user);
+      return;
+    }
+    setAuthStatus("درخواست نہیں بھیجی جا سکی، دوبارہ کوشش کریں۔");
+    setOwnerAccessRequestVisible(true);
+  } catch (error) {
+    console.warn("[SwiftGo Owner] request access", error);
+    setAuthStatus("درخواست نہیں بھیجی جا سکی، دوبارہ کوشش کریں۔");
+    setOwnerAccessRequestVisible(true);
+  } finally {
+    setLoginBusy(false);
+  }
+}
+
 async function activateAuthenticatedDriver(user) {
   const sequence = ++authSequence;
   setLoginBusy(true);
@@ -302,44 +347,71 @@ async function activateAuthenticatedDriver(user) {
     const { db } = getFirebase();
     startPartnerDocListener(user.uid, sequence);
 
-    let partnerSnapshot = await getDoc(doc(db, "partners", user.uid));
+    const partnerSnapshot = await getDoc(doc(db, "partners", user.uid));
     if (sequence !== authSequence) return;
+
+    const existing = partnerSnapshot.exists() ? partnerSnapshot.data() : {};
+    const entry = resolveSurfaceEntry({
+      surface: "owner",
+      signedIn: true,
+      partnerRole: existing.role,
+      accountStatus: existing.accountStatus,
+      partnerDocExists: partnerSnapshot.exists(),
+      superAdminBootstrap: isSuperAdminBootstrapEmail(user.email),
+    });
 
     hideAuthOverlay();
     setLoginBusy(false);
     setAuthStatus("");
 
-    if (partnerAccountBlocked || partnerSnapshot.data()?.accountStatus === "blocked") {
+    if (entry.outcome === "blocked_overlay") {
       partnerAccountBlocked = true;
       showAccountBlockedOverlay();
       return;
     }
 
-    // Stay on Owner URL for any signed-in partner — never bounce to Driver app.
-    // Same Gmail may use /partner/, /owner/, and customer independently.
-    const existing = partnerSnapshot.exists() ? partnerSnapshot.data() : {};
-
-    if (!partnerSnapshot.exists() || !existing.role) {
-      await setDoc(
-        doc(db, "partners", user.uid),
-        {
-          uid: user.uid,
-          role: "owner",
-          email: user.email || existing.email || "",
-          name: user.displayName || existing.name || "Owner",
-          walletBalance: Number.isFinite(Number(existing.walletBalance))
-            ? Number(existing.walletBalance)
-            : 0,
-          currentVehicleId: null,
-          updatedAt: serverTimestamp(),
-          ...(partnerSnapshot.exists() ? {} : { createdAt: serverTimestamp() }),
-        },
-        { merge: true }
-      );
+    if (entry.outcome === "app_shell") {
+      setOwnerAccessRequestVisible(false);
+      showOwnerDashboard();
+      return;
     }
 
-    if (sequence !== authSequence) return;
-    showOwnerDashboard();
+    if (entry.outcome === "admin_driver_mode") {
+      setOwnerAccessRequestVisible(false);
+      await hideAllAuthScreensAndShowDashboard(existing, sequence);
+      return;
+    }
+
+    if (entry.outcome === "login_denied") {
+      hideProtectedUi();
+      const canRequest =
+        entry.reason === "missing_owner_role" || entry.reason === "driver_not_owner_surface";
+      setOwnerAccessRequestVisible(canRequest);
+      setAuthStatus(
+        entry.reason === "missing_owner_role"
+          ? "یہ اکاؤنٹ مالک ایپ کے لیے مجاز نہیں ہے۔"
+          : "یہ اکاؤنٹ مالک ایپ کے لیے نہیں ہے۔"
+      );
+      showAuthOverlay(
+        entry.reason === "missing_owner_role"
+          ? "یہ اکاؤنٹ مالک ایپ کے لیے مجاز نہیں ہے۔"
+          : "یہ اکاؤنٹ مالک ایپ کے لیے نہیں ہے۔"
+      );
+      return;
+    }
+
+    hideProtectedUi();
+    setOwnerAccessRequestVisible(false);
+    setAuthStatus(
+      entry.reason === "missing_owner_role"
+        ? "یہ اکاؤنٹ مالک ایپ کے لیے مجاز نہیں ہے۔"
+        : "یہ اکاؤنٹ مالک ایپ کے لیے نہیں ہے۔"
+    );
+    showAuthOverlay(
+      entry.reason === "missing_owner_role"
+        ? "یہ اکاؤنٹ مالک ایپ کے لیے مجاز نہیں ہے۔"
+        : "یہ اکاؤنٹ مالک ایپ کے لیے نہیں ہے۔"
+    );
   } catch (error) {
     console.warn("[SwiftGo Owner] auth routing", error);
     if (sequence !== authSequence) return;
@@ -809,30 +881,14 @@ async function routeDriver(vehicleId, sequence = authSequence, partner = null) {
 
 async function selectPartnerRole(role) {
   const user = currentDriver;
-  if (!user || !["owner", "driver"].includes(role)) return;
+  if (!user || role !== "driver") return;
 
   setRoleMessage("");
   if (els.selectDriverRoleBtn) els.selectDriverRoleBtn.disabled = true;
   if (els.selectOwnerRoleBtn) els.selectOwnerRoleBtn.disabled = true;
   try {
-    const { db } = getFirebase();
-    await setDoc(
-      doc(db, "partners", user.uid),
-      {
-        uid: user.uid,
-        role,
-        currentVehicleId: null,
-        walletBalance: 0,
-        createdAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
     hideRoleSelection();
-    if (role === "driver") {
-      window.location.assign("/partner/");
-      return;
-    }
-    showOwnerDashboard();
+    window.location.assign("/partner/");
   } catch (error) {
     console.warn("[SwiftGo Owner] save role", error);
     setRoleMessage("کردار محفوظ نہیں ہو سکا، دوبارہ کوشش کریں۔");
@@ -2049,6 +2105,98 @@ async function findNewRideAfterCompletion() {
   }
 }
 
+async function resolveActiveRequest(nextStatus) {
+  if (OWNER_FLEET_ONLY) return;
+  const request = activeRequest;
+  const driver = currentDriver;
+  if (!request?.id || !driver) return;
+
+  setRequestButtonsBusy(true);
+  const { db } = getFirebase();
+  const rideRef = doc(db, "rides", request.id);
+  const vehicleRef =
+    nextStatus === "accepted" && linkedVehicle?.id
+      ? doc(db, "vehicles", linkedVehicle.id)
+      : null;
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      if (nextStatus === "accepted" && !vehicleRef) {
+        throw new Error("VEHICLE_NOT_LINKED");
+      }
+
+      const [rideSnapshot, vehicleSnapshot] = await Promise.all([
+        transaction.get(rideRef),
+        vehicleRef ? transaction.get(vehicleRef) : Promise.resolve(null),
+      ]);
+
+      if (!rideSnapshot.exists() || rideSnapshot.data().status !== "searching_driver") {
+        throw new Error("RIDE_NOT_AVAILABLE");
+      }
+
+      const update = {
+        status: nextStatus,
+        driverId: driver.uid,
+      };
+
+      if (nextStatus === "accepted") {
+        if (
+          !vehicleSnapshot?.exists() ||
+          vehicleSnapshot.data().driverId !== driver.uid ||
+          !vehicleSnapshot.data().ownerId
+        ) {
+          throw new Error("VEHICLE_NOT_LINKED");
+        }
+
+        const rideData = rideSnapshot.data() || {};
+        const acceptedFare = Math.max(
+          0,
+          Math.round(
+            Number(
+              rideData.customerCounterFare > 0
+                ? rideData.customerCounterFare
+                : rideData.farePkr ?? rideData.estimatedFare ?? 0
+            ) || 0
+          )
+        );
+
+        update.vehicleId = vehicleSnapshot.id;
+        update.ownerId = vehicleSnapshot.data().ownerId;
+        update.vehiclePlate = vehicleSnapshot.data().plate || "—";
+        update.driverName = driver.displayName || "SwiftGo Driver";
+        update.farePkr = acceptedFare;
+        update.estimatedFare = acceptedFare;
+        update.driverBidFare = acceptedFare;
+      }
+
+      transaction.update(rideRef, update);
+    });
+
+    hideIncomingRide();
+
+    if (nextStatus === "accepted") {
+      stopRideListener();
+      activeExecutionRide = { id: request.id, ...request, status: "accepted" };
+      await markVehicleRideId(request.id);
+      startActiveRideWatch(request.id);
+      renderActiveRideControls(activeExecutionRide);
+      setLocationMessage("سواری قبول کر لی گئی ہے — پک اپ کی طرف جائیں");
+    } else {
+      setLocationMessage("سواری مسترد کر دی گئی ہے");
+    }
+  } catch (error) {
+    console.warn(`[SwiftGo Driver] ${nextStatus} ride`, error);
+    setLocationMessage(
+      error?.message === "RIDE_NOT_AVAILABLE"
+        ? "یہ سواری اب دستیاب نہیں ہے"
+        : error?.message === "VEHICLE_NOT_LINKED"
+          ? "منسلک گاڑی کی تصدیق نہیں ہو سکی"
+        : "کارروائی مکمل نہیں ہو سکی"
+    );
+  } finally {
+    setRequestButtonsBusy(false);
+  }
+}
 
 function boot() {
   try {
@@ -2084,6 +2232,7 @@ function boot() {
   hideProtectedUi();
   showAuthOverlay();
   els.googleLoginBtn?.addEventListener("click", signInDriverWithGoogle);
+  els.ownerRequestAccessBtn?.addEventListener("click", submitOwnerAccessRequest);
   els.blockedLogoutBtn?.addEventListener("click", logoutPartner);
   els.addVehicleBtn?.addEventListener("click", openVehicleModal);
   els.vehicleModalBackdrop?.addEventListener("click", closeVehicleModal);

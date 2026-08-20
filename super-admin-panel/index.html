@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Nastaliq+Urdu:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="css/admin-style.css?v=sidebar_actions_only_1" />
+  <link rel="stylesheet" href="/admin/css/admin-style.css?v=dispatch_dynamic_1" />
 </head>
 <body>
   <!-- Login gate -->
@@ -108,17 +108,11 @@
           ریچارج درخواستیں
           <span class="admin-nav-item__en">Recharge Requests</span>
         </button>
+        <button type="button" class="admin-nav-item" id="navOwnerApplications" data-view="owner-applications">
+          مالک درخواستیں
+          <span class="admin-nav-item__en">Owner Applications</span>
+        </button>
       </nav>
-      <div class="admin-sidebar__account" id="adminSidebarAccount">
-        <div class="admin-sidebar__identity">
-          <strong id="adminSidebarDisplayName">—</strong>
-          <span id="adminSidebarDisplayEmail">—</span>
-        </div>
-        <div class="admin-sidebar__account-actions">
-          <button type="button" class="admin-logout-btn" id="openNotificationSettingsBtnSidebar">نوٹیفکیشن</button>
-          <button type="button" class="admin-logout-btn" id="adminLogoutBtnSidebar">Logout</button>
-        </div>
-      </div>
     </aside>
 
     <div class="admin-main">
@@ -132,6 +126,16 @@
           <div class="admin-topbar__title">
             <p class="admin-topbar__eyebrow">Command Center</p>
             <h1 id="adminViewTitle">ڈیش بورڈ</h1>
+          </div>
+        </div>
+        <div class="admin-topbar__user">
+          <div class="admin-topbar__identity">
+            <strong id="adminDisplayName">—</strong>
+            <span id="adminDisplayEmail">—</span>
+          </div>
+          <div class="admin-topbar__actions">
+            <button type="button" class="admin-logout-btn admin-topbar__action" id="openNotificationSettingsBtn">نوٹیفکیشن</button>
+            <button type="button" class="admin-logout-btn admin-topbar__action" id="adminLogoutBtn">Logout</button>
           </div>
         </div>
       </header>
@@ -197,7 +201,6 @@
               <table class="rides-table" aria-label="All rides monitoring">
                 <thead>
                   <tr>
-                    <th>لوکیشن رپورٹ</th>
                     <th>تاریخ</th>
                     <th>کسٹمر</th>
                     <th>ڈرائیور</th>
@@ -205,6 +208,7 @@
                     <th>کل کرایہ</th>
                     <th>کمیشن</th>
                     <th>ریٹنگ</th>
+                    <th>لوکیشن رپورٹ</th>
                   </tr>
                 </thead>
                 <tbody id="allRidesTableBody">
@@ -282,32 +286,12 @@
         </div>
 
         <div class="admin-view" id="viewFinance" data-view-panel="finance" hidden>
-          <div class="finance-tabs" id="financeTabs" role="tablist" aria-label="مالی کنٹرول سیکشنز">
-            <button type="button" class="finance-tab is-active" role="tab" id="financeTabRates" data-finance-tab="rates" aria-selected="true" aria-controls="financeSectionRates">
-              ریٹس
-              <span>Rates</span>
-            </button>
-            <button type="button" class="finance-tab" role="tab" id="financeTabDispatch" data-finance-tab="dispatch" aria-selected="false" aria-controls="financeSectionDispatch">
-              ڈسپیچ
-              <span>Dispatch</span>
-            </button>
-            <button type="button" class="finance-tab" role="tab" id="financeTabLatency" data-finance-tab="latency" aria-selected="false" aria-controls="financeSectionLatency">
-              لیٹنسی
-              <span>Latency</span>
-            </button>
-            <button type="button" class="finance-tab" role="tab" id="financeTabPromo" data-finance-tab="promo" aria-selected="false" aria-controls="financeSectionPromo">
-              پرومو
-              <span>Promo</span>
-            </button>
-          </div>
-
-          <div class="finance-section is-active" id="financeSectionRates" data-finance-section="rates" role="tabpanel" aria-labelledby="financeTabRates">
-          <div class="finance-panel finance-panel--wide finance-panel--compact">
+          <div class="finance-panel finance-panel--wide">
             <div class="finance-panel__head">
-              <h2>گاڑی ریٹس</h2>
-              <p>ہر گاڑی · بیس / فی کلومیٹر / کمیشن · <code>settings/pricing.vehicles</code></p>
+              <h2>مالی کنٹرول</h2>
+              <p>ہر گاڑی · فاصلہ رینج · وقت/رفتار ریٹس · <code>settings/pricing.vehicles</code></p>
             </div>
-            <form class="finance-form finance-form--compact" id="pricingSettingsForm" novalidate>
+            <form class="finance-form" id="pricingSettingsForm" novalidate>
               <div class="vehicle-rate-grid" id="vehicleRateGrid" aria-label="Per vehicle rates">
                 <!-- bike -->
                 <section class="vehicle-rate-card" data-vehicle-key="bike">
@@ -467,16 +451,12 @@
               </p>
               <p class="admin-live-note" id="pricingStatusNote" role="status" aria-live="polite"></p>
             </form>
-          </div>
-          </div>
 
-          <div class="finance-section" id="financeSectionDispatch" data-finance-section="dispatch" role="tabpanel" aria-labelledby="financeTabDispatch" hidden>
-          <div class="finance-panel finance-panel--wide finance-panel--compact">
-            <div class="finance-panel__head">
+            <div class="finance-panel__head" style="margin-top:1.5rem">
               <h2>ڈسپیچ · امیدوار ڈرائیورز</h2>
               <p>نئی بکنگ کتنے قریبی ڈرائیورز کو دکھے · <code>settings/dispatch</code></p>
             </div>
-            <form class="finance-form finance-form--compact finance-form--dispatch" id="dispatchSettingsForm" novalidate>
+            <form class="finance-form" id="dispatchSettingsForm" novalidate>
               <label class="finance-field" for="candidateDriverLimit">
                 <span class="finance-field__label" id="candidateDriverLimitLabel">امیدوار ڈرائیور حد / Candidate driver limit</span>
                 <input
@@ -525,111 +505,200 @@
                   کل فاصلہ: 3 کلومیٹر / 3000 میٹر
                 </p>
               </div>
-              <label class="finance-field" for="idleLocationIntervalSeconds">
-                <span class="finance-field__label" id="idleLocationIntervalLabel">ویٹنگ لوکیشن وقفہ (سیکنڈ) / Idle location interval (seconds)</span>
-                <input
-                  type="number"
-                  id="idleLocationIntervalSeconds"
-                  name="idleLocationIntervalSeconds"
-                  min="1"
-                  max="1800"
-                  step="1"
-                  value="4"
-                  required
-                  aria-labelledby="idleLocationIntervalLabel"
-                />
-              </label>
-              <label class="finance-field" for="idleLocationMoveMeters">
-                <span class="finance-field__label" id="idleLocationMoveLabel">ویٹنگ حرکت حد (میٹر) / Idle move threshold (meters)</span>
-                <input
-                  type="number"
-                  id="idleLocationMoveMeters"
-                  name="idleLocationMoveMeters"
-                  min="1"
-                  max="5000"
-                  step="1"
-                  value="10"
-                  required
-                  aria-labelledby="idleLocationMoveLabel"
-                />
-              </label>
-              <label class="finance-field" for="offerTimeoutSeconds">
-                <span class="finance-field__label" id="offerTimeoutSecondsLabel">آفر وقت ختم (سیکنڈ) / Offer timeout (seconds)</span>
-                <input
-                  type="number"
-                  id="offerTimeoutSeconds"
-                  name="offerTimeoutSeconds"
-                  min="5"
-                  max="300"
-                  step="1"
-                  value="30"
-                  required
-                  aria-labelledby="offerTimeoutSecondsLabel"
-                />
-              </label>
-              <label class="finance-field" for="searchTimeoutSeconds">
-                <span class="finance-field__label" id="searchTimeoutSecondsLabel">بکنگ تلاش وقت ختم (سیکنڈ) / Booking search timeout (seconds)</span>
-                <input
-                  type="number"
-                  id="searchTimeoutSeconds"
-                  name="searchTimeoutSeconds"
-                  min="30"
-                  max="600"
-                  step="1"
-                  value="180"
-                  required
-                  aria-labelledby="searchTimeoutSecondsLabel"
-                />
-              </label>
-              <p class="admin-live-note">آفر وقت = ہر پیشکش کی مدت · بکنگ تلاش وقت = پوری بکنگ کب تک searching رہے (کوئی ڈرائیور نہ ملے تو ختم) · Production defaults: offer 30s · search 180s.</p>
+              <div class="finance-field">
+                <span class="finance-field__label" id="idleLocationIntervalLabel">ویٹنگ لوکیشن وقفہ / Idle location interval</span>
+                <div class="finance-field-row" role="group" aria-labelledby="idleLocationIntervalLabel">
+                  <label class="finance-field finance-field--inline" for="idleLocationIntervalPreset">
+                    <span class="finance-field__label">تجویز / Preset</span>
+                    <select id="idleLocationIntervalPreset" name="idleLocationIntervalPreset" aria-label="Idle interval preset">
+                      <option value="4">4 سیکنڈ</option>
+                      <option value="10">10 سیکنڈ</option>
+                      <option value="30">30 سیکنڈ</option>
+                      <option value="60">60 سیکنڈ</option>
+                      <option value="custom">اپنی قیمت / Custom</option>
+                    </select>
+                  </label>
+                  <label class="finance-field finance-field--inline" for="idleLocationIntervalSeconds">
+                    <span class="finance-field__label">سیکنڈ / Seconds</span>
+                    <input
+                      type="number"
+                      id="idleLocationIntervalSeconds"
+                      name="idleLocationIntervalSeconds"
+                      min="4"
+                      max="300"
+                      step="1"
+                      value="4"
+                      required
+                      aria-labelledby="idleLocationIntervalLabel"
+                    />
+                  </label>
+                </div>
+              </div>
+              <div class="finance-field">
+                <span class="finance-field__label" id="idleLocationMoveLabel">ویٹنگ حرکت حد / Idle move threshold</span>
+                <div class="finance-field-row" role="group" aria-labelledby="idleLocationMoveLabel">
+                  <label class="finance-field finance-field--inline" for="idleLocationMovePreset">
+                    <span class="finance-field__label">تجویز / Preset</span>
+                    <select id="idleLocationMovePreset" name="idleLocationMovePreset" aria-label="Idle move preset">
+                      <option value="10">10 میٹر</option>
+                      <option value="25">25 میٹر</option>
+                      <option value="50">50 میٹر</option>
+                      <option value="100">100 میٹر</option>
+                      <option value="custom">اپنی قیمت / Custom</option>
+                    </select>
+                  </label>
+                  <label class="finance-field finance-field--inline" for="idleLocationMoveMeters">
+                    <span class="finance-field__label">میٹر / Meters</span>
+                    <input
+                      type="number"
+                      id="idleLocationMoveMeters"
+                      name="idleLocationMoveMeters"
+                      min="10"
+                      max="5000"
+                      step="1"
+                      value="10"
+                      required
+                      aria-labelledby="idleLocationMoveLabel"
+                    />
+                  </label>
+                </div>
+                <p class="admin-live-note admin-high-move-warning" id="idleHighMoveWarning" role="alert" hidden>
+                  <strong>انتباہ (100m سے زیادہ):</strong> Firebase writes کم ہو سکتی ہیں، مگر ڈسپیچ لوکیشن غلط ہو سکتی ہے، قریبی ڈرائیور دور نظر آ سکتا ہے۔
+                  یہ سیٹنگ صرف کنٹرولڈ ٹیسٹنگ کے لیے ہے۔
+                </p>
+              </div>
+              <p class="admin-live-note admin-cost-warning" role="note">
+                <strong>لاگت انتباہ:</strong> چھوٹا وقفہ (مثلاً 4 سیکنڈ) Firebase میں زیادہ لوکیشن writes کرتا ہے اور بل بڑھ سکتا ہے۔
+                بڑا وقفہ یا زیادہ میٹر حد لاگت کم کرتی ہے، مگر آن لائن ڈرائیور کی محفوظ لوکیشن پرانی ہو سکتی ہے۔
+                یہ کنٹرولز صرف <strong>فعال سواری کے بغیر</strong> (idle/waiting) لاگو ہوتے ہیں — سواری کے دوران 4s/30s/60s اور P2P policies بدل نہیں ہوتیں۔
+              </p>
+              <fieldset class="finance-field finance-diagnostic-panel" id="idleDiagnosticSection">
+                <legend>تشخیصی ٹیسٹنگ / Diagnostic testing</legend>
+                <label class="finance-field finance-field--checkbox" for="idleMovementTriggerDisabled">
+                  <input type="checkbox" id="idleMovementTriggerDisabled" name="idleMovementTriggerDisabled" />
+                  <span>حرکت کی بنیاد پر لوکیشن بھیجنا عارضی طور پر بند کریں (صرف وقت وقفہ سے publish)</span>
+                </label>
+                <label class="finance-field" for="idleDiagnosticDurationMinutes">
+                  <span class="finance-field__label">تشخیصی مدت (منٹ) / Diagnostic duration (minutes)</span>
+                  <select id="idleDiagnosticDurationMinutes" name="idleDiagnosticDurationMinutes">
+                    <option value="5">5 منٹ</option>
+                    <option value="10">10 منٹ</option>
+                    <option value="15">15 منٹ</option>
+                    <option value="20">20 منٹ</option>
+                    <option value="30">30 منٹ</option>
+                  </select>
+                </label>
+                <label class="finance-field" for="idleDiagnosticReason">
+                  <span class="finance-field__label">وجہ (اختیاری، زیادہ سے زیادہ 80 حروف) / Reason (optional)</span>
+                  <input type="text" id="idleDiagnosticReason" name="idleDiagnosticReason" maxlength="80" placeholder="مثلاً field-test-grid-7" />
+                </label>
+                <p class="admin-danger-warning" id="idleDiagnosticRedWarning" role="alert" hidden>
+                  <strong>خطرہ:</strong> حرکت کی بنیاد پر publish بند ہے — صرف وقت وقفہ سے لوکیشن بھیجی جائے گی۔
+                  ڈسپیچ درستگی متاثر ہو سکتی ہے۔ زیادہ سے زیادہ 30 منٹ کے بعد خودکار طور پر <strong>4 سیکنڈ / 10 میٹر</strong> محفوظ ڈیفالٹ پر واپس آ جائے گا۔
+                </p>
+                <p class="admin-live-note" id="idleDiagnosticExpiryDisplay" role="status" aria-live="polite"></p>
+                <button type="button" class="finance-save-btn finance-save-btn--secondary" id="idleReturnSafeDefaultsBtn">
+                  محفوظ ڈیفالٹ پر واپس / Return to safe defaults
+                </button>
+              </fieldset>
               <button type="submit" class="finance-save-btn" id="dispatchSaveBtn">
                 ڈسپیچ سیٹنگ محفوظ کریں
                 <span class="finance-save-btn__en">Save Dispatch Limit</span>
               </button>
               <p class="admin-live-note" id="dispatchStatusNote" role="status" aria-live="polite"></p>
             </form>
-          </div>
-          </div>
 
-          <div class="finance-section" id="financeSectionLatency" data-finance-section="latency" role="tabpanel" aria-labelledby="financeTabLatency" hidden>
-          <div class="finance-panel finance-panel--wide finance-panel--compact">
-            <div class="finance-panel__head">
-              <h2>ڈسپیچ لیٹنسی · آج</h2>
-              <p>Driver delivery receipts سے آج کی SLO · <code>ops_metrics / dispatch_delivery</code></p>
+            <div class="finance-panel__head" style="margin-top:1.5rem">
+              <h2>لوکیشن رپورٹنگ · تشخیصی</h2>
+              <p>فی سواری location counters · <code>settings/locationReporting</code> · کرایہ/سیٹلمنٹ/Dispatch متاثر نہیں</p>
             </div>
-            <div class="dispatch-slo-panel dispatch-slo-panel--standalone" id="dispatchSloPanel" aria-live="polite">
-              <div class="dispatch-slo-grid">
-                <div class="dispatch-slo-stat">
-                  <span class="dispatch-slo-stat__label">Receipts</span>
-                  <strong class="dispatch-slo-stat__value" id="dispatchSloReceipts">—</strong>
-                </div>
-                <div class="dispatch-slo-stat">
-                  <span class="dispatch-slo-stat__label">Avg delivery</span>
-                  <strong class="dispatch-slo-stat__value" id="dispatchSloAvgDelivery">—</strong>
-                </div>
-                <div class="dispatch-slo-stat">
-                  <span class="dispatch-slo-stat__label">Booking → candidate</span>
-                  <strong class="dispatch-slo-stat__value" id="dispatchSloBookingToCandidate">—</strong>
-                </div>
-                <div class="dispatch-slo-stat">
-                  <span class="dispatch-slo-stat__label">≤ 5s rate</span>
-                  <strong class="dispatch-slo-stat__value" id="dispatchSloWithin5s">—</strong>
-                </div>
-              </div>
-              <p class="dispatch-slo-buckets" id="dispatchSloBuckets">Buckets: —</p>
-              <div class="dispatch-slo-actions">
-                <button type="button" class="finance-save-btn finance-save-btn--secondary" id="dispatchSloRefreshBtn">
-                  تازہ کریں
-                  <span class="finance-save-btn__en">Refresh SLO</span>
-                </button>
-              </div>
-              <p class="admin-live-note" id="dispatchSloNote" role="status" aria-live="polite"></p>
-            </div>
-          </div>
+            <form class="finance-form" id="locationReportingSettingsForm" novalidate>
+              <label class="finance-field finance-field--checkbox" for="locationReportingEnabled">
+                <input type="checkbox" id="locationReportingEnabled" name="enabled" checked />
+                <span>لوکیشن رپورٹنگ فعال / Enable location reporting</span>
+              </label>
+              <label class="finance-field" for="locationReportingUploadMode">
+                <span class="finance-field__label" id="locationReportingUploadModeLabel">اپ لوڈ موڈ / Upload mode</span>
+                <select id="locationReportingUploadMode" name="uploadMode" aria-labelledby="locationReportingUploadModeLabel">
+                  <option value="ride_end">سواری ختم پر (ride_end)</option>
+                  <option value="periodic_and_ride_end" disabled>وقفے + سواری ختم — جلد (not implemented)</option>
+                  <option value="anomaly_and_ride_end" disabled>غیر معمول + سواری ختم — جلد (not implemented)</option>
+                  <option value="disabled">بند (disabled)</option>
+                </select>
+                <p class="finance-field__hint" id="locationReportingModeHint">
+                  ride_end: terminal flush only. periodic/anomaly modes are disabled until implemented. expiresAt is a retention marker only — Firestore TTL not active.
+                </p>
+              </label>
+              <label class="finance-field" for="locationReportingPeriodicInterval" id="locationReportingPeriodicField">
+                <span class="finance-field__label" id="locationReportingPeriodicLabel">وقفہ (منٹ) / Periodic interval (minutes)</span>
+                <input
+                  type="number"
+                  id="locationReportingPeriodicInterval"
+                  name="periodicIntervalMinutes"
+                  min="5"
+                  max="60"
+                  step="1"
+                  value="10"
+                  aria-labelledby="locationReportingPeriodicLabel"
+                />
+              </label>
+              <label class="finance-field finance-field--checkbox" for="locationReportingUploadOnAnomaly">
+                <input type="checkbox" id="locationReportingUploadOnAnomaly" name="uploadOnAnomaly" />
+                <span>غیر معمولی واقعہ پر اپ لوڈ / Upload on anomaly</span>
+              </label>
+              <label class="finance-field finance-field--checkbox" for="locationReportingFinalRequired">
+                <input type="checkbox" id="locationReportingFinalRequired" name="finalUploadRequired" checked />
+                <span>سواری ختم پر final upload ضروری / Final upload required at ride end</span>
+              </label>
+              <fieldset class="finance-field finance-diagnostic-panel">
+                <legend>جمع کرنے والے میٹرکس / Metrics collected</legend>
+                <label class="finance-field finance-field--checkbox" for="locationReportingCollectDriver">
+                  <input type="checkbox" id="locationReportingCollectDriver" name="collectDriverMetrics" checked />
+                  <span>ڈرائیور counters</span>
+                </label>
+                <label class="finance-field finance-field--checkbox" for="locationReportingCollectCustomer">
+                  <input type="checkbox" id="locationReportingCollectCustomer" name="collectCustomerMetrics" checked />
+                  <span>کسٹمر counters</span>
+                </label>
+                <label class="finance-field finance-field--checkbox" for="locationReportingCollectFirebase">
+                  <input type="checkbox" id="locationReportingCollectFirebase" name="collectFirebaseMetrics" checked />
+                  <span>Firebase mirror counters</span>
+                </label>
+                <label class="finance-field finance-field--checkbox" for="locationReportingCollectP2p">
+                  <input type="checkbox" id="locationReportingCollectP2p" name="collectP2pMetrics" checked />
+                  <span>P2P counters</span>
+                </label>
+              </fieldset>
+              <label class="finance-field" for="locationReportingRetentionDays">
+                <span class="finance-field__label" id="locationReportingRetentionLabel">رپورٹ retention (دن) / Retention (days)</span>
+                <input
+                  type="number"
+                  id="locationReportingRetentionDays"
+                  name="retentionDays"
+                  min="7"
+                  max="90"
+                  step="1"
+                  value="30"
+                  required
+                  aria-labelledby="locationReportingRetentionLabel"
+                />
+              </label>
+              <p class="admin-live-note admin-cost-warning" role="note">
+                <strong>نوٹ:</strong> یہ صرف تشخیصی رپورٹس کے لیے ہے۔ live tracking، fare، wallet، commission، settlement یا ride status بدل نہیں ہوتا۔
+                <code>ride_end</code> موڈ production default ہے؛ periodic/anomaly modes مستقبل میں cost-bounded idempotent uploads کے لیے محفوظ ہیں۔
+              </p>
+              <button type="submit" class="finance-save-btn" id="locationReportingSaveBtn">
+                لوکیشن رپورٹنگ محفوظ کریں
+                <span class="finance-save-btn__en">Save Location Reporting</span>
+              </button>
+              <p class="finance-success" id="locationReportingSuccessMessage" hidden role="status" aria-live="polite">
+                لوکیشن رپورٹنگ سیٹنگز محفوظ ہو گئیں!
+              </p>
+              <p class="admin-live-note" id="locationReportingStatusNote" role="status" aria-live="polite"></p>
+            </form>
           </div>
 
           <!-- Phase 42: Promo codes -->
-          <div class="finance-section" id="financeSectionPromo" data-finance-section="promo" role="tabpanel" aria-labelledby="financeTabPromo" hidden>
           <div class="promo-panel">
             <div class="promo-panel__head">
               <h2>پرومو کوڈز</h2>
@@ -678,7 +747,6 @@
             </div>
             <p class="admin-live-note" id="promoCodesLiveNote" role="status" aria-live="polite"></p>
           </div>
-          </div>
         </div>
 
         <!-- Phase 37 — Wallet recharge approvals -->
@@ -711,6 +779,43 @@
               </table>
             </div>
             <p class="admin-live-note" id="rechargeRequestsLiveNote" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <!-- Task 3C — Owner onboarding approvals -->
+        <div class="admin-view" id="ownerApplicationsSection" data-view-panel="owner-applications" hidden>
+          <div class="table-panel">
+            <div class="table-panel__head">
+              <div>
+                <h2>مالک درخواستیں</h2>
+                <p>Pending fleet-owner access requests · Super Admin approval only</p>
+              </div>
+              <div class="table-panel__head-actions">
+                <button type="button" class="account-action-btn btn-unblock" id="ownerApplicationsRefreshBtn">
+                  تازہ کریں
+                </button>
+                <span class="table-panel__count" id="ownerApplicationsCount">0 pending</span>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table class="owner-applications-table" aria-label="Pending owner applications">
+                <thead>
+                  <tr>
+                    <th>تاریخ</th>
+                    <th>نام</th>
+                    <th>کاروبار</th>
+                    <th>UID</th>
+                    <th>عمل</th>
+                  </tr>
+                </thead>
+                <tbody id="ownerApplicationsTableBody">
+                  <tr class="owner-applications-table__empty">
+                    <td colspan="5">لوڈ ہو رہا ہے...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="admin-live-note" id="ownerApplicationsLiveNote" role="status" aria-live="polite"></p>
           </div>
         </div>
       </section>
@@ -783,6 +888,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script type="module" src="js/admin-app.js?v=sidebar_actions_only_1"></script>
+  <script type="module" src="/admin/js/admin-app.js?v=dispatch_dynamic_1"></script>
 </body>
 </html>

@@ -1,0 +1,93 @@
+{
+  "generatedAt": "2026-08-20T14:14:36.887Z",
+  "liveBase": null,
+  "pass": 17,
+  "fail": 0,
+  "results": [
+    {
+      "name": "regression-incident-config-rejected",
+      "status": "PASS",
+      "detail": "8 self-redirect(s), 4 protected redirect rule(s)"
+    },
+    {
+      "name": "hosting-config-loaded",
+      "status": "PASS",
+      "detail": "firebase.json hosting section"
+    },
+    {
+      "name": "no-protected-self-redirects",
+      "status": "PASS",
+      "detail": "none detected"
+    },
+    {
+      "name": "protected-surfaces-rewrite-only",
+      "status": "PASS",
+      "detail": "no protected-surface redirects"
+    },
+    {
+      "name": "redirect-chains-terminate",
+      "status": "PASS",
+      "detail": "bounded at 5 hops"
+    },
+    {
+      "name": "required-rewrites-present",
+      "status": "PASS",
+      "detail": "d504309 rewrite set intact"
+    },
+    {
+      "name": "static-chain:/partner",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/partner/",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/owner",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/owner/",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/admin",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/admin/",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/customer",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-chain:/customer/",
+      "status": "PASS",
+      "detail": "terminates without redirect"
+    },
+    {
+      "name": "static-customer:/",
+      "status": "PASS",
+      "detail": "no redirect loop"
+    },
+    {
+      "name": "static-customer:/index.html",
+      "status": "PASS",
+      "detail": "no redirect loop"
+    },
+    {
+      "name": "live-probes",
+      "status": "PASS",
+      "detail": "skipped (pass --live URL or npm run test:hosting-routing:emulator)"
+    }
+  ]
+}
