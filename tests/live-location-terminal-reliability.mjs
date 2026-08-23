@@ -5,7 +5,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRideLocationReportClient } from "../shared/js/ride-location-report-client.mjs";
+import {
+  createRideLocationReportClient,
+  mapDriverRuntimeCounters,
+} from "../shared/js/ride-location-report-client.mjs";
 import { classifyReportHealth } from "../shared/js/ride-location-report-schema.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -14,6 +17,60 @@ const results = [];
 function record(name, ok, detail = "") {
   results.push({ name, status: ok ? "PASS" : "FAIL", detail });
   console.log(`${ok ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
+}
+
+// A valid fix is still valid when the cost-aware checkpoint gate skips its
+// Firebase write. The real ride had 11 validated fixes and only two writes;
+// the old mapping incorrectly reported zero valid fixes.
+{
+  const mapped = mapDriverRuntimeCounters(
+    {
+      rawGpsFixes: 11,
+      rejectedInterval: 8,
+      rejectedMovementNoop: 3,
+      writesAttempted: 2,
+      writesCommitted: 2,
+    },
+    {},
+    {}
+  );
+  record(
+    "checkpoint-cadence-skips-remain-valid-gps",
+    mapped.gpsFixesReceived === 11 &&
+      mapped.validFixesAccepted === 11 &&
+      mapped.duplicateOrOutOfOrderRejected === 0 &&
+      mapped.vehicleWritesAcknowledged === 2,
+    `gps=${mapped.gpsFixesReceived} valid=${mapped.validFixesAccepted}`
+  );
+}
+
+// Accepted-fix counters must survive a terminal runtime reset. This guards the
+// brief teardown window between the last live fix and the final report flush.
+{
+  const storage = memoryStorage();
+  let submitted = null;
+  const client = createRideLocationReportClient({
+    role: "driver",
+    storage,
+    getFirebase: () => ({ ready: true, functions: {} }),
+    getRuntimeCounters: () => ({ checkpoint: {}, p2p: {}, native: {} }),
+    callSubmit: async (payload) => {
+      submitted = payload;
+      return { ok: true };
+    },
+  });
+  await client.bindForRide({
+    rideId: "ride_durable_driver_fix_01",
+    assignmentSessionToken: "d".repeat(32),
+  });
+  for (let i = 0; i < 11; i += 1) client.noteGpsFix(1_000 + i * 1_000);
+  await client.flushFinal({ finalSubmit: true });
+  record(
+    "accepted-driver-fixes-survive-terminal-runtime-reset",
+    submitted?.section?.counters?.gpsFixesReceived === 11 &&
+      submitted?.section?.counters?.validFixesAccepted === 11,
+    `gps=${submitted?.section?.counters?.gpsFixesReceived || 0} valid=${submitted?.section?.counters?.validFixesAccepted || 0}`
+  );
 }
 
 function memoryStorage() {
@@ -120,6 +177,60 @@ function memoryStorage() {
       driverApp.includes("recoverStalledLocationWatch") &&
       driverApp.includes('document.addEventListener("visibilitychange"'),
     "freshness gate + watchdog + correct visibility target"
+  );
+
+  const errorBlock = driverApp.slice(
+    driverApp.indexOf("function handleLocationError"),
+    driverApp.indexOf("function stopLocationRefreshRequestWatch")
+  );
+  record(
+    "active-ride-location-error-does-not-force-driver-offline",
+    errorBlock.includes("activeRideTracking") &&
+      errorBlock.indexOf("if (activeRideTracking)") >= 0 &&
+      errorBlock.indexOf('setDriverOffline("لائیو مقام') > errorBlock.indexOf("if (activeRideTracking)"),
+    "active ride returns before idle-only offline transition"
+  );
+
+  const recoveryBlock = driverApp.slice(
+    driverApp.indexOf("function recoverStalledLocationWatch"),
+    driverApp.indexOf("function startLocationRecoveryWatchdog")
+  );
+  record(
+    "hidden-active-ride-can-recover-location-watch",
+    recoveryBlock.includes("activeExecutionRide?.id") &&
+      !recoveryBlock.includes('document.visibilityState === "hidden"'),
+    "watchdog remains eligible while app is backgrounded"
+  );
+
+  const driverTerminalBlock = driverApp.slice(
+    driverApp.indexOf("function startActiveRideWatch"),
+    driverApp.indexOf("async function markVehicleRideId")
+  );
+  record(
+    "driver-terminal-snapshot-flushes-before-teardown",
+    driverTerminalBlock.indexOf("driverLocationReport.flushFinal") >= 0 &&
+      driverTerminalBlock.indexOf("driverLocationReport.flushFinal") <
+        driverTerminalBlock.indexOf('detachCheckpointPresence("terminal_status")'),
+    "final counters persist before peer/native stop"
+  );
+
+  record(
+    "customer-report-retry-uses-document-visibility-event",
+    rideFlow.includes('document.addEventListener("visibilitychange"') &&
+      !rideFlow.includes('window.addEventListener("visibilitychange"'),
+    "document owns the visibilitychange event"
+  );
+
+  const customerFlushBlock = rideFlow.slice(
+    rideFlow.indexOf("function maybeFlushCustomerLocationReport"),
+    rideFlow.indexOf("function scheduleCustomerLocationReportStartupRetry")
+  );
+  record(
+    "terminal-customer-snapshot-can-bind-and-submit",
+    customerFlushBlock.includes("await customerLocationReportBindingPromise") &&
+      customerFlushBlock.includes("await report.bindForRide") &&
+      customerFlushBlock.includes("await report.flushFinal"),
+    "terminal snapshot recovers an unfinished active binding"
   );
 
   const functionsIndex = fs.readFileSync(path.join(ROOT, "functions/index.js"), "utf8");

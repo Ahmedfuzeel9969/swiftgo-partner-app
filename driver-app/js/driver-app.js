@@ -353,10 +353,12 @@ const driverP2p = createDriverP2pController({
     }
   },
   onChannelOpen: () => {
+    driverLocationReport.syncCountersFromRuntime();
     syncDriverRideCommChat();
   },
   onHealthyChange: (healthy) => {
     checkpointPolicy.setP2pHealthy(Boolean(healthy));
+    driverLocationReport.syncCountersFromRuntime();
     try {
       getFieldDiagnostics()?.setMeta({ p2p: { healthy: Boolean(healthy) } });
       getFieldDiagnostics()?.record("p2p_status", { healthy: Boolean(healthy) });
@@ -670,6 +672,8 @@ function syncDriverP2pForActiveRide() {
   const ride = activeExecutionRide;
   const status = String(ride?.status || "");
   if (!ride?.id || !ACTIVE_EXECUTION_STATUSES.has(status) || !locationTrackingSessionId) {
+    // Persist session counters before stop archives/destroys the live peer.
+    driverLocationReport.syncCountersFromRuntime();
     void driverP2p.stop({ closeRemote: true });
     checkpointPolicy.setP2pHealthy(false);
     destroyDriverRideCommChat();
@@ -721,6 +725,7 @@ function detachCheckpointPresence(reason = "") {
   void reason;
   viewerPresenceConsumer.unbind();
   checkpointPolicy.setActiveRide({ active: false });
+  driverLocationReport.syncCountersFromRuntime();
   void driverP2p.stop({ closeRemote: true });
   checkpointPolicy.setP2pHealthy(false);
   void breadcrumbCollector.stop({ purge: true, flush: false, reason: reason || "detach" });
@@ -3231,6 +3236,9 @@ async function syncVehicleLocationToFirestore(
       headingDeg: normalized.envelope.headingDeg,
       speedMps: normalized.envelope.speedMps,
     });
+    // Keep durable diagnostic counters current throughout the ride. Terminal
+    // status listeners may otherwise tear down P2P before the final upload.
+    driverLocationReport.syncCountersFromRuntime();
     try {
       getFieldDiagnostics()?.record("publish_p2p", {
         lat: normalized.envelope.lat,
@@ -3704,6 +3712,13 @@ async function changeLinkedVehicle() {
 
 function handleLocationError(error) {
   const denied = error?.code === 1;
+  const activeRideTracking =
+    Boolean(activeExecutionRide?.id) &&
+    ACTIVE_EXECUTION_STATUSES.has(String(activeExecutionRide?.status || ""));
+  const nativeFresh =
+    backgroundLocationNative.isStarted() &&
+    lastNativeGpsFixAtMs > 0 &&
+    Date.now() - lastNativeGpsFixAtMs <= NATIVE_GPS_FRESH_MS;
   lastGpsErrorCode = denied ? "permission_denied" : "unavailable";
   locationPermissionState = denied ? "denied" : "error";
   paintDriverAvailabilityDiag();
@@ -3723,7 +3738,30 @@ function handleLocationError(error) {
 
   if (denied) {
     transientGpsFailCount = 0;
+    if (activeRideTracking) {
+      // Never tear down an executing ride because the browser source failed.
+      // Native foreground GPS may still be healthy; otherwise keep the ride
+      // attached and show a clear recovery instruction.
+      setLocationMessage(
+        nativeFresh
+          ? "براؤزر مقام دستیاب نہیں، محفوظ پس منظر مقام جاری ہے"
+          : "فعال سواری کا مقام رکا ہے — فون کی مقام اجازت آن کر کے ایپ دوبارہ سامنے لائیں"
+      );
+      return;
+    }
     setDriverOffline("لائیو مقام کے لیے براؤزر میں لوکیشن کی اجازت دیں");
+    return;
+  }
+
+  if (activeRideTracking) {
+    // A transient browser timeout must not call setDriverOffline(): that used
+    // to stop the only geolocation watch for the rest of an active ride.
+    transientGpsFailCount += 1;
+    setLocationMessage(
+      nativeFresh
+        ? "براؤزر مقام عارضی طور پر رکا، محفوظ پس منظر مقام جاری ہے"
+        : "مقام عارضی طور پر رکا ہے — خودکار بحالی جاری ہے"
+    );
     return;
   }
 
@@ -3866,8 +3904,7 @@ function recoverStalledLocationWatch(reason = "watchdog") {
     gpsRecoveryInFlight ||
     !navigator.geolocation ||
     !isOnlineReady() ||
-    !activeExecutionRide?.id ||
-    (typeof document !== "undefined" && document.visibilityState === "hidden")
+    !activeExecutionRide?.id
   ) {
     return;
   }
@@ -4539,11 +4576,12 @@ function startActiveRideWatch(rideId, collectionName = "rides") {
         syncLocationReportForActiveRide();
       } else {
         clearActiveRideCache();
-        // Terminal: never attempt a server upload that is guaranteed to fail.
+        // Terminal submissions are allowed. Capture counters synchronously
+        // before any P2P/native teardown, including admin-side completion.
+        void driverLocationReport.flushFinal({ finalSubmit: true });
         void breadcrumbCollector
           .stop({ purge: true, flush: false, reason: "terminal_status" })
           .catch(() => {});
-        void driverLocationReport.clearBinding({ flushFirst: false });
         detachCheckpointPresence("terminal_status");
       }
       renderActiveRideControls(activeExecutionRide);

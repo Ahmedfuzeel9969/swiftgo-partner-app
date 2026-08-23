@@ -33,8 +33,6 @@ export const RIDE_LOCATION_REPORT_FINAL_FLUSH_TIMEOUT_MS = 4_000;
  */
 export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}, nativeDiag = {}) {
   const rawGps = Number(checkpoint.rawGpsFixes) || 0;
-  const rejected =
-    (Number(checkpoint.rejectedInterval) || 0) + (Number(checkpoint.rejectedMovementNoop) || 0);
   const attempted = Number(checkpoint.writesAttempted) || 0;
   const committed = Number(checkpoint.writesCommitted) || 0;
   const nativeUploaded = Number(nativeDiag.uploaded) || 0;
@@ -44,12 +42,16 @@ export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}, nativeDiag =
   const p2pSendFailures = Number(p2p.sendFailures) || 0;
   const p2pAcknowledged = Number(p2p.acknowledgementsReceived) || 0;
   return {
+    // rawGpsFixes is incremented only after envelope validation. Checkpoint
+    // interval/movement rejections are valid fixes that merely skipped a
+    // Firebase write; subtracting them produced false "valid fixes = 0"
+    // reports on healthy moving rides.
     // Native fixes are fed through the same JS checkpoint pipeline while the
     // WebView is alive. Use the larger source count so those fixes are not
     // counted twice; native-only background fixes still remain visible.
     gpsFixesReceived: Math.max(rawGps, nativeFixCount),
-    validFixesAccepted: Math.max(Math.max(0, rawGps - rejected), nativeFixCount),
-    duplicateOrOutOfOrderRejected: rejected + nativeRejected,
+    validFixesAccepted: Math.max(rawGps, Math.max(0, nativeFixCount - nativeRejected)),
+    duplicateOrOutOfOrderRejected: nativeRejected,
     vehicleWritesAttempted: attempted + nativeUploaded + nativeRejected,
     vehicleWritesAcknowledged: committed + nativeUploaded,
     vehicleWritesFailed: Math.max(0, attempted - committed),
@@ -209,6 +211,10 @@ export function createRideLocationReportClient(opts) {
   function noteGpsFix(atMs = nowMs()) {
     if (!store.isBound()) return;
     store.incrementCounter("gpsFixesReceived", 1);
+    // Callers invoke this only after coordinate/envelope validation. Persist
+    // the accepted count alongside the received count so terminal teardown or
+    // a runtime-counter reset cannot turn real fixes into a false zero.
+    store.incrementCounter("validFixesAccepted", 1);
     store.recordEventAtMs(atMs);
   }
 

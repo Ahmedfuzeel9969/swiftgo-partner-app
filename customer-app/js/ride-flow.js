@@ -125,6 +125,7 @@ let twoLegLayers = null;
 let displayPipeline = null;
 /** @type {ReturnType<typeof createRideLocationReportClient> | null} */
 let customerLocationReport = null;
+let customerLocationReportBindingPromise = Promise.resolve({ ok: false, reason: "not_started" });
 let detachBrowserLifecycle = () => {};
 let detachingFromLifecycle = false;
 /** Android foreground service keeps the WebView process eligible for active P2P in background. */
@@ -146,7 +147,7 @@ function ensureCustomerLocationReport() {
     window.addEventListener("online", () => {
       void ensureCustomerLocationReport().retryPendingReports();
     });
-    window.addEventListener("visibilitychange", () => {
+    document.addEventListener("visibilitychange", () => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         void ensureCustomerLocationReport().retryPendingReports();
       }
@@ -157,17 +158,41 @@ function ensureCustomerLocationReport() {
 
 function syncCustomerLocationReportBinding(ride) {
   const token = String(ride?.assignmentSessionToken || "").trim();
-  if (!ride?.id || !token || !isCustomerActiveRideStatus(ride.status)) return;
-  void ensureCustomerLocationReport().bindForRide({
+  if (!ride?.id || !token || !isCustomerActiveRideStatus(ride.status)) {
+    return customerLocationReportBindingPromise;
+  }
+  customerLocationReportBindingPromise = ensureCustomerLocationReport().bindForRide({
     rideId: ride.id,
     assignmentSessionToken: token,
-  });
+  }).catch((error) => ({ ok: false, reason: String(error?.message || error || "bind_failed") }));
+  return customerLocationReportBindingPromise;
 }
 
 function maybeFlushCustomerLocationReport(ride, previousStatus) {
   if (!ride?.id || !isTerminalRideStatus(ride.status)) return;
   if (previousStatus && isTerminalRideStatus(previousStatus)) return;
-  void ensureCustomerLocationReport().flushFinal({ finalSubmit: true });
+  const report = ensureCustomerLocationReport();
+  const binding = report.getBinding?.();
+  if (binding?.rideId === ride.id) {
+    // Capture before the completed/cancelled branch tears down P2P and map state.
+    report.syncCountersFromRuntime();
+    void report.flushFinal({ finalSubmit: true });
+    return;
+  }
+
+  // A customer may resume directly into a terminal snapshot before the earlier
+  // async hash/config bind completed. Bind from the terminal ride token, then
+  // submit instead of silently producing a driver-only report.
+  const token = String(ride.assignmentSessionToken || "").trim();
+  if (!token) return;
+  void (async () => {
+    await customerLocationReportBindingPromise;
+    if (report.getBinding?.()?.rideId !== ride.id) {
+      await report.bindForRide({ rideId: ride.id, assignmentSessionToken: token });
+    }
+    report.syncCountersFromRuntime();
+    await report.flushFinal({ finalSubmit: true });
+  })();
 }
 
 function scheduleCustomerLocationReportStartupRetry() {
