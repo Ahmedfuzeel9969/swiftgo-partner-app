@@ -299,9 +299,13 @@ function arbiterUnitTests() {
   arb2.ingestFirebase({ lat: 3, lng: 3, observedAt: 10_500, sequence: 2 }, gen);
   const s2 = arb2.getState();
   record(
-    "31-newer-firebase-beats-delayed-p2p",
-    s2.lastRendered?.lat === 3 ? "PASS" : "FAIL",
-    `src=${s2.lastRendered?.source}`
+    "31-p2p-primary-ignores-firebase-while-healthy",
+    s2.lastRendered?.source === "p2p" &&
+      s2.lastRendered?.lat === 1 &&
+      s2.preferred === "p2p"
+      ? "PASS"
+      : "FAIL",
+    `src=${s2.lastRendered?.source} lat=${s2.lastRendered?.lat}`
   );
 
   now = 10_000;
@@ -366,6 +370,62 @@ function arbiterUnitTests() {
     arb6.getState().lastRendered?.source === "firebase" ? "PASS" : "FAIL"
   );
 
+  // Silent P2P past fallback window → Firebase accepted without explicit session error.
+  let now7 = 20_000;
+  const renders7 = [];
+  const arb7 = createLiveLocationSourceArbiter({
+    nowMs: () => now7,
+    fallbackAfterMs: 12_000,
+    onRender: (fix) => renders7.push({ ...fix }),
+  });
+  const g7 = arb7.getGeneration();
+  arb7.ingestP2p({ lat: 1, lng: 1, observedAt: 20_000, sequence: 1 }, g7);
+  now7 = 20_000 + 13_000;
+  const acceptedFb = arb7.ingestFirebase(
+    { lat: 2, lng: 2, observedAt: 32_500, sequence: 2 },
+    g7
+  );
+  const s7 = arb7.getState();
+  record(
+    "37b-silent-p2p-auto-degrades-to-firebase",
+    acceptedFb &&
+      s7.preferred === "firebase" &&
+      s7.p2pHealthy === false &&
+      s7.lastRendered?.lat === 2
+      ? "PASS"
+      : "FAIL",
+    `preferred=${s7.preferred} lat=${s7.lastRendered?.lat}`
+  );
+
+  // After degrade, equal-observedAt Firebase from cache can still refresh via noteP2pUnhealthy.
+  let now8 = 40_000;
+  const arb8 = createLiveLocationSourceArbiter({
+    nowMs: () => now8,
+    fallbackAfterMs: 12_000,
+    onRender: () => {},
+  });
+  const g8 = arb8.getGeneration();
+  arb8.ingestP2p({ lat: 10, lng: 10, observedAt: 40_000, sequence: 1 }, g8);
+  arb8.ingestFirebase({ lat: 11, lng: 11, observedAt: 40_100, sequence: 2 }, g8);
+  now8 = 40_000 + 15_000;
+  arb8.ensureP2pHealth();
+  const s8 = arb8.getState();
+  record(
+    "37c-ensureP2pHealth-marks-unhealthy",
+    s8.p2pHealthy === false && s8.preferred === "firebase" ? "PASS" : "FAIL",
+    `healthy=${s8.p2pHealthy}`
+  );
+
+  record(
+    "37d-flush-pending-on-channel-open",
+    /ch\.onopen\s*=\s*\(\)\s*=>\s*\{[\s\S]*?flushPendingLoc\(/.test(
+        read("driver-app/js/p2p-peer-session.mjs")
+      )
+      ? "PASS"
+      : "FAIL",
+    "driver datachannel onopen flushes pending location"
+  );
+
   void arb;
   void renders;
 }
@@ -379,12 +439,7 @@ async function healthAndPeerTests() {
     setTimeoutFn: timers.setTimeoutFn,
     clearTimeoutFn: timers.clearTimeoutFn,
   });
-  const drvTimers = createFakeTimers();
-  let drv = null;
-  let bp = null;
-  let bp2 = null;
-  try {
-    await cust.startAsCustomer({
+  await cust.startAsCustomer({
     peerSessionId: "ps_testsession01",
     trackingSessionId: "trk_abc",
     assignmentVersion: 42,
@@ -422,12 +477,17 @@ async function healthAndPeerTests() {
     cust.getState().state
   );
 
-  drv = createP2pPeerSession({
+  const drvTimers = createFakeTimers();
+  let driverReconnectRequests = 0;
+  const drv = createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
     nowMs: drvTimers.nowMs,
     setTimeoutFn: drvTimers.setTimeoutFn,
     clearTimeoutFn: drvTimers.clearTimeoutFn,
+    onNeedReconnect: () => {
+      driverReconnectRequests += 1;
+    },
   });
   await drv.startAsDriver({
     peerSessionId: "ps_testsession01",
@@ -463,8 +523,23 @@ async function healthAndPeerTests() {
     `${drv.getState().state} invalid=${drv.getCounters().invalidMessages} fixesSent=${drv.getCounters().fixesSent}`
   );
 
+  // A frozen customer WebView can leave the data channel nominally open. New
+  // outbound sends are not delivery proof: a newer unacknowledged LOC beyond
+  // the fallback window must rotate signaling instead of staying degraded.
+  drvTimers.advance(P2P_FALLBACK_AFTER_MS + 1);
+  drv.enqueueLocationFix({ lat: 1.001, lng: 1.001, observedAt: drvTimers.nowMs() });
+  drv.evaluateHealth();
+  record(
+    "39c-open-zombie-channel-requests-fresh-offer",
+    drv.getState().state === P2P_STATE.FIREBASE_FALLBACK &&
+      driverReconnectRequests === 1
+      ? "PASS"
+      : "FAIL",
+    `state=${drv.getState().state} reconnects=${driverReconnectRequests}`
+  );
+
   // Backpressure coalesce
-  bp = createP2pPeerSession({
+  const bp = createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
     nowMs: () => 1,
@@ -488,7 +563,7 @@ async function healthAndPeerTests() {
   // Direct: simulate by calling enqueue when channel high — need access. Use getCounters after forcing.
   // Simpler static/architectural assertion + unit on bufferedAmount path via peer session flush
   let coalesced = 0;
-  bp2 = createP2pPeerSession({
+  const bp2 = createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
     onDiag: (c) => {
@@ -536,8 +611,32 @@ async function healthAndPeerTests() {
 
   const ice = resolveIceConfiguration({ __SWIFTGO_P2P_ICE__: {} });
   record(
-    "60-missing-turn-firebase-fallback-path",
-    !ice.hasTurn && buildIceServers({}).length === 0 ? "PASS" : "FAIL"
+    "60-default-stun-without-turn",
+    ice.hasStun && !ice.hasTurn && ice.iceServers.length >= 1 ? "PASS" : "FAIL",
+    `stun=${ice.hasStun} turn=${ice.hasTurn} n=${ice.iceServers.length}`
+  );
+
+  const iceTurn = resolveIceConfiguration({
+    __SWIFTGO_P2P_ICE__: {
+      turn: {
+        urls: ["turn:relay.example.com:3478?transport=udp", "turn:relay.example.com:3478?transport=tcp"],
+        username: "1700003600:test",
+        credential: "testcred",
+      },
+    },
+  });
+  record(
+    "60c-turn-injected-with-stun",
+    iceTurn.hasStun && iceTurn.hasTurn && iceTurn.iceServers.length >= 3 ? "PASS" : "FAIL",
+    `stun=${iceTurn.hasStun} turn=${iceTurn.hasTurn} n=${iceTurn.iceServers.length}`
+  );
+
+  const iceOff = resolveIceConfiguration({
+    __SWIFTGO_P2P_ICE__: { disableDefaultStun: true, stunUrls: [] },
+  });
+  record(
+    "60b-disable-default-stun",
+    !iceOff.hasStun && buildIceServers({}).length === 0 ? "PASS" : "FAIL"
   );
 
   await cust.close();
@@ -547,9 +646,6 @@ async function healthAndPeerTests() {
     "58-old-callbacks-cannot-revive-closed",
     cust.getState().state === P2P_STATE.CLOSED ? "PASS" : "FAIL"
   );
-  } finally {
-    await Promise.all([cust, drv, bp, bp2].filter(Boolean).map((session) => session.close()));
-  }
 }
 
 function checkpointP2pPolicyTests() {
@@ -593,21 +689,34 @@ function checkpointP2pPolicyTests() {
   );
 
   record(
-    "45-hidden-approach-60s",
+    "45-expired-unhealthy-approach-responsive",
     resolveCheckpointPolicy({
       hasActiveRide: true,
       rideStatus: "accepted",
       viewerLease: VIEWER_LEASE.EXPIRED,
-    }).intervalMs === BACKGROUND_APPROACH_INTERVAL_MS
+      p2pHealthy: false,
+    }).intervalMs === RESPONSIVE_INTERVAL_MS
       ? "PASS"
       : "FAIL"
   );
   record(
-    "46-hidden-trip-30s",
+    "46-expired-unhealthy-trip-responsive",
     resolveCheckpointPolicy({
       hasActiveRide: true,
       rideStatus: "in_progress",
       viewerLease: VIEWER_LEASE.EXPIRED,
+      p2pHealthy: false,
+    }).intervalMs === RESPONSIVE_INTERVAL_MS
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "46b-expired-healthy-trip-sparse",
+    resolveCheckpointPolicy({
+      hasActiveRide: true,
+      rideStatus: "in_progress",
+      viewerLease: VIEWER_LEASE.EXPIRED,
+      p2pHealthy: true,
     }).intervalMs === BACKGROUND_TRIP_INTERVAL_MS
       ? "PASS"
       : "FAIL"
@@ -669,7 +778,7 @@ function checkpointP2pPolicyTests() {
     "cadence-constants-documented",
     P2P_SEND_INTERVAL_MS >= 2000 &&
       P2P_SEND_INTERVAL_MS <= 4000 &&
-      P2P_FALLBACK_AFTER_MS === 12_000
+      P2P_FALLBACK_AFTER_MS === 30_000
       ? "PASS"
       : "FAIL"
   );
@@ -1093,8 +1202,10 @@ function lifecycleStaticTests() {
     "static"
   );
   record(
-    "56-customer-hidden-suspends-session",
-    cust.includes("setVisible(false)") || cust.includes("stopPresenceHeartbeat")
+    "56-customer-hidden-keeps-p2p-alive",
+    read("customer-app/js/p2p-ride-controller.mjs").includes("must not suspend or stop P2P") &&
+      !read("customer-app/js/p2p-ride-controller.mjs").includes("session?.suspend") &&
+      cust.includes("Do not stop P2P")
       ? "PASS"
       : "FAIL",
     "",

@@ -1,0 +1,28 @@
+{
+  "suite": "emergency-regression-root-cause",
+  "step": 1,
+  "title": "Root-cause report — Driver/Customer load failure",
+  "generatedAt": "2026-08-04T14:45:00.000Z",
+  "symptoms": {
+    "driver": "App does not open (module graph fails before boot)",
+    "customer": "Loads partially / UI broken / buttons non-functional (same failed module graph breaks event wiring)"
+  },
+  "rootCause": {
+    "summary": "Phase 2 runtime-consistency change made shared/js/phase1-billing-diagnostics.mjs import production constants via repo-relative paths (../../driver-app/... and ../../customer-app/...). Hosting build inlines that file into /partner/js and /customer/js (and /shared/js). Those relative imports resolve to hosting-dist/driver-app/... and hosting-dist/customer-app/... which do not exist on Firebase Hosting (apps are served as /partner and /customer).",
+    "failureMode": "Browser ES module load throws Failed to resolve module specifier / 404 for ../../driver-app/js/location-checkpoint-policy.mjs (and sibling imports). field-diagnostics → phase1-billing-diagnostics fails → app entry modules reject → driver never boots; customer interactive handlers never bind.",
+    "evidence": [
+      "Live/hosting-dist partner/js/phase1-billing-diagnostics.mjs contains imports from ../../driver-app/js/location-checkpoint-policy.mjs, ../../driver-app/js/p2p-protocol.mjs, ../../customer-app/js/live-location-render.mjs, ../../driver-app/js/location-envelope.mjs",
+      "Resolved paths under hosting-dist: hosting-dist/driver-app/js/... = BROKEN (MISSING)",
+      "Resolved paths under hosting-dist: hosting-dist/customer-app/js/... = BROKEN (MISSING)",
+      "Actual hosted locations are partner/js/* and customer/js/* (or /js for root customer)",
+      "Node tests passed because filesystem monorepo paths exist; production hosting layout does not"
+    ]
+  },
+  "notRootCause": [
+    "Firebase / matching / bargaining / P2P transport / location policy logic changes",
+    "Need to roll back Phase 1–5 consistency work (values/aliases must stay; only import paths for hosting must be fixed)"
+  ],
+  "brokenFile": "shared/js/phase1-billing-diagnostics.mjs (copied/inlined into partner/customer/shared hosting js)",
+  "codeChangesThisStep": "NONE",
+  "status": "STOPPED — awaiting approval for Step 2 (smallest fix)"
+}

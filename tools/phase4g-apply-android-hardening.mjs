@@ -87,6 +87,25 @@ ${app.backgroundLocation ? `    <uses-permission android:name="android.permissio
   }
 
   // Android 13+ notifications already via POST_NOTIFICATIONS
+  if (app.backgroundLocation && !xml.includes("DriverLocationForegroundService")) {
+    const serviceXml = `
+        <service
+            android:name=".DriverLocationForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location"
+            android:stopWithTask="false" />
+`;
+    if (xml.includes("</application>")) {
+      xml = xml.replace("</application>", `${serviceXml}\n    </application>`);
+    }
+  }
+  if (app.backgroundLocation && !xml.includes("WAKE_LOCK")) {
+    xml = xml.replace(
+      /<manifest[^>]*>/,
+      (m) => `${m}\n    <uses-permission android:name="android.permission.WAKE_LOCK" />`
+    );
+  }
   fs.writeFileSync(manifestPath, xml);
 }
 

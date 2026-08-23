@@ -1,0 +1,123 @@
+{
+  "suite": "background-location-upload",
+  "generatedAt": "2026-08-20T14:13:29.836Z",
+  "pass": 23,
+  "fail": 0,
+  "results": [
+    {
+      "name": "mint-ok",
+      "status": "PASS",
+      "detail": "ttl=900000"
+    },
+    {
+      "name": "verify-ok",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "verify-rejects-tamper",
+      "status": "PASS",
+      "detail": "INVALID_SIGNATURE"
+    },
+    {
+      "name": "verify-rejects-expired",
+      "status": "PASS",
+      "detail": "TOKEN_EXPIRED"
+    },
+    {
+      "name": "mint-requires-secret",
+      "status": "PASS",
+      "detail": "SECRET_NOT_CONFIGURED"
+    },
+    {
+      "name": "cadence-visible-responsive",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE:4000"
+    },
+    {
+      "name": "cadence-expired-native-upload-responsive",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE:4000"
+    },
+    {
+      "name": "cadence-unknown-approach-responsive",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE:4000"
+    },
+    {
+      "name": "write-gate-skip-interval",
+      "status": "PASS",
+      "detail": "interval"
+    },
+    {
+      "name": "write-gate-first",
+      "status": "PASS",
+      "detail": "first_write"
+    },
+    {
+      "name": "write-gate-hard-wait",
+      "status": "PASS",
+      "detail": "interval"
+    },
+    {
+      "name": "presence-visible",
+      "status": "PASS",
+      "detail": "VISIBLE"
+    },
+    {
+      "name": "presence-expired",
+      "status": "PASS",
+      "detail": "EXPIRED"
+    },
+    {
+      "name": "exports-issue-credential",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "exports-ingest-https",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "driver-wires-native-bridge",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "bridge-p2p-first-comment",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "android-service-sticky-task-removed",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "android-webview-alive-gate",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "manifest-fg-location-service",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "mainactivity-registers-plugin",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "uploader-network-reconnect-flush",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "driver-native-diagnostics-merge",
+      "status": "PASS",
+      "detail": "gps=7 ack=5"
+    }
+  ]
+}

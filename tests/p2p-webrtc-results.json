@@ -1,13 +1,13 @@
 {
   "suite": "p2p-webrtc",
-  "generatedAt": "2026-08-10T11:41:47.998Z",
+  "generatedAt": "2026-08-23T13:20:38.776Z",
   "totals": {
-    "pass": 82,
+    "pass": 89,
     "fail": 0,
     "blocked": 1,
     "byCategory": {
       "unit": {
-        "pass": 59,
+        "pass": 66,
         "fail": 0,
         "blocked": 0
       },
@@ -135,9 +135,9 @@
       "category": "unit"
     },
     {
-      "name": "31-newer-firebase-beats-delayed-p2p",
+      "name": "31-p2p-primary-ignores-firebase-while-healthy",
       "status": "PASS",
-      "detail": "src=firebase",
+      "detail": "src=p2p lat=1",
       "suite": "p2p-webrtc",
       "category": "unit"
     },
@@ -184,6 +184,27 @@
       "category": "unit"
     },
     {
+      "name": "37b-silent-p2p-auto-degrades-to-firebase",
+      "status": "PASS",
+      "detail": "preferred=firebase lat=2",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "37c-ensureP2pHealth-marks-unhealthy",
+      "status": "PASS",
+      "detail": "healthy=false",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "37d-flush-pending-on-channel-open",
+      "status": "PASS",
+      "detail": "driver datachannel onopen flushes pending location",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
       "name": "38-channel-open-alone-not-healthy",
       "status": "PASS",
       "detail": "FIREBASE_FALLBACK",
@@ -219,6 +240,13 @@
       "category": "unit"
     },
     {
+      "name": "39c-open-zombie-channel-requests-fresh-offer",
+      "status": "PASS",
+      "detail": "state=FIREBASE_FALLBACK reconnects=1",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
       "name": "50-backpressure-coalesce-instrumented",
       "status": "PASS",
       "detail": "",
@@ -240,7 +268,21 @@
       "category": "unit"
     },
     {
-      "name": "60-missing-turn-firebase-fallback-path",
+      "name": "60-default-stun-without-turn",
+      "status": "PASS",
+      "detail": "stun=true turn=false n=3",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "60c-turn-injected-with-stun",
+      "status": "PASS",
+      "detail": "stun=true turn=true n=4",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "60b-disable-default-stun",
       "status": "PASS",
       "detail": "",
       "suite": "p2p-webrtc",
@@ -275,14 +317,21 @@
       "category": "unit"
     },
     {
-      "name": "45-hidden-approach-60s",
+      "name": "45-expired-unhealthy-approach-responsive",
       "status": "PASS",
       "detail": "",
       "suite": "p2p-webrtc",
       "category": "unit"
     },
     {
-      "name": "46-hidden-trip-30s",
+      "name": "46-expired-unhealthy-trip-responsive",
+      "status": "PASS",
+      "detail": "",
+      "suite": "p2p-webrtc",
+      "category": "unit"
+    },
+    {
+      "name": "46b-expired-healthy-trip-sparse",
       "status": "PASS",
       "detail": "",
       "suite": "p2p-webrtc",
@@ -319,7 +368,7 @@
     {
       "name": "01-assigned-driver-create-session",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1786363005006,\"protocolVersion\":1}",
+      "detail": "{\"ok\":true,\"rideId\":\"ride_p2p_1\",\"sessionId\":\"ps_abcdef012345\",\"assignmentVersion\":922242635,\"expiresAtMs\":1787492135153,\"protocolVersion\":1}",
       "suite": "p2p-webrtc",
       "category": "unit"
     },
@@ -464,7 +513,7 @@
       "category": "static"
     },
     {
-      "name": "56-customer-hidden-suspends-session",
+      "name": "56-customer-hidden-keeps-p2p-alive",
       "status": "PASS",
       "detail": "",
       "suite": "p2p-webrtc",
@@ -613,7 +662,7 @@
   ],
   "timings": {
     "P2P_SEND_INTERVAL_MS": 3000,
-    "P2P_FALLBACK_AFTER_MS": 12000,
+    "P2P_FALLBACK_AFTER_MS": 30000,
     "P2P_SPARSE_ENTER_HYSTERESIS_MS": 5000,
     "P2P_SPARSE_EXIT_HYSTERESIS_MS": 3000,
     "RESPONSIVE_INTERVAL_MS": 4000,

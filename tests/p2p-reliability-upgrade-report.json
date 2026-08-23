@@ -1,0 +1,100 @@
+{
+  "suite": "p2p-reliability-upgrade",
+  "title": "SwiftGo P2P Reliability Upgrade — Core Stability",
+  "generatedAt": "2026-08-04T09:55:00.000Z",
+  "scope": {
+    "included": [
+      "STUN/TURN ICE configuration",
+      "Existing reconnect framework activation",
+      "Heartbeat (HB) for channel health / half-open detection",
+      "Long-ride signaling TTL refresh on answer only",
+      "Network online + visibility recovery hooks"
+    ],
+    "excluded": [
+      "Text chat",
+      "Voice messages",
+      "Voice calls",
+      "Ride flow / matching / billing / UI / maps redesign"
+    ]
+  },
+  "filesChanged": [
+    "driver-app/js/p2p-protocol.mjs",
+    "driver-app/js/p2p-peer-session.mjs",
+    "driver-app/js/p2p-location-envelope.mjs",
+    "driver-app/js/p2p-ride-controller.mjs",
+    "driver-app/js/driver-app.js",
+    "customer-app/js/p2p-protocol.mjs",
+    "customer-app/js/p2p-peer-session.mjs",
+    "customer-app/js/p2p-location-envelope.mjs",
+    "customer-app/js/p2p-ride-controller.mjs",
+    "functions/ride-peer-session.js",
+    "tests/p2p-webrtc.mjs"
+  ],
+  "reliabilityImprovements": {
+    "phase1_connection": {
+      "defaultStun": ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:stun.cloudflare.com:3478"],
+      "turn": "Optional via window.__SWIFTGO_P2P_ICE__.turn (no secrets in source)",
+      "disableDefaultStun": "Supported via __SWIFTGO_P2P_ICE__.disableDefaultStun"
+    },
+    "phase2_reconnect": {
+      "mechanism": "Existing scheduleReconnect + onNeedReconnect",
+      "triggers": [
+        "DataChannel close",
+        "Channel down while not open",
+        "ICE restart attempt before full re-offer",
+        "window online event when in FIREBASE_FALLBACK/DISABLED",
+        "visibilitychange → visible resync for active ride"
+      ]
+    },
+    "phase3_heartbeat": {
+      "intervalMs": 12000,
+      "messageType": "hb",
+      "behavior": "Skip when recent LOC/ACK/HB already proves channel; customer ACKs HB; driver requires inbound ACK/HB for HEALTHY"
+    },
+    "phase4_longRide": {
+      "signalingTtlRefresh": "expiresAt extended on publishRidePeerAnswer only (no extra Firebase polling)",
+      "sessionTtlMs": 900000,
+      "avoidReconnectStorm": "While DataChannel still open, silence → DEGRADED + heartbeat probe (not immediate tear-down)"
+    }
+  },
+  "labTestResults": {
+    "suite": "npm run test:p2p-webrtc",
+    "pass": 86,
+    "fail": 0,
+    "blocked": 1,
+    "blockedItem": "manual-two-browser-preview",
+    "notes": "Unit/static/rules coverage for envelope, health, ICE defaults, reconnect backoff, signaling CF, and Firestore rules."
+  },
+  "fieldStressChecklist": {
+    "status": "PENDING_FIELD",
+    "durations": [
+      { "label": "1 minute", "status": "PENDING_FIELD" },
+      { "label": "5 minutes", "status": "PENDING_FIELD" },
+      { "label": "15 minutes", "status": "PENDING_FIELD" },
+      { "label": "30 minutes", "status": "PENDING_FIELD" },
+      { "label": "60 minutes", "status": "PENDING_FIELD" }
+    ],
+    "scenarios": [
+      { "name": "Screen OFF", "status": "PENDING_FIELD" },
+      { "name": "Screen ON", "status": "PENDING_FIELD" },
+      { "name": "Wi-Fi ↔ Mobile Data", "status": "PENDING_FIELD" },
+      { "name": "Temporary network loss", "status": "PENDING_FIELD" },
+      { "name": "Background/foreground", "status": "PENDING_FIELD" },
+      { "name": "Battery optimization", "status": "PENDING_FIELD" },
+      { "name": "Different Android devices", "status": "PENDING_FIELD" }
+    ],
+    "labProxy": [
+      "Fake-timer silence → DEGRADED/FALLBACK transitions",
+      "ACK/HB inbound proof required for driver HEALTHY",
+      "online/visibility hooks wired to syncDriverP2pForActiveRide",
+      "ICE config unit tests (default STUN, disable path)"
+    ]
+  },
+  "deployment": {
+    "status": "DEPLOYED",
+    "targets": ["hosting", "functions"],
+    "hostingUrl": "https://swiftgo-ride-app.web.app",
+    "partnerUrl": "https://swiftgo-ride-app.web.app/partner/",
+    "deployedAt": "2026-08-04T10:00:00.000Z"
+  }
+}

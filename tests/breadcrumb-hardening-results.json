@@ -1,0 +1,304 @@
+{
+  "suite": "breadcrumb-hardening",
+  "generatedAt": "2026-08-02T09:56:23.568Z",
+  "total": 42,
+  "pass": 42,
+  "fail": 0,
+  "blocked": 0,
+  "results": [
+    {
+      "name": "isolated-rules-nonzero-child-cannot-use-stale-pass",
+      "status": "PASS",
+      "detail": "reason=child_status_2 acceptedStale=false",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "h-stale-generatedAt-rejected",
+      "status": "PASS",
+      "detail": "stale_generatedAt:2026-08-02T08:56:09.767Z_started=2026-08-02T09:56:09.925Z",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "h-rules-read-denied",
+      "status": "PASS",
+      "detail": "authenticated emulator rules",
+      "suite": "breadcrumb-hardening",
+      "category": "rules"
+    },
+    {
+      "name": "h-rules-write-denied",
+      "status": "PASS",
+      "detail": "authenticated emulator rules",
+      "suite": "breadcrumb-hardening",
+      "category": "rules"
+    },
+    {
+      "name": "h-static-deny-all-architecture",
+      "status": "PASS",
+      "detail": "static architecture",
+      "suite": "breadcrumb-hardening",
+      "category": "static"
+    },
+    {
+      "name": "h-isolated-rules-child-status-ok",
+      "status": "PASS",
+      "detail": "status=0",
+      "suite": "breadcrumb-hardening",
+      "category": "rules"
+    },
+    {
+      "name": "h-idempotent-start-no-gen-bump",
+      "status": "PASS",
+      "detail": "gen=1 vs 1",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "h-idempotent-cadence-no-stale-gen",
+      "status": "PASS",
+      "detail": "collected=33 uploads=3 sampledOut=97",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "h-concurrent-append-no-loss",
+      "status": "PASS",
+      "detail": "ok=20 cnt=20",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "h-append-take-no-loss",
+      "status": "PASS",
+      "detail": "left=6 takePts=5 total=11 seqs=[1,2,3,4,5,6,7,8,9,10,11] a=true",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "h-append-ack-no-resurrect",
+      "status": "PASS",
+      "detail": "ackGone=true cnt=1 seq6once=true",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "h-partition-independence",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "h-idb-fail-safe",
+      "status": "PASS",
+      "detail": "reason=idb_failed mode=failed",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "h-sim-20min-queue-bounded",
+      "status": "PASS",
+      "detail": "maxQ=15 collected=300 uploads=20",
+      "suite": "breadcrumb-hardening",
+      "category": "performance"
+    },
+    {
+      "name": "h-sim-8h-no-continuous-overflow",
+      "status": "PASS",
+      "detail": "maxQ=0 uploads=480 overflows=0",
+      "suite": "breadcrumb-hardening",
+      "category": "performance"
+    },
+    {
+      "name": "h-offline-bound-then-wake-limit",
+      "status": "PASS",
+      "detail": "w1=3 w2=2 pend=5->2->0 acked=[1,2,3,4,5]",
+      "suite": "breadcrumb-hardening",
+      "category": "performance"
+    },
+    {
+      "name": "h-wake-pending-plus-raw-points",
+      "status": "PASS",
+      "detail": "policy=wake_drains_pending_only attempts=1 raw=25->25 pendMid=1 pendAfter=0",
+      "suite": "breadcrumb-hardening",
+      "category": "performance"
+    },
+    {
+      "name": "isolated-rules-wrong-total-rejected",
+      "status": "PASS",
+      "detail": "count_mismatch:total=999_results=3_sum=3_expected=3",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "isolated-rules-count-sum-mismatch-rejected",
+      "status": "PASS",
+      "detail": "count_mismatch:total=3_results=3_sum=2_expected=3",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "isolated-rules-negative-count-rejected",
+      "status": "PASS",
+      "detail": "invalid_non_negative_integer:fail",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "isolated-rules-future-generatedAt-rejected",
+      "status": "PASS",
+      "detail": "future_generatedAt:2026-08-02T09:56:20.757Z_finished=2026-08-02T09:56:20.656Z",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "isolated-rules-duplicate-name-rejected",
+      "status": "PASS",
+      "detail": "result_name_count:rules-client-read-denied:2",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "isolated-rules-fresh-valid-result-accepted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "wake-raw-only-does-not-form-batch",
+      "status": "PASS",
+      "detail": "takeBatch=0 pending=0",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "wake-raw-only-does-not-submit",
+      "status": "PASS",
+      "detail": "submits=0",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "wake-raw-only-preserves-all-sequences",
+      "status": "PASS",
+      "detail": "before=[1,2,3,4] after=[1,2,3,4]",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "wake-pending-plus-raw-uploads-pending-only",
+      "status": "PASS",
+      "detail": "submits=1 takeBatch=0 raw=[4,5,6,7,8]",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "wake-three-pending-respects-total-limit",
+      "status": "PASS",
+      "detail": "submits=3 takeBatch=0",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "wake-pending-failure-stops-drain",
+      "status": "PASS",
+      "detail": "submits=1 pending=2",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "scheduled-tick-after-wake-forms-raw-batch",
+      "status": "PASS",
+      "detail": "takeBatch=1 submits=1",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "repeated-wake-does-not-duplicate-or-lose-points",
+      "status": "PASS",
+      "detail": "before=[1,2,3,4,5] after=[1,2,3,4,5]",
+      "suite": "breadcrumb-hardening",
+      "category": "unit"
+    },
+    {
+      "name": "h-privacy-wording",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-hardening",
+      "category": "static"
+    },
+    {
+      "name": "h-flush-while-in_progress",
+      "status": "PASS",
+      "detail": "flush=true inProg=1 completed=0",
+      "suite": "breadcrumb-hardening",
+      "category": "emulator"
+    },
+    {
+      "name": "h-settlement-once-after-flush",
+      "status": "PASS",
+      "detail": "s1=false s2=true",
+      "suite": "breadcrumb-hardening",
+      "category": "emulator"
+    },
+    {
+      "name": "h-financial-isolation-module",
+      "status": "PASS",
+      "detail": "fare=400 travel=2 dense=40.91",
+      "suite": "breadcrumb-hardening",
+      "category": "emulator"
+    },
+    {
+      "name": "h-flush-timeout-settlement-ok",
+      "status": "PASS",
+      "detail": "flush=upload_failed settled=false",
+      "suite": "breadcrumb-hardening",
+      "category": "emulator"
+    },
+    {
+      "name": "h-activeRideId-enforced",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-hardening",
+      "category": "emulator"
+    },
+    {
+      "name": "h-valid-token-wrong-assignmentVersion",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-hardening",
+      "category": "emulator"
+    },
+    {
+      "name": "h-wrong-token-correct-looking-version",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-hardening",
+      "category": "emulator"
+    },
+    {
+      "name": "h-missing-legacy-token-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-hardening",
+      "category": "emulator"
+    },
+    {
+      "name": "h-correct-token-derived-version-accepted",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-hardening",
+      "category": "emulator"
+    },
+    {
+      "name": "h-terminal-no-flush",
+      "status": "PASS",
+      "detail": "",
+      "suite": "breadcrumb-hardening",
+      "category": "static"
+    }
+  ]
+}

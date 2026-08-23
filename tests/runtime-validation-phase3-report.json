@@ -1,0 +1,86 @@
+{
+  "suite": "runtime-validation",
+  "phase": 3,
+  "title": "Runtime Validation Proof",
+  "generatedAt": "2026-08-20T04:32:27.472Z",
+  "pass": 15,
+  "fail": 0,
+  "items": [
+    {
+      "item": "movement threshold",
+      "result": "PASS",
+      "detail": "diag=200 runtime=200"
+    },
+    {
+      "item": "publish interval (responsive)",
+      "result": "PASS",
+      "detail": "ms=4000"
+    },
+    {
+      "item": "Firebase timeout / idle publish interval",
+      "result": "PASS",
+      "detail": "ms=300000"
+    },
+    {
+      "item": "P2P fallback timeout",
+      "result": "PASS",
+      "detail": "ms=30000"
+    },
+    {
+      "item": "P2P timeout (degraded)",
+      "result": "PASS",
+      "detail": "ms=9000"
+    },
+    {
+      "item": "Firebase backup apply interval",
+      "result": "PASS",
+      "detail": "ms=4000"
+    },
+    {
+      "item": "checkpoint policy (idle)",
+      "result": "PASS",
+      "detail": "NO_ACTIVE_RIDE@300000"
+    },
+    {
+      "item": "checkpoint policy (responsive)",
+      "result": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "item": "checkpoint policy (expired unhealthy responsive)",
+      "result": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "item": "checkpoint policy (expired healthy sparse approach)",
+      "result": "PASS",
+      "detail": "P2P_SPARSE_APPROACH@60000"
+    },
+    {
+      "item": "checkpoint policy (expired unhealthy responsive trip)",
+      "result": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "item": "checkpoint policy (sparse hysteresis diag≡runtime)",
+      "result": "PASS",
+      "detail": "5000/3000"
+    },
+    {
+      "item": "P2P fallback timeout (execution via arbiter)",
+      "result": "PASS",
+      "detail": "preferred=firebase afterSilenceMs=30001"
+    },
+    {
+      "item": "diagnostics PHASE1_DRIVER_CONFIG.movement",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "item": "diagnostics PHASE1_P2P_CONFIG.fallback",
+      "result": "PASS",
+      "detail": "30000"
+    }
+  ],
+  "status": "PASS — awaiting approval for Phase 4"
+}

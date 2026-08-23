@@ -1,32 +1,34 @@
 /**
- * Canonical idle Firebase checkpoint cost controls (Super Admin → settings/dispatch).
- * Synced to app js/ folders via build-hosting; mirrored in functions/idle-publish-config.js.
+ * Idle Firebase checkpoint cost controls (settings/dispatch).
+ * Selective main alignment: strict integers + diagnostic fail-closed.
+ * Branch production defaults preserved (5 min / 200 m); active-ride P2P
+ * sparse/responsive cadence stays in location-checkpoint-policy.mjs.
  */
 
-/** Mirror of functions/matching.js STALE_LOCATION_MS — driver must heartbeat before this. */
+/** Mirror of functions/matching.js STALE_LOCATION_MS — heartbeat must beat this. */
 export const MATCHING_STALE_LOCATION_MS = 600_000;
 
+/** Branch production idle defaults (do not adopt main's 4s/10m write-rate defaults). */
 export const IDLE_PUBLISH_DEFAULTS = Object.freeze({
-  idleLocationIntervalMs: 4_000,
-  idleLocationMoveMeters: 10,
+  idleLocationIntervalMs: 5 * 60_000,
+  idleLocationMoveMeters: 200,
   idleMovementTriggerDisabled: false,
 });
 
-/** Minimums match production default — controls may only reduce cost, not increase write rate. */
 export const IDLE_PUBLISH_BOUNDS = Object.freeze({
-  intervalMsMin: 4_000,
+  intervalMsMin: 60_000,
+  /** Cap below matching stale so idle heartbeat cannot go silent for matching. */
   intervalMsMax: 300_000,
-  moveMetersMin: 10,
+  moveMetersMin: 50,
   moveMetersMax: 5_000,
-  highMoveWarningMeters: 100,
+  highMoveWarningMeters: 500,
   diagnosticDurationMinutesMin: 1,
   diagnosticDurationMinutesMax: 30,
 });
 
-/** Recommended Super Admin UI presets (normal mode). */
 export const IDLE_PUBLISH_PRESETS = Object.freeze({
-  intervalSeconds: Object.freeze([4, 10, 30, 60]),
-  moveMeters: Object.freeze([10, 25, 50, 100]),
+  intervalSeconds: Object.freeze([60, 120, 180, 300]),
+  moveMeters: Object.freeze([50, 100, 200, 500]),
 });
 
 export const MAX_IDLE_INTERVAL_MS = IDLE_PUBLISH_BOUNDS.intervalMsMax;
@@ -105,7 +107,7 @@ function safeDefaults() {
   };
 }
 
-/** Canonical fail-closed runtime config (4000 ms / 10 m / movement enabled). */
+/** Canonical fail-closed runtime config (branch defaults / movement enabled). */
 export function getSafeIdlePublishConfig() {
   return safeDefaults();
 }
@@ -145,9 +147,9 @@ function isDiagnosticStateInvalid(raw, nowMs) {
 }
 
 /**
- * Runtime consumer normalization: missing or invalid → canonical defaults (4000 ms / 10 m / movement enabled).
- * Expired or malformed diagnostic state fails closed to full safe defaults (interval/move reset too).
- * Does not coerce strings or clamp out-of-range values to boundaries.
+ * Runtime consumer normalization: missing/invalid → defaults.
+ * Expired or malformed diagnostic state fails closed to full safe defaults.
+ * Does not coerce strings or clamp out-of-range values.
  * @param {Record<string, unknown>} [raw]
  * @param {{ nowMs?: number }} [opts]
  */
@@ -171,7 +173,6 @@ export function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}
   return base;
 }
 
-/** Runtime policy resolver: strict idle interval only — no Number() coercion. */
 export function resolveIdleIntervalMsForPolicy(value) {
   if (
     isStrictIntegerInRange(
@@ -185,7 +186,6 @@ export function resolveIdleIntervalMsForPolicy(value) {
   return IDLE_PUBLISH_DEFAULTS.idleLocationIntervalMs;
 }
 
-/** Runtime policy resolver: strict idle move threshold only — no Number() coercion. */
 export function resolveIdleMoveMetersForPolicy(value) {
   if (
     isStrictIntegerInRange(
@@ -199,7 +199,6 @@ export function resolveIdleMoveMetersForPolicy(value) {
   return IDLE_PUBLISH_DEFAULTS.idleLocationMoveMeters;
 }
 
-/** Callable validation when idleLocationIntervalMs is explicitly provided. */
 export function validateIdleIntervalMsForCallable(value) {
   return isStrictIntegerInRange(
     value,
@@ -208,7 +207,6 @@ export function validateIdleIntervalMsForCallable(value) {
   );
 }
 
-/** Callable validation when idleLocationMoveMeters is explicitly provided. */
 export function validateIdleMoveMetersForCallable(value) {
   return isStrictIntegerInRange(
     value,
@@ -234,10 +232,6 @@ export function rejectClientDiagnosticExpiry(value) {
   return value != null;
 }
 
-/**
- * Sanitize bounded diagnostic reason note (no PII; max 80 chars).
- * @param {unknown} value
- */
 export function sanitizeDiagnosticReason(value) {
   if (value == null || value === "") return null;
   if (typeof value !== "string") return null;
@@ -245,18 +239,15 @@ export function sanitizeDiagnosticReason(value) {
   return trimmed || null;
 }
 
-/** Whether movement alone may trigger an idle publish. */
 export function isIdleMovementPublishEnabled(config = {}) {
   return config.idleMovementTriggerDisabled !== true;
 }
 
-/** Location remains matchable if last write age stays below stale threshold. */
 export function isLocationFreshForMatching(lastWriteMs, nowMs = Date.now(), staleMs = MATCHING_STALE_LOCATION_MS) {
   if (!Number.isFinite(lastWriteMs) || lastWriteMs <= 0) return false;
   return nowMs - lastWriteMs < staleMs;
 }
 
-/** Next mandatory heartbeat must occur before matching stale cutoff. */
 export function maxSafeIdleIntervalMs(staleMs = MATCHING_STALE_LOCATION_MS) {
   return MAX_IDLE_INTERVAL_MS < staleMs;
 }

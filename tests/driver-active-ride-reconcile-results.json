@@ -1,0 +1,216 @@
+{
+  "failed": 0,
+  "total": 35,
+  "results": [
+    {
+      "name": "S01-never-trust-cache-alone",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "S02-clear-cache-terminal-missing",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "S03-recovery-urdu-no-vehicle",
+      "status": "PASS",
+      "detail": "سرور پر آپ کی ایک فعال سواری موجود ہے، م",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "S03b-orphaned-complete-urdu-pin",
+      "status": "PASS",
+      "detail": "سواری مکمل ہو گئی — دوبارہ آن لائن ہونے ",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "S04-completion-finalize-cleanup",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "S05-settlement-failure-retryable",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "S06-prevent-duplicate-completion",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "S07-settlement-no-client-vehicle-gate",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "U01-stale-cache-completed-ride-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "U02-cache-cleared",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "U03-cache-read-roundtrip",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "U04-missing-doc-cache-clear-simulated",
+      "status": "PASS",
+      "detail": "cache cleared when doc absent",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "U05-wrong-driver-rejected",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "U06-candidate-id-dedupe-order",
+      "status": "PASS",
+      "detail": "p1,v1,c1",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "U07-recovery-message-constant",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "U08-settlement-failure-category",
+      "status": "PASS",
+      "detail": "invalid_state",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "U09-cache-key-stable",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E01-active-ride-valid-for-restore",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E03-active-ride-without-currentVehicleId",
+      "status": "PASS",
+      "detail": "Firestore ride active; partner.currentVehicleId null",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E09-wrong-driver-denied",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E10-orphan-settlement-succeeds",
+      "status": "PASS",
+      "detail": "earnings=360",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E11-orphan-ride-completed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E12-orphan-partner-activeRideId-cleared",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E13-orphan-vehicle-activeRideId-cleared",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E14-orphan-vehicle-offline-not-online",
+      "status": "PASS",
+      "detail": "offline",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E15-orphan-retry-idempotent",
+      "status": "PASS",
+      "detail": "ledger=1 rides=1",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E16-orphan-no-double-earnings",
+      "status": "PASS",
+      "detail": "earn=360",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E04-linked-settlement-completes-ride",
+      "status": "PASS",
+      "detail": "earnings=360",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E05-linked-partner-activeRideId-cleared",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E08-linked-vehicle-cleared-offline",
+      "status": "PASS",
+      "detail": "offline",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E06-settlement-failure-invalid-fare",
+      "status": "PASS",
+      "detail": "invalid_state",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E07-settlement-failure-leaves-ride-visible",
+      "status": "PASS",
+      "detail": "in_progress",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E17-idempotent-heal-stale-vehicle-activeRideId",
+      "status": "PASS",
+      "detail": "status=offline",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E17b-idempotent-heal-stale-partner-activeRideId",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-reconcile"
+    },
+    {
+      "name": "E18-idempotent-heal-no-double-earnings",
+      "status": "PASS",
+      "detail": "earn=720 rides=2",
+      "suite": "driver-active-ride-reconcile"
+    }
+  ]
+}

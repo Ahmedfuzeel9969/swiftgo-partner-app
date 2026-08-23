@@ -16,6 +16,7 @@ function call(name, data) {
  */
 export async function createCustomerBookingClient({
   confirmedExtraBooking = false,
+  dispatchTraceId,
   pickupLocation,
   dropoffLocation,
   vehicleType,
@@ -31,6 +32,7 @@ export async function createCustomerBookingClient({
 }) {
   return call("createCustomerBooking", {
     confirmedExtraBooking: Boolean(confirmedExtraBooking),
+    dispatchTraceId: String(dispatchTraceId || ""),
     pickupLocation,
     dropoffLocation,
     vehicleType,

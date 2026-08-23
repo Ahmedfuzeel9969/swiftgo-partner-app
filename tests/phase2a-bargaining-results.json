@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-10T11:47:50.654Z",
+  "generatedAt": "2026-08-06T18:46:24.727Z",
   "results": [
     {
       "name": "B01-candidate-limit-range-1-100",
@@ -46,7 +46,7 @@
     {
       "name": "B08-second-needs-confirmation",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"2R7QRglZqnbjd06IXNi0\",\"status\":\"searching_driver\"}]}",
+      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"xUGR0YEMFqtTrtmX0PmV\",\"status\":\"searching_driver\"}]}",
       "rules": "bargaining"
     },
     {

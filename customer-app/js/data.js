@@ -245,15 +245,6 @@ export async function createRideRequest(_payload) {
   throw new Error("USE_CREATE_CUSTOMER_BOOKING_CF");
 }
 
-/** Phase 16.2 — user aborts the search: rides/{id}.status → 'cancelled_by_user'. */
-export async function cancelRideRequest(rideId) {
-  const { ready, db, auth } = getFirebase();
-  if (!ready || !auth?.currentUser || !rideId) {
-    throw new Error("NOT_SIGNED_IN");
-  }
-  await updateDoc(doc(db, "rides", rideId), { status: "cancelled_by_user" });
-}
-
 const DRIVER_OFFER_CLEAR = {
   driverOfferDriverId: deleteField(),
   driverOfferFare: deleteField(),
@@ -286,6 +277,17 @@ export async function fetchRideById(rideId) {
   if (!ready || !auth?.currentUser || !rideId) return null;
   const snap = await getDoc(doc(db, "rides", rideId));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+/** Super-Admin cost control for hidden-screen emergency one-shot reads. */
+export async function fetchCustomerLocationFallbackSeconds() {
+  if (!isFirebaseConfigured()) return 60;
+  const { db } = getFirebase();
+  const snap = await getDoc(doc(db, "settings", "dispatch"));
+  const raw = snap.exists() ? Number(snap.data()?.customerLocationFallbackSeconds) : 60;
+  if (raw === 0) return 0;
+  if (!Number.isInteger(raw) || raw < 30 || raw > 300) return 60;
+  return raw;
 }
 
 /** Live assigned vehicle GPS — allowed when vehicle is on customer's active ride. */

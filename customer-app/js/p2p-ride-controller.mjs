@@ -5,24 +5,42 @@
 import { P2P_STATE, P2P_EXECUTION_STATUSES } from "./p2p-protocol.mjs";
 import { createP2pPeerSession } from "./p2p-peer-session.mjs";
 import { createLiveLocationSourceArbiter } from "./live-location-source-arbiter.mjs";
+import { getFieldDiagnostics } from "./field-diagnostics.mjs";
 
-async function loadSignalingClient() {
-  return import("./p2p-signaling-client.mjs");
+/** Lazy — app wrapper pulls Firebase https imports unsuitable for Node tests. */
+async function defaultEnsureIceConfiguration() {
+  const mod = await import("./p2p-ice-bootstrap.mjs");
+  return mod.ensureP2pIceConfiguration();
 }
 
 function answerIdentity(rideId, docData, fallbackVersion = 0) {
   const rid = String(rideId || "").trim();
   const sid = String(docData?.sessionId || "").trim();
   const tid = String(docData?.trackingSessionId || "").trim();
-  const av = Number(docData?.assignmentVersion) || Math.max(1, Math.floor(Number(fallbackVersion) || 0));
+  const av =
+    Number(docData?.assignmentVersion) ||
+    Math.max(1, Math.floor(Number(fallbackVersion) || 0));
   return `${rid}|${sid}|${tid}|${av}`;
+}
+
+const ANSWER_MEMORY_PREFIX = "swiftgo_p2p_answered_v1:";
+const ANSWER_MEMORY_MAX_AGE_MS = 6 * 60 * 60_000;
+
+function defaultAnswerMemory() {
+  try {
+    return globalThis.localStorage || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * @param {{
  *   onRenderFix?: (fix: object, meta: object) => void,
+ *   onChannelOpen?: () => void,
  *   onDiag?: (code: string) => void,
  *   RTCPeerConnection?: typeof RTCPeerConnection,
+ *   ensureIceConfiguration?: Function,
  *   watchRidePeerSession?: Function,
  *   publishRidePeerAnswerClient?: Function,
  *   closeRidePeerSessionClient?: Function,
@@ -30,27 +48,8 @@ function answerIdentity(rideId, docData, fallbackVersion = 0) {
  */
 export function createCustomerP2pController(opts = {}) {
   const diag = opts.onDiag || (() => {});
-  const watchSession =
-    typeof opts.watchRidePeerSession === "function"
-      ? opts.watchRidePeerSession
-      : async (...args) => {
-          const { watchRidePeerSession } = await loadSignalingClient();
-          return watchRidePeerSession(...args);
-        };
-  const publishAnswerClient =
-    typeof opts.publishRidePeerAnswerClient === "function"
-      ? opts.publishRidePeerAnswerClient
-      : async (payload) => {
-          const { publishRidePeerAnswerClient } = await loadSignalingClient();
-          return publishRidePeerAnswerClient(payload);
-        };
-  const closeSignalingClient =
-    typeof opts.closeRidePeerSessionClient === "function"
-      ? opts.closeRidePeerSessionClient
-      : async (payload) => {
-          const { closeRidePeerSessionClient } = await loadSignalingClient();
-          return closeRidePeerSessionClient(payload);
-        };
+  const answerMemory = opts.answerMemory === undefined ? defaultAnswerMemory() : opts.answerMemory;
+  const nowMs = typeof opts.nowMs === "function" ? opts.nowMs : () => Date.now();
   const arbiter = createLiveLocationSourceArbiter({
     onDiag: diag,
     onRender: (fix, meta) => opts.onRenderFix?.(fix, meta),
@@ -62,15 +61,91 @@ export function createCustomerP2pController(opts = {}) {
   let boundSessionId = "";
   let closed = false;
   let answering = false;
-  let visible = true;
+  /** UI/map visibility only — must not tear down P2P when the screen is hidden. */
+  let uiVisible = true;
   let watching = false;
+  let lastOfferSdp = "";
+  /** Identity of the last offer whose answer the server accepted. */
+  let answeredOfferKey = "";
+  let reconnectRequestedKey = "";
   let pendingOfferDoc = null;
   let expectedAssignmentVersion = 0;
   let answerGeneration = 0;
   let watchGeneration = 0;
-  let answerRequestCount = 0;
+  let signalingMod = null;
+  let watchRetryTimer = null;
+  let watchRetryAttempt = 0;
   /** @type {object | null} */
   let queuedAnswerDoc = null;
+  const MAX_WATCH_RETRIES = 8;
+
+  function answerMemoryKey(rid) {
+    return `${ANSWER_MEMORY_PREFIX}${String(rid || "").trim()}`;
+  }
+
+  function rememberAnsweredOffer(key) {
+    const rid = String(rideId || "").trim();
+    if (!rid || !key || !answerMemory?.setItem) return;
+    try {
+      answerMemory.setItem(answerMemoryKey(rid), JSON.stringify({ key, at: nowMs() }));
+    } catch {
+      /* storage is best-effort; live reconnect still works */
+    }
+  }
+
+  function restoreAnsweredOffer(rid) {
+    if (!rid || !answerMemory?.getItem) return "";
+    try {
+      const parsed = JSON.parse(answerMemory.getItem(answerMemoryKey(rid)) || "null");
+      if (!parsed?.key || nowMs() - Number(parsed.at || 0) > ANSWER_MEMORY_MAX_AGE_MS) {
+        answerMemory?.removeItem?.(answerMemoryKey(rid));
+        return "";
+      }
+      return String(parsed.key);
+    } catch {
+      return "";
+    }
+  }
+
+  const ctrlCounters = {
+    offersReceived: 0,
+    answerAttempts: 0,
+    answerFailures: 0,
+    watchErrors: 0,
+    watchRetries: 0,
+    staleAborts: 0,
+    reassignmentSessionDestroys: 0,
+    staleAssignmentFixes: 0,
+  };
+  const completedSessionCounters = {};
+  let counterRideId = "";
+
+  function beginCounterRide(nextRideId) {
+    const rid = String(nextRideId || "").trim();
+    if (!rid || rid === counterRideId) return;
+    for (const key of Object.keys(completedSessionCounters)) delete completedSessionCounters[key];
+    counterRideId = rid;
+  }
+
+  function archiveSessionCounters(target) {
+    const snapshot = target?.getCounters?.() || {};
+    for (const [key, raw] of Object.entries(snapshot)) {
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 0) continue;
+      completedSessionCounters[key] = (Number(completedSessionCounters[key]) || 0) + value;
+    }
+  }
+
+  function allSessionCounters() {
+    const combined = { ...completedSessionCounters };
+    const current = session?.getCounters?.() || {};
+    for (const [key, raw] of Object.entries(current)) {
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 0) continue;
+      combined[key] = (Number(combined[key]) || 0) + value;
+    }
+    return combined;
+  }
 
   function invokeUnwatch(fn) {
     if (typeof fn !== "function") return;
@@ -81,6 +156,14 @@ export function createCustomerP2pController(opts = {}) {
     }
   }
 
+  function clearWatchRetry() {
+    if (watchRetryTimer) {
+      clearTimeout(watchRetryTimer);
+      watchRetryTimer = null;
+    }
+    watchRetryAttempt = 0;
+  }
+
   function detachWatch() {
     invokeUnwatch(unwatch);
     unwatch = () => {};
@@ -89,15 +172,8 @@ export function createCustomerP2pController(opts = {}) {
 
   function invalidateWatch() {
     watchGeneration += 1;
+    clearWatchRetry();
     detachWatch();
-  }
-
-  function destroySession() {
-    const s = session;
-    session = null;
-    boundSessionId = "";
-    if (s) void s.close({ reason: "destroy" });
-    arbiter.noteP2pUnhealthy();
   }
 
   function invalidateAnswerState() {
@@ -106,14 +182,60 @@ export function createCustomerP2pController(opts = {}) {
     pendingOfferDoc = null;
   }
 
+  async function signaling() {
+    if (opts.watchRidePeerSession || opts.publishRidePeerAnswerClient || opts.closeRidePeerSessionClient) {
+      return {
+        watchRidePeerSession: opts.watchRidePeerSession,
+        publishRidePeerAnswerClient: opts.publishRidePeerAnswerClient,
+        closeRidePeerSessionClient: opts.closeRidePeerSessionClient,
+      };
+    }
+    if (!signalingMod) {
+      signalingMod = await import("./p2p-signaling-client.mjs");
+    }
+    return signalingMod;
+  }
+
+  function destroySession() {
+    const s = session;
+    session = null;
+    boundSessionId = "";
+    lastOfferSdp = "";
+    if (s) {
+      void s.close({ reason: "destroy" });
+      archiveSessionCounters(s);
+    }
+    arbiter.noteP2pUnhealthy();
+  }
+
+  function destroySessionIfAssignmentMismatch(nextAv) {
+    if (!session || nextAv < 1) return;
+    const sessionAv = Math.floor(Number(session.getState?.()?.assignmentVersion) || 0);
+    if (sessionAv >= 1 && sessionAv !== nextAv) {
+      ctrlCounters.reassignmentSessionDestroys += 1;
+      destroySession();
+    }
+  }
+
   async function closeSignaling(forRideId = rideId) {
     const id = String(forRideId || "").trim();
     if (!id) return;
     try {
-      await closeSignalingClient({ rideId: id });
+      const sig = await signaling();
+      await sig.closeRidePeerSessionClient?.({ rideId: id });
     } catch {
       /* ignore */
     }
+  }
+
+  function requestFreshDriverOffer(reason = "") {
+    const key = answerIdentity(rideId, pendingOfferDoc, expectedAssignmentVersion);
+    if (!rideId || (key && key === reconnectRequestedKey)) return;
+    reconnectRequestedKey = key || `${rideId}|${String(reason || "reconnect")}`;
+    arbiter.noteP2pUnhealthy();
+    // Closing the trusted signaling document tells the driver controller to
+    // rotate its offer. Re-answering the same SDP cannot revive a dead PC.
+    void closeSignaling(rideId);
   }
 
   function isOfferCurrent(docData, forRideId = rideId) {
@@ -132,50 +254,80 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function isWatchCurrent(gen, watchRideId) {
-    return !closed && gen === watchGeneration && String(watchRideId || "").trim() === String(rideId || "").trim();
+    return (
+      !closed &&
+      gen === watchGeneration &&
+      String(watchRideId || "").trim() === String(rideId || "").trim()
+    );
   }
 
   function isAnswerStillValid(gen, capturedRideId, docData) {
-    if (closed || !visible || gen !== answerGeneration) return false;
+    if (closed || gen !== answerGeneration) return false;
     const rid = String(capturedRideId || "").trim();
     if (!rid || rid !== String(rideId || "").trim()) return false;
     return isOfferCurrent(docData, capturedRideId);
   }
 
   function abortStaleAnswer(localSession) {
+    ctrlCounters.staleAborts += 1;
     if (localSession && localSession !== session) {
       void localSession.close({ reason: "stale_answer" });
     } else if (localSession === session) {
       void localSession.close({ reason: "stale_answer" });
       session = null;
       boundSessionId = "";
+      lastOfferSdp = "";
     }
   }
 
-  function invalidateAnswer() {
-    invalidateAnswerState();
-  }
-
-  function resetRideContext({ closeRemote = false } = {}) {
-    invalidateAnswerState();
-    invalidateWatch();
-    pendingOfferDoc = null;
-    if (closeRemote) void closeSignaling();
-    destroySession();
-    expectedAssignmentVersion = 0;
-    rideId = "";
-    arbiter.reset();
+  function scheduleWatchRetry(rid, gen) {
+    if (closed || !watching || rideId !== rid || gen !== watchGeneration) return;
+    if (watchRetryAttempt >= MAX_WATCH_RETRIES) return;
+    if (watchRetryTimer) return;
+    const delayMs = Math.min(30_000, 1_000 * 2 ** watchRetryAttempt);
+    watchRetryAttempt += 1;
+    ctrlCounters.watchRetries += 1;
+    watchRetryTimer = setTimeout(() => {
+      watchRetryTimer = null;
+      if (!closed && watching && rideId === rid && gen === watchGeneration) {
+        attachWatch(rid);
+      }
+    }, delayMs);
   }
 
   function queueAnswer(docData) {
-    if (!visible || closed || !isOfferCurrent(docData)) return;
+    if (closed || !isOfferCurrent(docData)) return;
     const sid = String(docData?.sessionId || "");
-    if (boundSessionId === sid && session) return;
+    const offer = String(docData?.offer || "");
+    ctrlCounters.offersReceived += 1;
+    const newKey = answerIdentity(rideId, docData, expectedAssignmentVersion);
+
+    // A reconnecting Firestore listener can replay the current document after
+    // Android/WebView background suspension. Never destroy a live/degraded PC
+    // merely to answer the exact same already-answered offer again. Only the
+    // driver's freshly rotated offer can establish a new peer session.
+    if (newKey && newKey === answeredOfferKey) {
+      // After WebView/process restoration there is no live peer connection,
+      // even though this offer was answered before. Ask the driver for a fresh
+      // offer instead of publishing another answer to stale SDP.
+      if (!session) requestFreshDriverOffer("answered_offer_replayed");
+      return;
+    }
+
+    if (boundSessionId === sid && session && offer === lastOfferSdp) {
+      const st = String(session.getState?.()?.state || "");
+      if (
+        st !== P2P_STATE.FIREBASE_FALLBACK &&
+        st !== P2P_STATE.CLOSED &&
+        st !== P2P_STATE.DISABLED
+      ) {
+        return;
+      }
+    }
 
     const prevKey = queuedAnswerDoc
       ? answerIdentity(rideId, queuedAnswerDoc, expectedAssignmentVersion)
       : "";
-    const newKey = answerIdentity(rideId, docData, expectedAssignmentVersion);
     queuedAnswerDoc = docData;
     pendingOfferDoc = docData;
 
@@ -188,52 +340,99 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   async function runAnswerLoop() {
-    if (answering || closed || !visible) return;
+    if (answering || closed) return;
     answering = true;
     try {
-      while (queuedAnswerDoc && visible && !closed) {
+      while (queuedAnswerDoc && !closed) {
         const docData = queuedAnswerDoc;
         queuedAnswerDoc = null;
         const capturedRideId = String(rideId || "").trim();
         if (!isOfferCurrent(docData, capturedRideId)) continue;
+        const currentOfferKey = answerIdentity(
+          capturedRideId,
+          docData,
+          expectedAssignmentVersion
+        );
+        if (currentOfferKey && currentOfferKey === answeredOfferKey) continue;
 
         answerGeneration += 1;
         const gen = answerGeneration;
         const sid = String(docData?.sessionId || "");
         const offer = String(docData?.offer || "");
 
+        ctrlCounters.answerAttempts += 1;
         destroySession();
         boundSessionId = sid;
+        lastOfferSdp = offer;
+
+        const sig = await signaling();
+        if (!isAnswerStillValid(gen, capturedRideId, docData)) continue;
 
         const localSession = createP2pPeerSession({
           role: "customer",
           RTCPeerConnection: opts.RTCPeerConnection,
+          ensureIceConfiguration: opts.ensureIceConfiguration || defaultEnsureIceConfiguration,
           onDiag: diag,
+          onChannelOpen: () => opts.onChannelOpen?.(),
           onState: (st) => {
             if (localSession !== session) return;
             if (st === P2P_STATE.FIREBASE_FALLBACK || st === P2P_STATE.P2P_DEGRADED) {
               arbiter.noteP2pUnhealthy();
             }
           },
+          onNeedReconnect: () => {
+            if (localSession !== session) return;
+            requestFreshDriverOffer("customer_transport_stalled");
+          },
           onLocationFix: (fix) => {
-            if (localSession === session) {
-              arbiter.ingestP2p(fix, arbiter.getGeneration());
+            if (localSession !== session) return;
+            const fixAv = Math.floor(Number(fix?.assignmentVersion) || 0);
+            if (
+              expectedAssignmentVersion > 0 &&
+              fixAv > 0 &&
+              fixAv !== expectedAssignmentVersion
+            ) {
+              ctrlCounters.staleAssignmentFixes += 1;
+              return;
             }
+            try {
+              getFieldDiagnostics()?.record("p2p_receive", {
+                ok: true,
+                lat: fix?.lat,
+                lng: fix?.lng,
+                observedAt: fix?.observedAt ?? null,
+                sequence: fix?.sequence ?? null,
+              });
+            } catch {
+              /* ignore */
+            }
+            arbiter.ingestP2p(fix, arbiter.getGeneration());
           },
           onLocalDescription: async (kind, sdp, meta) => {
             if (kind !== "answer") return;
-            if (!isAnswerStillValid(gen, capturedRideId, docData) || localSession !== session) return;
-            await publishAnswerClient({
+            await Promise.resolve();
+            if (!isAnswerStillValid(gen, capturedRideId, docData) || localSession !== session) {
+              ctrlCounters.staleAborts += 1;
+              return;
+            }
+            await sig.publishRidePeerAnswerClient?.({
               rideId: capturedRideId,
               answerSdp: sdp,
               peerSessionId: meta.peerSessionId,
             });
-            if (!isAnswerStillValid(gen, capturedRideId, docData) || localSession !== session) return;
-            answerRequestCount += 1;
+            answeredOfferKey = currentOfferKey;
+            rememberAnsweredOffer(currentOfferKey);
+            reconnectRequestedKey = "";
+            if (!isAnswerStillValid(gen, capturedRideId, docData) || localSession !== session) {
+              ctrlCounters.staleAborts += 1;
+              return;
+            }
+            session?.noteAnswerUploaded?.(sdp);
           },
         });
 
         session = localSession;
+        session.setPipelineRideId?.(capturedRideId);
 
         await localSession.startAsCustomer({
           peerSessionId: sid,
@@ -251,10 +450,11 @@ export function createCustomerP2pController(opts = {}) {
         pendingOfferDoc = null;
       }
     } catch {
+      ctrlCounters.answerFailures += 1;
       destroySession();
     } finally {
       answering = false;
-      if (queuedAnswerDoc && visible && !closed) {
+      if (queuedAnswerDoc && !closed) {
         void runAnswerLoop();
       }
     }
@@ -266,53 +466,49 @@ export function createCustomerP2pController(opts = {}) {
 
   function attachWatch(rid) {
     invalidateWatch();
-
     watchGeneration += 1;
     const gen = watchGeneration;
     const watchRideId = String(rid || "").trim();
     watching = true;
 
-    void (async () => {
-      let localUnwatch = () => {};
-      try {
-        localUnwatch = await watchSession(
-          watchRideId,
-          (docData) => {
-            if (!isWatchCurrent(gen, watchRideId)) return;
-            if (!docData) {
-              if (isWatchCurrent(gen, watchRideId)) pendingOfferDoc = null;
-              return;
-            }
-            if (isOfferCurrent(docData, watchRideId)) {
-              pendingOfferDoc = docData;
-            } else if (
-              expectedAssignmentVersion > 0 &&
-              Number(docData.assignmentVersion) > 0 &&
-              Number(docData.assignmentVersion) !== expectedAssignmentVersion
-            ) {
-              pendingOfferDoc = null;
-              return;
-            }
-            if (!visible) return;
-            queueAnswer(docData);
-          },
-          () => {
-            if (!isWatchCurrent(gen, watchRideId)) return;
-            arbiter.noteP2pUnhealthy();
-          }
-        );
-      } catch {
-        if (isWatchCurrent(gen, watchRideId)) watching = false;
+    const onData = (docData) => {
+      if (!isWatchCurrent(gen, watchRideId)) return;
+      if (!docData) {
+        if (isWatchCurrent(gen, watchRideId)) pendingOfferDoc = null;
         return;
       }
-
-      if (!isWatchCurrent(gen, watchRideId)) {
-        invokeUnwatch(localUnwatch);
+      watchRetryAttempt = 0;
+      const docAv = Math.floor(Number(docData.assignmentVersion) || 0);
+      if (session) {
+        destroySessionIfAssignmentMismatch(docAv);
+      }
+      if (isOfferCurrent(docData, watchRideId)) {
+        pendingOfferDoc = docData;
+      } else if (
+        expectedAssignmentVersion > 0 &&
+        docAv > 0 &&
+        docAv !== expectedAssignmentVersion
+      ) {
+        pendingOfferDoc = null;
         return;
       }
+      void queueAnswer(docData);
+    };
+    const onError = () => {
+      if (!isWatchCurrent(gen, watchRideId)) return;
+      arbiter.noteP2pUnhealthy();
+      ctrlCounters.watchErrors += 1;
+      scheduleWatchRetry(watchRideId, gen);
+    };
 
-      unwatch = localUnwatch;
-    })();
+    if (typeof opts.watchRidePeerSession === "function") {
+      unwatch = opts.watchRidePeerSession(watchRideId, onData, onError);
+      return;
+    }
+    void signaling().then((sig) => {
+      if (!isWatchCurrent(gen, watchRideId)) return;
+      unwatch = sig.watchRidePeerSession(watchRideId, onData, onError);
+    });
   }
 
   function bindRide(nextRideId) {
@@ -328,27 +524,39 @@ export function createCustomerP2pController(opts = {}) {
     if (switching) {
       invalidateAnswerState();
       pendingOfferDoc = null;
+      answeredOfferKey = "";
+      reconnectRequestedKey = "";
       destroySession();
     }
 
+    beginCounterRide(rid);
     rideId = rid;
-    arbiter.reset();
+    answeredOfferKey = restoreAnsweredOffer(rid);
+    arbiter.reset({ clearCounters: true });
     attachWatch(rid);
   }
 
   function ingestFirebaseLocation(loc, rideMeta = {}) {
-    if (!loc || typeof loc.lat !== "number" || typeof loc.lng !== "number") return;
+    const lat = Number(loc?.lat);
+    const lng = Number(loc?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
     const observedAt =
       Number(loc.observedAt) ||
       Number(rideMeta.driverLocationUpdatedAt) ||
       Date.now();
     arbiter.ingestFirebase(
       {
-        lat: loc.lat,
-        lng: loc.lng,
+        lat,
+        lng,
         observedAt,
         sequence: Number(loc.sequence) || 0,
-        trackingSessionId: String(loc.trackingSessionId || rideMeta.trackingSessionId || ""),
+        trackingSessionId: String(
+          loc.trackingSessionId ||
+            loc.sessionId ||
+            rideMeta.driverTrackingSessionId ||
+            rideMeta.trackingSessionId ||
+            ""
+        ),
         assignmentVersion: Number(rideMeta.assignmentVersion) || 0,
         accuracyM: loc.accuracyM ?? loc.accuracy ?? null,
         headingDeg: loc.headingDeg ?? loc.heading ?? null,
@@ -359,36 +567,31 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function setVisible(next) {
-    visible = Boolean(next);
-    if (!visible) {
-      invalidateAnswer();
-      session?.suspend?.();
-      arbiter.noteP2pUnhealthy();
-      return;
-    }
-    if (!rideId) return;
-    if (!watching) {
-      attachWatch(rideId);
-    }
-    if (pendingOfferDoc && isOfferCurrent(pendingOfferDoc)) {
-      queueAnswer(pendingOfferDoc);
-    }
+    uiVisible = Boolean(next);
+    // Active-ride policy: screen hidden/background must not suspend or stop P2P.
+    // Signaling watch stays attached; resume only re-answers if the session is dead.
   }
 
-  function syncForRide(ride, { isVisible = true, assignmentVersion = 0 } = {}) {
+  function isUiVisible() {
+    return uiVisible;
+  }
+
+  function syncForRide(ride, { isVisible = true, assignmentVersion: rideAssignmentVersion = 0 } = {}) {
     if (closed) return;
     const status = String(ride?.status || "");
     const rid = String(ride?.id || "").trim();
-    const nextAv = Math.max(0, Math.floor(Number(assignmentVersion) || 0));
+    const nextAv = Math.max(0, Math.floor(Number(rideAssignmentVersion) || 0));
     const rideChanged = Boolean(rid && rideId && rid !== rideId);
 
+    // Invalidate before bind/visibility so stale answer/watch cannot race the new ride.
     if (rideChanged) {
       invalidateAnswerState();
       invalidateWatch();
       pendingOfferDoc = null;
       destroySession();
-    } else if (nextAv > 0 && nextAv !== expectedAssignmentVersion && (answering || session)) {
-      invalidateAnswer();
+    } else if (nextAv > 0 && nextAv !== expectedAssignmentVersion) {
+      invalidateAnswerState();
+      destroySessionIfAssignmentMismatch(nextAv);
     }
 
     expectedAssignmentVersion = nextAv;
@@ -399,6 +602,8 @@ export function createCustomerP2pController(opts = {}) {
       return;
     }
 
+    // Bind ride identity before visibility updates (main a1d82e4 ordering).
+    // Branch keeps P2P alive while hidden; setVisible must not tear down the session.
     bindRide(rid);
     setVisible(isVisible);
 
@@ -415,6 +620,8 @@ export function createCustomerP2pController(opts = {}) {
     destroySession();
     pendingOfferDoc = null;
     expectedAssignmentVersion = 0;
+    answeredOfferKey = "";
+    reconnectRequestedKey = "";
     rideId = "";
     arbiter.reset();
   }
@@ -431,21 +638,27 @@ export function createCustomerP2pController(opts = {}) {
     bindRide,
     syncForRide,
     setVisible,
+    isUiVisible,
     ingestFirebaseLocation,
     stop,
     destroy,
     getArbiter: () => arbiter,
+    createCommTransport: () => session?.createCommTransport?.() || null,
+    createMediaBridge: () => session?.createMediaBridge?.() || null,
     getCounters: () => ({
-      ...(session?.getCounters?.() || {}),
+      ...allSessionCounters(),
       ...(arbiter.getCounters?.() || {}),
+      ...ctrlCounters,
     }),
     getState: () => session?.getState?.() || { state: P2P_STATE.DISABLED },
-    getAnswerRequestCount: () => answerRequestCount,
+    getPipeline: () => session?.getPipeline?.() || [],
+    getPipelineReport: () => session?.getPipelineReport?.() || null,
     /** Test helpers */
     _getAnswerGeneration: () => answerGeneration,
     _getWatchGeneration: () => watchGeneration,
     _isAnswering: () => answering,
     _isWatching: () => watching,
     _getRideId: () => rideId,
+    _getSessionForTest: () => session,
   };
 }

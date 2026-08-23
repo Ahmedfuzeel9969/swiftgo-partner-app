@@ -1,0 +1,31 @@
+{
+  "suite": "breadcrumb-telemetry-rules",
+  "generatedAt": "2026-08-02T09:57:58.611Z",
+  "total": 3,
+  "pass": 3,
+  "fail": 0,
+  "blocked": 0,
+  "results": [
+    {
+      "name": "static-telemetry-deny-all-architecture",
+      "status": "PASS",
+      "detail": "static architecture",
+      "suite": "breadcrumb-telemetry-rules",
+      "category": "static"
+    },
+    {
+      "name": "rules-client-read-denied",
+      "status": "PASS",
+      "detail": "authenticated emulator rules",
+      "suite": "breadcrumb-telemetry-rules",
+      "category": "rules"
+    },
+    {
+      "name": "rules-client-write-denied",
+      "status": "PASS",
+      "detail": "authenticated emulator rules",
+      "suite": "breadcrumb-telemetry-rules",
+      "category": "rules"
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "stage": 3,
+  "area": "customer-controller-reconciliation",
+  "generatedAt": "2026-08-20T13:42:19.076Z",
+  "pass": 14,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-answerGeneration",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-watchGeneration",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-expectedAssignmentVersion",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-isOfferCurrent",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-isWatchCurrent",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-isAnswerStillValid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-runAnswerLoop",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-capturedRideId publish",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-background no suspend",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-createCommTransport",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "stale-answer-uses-captured-rideId-not-live-rideId",
+      "status": "PASS",
+      "detail": "published=[\"ride_A4\",\"ride_B4\"] currentRide=ride_B4"
+    },
+    {
+      "name": "stale-in-flight-answer-aborted-on-ride-switch",
+      "status": "PASS",
+      "detail": "staleAborts=2 published=2"
+    },
+    {
+      "name": "old-session-loc-blocked-after-ride-switch",
+      "status": "PASS",
+      "detail": "renders=0 leaked=false hadStale=true"
+    },
+    {
+      "name": "hidden-does-not-suspend-or-destroy-p2p",
+      "status": "PASS",
+      "detail": "state=CONNECTING uiVisible=false"
+    }
+  ]
+}

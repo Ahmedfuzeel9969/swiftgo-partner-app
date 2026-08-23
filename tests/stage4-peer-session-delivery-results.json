@@ -1,0 +1,69 @@
+{
+  "stage": 4,
+  "area": "peer-session-delivery",
+  "generatedAt": "2026-08-20T13:20:20.462Z",
+  "pass": 12,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-sentSequences",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-validateDriverAck",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-scheduleCadenceFlush",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-scheduleChannelOpenTimeout",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-isLocDeliveryHealthy",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-pendingLocGen",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "ack-trust-rejects-future-duplicate-unsent",
+      "status": "PASS",
+      "detail": "invalidMessages=3"
+    },
+    {
+      "name": "ack-trust-valid-seq1-establishes-loc-delivery",
+      "status": "PASS",
+      "detail": "locHealthy=true"
+    },
+    {
+      "name": "heartbeat-alone-not-loc-delivery-healthy",
+      "status": "PASS",
+      "detail": "locHealthy=false transport=true"
+    },
+    {
+      "name": "cadence-coalesces-rapid-gps-burst",
+      "status": "PASS",
+      "detail": "sent=1 fixesSent=1 intervalMs=3000"
+    },
+    {
+      "name": "send-failure-retains-newest-pending-fix",
+      "status": "PASS",
+      "detail": "fixesSent=1 sendFailures=1"
+    },
+    {
+      "name": "syncAssignmentVersion-rejects-invalid-inputs",
+      "status": "PASS",
+      "detail": "baseline=424242 after=424242"
+    }
+  ]
+}

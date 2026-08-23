@@ -1,0 +1,90 @@
+{
+  "stage": 8,
+  "tranche": 3,
+  "scope": "idle-fail-closed-and-index-idle-validation",
+  "generatedAt": "2026-08-23T13:06:35.986Z",
+  "deferredFromMain": [
+    "full admin idle diagnostic UI surface polish (callables already gated)"
+  ],
+  "summary": {
+    "pass": 15,
+    "fail": 0
+  },
+  "results": [
+    {
+      "name": "branch-idle-defaults-preserved",
+      "status": "PASS",
+      "detail": "{\"idleLocationIntervalMs\":300000,\"idleLocationMoveMeters\":200,\"idleMovementTriggerDisabled\":false}"
+    },
+    {
+      "name": "max-idle-below-matching-stale",
+      "status": "PASS",
+      "detail": "max=300000 stale=600000"
+    },
+    {
+      "name": "rejects-string-interval-coercion",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rejects-fractional-interval",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "accepts-strict-integer-interval",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "expired-diagnostic-fails-closed",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "safe-defaults-helper",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "cjs-mirror-parity-defaults",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "active-ride-unhealthy-p2p-stays-responsive-4s",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "name": "active-ride-healthy-p2p-sparse-ignores-lease",
+      "status": "PASS",
+      "detail": "P2P_SPARSE_TRIP@30000"
+    },
+    {
+      "name": "idle-policy-uses-strict-resolver-defaults",
+      "status": "PASS",
+      "detail": "interval=300000"
+    },
+    {
+      "name": "index-idle-uses-strict-callable-validators",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "index-rejects-client-diagnostic-expiry",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "index-keeps-background-location-exports",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "index-exports-owner-onboarding-and-lifecycle",
+      "status": "PASS",
+      "detail": "tranche 4 ported owner/admin/lifecycle"
+    }
+  ]
+}

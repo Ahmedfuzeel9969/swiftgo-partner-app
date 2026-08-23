@@ -308,3 +308,25 @@ export function projectFixOntoRoute(input = {}) {
     parallelRejected: Boolean(alt),
   };
 }
+
+/**
+ * Remaining polyline from along-route progress to the end (display trim only).
+ * @param {ReturnType<typeof buildRouteMetrics>} metrics
+ * @param {number} progressM
+ * @returns {Array<{lat:number,lng:number}>|null}
+ */
+export function remainingGeometryFromProgress(metrics, progressM) {
+  if (!metrics?.geometry?.length) return null;
+  const geo = metrics.geometry;
+  if (!Number.isFinite(progressM) || progressM <= 0) {
+    return geo.slice();
+  }
+  if (progressM >= metrics.totalLengthM - 1e-3) {
+    const last = geo[geo.length - 1];
+    return last ? [{ lat: last.lat, lng: last.lng }] : null;
+  }
+  const at = pointAtProgress(metrics, progressM);
+  if (!at) return geo.slice();
+  const rest = geo.slice(at.segmentIndex + 1);
+  return [{ lat: at.lat, lng: at.lng }, ...rest];
+}

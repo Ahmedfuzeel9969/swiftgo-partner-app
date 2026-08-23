@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-10T13:18:12.857Z",
+  "generatedAt": "2026-08-02T10:17:39.386Z",
   "summary": {
-    "pass": 21,
-    "fail": 0,
+    "pass": 19,
+    "fail": 2,
     "blocked": 0,
     "total": 21
   },
@@ -15,20 +15,20 @@
     },
     {
       "name": "CASE-A-first-match-zero",
-      "status": "PASS",
-      "detail": "count=0 source=geo_scoped_plus_capped_probe",
+      "status": "FAIL",
+      "detail": "count=1 source=geo_scoped",
       "suite": "dispatch-readiness"
     },
     {
       "name": "CASE-A-first-source-probe-or-empty",
-      "status": "PASS",
-      "detail": "geo_scoped_plus_capped_probe",
+      "status": "FAIL",
+      "detail": "geo_scoped",
       "suite": "dispatch-readiness"
     },
     {
       "name": "CASE-A-recovery-rematch-one",
       "status": "PASS",
-      "detail": "count=1 source=geo_scoped",
+      "detail": "count=2 source=geo_scoped",
       "suite": "dispatch-readiness"
     },
     {
@@ -58,7 +58,7 @@
     {
       "name": "CASE-B-candidate-invited",
       "status": "PASS",
-      "detail": "bciLuP6ICEnjd0xDOgLV_rdymsn9b79y-b-drv",
+      "detail": "oipPn76fX2nXPuoK2kp4_rdymsbncc6b-b-drv",
       "suite": "dispatch-readiness"
     },
     {

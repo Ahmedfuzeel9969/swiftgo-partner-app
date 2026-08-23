@@ -1,0 +1,342 @@
+{
+  "generatedAt": "2026-08-15T16:16:35.325Z",
+  "passed": 67,
+  "failed": 0,
+  "results": [
+    {
+      "name": "p1.write.force",
+      "status": "PASS",
+      "detail": "forced_write"
+    },
+    {
+      "name": "p1.write.both",
+      "status": "PASS",
+      "detail": "both_interval_and_movement"
+    },
+    {
+      "name": "p1.skip.interval",
+      "status": "PASS",
+      "detail": "Minimum interval not reached."
+    },
+    {
+      "name": "p1.recv.first",
+      "status": "PASS",
+      "detail": "new_location"
+    },
+    {
+      "name": "p1.recv.dup_document",
+      "status": "PASS",
+      "detail": "duplicate_document"
+    },
+    {
+      "name": "p2.timing.about_4s",
+      "status": "PASS",
+      "detail": "about_4s"
+    },
+    {
+      "name": "p2.timing.before_force",
+      "status": "PASS",
+      "detail": "Write occurred before the configured 4s responsive interval. Reason: forced/immediate checkpoint (presence visible, status, or explicit force) — allowed by current policy."
+    },
+    {
+      "name": "p2.dup.listener_replay",
+      "status": "PASS",
+      "detail": "listener_replay"
+    },
+    {
+      "name": "p2.link.seq",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "p2.link.gps",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "p2.tolerance",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "p3.proof.new",
+      "status": "PASS",
+      "detail": "new_document_data"
+    },
+    {
+      "name": "p3.proof.listener_replay",
+      "status": "PASS",
+      "detail": "listener_replay"
+    },
+    {
+      "name": "p1.ride_complete.marker_without_reports",
+      "status": "PASS",
+      "detail": "Billing summary marker recorded (detailed report deferred until diagnostics repo"
+    },
+    {
+      "name": "p1.ride_complete.uses_attached_builder",
+      "status": "PASS",
+      "detail": "FULL_BILLING_REPORT"
+    },
+    {
+      "name": "field.singleton",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "field.no_reports_before_ensure",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "field.ensure_same_instance",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "field.ensure_attaches_once",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "field.reattach_idempotent",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "reports.phase1_text",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "reports.phase2_text",
+      "status": "PASS",
+      "detail": "len=5336"
+    },
+    {
+      "name": "reports.phase3_text",
+      "status": "PASS",
+      "detail": "len=4204"
+    },
+    {
+      "name": "p2.fallback_detail_event",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no_static_report_import.phase1-billing-diagnostics.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no_static_report_import.phase2-runtime-verification.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no_static_report_import.phase3-billing-proof.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no_static_report_import.field-diagnostics.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "field.dynamic_import_reports",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.build_exit",
+      "status": "PASS",
+      "detail": "      <- super-admin-panel\n  /legal/        <- privacy, terms, data-use drafts\n  /.well-known/  <- assetlinks draft (if present)\n  shared/js      <- canonical road modules (also inlined into app js/)\n"
+    },
+    {
+      "name": "hosting.present.js/phase1-billing-diagnostics.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.js/phase1-billing-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.js/phase2-runtime-verification.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.js/phase2-runtime-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.js/phase3-billing-proof.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.js/phase3-billing-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.js/field-diagnostics.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.js/diagnostics-screen-core.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.customer/js/phase1-billing-diagnostics.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.customer/js/phase1-billing-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.customer/js/phase2-runtime-verification.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.customer/js/phase2-runtime-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.customer/js/phase3-billing-proof.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.customer/js/phase3-billing-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.customer/js/field-diagnostics.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.customer/js/diagnostics-screen-core.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.partner/js/phase1-billing-diagnostics.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.partner/js/phase1-billing-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.partner/js/phase2-runtime-verification.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.partner/js/phase2-runtime-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.partner/js/phase3-billing-proof.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.partner/js/phase3-billing-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.partner/js/field-diagnostics.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.partner/js/diagnostics-screen-core.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.shared/js/phase1-billing-diagnostics.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.shared/js/phase1-billing-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.shared/js/phase2-runtime-verification.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.shared/js/phase2-runtime-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.shared/js/phase3-billing-proof.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.shared/js/phase3-billing-reports.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.shared/js/field-diagnostics.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.present.shared/js/diagnostics-screen-core.mjs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.phase1_facade_rewritten",
+      "status": "PASS",
+      "detail": "checkpoint rewrite"
+    },
+    {
+      "name": "hosting.phase1_facade_no_reports_import",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.phase1_reports_import_facade",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.field_lazy_loader",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "hosting.screen_awaits_reports",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

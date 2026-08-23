@@ -1,0 +1,132 @@
+{
+  "stage": 1,
+  "suite": "bootstrap-assignment-contract",
+  "productionChanges": false,
+  "generatedAt": "2026-08-20T10:46:14.984Z",
+  "pass": 12,
+  "expectedFail": 0,
+  "fail": 3,
+  "skip": 1,
+  "rootCause": "Driver p2p-ride-controller requestStart uses Math.max(1, …||0), so unknown assignmentVersion becomes 1; createRidePeerOffer payload then includes assignmentVersion: 1; real server STALE_ASSIGNMENT rejects when authoritative AV != 1.",
+  "evidence": {
+    "controllerCoercionLine": "driver-app/js/p2p-ride-controller.mjs requestStart: Math.max(1, floor(target.assignmentVersion || synced || 0))",
+    "offerPayloadLine": "onLocalDescription offer publish: assignmentVersion: target.assignmentVersion || undefined",
+    "productionPath": "driver-app.js syncDriverP2pForActiveRide → syncForRide without assignmentVersion",
+    "serverGate": "functions/ride-peer-session.js createRidePeerOffer: if (clientAv && clientAv !== assignmentVersion) throw STALE_ASSIGNMENT",
+    "priorTestsGap": "stage2/stage5 mocks never enforce STALE_ASSIGNMENT on clientAv mismatch"
+  },
+  "results": [
+    {
+      "id": "S1",
+      "name": "controller-requestStart-coerces-unknown-to-1",
+      "status": "FAIL",
+      "detail": "requestStart uses Math.max(1, … || 0)",
+      "category": "static"
+    },
+    {
+      "id": "S2",
+      "name": "controller-offer-publish-sends-truthy-assignmentVersion",
+      "status": "FAIL",
+      "detail": "when internal AV=1, payload includes assignmentVersion: 1",
+      "category": "static"
+    },
+    {
+      "id": "S3",
+      "name": "peer-session-startAsDriver-floors-unknown-to-1",
+      "status": "PASS",
+      "detail": "session bootstrap uses placeholder 1 before server AV",
+      "category": "static"
+    },
+    {
+      "id": "S4",
+      "name": "driver-app-syncForRide-omits-assignmentVersion",
+      "status": "PASS",
+      "detail": "production path passes ride+trackingSessionId only",
+      "category": "static"
+    },
+    {
+      "id": "S5",
+      "name": "server-STALE-when-clientAv-nonzero-and-differs",
+      "status": "PASS",
+      "detail": "authoritative server check present",
+      "category": "static"
+    },
+    {
+      "id": "S6",
+      "name": "stage5-mock-skips-STALE_ASSIGNMENT",
+      "status": "PASS",
+      "detail": "permissive hub always accepts offer",
+      "category": "static"
+    },
+    {
+      "id": "S7",
+      "name": "stage2-mock-skips-STALE_ASSIGNMENT",
+      "status": "PASS",
+      "detail": "returns serverAv without enforcing clientAv gate",
+      "category": "static"
+    },
+    {
+      "id": "B0",
+      "name": "authoritative-assignmentVersion-not-1-for-real-ride",
+      "status": "PASS",
+      "detail": "serverAv=975268235",
+      "category": "contract"
+    },
+    {
+      "id": "B",
+      "name": "server-rejects-client-assignmentVersion-1-when-authoritative-differs",
+      "status": "PASS",
+      "detail": "clientAv=1 serverAv=975268235",
+      "category": "contract"
+    },
+    {
+      "id": "C",
+      "name": "server-rejects-explicit-wrong-nonzero-assignmentVersion",
+      "status": "PASS",
+      "detail": "wrong=975269234 expected=975268235",
+      "category": "contract"
+    },
+    {
+      "id": "D",
+      "name": "server-bootstrap-omitted-client-assignmentVersion-succeeds",
+      "status": "PASS",
+      "detail": "returnedAv=975268235",
+      "category": "contract"
+    },
+    {
+      "id": "D2",
+      "name": "server-bootstrap-zero-client-assignmentVersion-succeeds",
+      "status": "PASS",
+      "detail": "returnedAv=975268235",
+      "category": "contract"
+    },
+    {
+      "id": "A1",
+      "name": "production-syncForRide-omits-assignmentVersion-on-offer-payload",
+      "status": "PASS",
+      "detail": "payloadAssignmentVersion=undefined sentAv=0",
+      "category": "controller"
+    },
+    {
+      "id": "A2",
+      "name": "controller-internal-normalizes-unknown-to-1-before-offer",
+      "status": "PASS",
+      "detail": "payloadAv=0 sessionAv=975268235 (bug: unknown→1)",
+      "category": "controller"
+    },
+    {
+      "id": "A3",
+      "name": "strict-server-rejects-controller-first-offer-when-sends-1",
+      "status": "SKIP",
+      "detail": "serverAv=975268235 sentAv=0 rejected=false",
+      "category": "controller"
+    },
+    {
+      "id": "A4",
+      "name": "offer-publish-failure-recorded-on-STALE_ASSIGNMENT",
+      "status": "FAIL",
+      "detail": "offerPublishFailures=0",
+      "category": "controller"
+    }
+  ]
+}

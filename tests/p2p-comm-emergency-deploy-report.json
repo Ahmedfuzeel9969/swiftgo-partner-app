@@ -1,0 +1,68 @@
+{
+  "title": "P2P Communication — Emergency Fix Deploy + Field Validation",
+  "generatedAt": "2026-08-04T16:35:00.000Z",
+  "rootCause": "Contact conversation session often never subscribed to DataChannel: UI mounted before peer session existed; customer did not rebind on channel open. Inbound comm_* frames hit empty commHandlers and were dropped. Secondary: Android WebView may deliver DC text as Blob/ArrayBuffer.",
+  "fixApplied": [
+    "onChannelOpen → syncRideCommChat / syncDriverRideCommChat (bind/subscribe when DC opens)",
+    "Contact panel onOpen + send refresh/retry",
+    "DataChannel onmessage decodes ArrayBuffer/Blob; binaryType=arraybuffer",
+    "window.__SWIFTGO_COMM_TRACE__ field evidence ring"
+  ],
+  "filesChanged": [
+    "driver-app/js/p2p-peer-session.mjs",
+    "customer-app/js/p2p-peer-session.mjs",
+    "driver-app/js/p2p-ride-controller.mjs",
+    "customer-app/js/p2p-ride-controller.mjs",
+    "driver-app/js/driver-app.js",
+    "customer-app/js/ride-flow.js",
+    "shared/js/p2p-comm-panel.mjs"
+  ],
+  "deployment": {
+    "status": "SUCCESS",
+    "target": "hosting",
+    "project": "swiftgo-ride-app",
+    "hostingUrl": "https://swiftgo-ride-app.web.app",
+    "partnerUrl": "https://swiftgo-ride-app.web.app/partner/",
+    "customerUrl": "https://swiftgo-ride-app.web.app/",
+    "verifiedInBundle": "onChannelOpen + TextDecoder present in partner/js/p2p-peer-session.mjs"
+  },
+  "labResults": {
+    "devicePath": "13/13 PASS",
+    "textChatSuite": "22/22 PASS"
+  },
+  "realDeviceResults": {
+    "status": "PENDING_OPERATOR",
+    "note": "Agent cannot operate two physical Android phones. Operator must run checklist below and report PASS/FAIL.",
+    "textChat": "PENDING",
+    "voiceMessage": "PENDING",
+    "voiceCall": "PENDING",
+    "regression": "PENDING"
+  },
+  "fieldChecklist": {
+    "prep": [
+      "Hard refresh / clear site data on both phones (or reopen native shell against live hosting)",
+      "Start assigned ride; wait until live location moves (P2P up)",
+      "Open Contact on both"
+    ],
+    "textChat": [
+      "Driver sends Hello → Customer receives Hello",
+      "Customer sends OK → Driver receives OK"
+    ],
+    "voiceMessage": [
+      "Driver → Customer playback works",
+      "Customer → Driver playback works"
+    ],
+    "voiceCall": [
+      "Driver calls Customer: ring, accept, audio both ways, end",
+      "Customer calls Driver: ring, accept, audio both ways, end",
+      "Reject path once"
+    ],
+    "regression": [
+      "Ride booking / accept still works",
+      "Live + P2P location still updates",
+      "Firebase fallback still engages if P2P drops",
+      "Billing / diagnostics unchanged visually"
+    ],
+    "onFailure": "copy(JSON.stringify(__SWIFTGO_COMM_TRACE__, null, 2)) on BOTH phones and STOP"
+  }
+}

@@ -1,0 +1,152 @@
+{
+  "stage": 6,
+  "suite": "cloud-functions-audit",
+  "honestDescription": "Read-only audit: rideViewerPresence ingest read, 4s responsive cadence chain, functions index load timing",
+  "generatedAt": "2026-08-20T10:46:37.661Z",
+  "deployAuthorized": false,
+  "deployBlocked": false,
+  "functionsLoad": {
+    "deployBlocked": false,
+    "maxMs": 4695,
+    "avgMs": 1881,
+    "samples": [
+      4695,
+      438,
+      509
+    ],
+    "exportCount": 48
+  },
+  "pass": 23,
+  "warn": 1,
+  "fail": 0,
+  "results": [
+    {
+      "name": "presence-collection-defined",
+      "status": "PASS",
+      "detail": "rideViewerPresence constant"
+    },
+    {
+      "name": "ingest-no-presenceSnap",
+      "status": "PASS",
+      "detail": "rideViewerPresence not read during ingest"
+    },
+    {
+      "name": "cadence-ignores-viewerLease-for-interval",
+      "status": "PASS",
+      "detail": "active ride always RESPONSIVE_FIREBASE@4s"
+    },
+    {
+      "name": "native-upload-cadence-visible-4s",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000 hard=false"
+    },
+    {
+      "name": "native-upload-cadence-unknown-4s",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000 hard=false"
+    },
+    {
+      "name": "native-upload-cadence-expired-4s",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000 hard=false"
+    },
+    {
+      "name": "legacy-background-interval-constants-still-exported",
+      "status": "PASS",
+      "detail": "exported but unused by resolveBackgroundUploadIntervalMs (intentional d34)"
+    },
+    {
+      "name": "ingest-write-gate-soft-4s-not-hard",
+      "status": "PASS",
+      "detail": "movement may bypass 4s when hardInterval=false"
+    },
+    {
+      "name": "protocol-firebase-backup-read-4s",
+      "status": "PASS",
+      "detail": "4000ms"
+    },
+    {
+      "name": "checkpoint-responsive-interval-4s",
+      "status": "PASS",
+      "detail": "4000ms"
+    },
+    {
+      "name": "cf-responsive-interval-4s",
+      "status": "PASS",
+      "detail": "4000ms"
+    },
+    {
+      "name": "p2p-fallback-before-firebase-takeover",
+      "status": "PASS",
+      "detail": "fallbackAfter=30000ms"
+    },
+    {
+      "name": "checkpoint-unhealthy-p2p-responsive-4s",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "name": "driver-app-wires-native-interval-from-checkpoint",
+      "status": "PASS",
+      "detail": "checkpointPolicy → native bridge"
+    },
+    {
+      "name": "native-bridge-default-interval-4s",
+      "status": "PASS",
+      "detail": "min 2000 enforced upstream"
+    },
+    {
+      "name": "android-fg-service-default-4s",
+      "status": "PASS",
+      "detail": "LocationRequest interval from plugin"
+    },
+    {
+      "name": "functions-export-issue-credential",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "functions-export-ingest-https",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "presence-lease-visible",
+      "status": "PASS",
+      "detail": "VISIBLE"
+    },
+    {
+      "name": "presence-lease-expired",
+      "status": "PASS",
+      "detail": "EXPIRED"
+    },
+    {
+      "name": "presence-read-not-used-for-cadence-gating",
+      "status": "PASS",
+      "detail": "native ingest returns viewerLease=UNKNOWN; client owns lease policy"
+    },
+    {
+      "name": "functions-index-cold-load-under-10s",
+      "status": "PASS",
+      "detail": "samplesMs=4695,438,509 max=4695 avg=1881"
+    },
+    {
+      "name": "functions-index-export-surface",
+      "status": "PASS",
+      "detail": "exports≈48 (monolithic index.js)"
+    },
+    {
+      "name": "deploy-discovery-risk",
+      "status": "WARN",
+      "detail": "max load 4695ms — under 10s but heavy; cold AV/disk may timeout"
+    }
+  ],
+  "findings": [
+    "Native ingest no longer reads rideViewerPresence — authorization uses HMAC credential + ride/vehicle binding only.",
+    "resolveBackgroundUploadIntervalMs ignores viewerLease — active rides always RESPONSIVE_FIREBASE@4000ms (d34 behavior preserved).",
+    "4000ms is a soft responsive target (hardInterval=false); movement >= 25m may write earlier.",
+    "Client arbiter FIREBASE_BACKUP_READ_INTERVAL_MS, checkpoint RESPONSIVE_INTERVAL_MS, CF RESPONSIVE_INTERVAL_MS, and Android default intervalMs=4000 are aligned.",
+    "BACKGROUND_APPROACH/TRIP interval constants remain exported but unused by native upload cadence resolver (sparse cadence is client checkpoint path when P2P healthy).",
+    "Fresh-process functions/index.js load max=4695ms avg=1881ms (Firebase deploy dry-run succeeded in this environment)."
+  ]
+}

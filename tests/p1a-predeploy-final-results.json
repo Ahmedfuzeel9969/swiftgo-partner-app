@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2026-08-05T12:03:18.181Z",
+  "suite": "p1a-predeploy-final",
+  "pass": true,
+  "results": [
+    {
+      "n": "valid-values-preserved-not-defaults",
+      "ok": true,
+      "d": "{\"idleLocationIntervalMs\":60000,\"idleLocationMoveMeters\":50}"
+    },
+    {
+      "n": "missing-doc-uses-defaults",
+      "ok": true,
+      "d": ""
+    },
+    {
+      "n": "partial-interval-default-move-kept",
+      "ok": true,
+      "d": ""
+    },
+    {
+      "n": "no-duplicate-listeners-after-20-restarts",
+      "ok": true,
+      "d": "active=1"
+    },
+    {
+      "n": "stop-clears-listener",
+      "ok": true,
+      "d": "active=0"
+    },
+    {
+      "n": "rapid-config-last-wins",
+      "ok": true,
+      "d": "{\"idleLocationIntervalMs\":4000,\"idleLocationMoveMeters\":10}"
+    },
+    {
+      "n": "rapid-config-no-extra-policy-state-leak",
+      "ok": true,
+      "d": ""
+    },
+    {
+      "n": "active-ride-unaffected-by-idle-config",
+      "ok": true,
+      "d": "{\"policy\":\"SAFE_UNKNOWN_TRIP\",\"intervalMs\":30000,\"hardInterval\":true,\"diag\":\"checkpoint_policy_safe_unknown\"}"
+    },
+    {
+      "n": "restart-reloads-saved-not-defaults",
+      "ok": true,
+      "d": ""
+    }
+  ]
+}

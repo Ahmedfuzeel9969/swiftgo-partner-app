@@ -1,0 +1,42 @@
+{
+  "generatedAt": "2026-08-23T13:06:37.943Z",
+  "pass": 7,
+  "fail": 0,
+  "results": [
+    {
+      "name": "arbiter-firebase-received-and-rendered-match",
+      "status": "PASS",
+      "detail": "accepted=3 rendered=3"
+    },
+    {
+      "name": "map-customer-firebase-rendered",
+      "status": "PASS",
+      "detail": "received=3 rendered=3"
+    },
+    {
+      "name": "arbiter-firebase-throttled-not-rendered",
+      "status": "PASS",
+      "detail": "accepted=1 throttled=2 rendered=1"
+    },
+    {
+      "name": "arbiter-stale-rejected-not-rendered",
+      "status": "PASS",
+      "detail": "accepted=1 stale=1 rendered=1"
+    },
+    {
+      "name": "arbiter-p2p-rendered",
+      "status": "PASS",
+      "detail": "accepted=1 rendered=1"
+    },
+    {
+      "name": "report-client-sync-firebase-rendered",
+      "status": "PASS",
+      "detail": "received=4 rendered=4"
+    },
+    {
+      "name": "health-not-critical-when-rendered-matches-received",
+      "status": "PASS",
+      "detail": "warning"
+    }
+  ]
+}

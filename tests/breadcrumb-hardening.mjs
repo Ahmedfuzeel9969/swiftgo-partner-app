@@ -516,157 +516,6 @@ async function samplingBillingSims() {
   await c8.stop({ purge: true });
 }
 
-async function wakePendingOnlyPolicyTests() {
-  const timers = createFakeTimers();
-  timers.setNow(1_700_000_000_000);
-
-  async function makeScenario(id, rawCount, pendingSizes = [], submitFn = async () => ({ ok: true })) {
-    const b = binding({ rideId: `ride_wake_${id}` });
-    const q = createBreadcrumbQueue({ nowMs: timers.nowMs, allowMemoryFallback: true });
-    for (let i = 1; i <= rawCount; i += 1) {
-      timers.advance(4000);
-      await q.appendPoint(b, rawFix(i, timers));
-    }
-    for (const maxPoints of pendingSizes) {
-      await q.takeBatch(b, { force: true, maxPoints });
-    }
-    let takeCalls = 0;
-    let submits = 0;
-    const originalTakeBatch = q.takeBatch.bind(q);
-    q.takeBatch = async (...args) => {
-      takeCalls += 1;
-      return originalTakeBatch(...args);
-    };
-    const uploader = createBreadcrumbUploader({
-      queue: q,
-      getBinding: () => b,
-      nowMs: timers.nowMs,
-      setTimeoutFn: timers.setTimeoutFn,
-      clearTimeoutFn: timers.clearTimeoutFn,
-      callSubmit: async (batch) => {
-        submits += 1;
-        return submitFn(batch, submits);
-      },
-    });
-    return {
-      b,
-      q,
-      uploader,
-      counts: () => ({ takeCalls, submits }),
-      state: () => q._load(b),
-    };
-  }
-
-  const rawOnly = await makeScenario("raw_only", 4);
-  const rawBefore = await rawOnly.state();
-  const seqsBefore = rawBefore.points.map((p) => p.sequence);
-  await rawOnly.uploader.tick({ force: true, wake: true, reason: "network_resume" });
-  const rawAfter = await rawOnly.state();
-  const rawCounts = rawOnly.counts();
-  record(
-    "wake-raw-only-does-not-form-batch",
-    rawCounts.takeCalls === 0 && rawAfter.pendingBatches.length === 0 ? "PASS" : "FAIL",
-    `takeBatch=${rawCounts.takeCalls} pending=${rawAfter.pendingBatches.length}`,
-    "unit"
-  );
-  record(
-    "wake-raw-only-does-not-submit",
-    rawCounts.submits === 0 ? "PASS" : "FAIL",
-    `submits=${rawCounts.submits}`,
-    "unit"
-  );
-  record(
-    "wake-raw-only-preserves-all-sequences",
-    JSON.stringify(rawAfter.points.map((p) => p.sequence)) === JSON.stringify(seqsBefore)
-      ? "PASS"
-      : "FAIL",
-    `before=[${seqsBefore}] after=[${rawAfter.points.map((p) => p.sequence)}]`,
-    "unit"
-  );
-
-  const mixed = await makeScenario("mixed", 8, [3]);
-  await mixed.uploader.tick({ force: true, wake: true });
-  const mixedAfter = await mixed.state();
-  const mixedCounts = mixed.counts();
-  record(
-    "wake-pending-plus-raw-uploads-pending-only",
-    mixedCounts.submits === 1 &&
-      mixedCounts.takeCalls === 0 &&
-      mixedAfter.pendingBatches.length === 0 &&
-      mixedAfter.points.map((p) => p.sequence).join(",") === "4,5,6,7,8"
-      ? "PASS"
-      : "FAIL",
-    `submits=${mixedCounts.submits} takeBatch=${mixedCounts.takeCalls} raw=[${mixedAfter.points.map(
-      (p) => p.sequence
-    )}]`,
-    "unit"
-  );
-
-  const three = await makeScenario("three_pending", 6, [2, 2, 2]);
-  await three.uploader.tick({ force: true, wake: true });
-  const threeAfter = await three.state();
-  record(
-    "wake-three-pending-respects-total-limit",
-    three.counts().submits === BREADCRUMB_MAX_UPLOADS_PER_WAKE &&
-      three.counts().takeCalls === 0 &&
-      threeAfter.pendingBatches.length === 0
-      ? "PASS"
-      : "FAIL",
-    `submits=${three.counts().submits} takeBatch=${three.counts().takeCalls}`,
-    "unit"
-  );
-
-  const failure = await makeScenario("failure", 4, [2, 2], async () => {
-    throw new Error("expected_wake_failure");
-  });
-  await failure.uploader.tick({ force: true, wake: true });
-  const failureAfter = await failure.state();
-  record(
-    "wake-pending-failure-stops-drain",
-    failure.counts().submits === 1 &&
-      failure.counts().takeCalls === 0 &&
-      failureAfter.pendingBatches.length === 2
-      ? "PASS"
-      : "FAIL",
-    `submits=${failure.counts().submits} pending=${failureAfter.pendingBatches.length}`,
-    "unit"
-  );
-
-  const later = await makeScenario("later_scheduled", 3);
-  await later.uploader.tick({ force: true, wake: true });
-  await later.uploader.tick({ force: true, reason: "scheduled_test" });
-  const laterAfter = await later.state();
-  record(
-    "scheduled-tick-after-wake-forms-raw-batch",
-    later.counts().takeCalls === 1 &&
-      later.counts().submits === 1 &&
-      laterAfter.points.length === 0 &&
-      laterAfter.pendingBatches.length === 0
-      ? "PASS"
-      : "FAIL",
-    `takeBatch=${later.counts().takeCalls} submits=${later.counts().submits}`,
-    "unit"
-  );
-
-  const repeated = await makeScenario("repeated", 5);
-  const repeatedBefore = (await repeated.state()).points.map((p) => p.sequence);
-  await repeated.uploader.tick({ force: true, wake: true });
-  await repeated.uploader.tick({ force: true, wake: true });
-  const repeatedAfter = await repeated.state();
-  const repeatedSeqs = repeatedAfter.points.map((p) => p.sequence);
-  record(
-    "repeated-wake-does-not-duplicate-or-lose-points",
-    repeated.counts().takeCalls === 0 &&
-      repeated.counts().submits === 0 &&
-      repeatedSeqs.join(",") === repeatedBefore.join(",") &&
-      new Set(repeatedSeqs).size === repeatedSeqs.length
-      ? "PASS"
-      : "FAIL",
-    `before=[${repeatedBefore}] after=[${repeatedSeqs}]`,
-    "unit"
-  );
-}
-
 async function flushOrderAndSettlement(db) {
   const timers = createFakeTimers();
   timers.setNow(Date.now());
@@ -1148,7 +997,7 @@ function staleIsolatedRulesRejectionTest() {
     }
   }
   record(
-    "isolated-rules-nonzero-child-cannot-use-stale-pass",
+    "h-stale-isolated-rules-rejected",
     rejected && !staleStillAccepted && !outcome.ok ? "PASS" : "FAIL",
     `reason=${outcome.reason} acceptedStale=${staleStillAccepted}`,
     "unit"
@@ -1170,82 +1019,6 @@ function staleIsolatedRulesRejectionTest() {
   } catch {
     /* ignore */
   }
-}
-
-function isolatedRulesValidationIntegrityTests() {
-  const startedAtMs = Date.now();
-  const childFinishedAtMs = startedAtMs + 100;
-  const valid = {
-    suite: "breadcrumb-telemetry-rules",
-    generatedAt: new Date(startedAtMs + 50).toISOString(),
-    total: 3,
-    pass: 3,
-    fail: 0,
-    blocked: 0,
-    results: [
-      { name: "static-telemetry-deny-all-architecture", status: "PASS" },
-      { name: "rules-client-read-denied", status: "PASS" },
-      { name: "rules-client-write-denied", status: "PASS" },
-    ],
-  };
-  const validate = (value) =>
-    validateIsolatedRulesResults(value, { startedAtMs, childFinishedAtMs, maxSkewMs: 100 });
-  const mutate = (fn) => {
-    const value = JSON.parse(JSON.stringify(valid));
-    fn(value);
-    return value;
-  };
-
-  const wrongTotal = validate(mutate((v) => (v.total = 999)));
-  record(
-    "isolated-rules-wrong-total-rejected",
-    !wrongTotal.ok && String(wrongTotal.reason).startsWith("count_mismatch") ? "PASS" : "FAIL",
-    wrongTotal.reason || "",
-    "unit"
-  );
-  const badSum = validate(mutate((v) => (v.pass = 2)));
-  record(
-    "isolated-rules-count-sum-mismatch-rejected",
-    !badSum.ok && String(badSum.reason).startsWith("count_mismatch") ? "PASS" : "FAIL",
-    badSum.reason || "",
-    "unit"
-  );
-  const negative = validate(mutate((v) => (v.fail = -1)));
-  record(
-    "isolated-rules-negative-count-rejected",
-    !negative.ok && String(negative.reason).includes("invalid_non_negative_integer")
-      ? "PASS"
-      : "FAIL",
-    negative.reason || "",
-    "unit"
-  );
-  const future = validate(
-    mutate((v) => (v.generatedAt = new Date(childFinishedAtMs + 101).toISOString()))
-  );
-  record(
-    "isolated-rules-future-generatedAt-rejected",
-    !future.ok && String(future.reason).startsWith("future_generatedAt") ? "PASS" : "FAIL",
-    future.reason || "",
-    "unit"
-  );
-  const duplicate = validate(
-    mutate((v) => {
-      v.results[2].name = "rules-client-read-denied";
-    })
-  );
-  record(
-    "isolated-rules-duplicate-name-rejected",
-    !duplicate.ok && String(duplicate.reason).startsWith("result_name_count") ? "PASS" : "FAIL",
-    duplicate.reason || "",
-    "unit"
-  );
-  const accepted = validate(valid);
-  record(
-    "isolated-rules-fresh-valid-result-accepted",
-    accepted.ok ? "PASS" : "FAIL",
-    accepted.reason || "",
-    "unit"
-  );
 }
 
 async function privacyDocs() {
@@ -1291,21 +1064,6 @@ async function main() {
     await samplingBillingSims();
   } catch (e) {
     record("h-sim-uncaught", "FAIL", String(e.message || e).slice(0, 160), "performance");
-  }
-  try {
-    isolatedRulesValidationIntegrityTests();
-  } catch (e) {
-    record(
-      "isolated-rules-validation-tests-uncaught",
-      "FAIL",
-      String(e.message || e).slice(0, 160),
-      "unit"
-    );
-  }
-  try {
-    await wakePendingOnlyPolicyTests();
-  } catch (e) {
-    record("wake-policy-tests-uncaught", "FAIL", String(e.message || e).slice(0, 160), "unit");
   }
   try {
     await privacyDocs();

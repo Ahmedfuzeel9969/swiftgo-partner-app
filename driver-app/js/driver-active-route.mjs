@@ -7,6 +7,7 @@ import { createTwoLegRouteController } from "./two-leg-route-controller.mjs";
 import { createTwoLegRouteLayers } from "./two-leg-route-layers.mjs";
 import { resolveRouteProvider, ROUTE_PROVIDER_KIND } from "./road-route-provider.mjs";
 import { createDisplayLocationPipeline } from "./display-location-pipeline.mjs";
+import { getFieldDiagnostics } from "./field-diagnostics.mjs";
 
 /**
  * @param {{
@@ -27,13 +28,21 @@ export function createDriverActiveRouteController(opts) {
   let pickupLoc = null;
   let dropoffLoc = null;
 
-  function snapDiag(code) {
+  function snapDiag(code, detail) {
     try {
-      console.info(JSON.stringify({ type: "snap_diag", reason: String(code || "") }));
+      const payload = {
+        type: "snap_diag",
+        reason: String(code || ""),
+        ...(detail && typeof detail === "object" ? { detail } : {}),
+      };
+      if (typeof window !== "undefined" && String(code || "").startsWith("route_")) {
+        window.__SWIFTGO_LAST_ROUTE_DIAG__ = { ...payload, type: "road_route_diag" };
+      }
+      console.info(JSON.stringify(payload));
     } catch {
       /* ignore */
     }
-    diag(code);
+    diag(code, detail);
   }
 
   function syncDisplayFromModel(model) {
@@ -76,6 +85,9 @@ export function createDriverActiveRouteController(opts) {
     display = createDisplayLocationPipeline({
       onDisplayFrame: paint,
       onRawFallback: paint,
+      onRouteProgress: (progressM, activeLeg) => {
+        layers?.setProgress?.(progressM, activeLeg);
+      },
       onDiag: snapDiag,
       onRerouteNeeded: ({ origin, generation }) => {
         const provider = resolveRouteProvider();
@@ -116,7 +128,28 @@ export function createDriverActiveRouteController(opts) {
     });
     twoLeg = createTwoLegRouteController({
       provider: resolveRouteProvider(),
-      onDiag: (code) => snapDiag(code),
+      onDiag: (code, detail) => {
+        try {
+          const payload = {
+            type: "road_route_diag",
+            reason: String(code || ""),
+            ...(detail && typeof detail === "object" ? { detail } : {}),
+          };
+          if (typeof window !== "undefined") window.__SWIFTGO_LAST_ROUTE_DIAG__ = payload;
+          console.info(JSON.stringify(payload));
+          try {
+            getFieldDiagnostics()?.record("route_diag", {
+              reason: String(code || ""),
+              detail: detail || null,
+            });
+          } catch {
+            /* ignore */
+          }
+        } catch {
+          /* ignore */
+        }
+        diag(code, detail);
+      },
       onModel: (model) => {
         layers?.render(model);
         syncDisplayFromModel(model);

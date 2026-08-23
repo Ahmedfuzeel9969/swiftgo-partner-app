@@ -1,0 +1,71 @@
+{
+  "stage": 3,
+  "area": "same-ride-reassignment",
+  "generatedAt": "2026-08-20T13:20:15.451Z",
+  "avA": 945184363,
+  "avB": 439625739,
+  "pass": 12,
+  "fail": 0,
+  "results": [
+    {
+      "name": "assignment-versions-distinct-for-different-drivers",
+      "status": "PASS",
+      "detail": "avA=945184363 avB=439625739"
+    },
+    {
+      "name": "static-sync-destroys-on-av-change",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-watch-destroys-stale-session",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-onLocationFix-stale-av-guard",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-ride-flow-passes-assignmentVersion",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "initial-session-established-with-av-a",
+      "status": "PASS",
+      "detail": "session=true av=945184363 expected=945184363"
+    },
+    {
+      "name": "sync-reassignment-destroys-stale-session",
+      "status": "PASS",
+      "detail": "sameRef=false expectedAv=439625739"
+    },
+    {
+      "name": "stale-loc-from-old-assignment-blocked",
+      "status": "PASS",
+      "detail": "renders=0 leaked=false"
+    },
+    {
+      "name": "new-assignment-session-establishes",
+      "status": "PASS",
+      "detail": "session=true av=439625739 expected=439625739"
+    },
+    {
+      "name": "new-assignment-loc-accepted",
+      "status": "PASS",
+      "detail": "renders=1"
+    },
+    {
+      "name": "watch-new-offer-destroys-stale-session",
+      "status": "PASS",
+      "detail": "sameRef=false"
+    },
+    {
+      "name": "no-coordinate-rollback-from-stale-assignment",
+      "status": "PASS",
+      "detail": "rollback=false keptNew=true renders=0"
+    }
+  ]
+}

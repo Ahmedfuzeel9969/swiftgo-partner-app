@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-07-29T19:03:18.031Z",
+  "generatedAt": "2026-08-06T18:18:40.107Z",
   "results": [
     {
       "name": "S01-claim-admin-can-write-settings",
       "status": "PASS",
-      "detail": "set merge ok",
+      "detail": "ok",
       "suite": "phase2b"
     },
     {
@@ -106,7 +106,7 @@
     {
       "name": "S18-pin-lockout-after-max",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1785352697434}",
+      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1786041219780}",
       "suite": "phase2b"
     },
     {

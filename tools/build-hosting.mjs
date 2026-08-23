@@ -66,6 +66,33 @@ function syncSharedJsInto(destJsDir) {
   fs.copyFileSync(catalogJsonFrom, catalogJsonTo);
 }
 
+function copySharedCrossAppDependencies() {
+  const dependencies = [
+    ["driver-app/js/location-checkpoint-policy.mjs", "driver-app/js/location-checkpoint-policy.mjs"],
+    ["driver-app/js/p2p-protocol.mjs", "driver-app/js/p2p-protocol.mjs"],
+    ["customer-app/js/live-location-render.mjs", "customer-app/js/live-location-render.mjs"],
+    ["driver-app/js/location-envelope.mjs", "driver-app/js/location-envelope.mjs"],
+    ["driver-app/js/idle-publish-config.mjs", "driver-app/js/idle-publish-config.mjs"],
+  ];
+  for (const [sourceRel, destinationRel] of dependencies) {
+    const destination = path.join(DIST, destinationRel);
+    ensureDir(path.dirname(destination));
+    fs.copyFileSync(path.join(ROOT, sourceRel), destination);
+  }
+}
+
+function stampModuleEntrypoint(htmlRel, modulePath, headSha) {
+  const htmlPath = path.join(DIST, htmlRel);
+  const html = fs.readFileSync(htmlPath, "utf8");
+  const escapedPath = modulePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`(src=["']${escapedPath})(?:\\?[^"']*)?(["'])`);
+  const stamped = html.replace(pattern, `$1?v=${headSha.slice(0, 12)}$2`);
+  if (stamped === html) {
+    throw new Error(`Could not stamp module entrypoint ${modulePath} in ${htmlRel}`);
+  }
+  fs.writeFileSync(htmlPath, stamped);
+}
+
 function main() {
   const syncCatalog = spawnSync(process.execPath, [path.join(ROOT, "tools", "sync-vehicle-catalog.mjs")], {
     cwd: ROOT,
@@ -97,6 +124,19 @@ function main() {
     syncSharedJsInto(path.join(DIST, ...rel.split("/")));
   }
 
+  // Step 3b — full shared/js mirror into dist shared/ only (not app folders).
+  // Customer/partner import graphs resolve ../../shared/js/*; do not replace
+  // app-local wrappers with diagnostics modules that import ../../driver-app/*.
+  const sharedSrc = path.join(ROOT, "shared", "js");
+  const sharedDist = path.join(DIST, "shared", "js");
+  ensureDir(sharedDist);
+  for (const entry of fs.readdirSync(sharedSrc, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    if (!entry.name.endsWith(".mjs") && !entry.name.endsWith(".js")) continue;
+    fs.copyFileSync(path.join(sharedSrc, entry.name), path.join(sharedDist, entry.name));
+  }
+  copySharedCrossAppDependencies();
+
   console.info("[build-hosting] packaged apps into hosting-dist/");
   console.info("  /              <- customer-app");
   console.info("  /customer/     <- customer-app");
@@ -113,6 +153,8 @@ function main() {
   } catch {
     console.warn("[build-hosting] warning: could not resolve git HEAD for hosting source stamp");
   }
+  stampModuleEntrypoint("partner/index.html", "js/driver-app.js", headSha);
+  stampModuleEntrypoint("admin/index.html", "/admin/js/admin-app.js", headSha);
   fs.writeFileSync(
     path.join(DIST, ".hosting-source.json"),
     JSON.stringify(

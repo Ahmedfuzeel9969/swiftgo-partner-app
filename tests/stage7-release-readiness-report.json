@@ -1,0 +1,519 @@
+{
+  "stage": 7,
+  "suite": "critical-reconciliation-release-readiness",
+  "generatedAt": "2026-08-20T10:50:00.976Z",
+  "branch": "chore/local-unpushed-files-20260818",
+  "headCommit": "459eb271fa83e8f1c3bad9fe61b5512a79503306",
+  "priorReleaseCommit": "d34cca44f718296a9a5c373f53697d85878f285e",
+  "automatedVerdict": {
+    "CODE_GREEN": true,
+    "EMULATOR_GREEN": false,
+    "EMULATOR_BLOCKED": true,
+    "FUNCTIONS_DISCOVERY_GREEN": true,
+    "FUNCTIONS_DISCOVERY_WARN": false,
+    "FIREBASE_CLI_DRY_RUN_GREEN": true,
+    "FIREBASE_CLI_DRY_RUN_BLOCKED": false,
+    "PHYSICAL_DEVICE_SIGNOFF_PENDING": true
+  },
+  "verdict": "READY_FOR_PHYSICAL_SIGNOFF",
+  "readiness": {
+    "criticalReconciliationGreen": true,
+    "automatedRegressionGreen": true,
+    "physicalValidationBlocked": true,
+    "deployAuthorized": false,
+    "commitAuthorized": false,
+    "functionsIndexLoad": {
+      "ok": true,
+      "samplesMs": [
+        478,
+        418,
+        431
+      ],
+      "maxMs": 478,
+      "avgMs": 442
+    },
+    "firebaseFunctionsDryRun": {
+      "attempted": true,
+      "ok": true,
+      "exitCode": 0,
+      "stdoutTail": "i  extensions: ensuring required API firebaseextensions.googleapis.com is enabled...\r\ni  functions: preparing functions directory for uploading...\r\ni  functions: packaged F:\\ride-app\\functions (138.11 KB) for uploading\r\ni  functions: ensuring required API run.googleapis.com is enabled...\r\ni  functions: ensuring required API eventarc.googleapis.com is enabled...\r\ni  functions: ensuring required API pubsub.googleapis.com is enabled...\r\ni  functions: ensuring required API storage.googleapis.com is enabled...\r\ni  functions: generating the service identity for pubsub.googleapis.com...\r\ni  functions: generating the service identity for eventarc.googleapis.com...\r\ni  functions: ensuring required API secretmanager.googleapis.com is enabled...\r\n\r\n+  Dry run complete!\r\n\r\nProject Console: https://console.firebase.google.com/project/swiftgo-ride-app/overview\r\n",
+      "stderrTail": "",
+      "note": "Firebase CLI functions dry-run completed"
+    }
+  },
+  "summary": {
+    "suitesTotal": 27,
+    "pass": 24,
+    "fail": 0,
+    "blocked": 1,
+    "environmentOnly": 2,
+    "requiredForRelease": {
+      "pass": 22,
+      "fail": 0,
+      "blocked": 1
+    },
+    "criticalReconciliation": {
+      "total": 11,
+      "pass": 11,
+      "auditOnly": [
+        "stage1-bootstrap-assignment-contract"
+      ]
+    }
+  },
+  "suites": [
+    {
+      "id": "stage1-bootstrap-assignment-contract",
+      "category": "critical-reconciliation",
+      "requiredForRelease": false,
+      "status": "ENVIRONMENT-ONLY",
+      "exitCode": 1,
+      "elapsedMs": 473,
+      "counts": {
+        "pass": 12,
+        "fail": 3,
+        "warn": 0,
+        "total": 16
+      },
+      "note": "Audit suite — static gap tests fail after Stage 2 fix; server contract tests B–D remain valid history",
+      "stdoutTail": "\n✓ [A1] production-syncForRide-omits-assignmentVersion-on-offer-payload — PASS: payloadAssignmentVersion=undefined sentAv=0\n✓ [A2] controller-internal-normalizes-unknown-to-1-before-offer — PASS: payloadAv=0 sessionAv=975268235 (bug: unknown→1)\n· [A3] strict-server-rejects-controller-first-offer-when-sends-1 — SKIP: serverAv=975268235 sentAv=0 rejected=false\n✗ [A4] offer-publish-failure-recorded-on-STALE_ASSIGNMENT — FAIL: offerPublishFailures=0\n\nStage 1 bootstrap contract: 12 PASS, 0 EXPECTED-FAIL (bug proven), 3 FAIL, 1 SKIP\nWrote F:\\ride-app\\tests\\stage1-bootstrap-assignment-contract-results.json\n\n"
+    },
+    {
+      "id": "stage2-bootstrap-assignment-fix",
+      "category": "critical-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 1173,
+      "counts": {
+        "pass": 10,
+        "fail": 0,
+        "warn": 0,
+        "total": 10
+      },
+      "note": "",
+      "stdoutTail": "\n=== Reconnect + ride switch ===\n\n✓ reconnect-preserves-authoritative-assignmentVersion — PASS: sessionAv=471333633\n✓ ride-switch-does-not-leak-previous-assignmentVersion-on-offer — PASS: payloadAv=undefined ctrlAv=385280948 expected=385280948\n\nStage 2 bootstrap fix: 10 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage2-bootstrap-assignment-fix-results.json\n\n"
+    },
+    {
+      "id": "stage2-ack-semantics",
+      "category": "critical-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 122,
+      "counts": {
+        "pass": 8,
+        "fail": 0,
+        "warn": 0,
+        "total": 8
+      },
+      "note": "A1 LOC vs HB ACK semantics",
+      "stdoutTail": "✓ customer-accepted-loc-still-renders — PASS: rendered=24.9 recv=1\n{\"type\":\"checkpoint_policy_diag\",\"reason\":\"checkpoint_policy_responsive\"}\n{\"type\":\"checkpoint_policy_diag\",\"reason\":\"checkpoint_presence_expired\"}\n✓ checkpoint-responsive-when-not-loc-healthy — PASS: RESPONSIVE_FIREBASE@4000 hard=false\n✓ checkpoint-sparse-only-after-explicit-loc-healthy-hysteresis — PASS: P2P_SPARSE_TRIP@30000\n\nStage 2 ACK semantics: 8 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage2-ack-semantics-results.json\n\n"
+    },
+    {
+      "id": "stage3-same-ride-reassignment",
+      "category": "critical-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 1070,
+      "counts": {
+        "pass": 12,
+        "fail": 0,
+        "warn": 0,
+        "total": 12
+      },
+      "note": "",
+      "stdoutTail": "✓ stale-loc-from-old-assignment-blocked — PASS: renders=0 leaked=false\n✓ new-assignment-session-establishes — PASS: session=true av=439625739 expected=439625739\n✓ new-assignment-loc-accepted — PASS: renders=1\n✓ watch-new-offer-destroys-stale-session — PASS: sameRef=false\n✓ no-coordinate-rollback-from-stale-assignment — PASS: rollback=false keptNew=true renders=0\n\nStage 3 same-ride reassignment: 12 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage3-same-ride-reassignment-results.json\n\n"
+    },
+    {
+      "id": "stage3-assignment-identity-stability",
+      "category": "critical-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 3214,
+      "counts": {
+        "pass": 12,
+        "fail": 0,
+        "warn": 0,
+        "total": 12
+      },
+      "note": "A2 post-bootstrap same-ride resync stability",
+      "stdoutTail": "✓ reconnect-retains-authoritative-av — PASS: synced=147401163 sessionAv=147401163 state=RECONNECTING\n\n=== In-flight start remains valid when AV establishes ===\n\n✓ inflight-start-survives-authoritative-av-sync — PASS: sameSession=true staleAborts=0 synced=147401163 state=CONNECTING\n\nStage 3 assignment identity: 12 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage3-assignment-identity-stability-results.json\n\n"
+    },
+    {
+      "id": "stage4-failed-send-retry",
+      "category": "critical-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 4058,
+      "counts": {
+        "pass": 11,
+        "fail": 0,
+        "warn": 0,
+        "total": 11
+      },
+      "note": "",
+      "stdoutTail": "✓ generation-bump-cancels-stale-retry — PASS: attempts=1 sent=0\n✓ backpressure-still-defers-send — PASS: sent=0 backpressureCoalesces=0\n✓ backpressure-flush-still-delivers — PASS: fixesSent=1\n✓ ack-validation-rejects-future-sequence — PASS: invalid=1\n✓ ack-validation-accepts-sent-sequence — PASS: acks=1\n\nStage 4 failed send retry: 11 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage4-failed-send-retry-results.json\n\n"
+    },
+    {
+      "id": "stage4-native-credential-continuity",
+      "category": "critical-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 296,
+      "counts": {
+        "pass": 18,
+        "fail": 0,
+        "warn": 0,
+        "total": 19
+      },
+      "note": "A3/A4 credential cache + native renewal",
+      "stdoutTail": "✓ native-has-pre-expiry-renew-window — PASS\n✓ native-postRefresh-https — PASS\n✓ native-renew-before-flush — PASS\n✓ plugin-passes-refresh-url — PASS\n✗ android-runtime-webview-dead-30min-soak — BLOCKED: Requires device soak; static + server refresh tests only\n\nStage 4 native credential: 18 PASS / 0 FAIL / 1 BLOCKED\nWrote F:\\ride-app\\tests\\stage4-native-credential-continuity-results.json\n\n"
+    },
+    {
+      "id": "stage5-cadence-contract",
+      "category": "critical-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 1854,
+      "counts": {
+        "pass": 16,
+        "fail": 0,
+        "warn": 0,
+        "total": 16
+      },
+      "note": "Documents intentional P2P_MIN_LOC_GAP_MS = 1500",
+      "stdoutTail": "✓ third-send-at-1500ms-not-3000ms-from-previous — PASS: afterTwo=2 afterThree=3 spacingMs=1500\n✓ rapid-burst-coalesces-immediate-send — PASS: sent=1 fixesSent=1 coalesces=3\n✓ scheduled-cadence-timer-delivers-coalesced-fix — PASS: fixesSent=2 secondLat=24.865\n✓ sustained-rate-capped-by-half-interval — PASS: fixesSent=5 maxExpected~=5 windowMs=6000\n✓ audit-verdict-no-production-change — PASS: minGap=1500ms earliestPair=1500ms\n\nStage 5 cadence contract: 16 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage5-cadence-contract-results.json\n\n"
+    },
+    {
+      "id": "stage5-android-service-lifecycle",
+      "category": "critical-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 240,
+      "counts": {
+        "pass": 19,
+        "fail": 0,
+        "warn": 0,
+        "total": 20
+      },
+      "note": "A5/A6 sticky restore + terminal stop",
+      "stdoutTail": "✓ stop-clears-binding-queue-credentials — PASS: stopSelfSafe clears persisted native state\n✓ refresh-denial-can-stop-service — PASS: HTTPS refresh denial with terminal reason stops tracking\n✓ sim-terminal-stops-and-clears — PASS: RIDE_NOT_ACTIVE halts flush with empty queue\n✓ sim-recoverable-retains-item — PASS: TOKEN_EXPIRED keeps item for later retry\n✓ sim-transient-does-not-stop — PASS: network/5xx path does not trigger terminal stop\n\nStage 5 android service lifecycle: 19 PASS / 0 FAIL / 1 BLOCKED\nWrote F:\\ride-app\\tests\\stage5-android-service-lifecycle-results.json\n\n"
+    },
+    {
+      "id": "stage6-native-fallback-audit",
+      "category": "critical-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 217,
+      "counts": {
+        "pass": 21,
+        "fail": 0,
+        "warn": 0,
+        "total": 21
+      },
+      "note": "",
+      "stdoutTail": "✓ ingest-computes-25m-movement-threshold — PASS\n✓ ingest-accepts-without-presence-read — PASS: accepted=true presenceReads=0 viewerLease=UNKNOWN\n✓ ingest-response-viewerLease-unknown — PASS: UNKNOWN\n✓ ingest-cadence-skip-before-4s-small-move — PASS: accepted=false reason=CADENCE_SKIP policy=RESPONSIVE_FIREBASE\n✓ audit-verdict-documented — PASS: responsive target (hardInterval=false); movement >= 25m may write earlier\n\nStage 6 native fallback audit: 21 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage6-native-fallback-audit-results.json\n\n"
+    },
+    {
+      "id": "stage6-customer-wake-lock-renewal",
+      "category": "critical-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 138,
+      "counts": {
+        "pass": 10,
+        "fail": 0,
+        "warn": 0,
+        "total": 11
+      },
+      "note": "A7 bounded renewable wake lock",
+      "stdoutTail": "✓ js-terminal-stop-still-wired — PASS: terminal ride path stops foreground service from JS\n✓ no-indefinite-wake-lock-acquire — PASS: never calls unbounded acquire()\n✓ sim-renew-at-8-minutes — PASS: renewDelayMs=480000\n✓ sim-25min-ride-gets-3-renewals — PASS: 25 min active service exceeds old single 10 min bound\n✗ android-runtime-deep-background-10min — BLOCKED: Requires device soak; static + simulated timeline only\n\nStage 6 customer wake lock: 10 PASS / 0 FAIL / 1 BLOCKED\nWrote F:\\ride-app\\tests\\stage6-customer-wake-lock-renewal-results.json\n\n"
+    },
+    {
+      "id": "stage7-sequence-strictness",
+      "category": "critical-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 213,
+      "counts": {
+        "pass": 24,
+        "fail": 0,
+        "warn": 0,
+        "total": 24
+      },
+      "note": "A8 INVALID_SEQUENCE + cadence docs",
+      "stdoutTail": "✓ min-loc-gap-intentional-1500 — PASS: P2P_MIN_LOC_GAP_MS=1500\n✓ driver-customer-min-gap-parity — PASS\n✓ protocol-documents-min-gap-intent — PASS\n✓ flush-uses-named-min-gap — PASS\n✓ no-production-cadence-tightening — PASS: kept intentional half-interval; did not force strict 3000ms\n\nStage 7 sequence strictness: 24 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage7-sequence-strictness-results.json\n\n"
+    },
+    {
+      "id": "stage2-driver-controller",
+      "category": "prior-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 722,
+      "counts": {
+        "pass": 12,
+        "fail": 0,
+        "warn": 0,
+        "total": 12
+      },
+      "note": "",
+      "stdoutTail": "✓ static-presence-independent syncForRide — PASS\n✓ rideB-not-lost-while-rideA-offer-in-flight — PASS: currentRide=ride_B offers=ride_A,ride_B\n✓ stop-invalidates-late-offer-callback — PASS: state=DISABLED rideId=\n✓ stale-rideA-watch-cannot-poison-rideB-assignmentVersion — PASS: avBefore=100 avAfter=100\n✓ server-assignmentVersion-synced-after-offer — PASS: sessionAv=880088\n\nStage 2 driver reconciliation: 12 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage2-driver-controller-reconciliation-results.json\n\n"
+    },
+    {
+      "id": "stage2-assignment-version-sync",
+      "category": "prior-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 179,
+      "counts": {
+        "pass": 6,
+        "fail": 0,
+        "warn": 0,
+        "total": 6
+      },
+      "note": "",
+      "stdoutTail": "✓ driver-loc-uses-authoritative-assignmentVersion — PASS: locAv=950158955 serverAv=950158955\n✓ customer-accepts-driver-loc-with-authoritative-assignmentVersion — PASS: accepted\n✓ wrong-assignment-still-rejected — PASS: wrong_assignment\n✓ stale-assignmentVersion-1-rejected-when-serverAv-differs — PASS: wrong_assignment\n✓ reconnect-preserves-authoritative-assignmentVersion — PASS: sessionAv=939041707 serverAv=939041707\n\nStage 2 summary: 6 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage2-assignment-version-sync-results.json\n\n"
+    },
+    {
+      "id": "stage3-customer-controller",
+      "category": "prior-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 734,
+      "counts": {
+        "pass": 14,
+        "fail": 0,
+        "warn": 0,
+        "total": 14
+      },
+      "note": "",
+      "stdoutTail": "✓ static-createCommTransport — PASS\n✓ stale-answer-uses-captured-rideId-not-live-rideId — PASS: published=[\"ride_A4\",\"ride_B4\"] currentRide=ride_B4\n✓ stale-in-flight-answer-aborted-on-ride-switch — PASS: staleAborts=2 published=2\n✓ old-session-loc-blocked-after-ride-switch — PASS: renders=0 leaked=false hadStale=true\n✓ hidden-does-not-suspend-or-destroy-p2p — PASS: state=CONNECTING uiVisible=false\n\nStage 3 customer reconciliation: 14 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage3-customer-controller-reconciliation-results.json\n\n"
+    },
+    {
+      "id": "stage3-driver-presence-independence",
+      "category": "prior-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 635,
+      "counts": {
+        "pass": 12,
+        "fail": 0,
+        "warn": 0,
+        "total": 12
+      },
+      "note": "",
+      "stdoutTail": "✓ terminal-status-empty-stops-p2p — PASS: state=DISABLED\n✓ driver-app-syncDriverP2p-no-viewerVisible-param — PASS: decoupled\n✓ driver-app-no-driverP2p-suspend-calls — PASS\n✓ controller-syncForRide-no-viewerVisible-param — PASS\n✓ controller-syncForRide-starts-for-execution-statuses — PASS\n\nStage 3 summary: 12 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage3-driver-p2p-presence-independence-results.json\n\n"
+    },
+    {
+      "id": "stage4-peer-session-delivery",
+      "category": "prior-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 293,
+      "counts": {
+        "pass": 12,
+        "fail": 0,
+        "warn": 0,
+        "total": 12
+      },
+      "note": "",
+      "stdoutTail": "✓ ack-trust-valid-seq1-establishes-loc-delivery — PASS: locHealthy=true\n✓ heartbeat-alone-not-loc-delivery-healthy — PASS: locHealthy=false transport=true\n✓ cadence-coalesces-rapid-gps-burst — PASS: sent=1 fixesSent=1 intervalMs=3000\n✓ send-failure-retains-newest-pending-fix — PASS: fixesSent=1 sendFailures=1\n✓ syncAssignmentVersion-rejects-invalid-inputs — PASS: baseline=424242 after=424242\n\nStage 4 peer session delivery: 12 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage4-peer-session-delivery-results.json\n\n"
+    },
+    {
+      "id": "stage4-responsive-firebase",
+      "category": "prior-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 204,
+      "counts": {
+        "pass": 13,
+        "fail": 0,
+        "warn": 0,
+        "total": 13
+      },
+      "note": "",
+      "stdoutTail": "✓ native-upload-expired-responsive — PASS: RESPONSIVE_FIREBASE@4000\n\n=== No P2P-unhealthy + sparse dead zone ===\n\n✓ unhealthy-p2p-never-sparse-for-active-ride — PASS\n\nStage 4 summary: 13 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage4-responsive-firebase-fallback-results.json\n\n"
+    },
+    {
+      "id": "stage5-full-chain-motion",
+      "category": "prior-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 748,
+      "counts": {
+        "pass": 10,
+        "fail": 0,
+        "warn": 0,
+        "total": 10
+      },
+      "note": "True driver+customer controller chain",
+      "stdoutTail": "✓ display-marker-positions-move-forward — PASS: frames=5 lastLat=24.862\n✓ valid-acks-return-to-driver — PASS: onAck=0 acksRecv=5\n✓ p2p-loss-responsive-firebase-takeover — PASS: fbFrames=3 preferred=firebase\n✓ p2p-recovery-no-coordinate-rollback — PASS: before=24.862899999999996 after=24.863499999999995 preferred=p2p\n✓ stale-ride-loc-blocked-after-ride-switch — PASS: renders=1 afterA=1\n\nStage 5 full-chain: 10 PASS / 0 FAIL\nWrote F:\\ride-app\\tests\\stage5-full-chain-marker-motion-results.json\n\n"
+    },
+    {
+      "id": "stage6-cloud-functions-audit",
+      "category": "prior-reconciliation",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 6573,
+      "counts": {
+        "pass": 23,
+        "fail": 0,
+        "warn": 1,
+        "total": 24
+      },
+      "note": "",
+      "stdoutTail": "\n✓ functions-index-cold-load-under-10s — PASS: samplesMs=4695,438,509 max=4695 avg=1881\n✓ functions-index-export-surface — PASS: exports≈48 (monolithic index.js)\n! deploy-discovery-risk — WARN: max load 4695ms — under 10s but heavy; cold AV/disk may timeout\n\nStage 6 audit: 23 PASS / 1 WARN / 0 FAIL\nDeploy blocked by load timing: NO\nWrote F:\\ride-app\\tests\\stage6-cloud-functions-audit-results.json\n\n"
+    },
+    {
+      "id": "p2p-customer-receive",
+      "category": "supporting",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 1496,
+      "counts": {
+        "pass": 9,
+        "fail": 0,
+        "warn": 0,
+        "total": 9
+      },
+      "note": "",
+      "stdoutTail": "✓ driver-offer-publishes-without-referenceerror — PASS: offers=1 state=CONNECTING\n✓ driver-stop-clears-session — PASS\n✓ driver-starts-p2p-without-viewer-presence — PASS: offers=2 before=1 state=CONNECTING\n✓ customer-answers-initial-offer — PASS: answers=1\n✓ customer-hidden-keeps-p2p-session — PASS: CONNECTING\n✓ customer-resume-no-duplicate-when-session-alive — PASS: answers=1 before=1\n✓ customer-watch-error-retries-signaling — PASS: watchCalls=2 errors=1 retries=1\n\np2p-customer-receive: 9 PASS / 0 FAIL\n"
+    },
+    {
+      "id": "background-location-upload",
+      "category": "supporting",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 294,
+      "counts": {
+        "pass": 23,
+        "fail": 0,
+        "warn": 0,
+        "total": 23
+      },
+      "note": "",
+      "stdoutTail": "✓ bridge-p2p-first-comment\n✓ android-service-sticky-task-removed\n✓ android-webview-alive-gate\n✓ manifest-fg-location-service\n✓ mainactivity-registers-plugin\n✓ uploader-network-reconnect-flush\n✓ driver-native-diagnostics-merge — gps=7 ack=5\n\nBackground location: 23 PASS / 0 FAIL\n"
+    },
+    {
+      "id": "customer-p2p-background",
+      "category": "supporting",
+      "requiredForRelease": true,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 180,
+      "counts": {},
+      "note": "",
+      "stdoutTail": "✓ foreground-firebase-policy-unchanged — visible path remains the existing P2P/Firebase policy\n✓ active-ride-starts-native-keepalive — Android service starts only for trackable ride statuses\n✓ terminal-ride-stops-native-keepalive — terminal/session teardown stops service\n✓ native-bridge-is-android-only\n✓ manifest-declares-foreground-service\n✓ service-survives-task-removal\n✓ mainactivity-registers-customer-plugin\n\nCustomer background P2P: 9 PASS / 0 FAIL\n"
+    },
+    {
+      "id": "customer-marker-motion-continuity",
+      "category": "supporting",
+      "requiredForRelease": false,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 198,
+      "counts": {
+        "pass": 5,
+        "fail": 0,
+        "warn": 0,
+        "total": 5
+      },
+      "note": "",
+      "stdoutTail": "\n✓ e2e-p2p-continuous-paints-arbiter-ingest-only — PASS: paints=10 preferred=p2p\n✓ e2e-firebase-fallback-continues-motion — PASS: fbPaints=5 preferred=firebase silentMs=50500\n✓ e2e-p2p-recovery-continues-motion — PASS: recPaints=6 preferred=p2p\n✓ e2e-no-frozen-marker-across-trip — PASS: paints=21 movedSteps=20 arbRenders=21\n✓ e2e-snap-progress-reject-still-paints — PASS: s1=snap s2=raw paints=2\n\nSummary: 5 PASS / 0 FAIL / 0 BLOCKED → F:\\ride-app\\tests\\customer-marker-motion-continuity-results.json\nPhysical dual-device: BLOCKED (no agent access to two devices/Gmail). Use console probe below on each phone.\n"
+    },
+    {
+      "id": "physical-dual-device-ride",
+      "category": "physical",
+      "requiredForRelease": true,
+      "status": "BLOCKED",
+      "exitCode": null,
+      "elapsedMs": null,
+      "note": "Two real phones + one live ride — cannot automate",
+      "counts": {}
+    },
+    {
+      "id": "p2p-webrtc-emulator",
+      "category": "emulator",
+      "requiredForRelease": false,
+      "status": "ENVIRONMENT-ONLY",
+      "exitCode": 1,
+      "elapsedMs": 92195,
+      "counts": {},
+      "note": "Emulator suite blocked in this environment",
+      "stdoutTail": "i  emulators: Shutting down emulators.\r\ni  functions: Stopping Functions Emulator\r\ni  firestore: Stopping Firestore Emulator\r\n!  Firestore Emulator has exited upon receiving signal: SIGINT\r\ni  auth: Stopping Authentication Emulator\r\ni  eventarc: Stopping Eventarc Emulator\r\ni  tasks: Stopping Cloud Tasks Emulator\r\ni  hub: Stopping emulator hub\r\ni  logging: Stopping Logging Emulator\r\n\r\nError: Script \"node tests/p2p-webrtc.mjs\" exited with code 1\r\n",
+      "stderrTail": "npm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm notice\nnpm notice New major version of npm available! 11.13.0 -> 12.0.2\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2\nnpm notice To update run: npm install -g npm@12.0.2\nnpm notice\n"
+    },
+    {
+      "id": "checkpoint-policy-emulator",
+      "category": "emulator",
+      "requiredForRelease": false,
+      "status": "PASS",
+      "exitCode": 0,
+      "elapsedMs": 52045,
+      "counts": {},
+      "note": "Firebase emulators available",
+      "stdoutTail": "i  functions: Stopping Functions Emulator\r\ni  functions: Waiting for all functions to finish...\r\ni  functions: Beginning execution of \"us-central1-dispatchNewRideCandidates\"\r\ni  functions: Finished \"us-central1-dispatchNewRideCandidates\" in 20.7418ms\r\ni  firestore: Stopping Firestore Emulator\r\n!  Firestore Emulator has exited upon receiving signal: SIGINT\r\ni  auth: Stopping Authentication Emulator\r\ni  eventarc: Stopping Eventarc Emulator\r\ni  tasks: Stopping Cloud Tasks Emulator\r\ni  hub: Stopping emulator hub\r\ni  logging: Stopping Logging Emulator\r\n",
+      "stderrTail": "npm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n[2026-08-20T10:48:59.966Z]  @firebase/firestore: Firestore (10.14.1): GrpcConnection RPC 'Write' stream 0x398fb1e3 error. Code: 7 Message: 7 PERMISSION_DENIED: \nfalse for 'update' @ L423, false for 'update' @ L804\n[2026-08-20T10:49:00.009Z]  @firebase/fi"
+    }
+  ],
+  "productionChangesUncommitted": [
+    "customer-app/js/p2p-peer-session.mjs",
+    "customer-app/js/p2p-protocol.mjs",
+    "driver-app/js/background-location-credential-policy.mjs",
+    "driver-app/js/background-location-native.mjs",
+    "driver-app/js/p2p-location-envelope.mjs",
+    "driver-app/js/p2p-peer-session.mjs",
+    "driver-app/js/p2p-protocol.mjs",
+    "driver-app/js/p2p-ride-controller.mjs",
+    "functions/background-location-upload.js",
+    "functions/index.js"
+  ],
+  "criticalTestArtifacts": [
+    "tests/stage1-bootstrap-assignment-contract.mjs",
+    "tests/stage2-bootstrap-assignment-fix.mjs",
+    "tests/stage3-same-ride-reassignment.mjs",
+    "tests/stage4-failed-send-retry.mjs",
+    "tests/stage5-cadence-contract.mjs",
+    "tests/stage6-native-fallback-audit.mjs",
+    "tests/stage7-release-readiness.mjs"
+  ],
+  "productionFixesSummary": [
+    "Stage 2: unknown assignmentVersion no longer coerced to 1 on first server offer",
+    "Stage 3: same-ride reassignment destroys stale customer peer session",
+    "Stage 4: failed channel.send schedules bounded retry of newest pending fix",
+    "Stage 6: removed diagnostics-only rideViewerPresence read from native ingest"
+  ],
+  "physicalSignoffCriteria": [
+    "Driver GPS fixes increase during active ride",
+    "P2P session establishes; server AV matches driver session AV",
+    "Customer fixesReceived increases; invalidMessages=0",
+    "Driver valid ACK count increases; marker moves continuously",
+    "P2P loss → Firebase responsive takeover without long freeze",
+    "P2P recovery without coordinate rollback",
+    "Android lock/screen-off/swipe background path checked"
+  ],
+  "notes": [
+    "Node require(functions/index.js) timing is NOT equivalent to Firebase CLI deploy dry-run.",
+    "All critical reconciliation production fixes are local/uncommitted on this branch.",
+    "No hosting deploy, Functions deploy, commit, or push performed."
+  ]
+}

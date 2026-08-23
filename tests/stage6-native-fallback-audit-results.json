@@ -1,0 +1,120 @@
+{
+  "stage": 6,
+  "area": "native-fallback-audit",
+  "generatedAt": "2026-08-20T13:20:26.283Z",
+  "checkpointResponsiveMs": 4000,
+  "presenceReadRole": "removed — was diagnostics-only in ingest response",
+  "authorizationUsesPresence": false,
+  "cadenceUsesPresence": false,
+  "fourSecondSemantics": "responsive target (hardInterval=false); movement >= 25m may write earlier",
+  "productionChange": "removed unnecessary rideViewerPresence read from native ingest transaction",
+  "pass": 21,
+  "fail": 0,
+  "results": [
+    {
+      "name": "ingest-does-not-read-rideViewerPresence",
+      "status": "PASS",
+      "detail": "no presence transaction read in ingest"
+    },
+    {
+      "name": "ingest-viewerLease-static-unknown",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "cadence-resolver-ignores-viewerLease",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "resolveViewerLeaseFromPresence-still-exported",
+      "status": "PASS",
+      "detail": "used by client checkpoint tests, not native ingest"
+    },
+    {
+      "name": "static-auth-credential-verify",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-auth-not-assigned-driver",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-auth-ride-not-active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-auth-vehicle-mismatch",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-auth-assignment-token",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "cf-responsive-interval-4000ms",
+      "status": "PASS",
+      "detail": "4000ms"
+    },
+    {
+      "name": "native-cadence-hardInterval-false",
+      "status": "PASS",
+      "detail": "policy=RESPONSIVE_FIREBASE hard=false"
+    },
+    {
+      "name": "soft-cadence-blocks-before-4s-without-movement",
+      "status": "PASS",
+      "detail": "interval"
+    },
+    {
+      "name": "soft-cadence-allows-early-write-when-moved-25m",
+      "status": "PASS",
+      "detail": "moved"
+    },
+    {
+      "name": "soft-cadence-allows-at-4s-without-movement",
+      "status": "PASS",
+      "detail": "interval"
+    },
+    {
+      "name": "checkpoint-client-aligns-4s-soft",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "name": "customer-arbiter-firebase-backup-4s",
+      "status": "PASS",
+      "detail": "4000ms"
+    },
+    {
+      "name": "ingest-computes-25m-movement-threshold",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "ingest-accepts-without-presence-read",
+      "status": "PASS",
+      "detail": "accepted=true presenceReads=0 viewerLease=UNKNOWN"
+    },
+    {
+      "name": "ingest-response-viewerLease-unknown",
+      "status": "PASS",
+      "detail": "UNKNOWN"
+    },
+    {
+      "name": "ingest-cadence-skip-before-4s-small-move",
+      "status": "PASS",
+      "detail": "accepted=false reason=CADENCE_SKIP policy=RESPONSIVE_FIREBASE"
+    },
+    {
+      "name": "audit-verdict-documented",
+      "status": "PASS",
+      "detail": "responsive target (hardInterval=false); movement >= 25m may write earlier"
+    }
+  ]
+}

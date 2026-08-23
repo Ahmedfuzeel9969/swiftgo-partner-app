@@ -49,7 +49,7 @@
     {
       "name": "04-browser-callback-never-fires",
       "status": "PASS",
-      "detail": "timeout 71ms",
+      "detail": "timeout 74ms",
       "suite": "driver-fresh-location-online"
     },
     {

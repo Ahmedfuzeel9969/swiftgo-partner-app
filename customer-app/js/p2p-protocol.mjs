@@ -2,7 +2,8 @@
  * Phase 3 — P2P protocol constants and state machine (shared driver/customer).
  *
  * Direct WebRTC is best-effort. Firebase remains signaling + safety fallback.
- * No paid TURN in this phase; missing ICE servers → Firebase fallback.
+ * Default public STUN enabled for NAT traversal. TURN only via injected config
+ * (never hardcode TURN secrets in source).
  */
 
 export const P2P_PROTOCOL_VERSION = 1;
@@ -11,6 +12,12 @@ export const P2P_MESSAGE_TYPE = Object.freeze({
   ACK: "ack",
   HB: "hb",
   CLOSE: "close",
+});
+
+/** Explicit ACK purpose — loc delivery vs transport heartbeat response. */
+export const P2P_ACK_KIND = Object.freeze({
+  LOC: "loc",
+  HB: "hb",
 });
 
 export const P2P_STATE = Object.freeze({
@@ -38,21 +45,52 @@ export const P2P_DIAG = Object.freeze({
   INVALID_MESSAGE: "p2p_invalid_message",
   STALE_GENERATION: "p2p_stale_generation_ignored",
   BACKPRESSURE_COALESCED: "p2p_backpressure_coalesced",
-  PENDING_COALESCED: "p2p_pending_coalesced",
+  SOURCE_P2P: "location_source_p2p",
+  SOURCE_FIREBASE: "location_source_firebase",
+  ICE_RESTART: "p2p_ice_restart",
+  HEARTBEAT_SENT: "p2p_heartbeat_sent",
   CHANNEL_OPEN_TIMEOUT: "p2p_channel_open_timeout",
   ACK_TIMEOUT: "p2p_ack_timeout",
   STALE_ACK_IGNORED: "p2p_stale_ack_ignored",
   DUPLICATE_ACK_IGNORED: "p2p_duplicate_ack_ignored",
-  SOURCE_P2P: "location_source_p2p",
-  SOURCE_FIREBASE: "location_source_firebase",
+  PENDING_COALESCED: "p2p_pending_coalesced",
+  /** Pipeline instrumentation (Offer→ICE→DC→Healthy). Codes only — no SDP/candidate PII. */
+  PIPELINE_ICE_CONFIG: "p2p_pipeline_ice_config",
+  PIPELINE_LOCAL_DESC: "p2p_pipeline_local_desc",
+  PIPELINE_REMOTE_DESC: "p2p_pipeline_remote_desc",
+  PIPELINE_ICE_GATHERING: "p2p_pipeline_ice_gathering",
+  PIPELINE_ICE_GATHER_DONE: "p2p_pipeline_ice_gather_done",
+  PIPELINE_ICE_GATHER_TIMEOUT: "p2p_pipeline_ice_gather_timeout",
+  PIPELINE_ICE_CONNECTION: "p2p_pipeline_ice_connection",
+  PIPELINE_CONNECTION_STATE: "p2p_pipeline_connection_state",
+  PIPELINE_DC_CREATED: "p2p_pipeline_dc_created",
+  PIPELINE_DC_STATE: "p2p_pipeline_dc_state",
+  PIPELINE_ANSWER_APPLIED: "p2p_pipeline_answer_applied",
+  PIPELINE_FIRST_PACKET_OUT: "p2p_pipeline_first_packet_out",
+  PIPELINE_FIRST_PACKET_IN: "p2p_pipeline_first_packet_in",
+  PIPELINE_FALLBACK_REASON: "p2p_pipeline_fallback_reason",
 });
 
-/** Expected direct fix cadence while healthy. */
+/**
+ * Target LOC send cadence while healthy (~3s).
+ * Successful sends may be closer than this: see P2P_MIN_LOC_GAP_MS.
+ */
 export const P2P_SEND_INTERVAL_MS = 3_000;
-/** Channel open but no valid fix → degraded. */
+/**
+ * Minimum spacing between successful LOC channel sends.
+ * Intentional half of P2P_SEND_INTERVAL_MS for smoother marker motion under
+ * continuous GPS; coalescing still collapses bursts to one pending fix.
+ * Do not raise to full interval without motion/battery comparison tests.
+ */
+export const P2P_MIN_LOC_GAP_MS = P2P_SEND_INTERVAL_MS * 0.5;
+/** Channel open but no valid peer activity → degraded. */
 export const P2P_DEGRADED_AFTER_MS = 9_000;
-/** No valid direct fix → Firebase fallback. */
-export const P2P_FALLBACK_AFTER_MS = 12_000;
+/** No valid peer activity → Firebase fallback. */
+export const P2P_FALLBACK_AFTER_MS = 30_000;
+/** While on Firebase backup, apply at most one location render per this interval. */
+export const FIREBASE_BACKUP_READ_INTERVAL_MS = 4_000;
+/** Idle heartbeat — only when no recent LOC/ACK/HB outbound (low traffic). */
+export const P2P_HEARTBEAT_INTERVAL_MS = 12_000;
 /** Require healthy this long before sparse Firebase (anti-flap). */
 export const P2P_HEALTHY_HYSTERESIS_MS = 5_000;
 /** Require unhealthy this long before leaving sparse → responsive. */
@@ -65,14 +103,18 @@ export const P2P_MAX_SDP_CHARS = 16_384;
 export const P2P_SESSION_TTL_MS = 15 * 60_000;
 export const P2P_DATA_CHANNEL_LABEL = "swiftgo-loc-v1";
 export const P2P_BUFFERED_AMOUNT_HIGH = 64 * 1024;
-/** Bounded wait for RTCDataChannel to reach OPEN before Firebase fallback. */
 export const P2P_CHANNEL_OPEN_TIMEOUT_MS = 30_000;
-/** Driver waits this long after first successful send for customer ACK. */
 export const P2P_FIRST_ACK_TIMEOUT_MS = 15_000;
-/** Poll interval while send buffer is above high-water mark. */
 export const P2P_BACKPRESSURE_FLUSH_MS = 500;
-/** Max unacked sent sequences retained for delayed ACK validation. */
+export const P2P_SEND_FAILURE_RETRY_MS = 500;
 export const P2P_MAX_SENT_SEQUENCES_RETAINED = 256;
+
+/** Public STUN servers for NAT traversal (no secrets). Override via __SWIFTGO_P2P_ICE__. */
+export const DEFAULT_STUN_URLS = Object.freeze([
+  "stun:stun.l.google.com:19302",
+  "stun:stun1.l.google.com:19302",
+  "stun:stun.cloudflare.com:3478",
+]);
 
 export const P2P_EXECUTION_STATUSES = Object.freeze([
   "accepted",
@@ -107,7 +149,6 @@ export function nextReconnectDelayMs(attempt, random = Math.random) {
 
 /**
  * Provider-neutral ICE config. No TURN secrets in source.
- * Empty iceServers → connection may fail → Firebase fallback (correct).
  * @param {{ stunUrls?: string[], turn?: { urls: string|string[], username: string, credential: string }|null }} [opts]
  */
 export function buildIceServers(opts = {}) {
@@ -129,11 +170,21 @@ export function buildIceServers(opts = {}) {
 
 /**
  * Runtime ICE configuration from optional window/env injection (never hardcode secrets).
+ * Defaults to public STUN when none configured. TURN only if injected.
  */
 export function resolveIceConfiguration(globalObj = typeof globalThis !== "undefined" ? globalThis : {}) {
   const cfg = globalObj?.__SWIFTGO_P2P_ICE__ || {};
+  const configured = Array.isArray(cfg.stunUrls)
+    ? cfg.stunUrls.map((u) => String(u || "").trim()).filter(Boolean)
+    : [];
+  const stunUrls =
+    cfg.disableDefaultStun === true
+      ? configured
+      : configured.length
+        ? configured
+        : [...DEFAULT_STUN_URLS];
   const iceServers = buildIceServers({
-    stunUrls: cfg.stunUrls,
+    stunUrls,
     turn: cfg.turn || null,
   });
   return {

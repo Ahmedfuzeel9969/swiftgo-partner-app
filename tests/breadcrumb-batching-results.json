@@ -1,34 +1,39 @@
 {
   "suite": "breadcrumb-batching",
-  "generatedAt": "2026-08-02T01:59:32.674Z",
-  "total": 95,
-  "pass": 95,
+  "generatedAt": "2026-08-02T09:58:03.717Z",
+  "total": 97,
+  "pass": 97,
   "fail": 0,
   "blocked": 0,
   "byCategory": {
     "unit": {
       "pass": 43,
       "fail": 0,
+      "blocked": 0,
       "total": 43
     },
     "static": {
-      "pass": 21,
+      "pass": 22,
       "fail": 0,
-      "total": 21
+      "blocked": 0,
+      "total": 22
     },
     "rules": {
-      "pass": 2,
+      "pass": 3,
       "fail": 0,
-      "total": 2
+      "blocked": 0,
+      "total": 3
     },
     "emulator": {
       "pass": 26,
       "fail": 0,
+      "blocked": 0,
       "total": 26
     },
     "performance": {
       "pass": 3,
       "fail": 0,
+      "blocked": 0,
       "total": 3
     }
   },
@@ -176,7 +181,7 @@
     {
       "name": "21-retry-bounded-backoff",
       "status": "PASS",
-      "detail": "delays=5149,60000",
+      "detail": "delays=60000,5118,60000",
       "suite": "breadcrumb-batching",
       "category": "unit"
     },
@@ -253,21 +258,35 @@
     {
       "name": "32-terminal-flush-bounded",
       "status": "PASS",
-      "detail": "ms=57",
+      "detail": "ms=58",
       "suite": "breadcrumb-batching",
       "category": "unit"
     },
     {
+      "name": "static-telemetry-deny-all-architecture",
+      "status": "PASS",
+      "detail": "static architecture",
+      "suite": "breadcrumb-batching",
+      "category": "static"
+    },
+    {
       "name": "rules-client-read-denied",
       "status": "PASS",
-      "detail": "static deny-all (Firestore has already been started and its settings can no longer be changed. Yo)",
+      "detail": "authenticated emulator rules",
       "suite": "breadcrumb-batching",
       "category": "rules"
     },
     {
       "name": "rules-client-write-denied",
       "status": "PASS",
-      "detail": "static deny-all (Firestore has already been started and its settings can no longer be changed. Yo)",
+      "detail": "authenticated emulator rules",
+      "suite": "breadcrumb-batching",
+      "category": "rules"
+    },
+    {
+      "name": "isolated-rules-child-status-ok",
+      "status": "PASS",
+      "detail": "status=0",
       "suite": "breadcrumb-batching",
       "category": "rules"
     },
@@ -582,7 +601,7 @@
     {
       "name": "77-no-growing-points-in-ride",
       "status": "PASS",
-      "detail": "telKeys=20",
+      "detail": "telKeys=21",
       "suite": "breadcrumb-batching",
       "category": "emulator"
     },
@@ -659,7 +678,7 @@
     {
       "name": "88-batch-under-byte-limit",
       "status": "PASS",
-      "detail": "bytes=3882",
+      "detail": "bytes=3923",
       "suite": "breadcrumb-batching",
       "category": "performance"
     },

@@ -15,6 +15,8 @@
   --top-h: max(80px, 10vh);
   --mid-h: 80vh;
   --bot-h: max(132px, calc(12vh + env(safe-area-inset-bottom, 0px)));
+  --home-sheet-collapsed: max(132px, calc(12vh + env(safe-area-inset-bottom, 0px)));
+  --home-sheet-expanded: min(42vh, 380px);
   --sidebar-w: min(86vw, 320px);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bot: env(safe-area-inset-bottom, 0px);
@@ -225,6 +227,7 @@ button {
   max-width: 100%;
   max-height: 100%;
   z-index: 0 !important;
+  background: #e8f0e4;
 }
 
 #screen-home .leaflet-pane {
@@ -275,7 +278,7 @@ button {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: #c5e8d6;
+  background: transparent;
 }
 
 .custom-pin-wrap {
@@ -609,9 +612,32 @@ body.map-pick-active .map-drag-hint {
   background: var(--brand);
 }
 
-body.map-pick-active .sheet {
+body.map-pick-active .sheet,
+.shell.on-home.map-pick-active > .sheet {
+  display: none !important;
   opacity: 0;
   pointer-events: none;
+}
+
+.shell.on-home.map-pick-active > .viewport,
+body.map-pick-active .shell.on-home > .viewport {
+  bottom: 0 !important;
+}
+
+body.map-dragging .sheet,
+.shell.on-home.map-dragging > .sheet {
+  display: none !important;
+  pointer-events: none;
+}
+
+.shell.on-home.map-dragging > .viewport,
+body.map-dragging .shell.on-home > .viewport {
+  bottom: 0 !important;
+}
+
+body.map-pick-active,
+body.map-dragging {
+  --keyboard-inset: 0px;
 }
 
 .loc-suggest {
@@ -886,6 +912,27 @@ body.map-pick-active .sheet {
   animation: none !important;
   transform: rotate(var(--rot, 0deg));
   filter: drop-shadow(0 4px 8px rgba(29, 78, 216, 0.45));
+}
+
+.assigned-driver-marker.is-motorcycle-moving {
+  width: 94px;
+  height: 54px;
+}
+
+.assigned-driver-marker.is-motorcycle-moving svg {
+  display: block;
+  animation: moto-road-bob 0.55s ease-in-out infinite;
+  transform-origin: 50% 85%;
+}
+
+@keyframes moto-road-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
 }
 
 .assigned-driver-marker__pulse {
@@ -1649,8 +1696,19 @@ html.show-traffic .map::after {
   background: rgba(8, 28, 18, 0.45);
   backdrop-filter: blur(2px);
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.28s var(--ease);
   z-index: 40;
+}
+
+.drawer-overlay[hidden] {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+.drawer-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Phase 13.3: utility drawer (opposite edge from nav) */
@@ -3426,6 +3484,15 @@ html[dir="rtl"] .contact-btn__chev {
   color: #0b7a4b;
 }
 
+.driver-offer-panel__timer {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #b45309;
+  letter-spacing: 0.04em;
+  direction: ltr;
+}
+
 .driver-offer-panel__actions {
   display: flex;
   flex-direction: column;
@@ -3619,6 +3686,14 @@ html[dir="rtl"] .contact-btn__chev {
   display: grid;
   gap: 0.65rem;
   margin-top: 1rem;
+}
+
+.active-ride-contact-host:empty {
+  display: none;
+}
+
+.active-ride-contact-host .swiftgo-comm__contact-btn {
+  width: 100%;
 }
 
 .active-ride-panel__cancel {
@@ -3853,47 +3928,66 @@ html[dir="rtl"] .contact-btn__chev {
    Phase 45.1 — Compact floating step search (map always visible)
    ═══════════════════════════════════════════════════════════ */
 
-/* Home: flex column so absolute topbar cannot collapse map/sheet */
+/* Home: map fills upper area; sheet pinned to bottom — never collapses map to zero */
 .shell.on-home {
-  display: flex;
-  flex-direction: column;
-  grid-template-rows: none;
+  display: block;
+  position: relative;
+  height: 100%;
+  overflow: hidden;
 }
 
 .shell.on-home.sheet-expanded > .sheet,
 .shell.on-home.sheet-expanded.sheet-ride-ready > .sheet {
-  max-height: min(42vh, 380px);
+  max-height: var(--home-sheet-expanded);
 }
 
 .shell.on-home > .viewport {
-  position: relative;
-  flex: 1 1 0;
-  min-height: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--home-sheet-collapsed);
+  min-height: 55vh;
   z-index: 0;
   overflow: hidden;
   isolation: isolate;
 }
 
+.shell.on-home.sheet-expanded > .viewport,
+.shell.on-home.sheet-expanded.sheet-ride-ready > .viewport {
+  bottom: var(--home-sheet-expanded);
+}
+
 .shell.on-home > .sheet {
-  position: relative;
-  flex: 0 0 auto;
-  z-index: 1300;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
   min-height: 0;
+  max-height: min(44vh, 400px);
   overflow: hidden;
   background: #fff;
   box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.12);
 }
 
+.shell.on-home > .sheet[data-state="expanded"] .sheet__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .shell.on-home > .sheet[data-state="collapsed"] {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .shell.on-home > .sheet[data-state="collapsed"] .sheet__peek {
-  overflow: visible;
+  overflow: hidden;
   padding-bottom: 0.15rem;
 }
 
-/* Transparent overlay chrome — out of flex flow, never covers sheet */
+/* Transparent overlay chrome — over map viewport only (never over sheet) */
 .topbar.location-header,
 .shell.on-home > .topbar.location-header {
   position: absolute;
@@ -5029,14 +5123,29 @@ select.is-error {
     --bot-h: max(96px, calc(28vh + env(safe-area-inset-bottom, 0px)));
   }
 
+  :root {
+    --home-sheet-collapsed: min(38vh, 150px);
+    --home-sheet-expanded: min(46vh, 200px);
+  }
+
+  .shell.on-home > .viewport {
+    bottom: var(--home-sheet-collapsed);
+    min-height: 45vh;
+  }
+
+  .shell.on-home.sheet-expanded > .viewport,
+  .shell.on-home.sheet-expanded.sheet-ride-ready > .viewport {
+    bottom: var(--home-sheet-expanded);
+  }
+
   .shell.on-home.sheet-expanded > .sheet,
   .shell.on-home.sheet-expanded.sheet-ride-ready > .sheet,
   .sheet[data-state="expanded"] {
-    max-height: min(46vh, 200px);
+    max-height: var(--home-sheet-expanded);
   }
 
   .shell.on-home > .sheet[data-state="collapsed"] {
-    max-height: min(38vh, 150px);
+    max-height: var(--home-sheet-collapsed);
   }
 
   .service-rail__label {
@@ -5361,4 +5470,72 @@ html[dir="rtl"] .contact-btn__chev {
 .trust-delete h3 {
   margin: 0 0 0.35rem;
   font-size: 0.98rem;
+}
+
+/* Field diagnostics screen */
+.panel--diagnostics {
+  padding-bottom: 2rem;
+}
+.diag-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin: 0.75rem 0 0.5rem;
+}
+.diag-btn-secondary {
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: #fff;
+  color: #0f172a;
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+}
+.diag-status {
+  min-height: 1.25rem;
+  margin: 0.25rem 0 0.75rem;
+  color: var(--brand, #0b7a4b);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.diag-summary {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(11, 122, 75, 0.14);
+}
+.diag-row {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.diag-row__k {
+  color: #64748b;
+  font-weight: 700;
+}
+.diag-row__v {
+  color: #0f172a;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+.diag-log-title {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.95rem;
+}
+.diag-log {
+  margin: 0;
+  max-height: 42vh;
+  overflow: auto;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: #0b1220;
+  color: #d7ffe9;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

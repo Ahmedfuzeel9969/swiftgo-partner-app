@@ -63,6 +63,7 @@ import {
   smoothHeadingToward,
   HEADING_MIN_SPEED_MPS,
 } from "../customer-app/js/marker-heading.mjs";
+import { remainingFallbackGeometryFromFix } from "../customer-app/js/two-leg-route-layers.mjs";
 
 const FIXTURE_META = {
   geometryKind: GEOMETRY_KIND.FIXTURE_ROAD_ROUTE,
@@ -447,6 +448,62 @@ function progressMotionTests() {
       ? "PASS"
       : "FAIL",
     "new generation on leg change via model",
+    "static"
+  );
+
+  // Progress reject must paint raw GPS — never silent-freeze the marker.
+  const holdFrames = [];
+  const holdPipe = createDisplayLocationPipeline({
+    nowMs: timers.nowMs,
+    raf: timers.raf,
+    caf: timers.caf,
+    onDisplayFrame: (p) => holdFrames.push({ ...p }),
+    onRawFallback: (p) => holdFrames.push({ ...p, raw: true }),
+  });
+  const holdGeom = [
+    { lat: 24.86, lng: 67.0 },
+    { lat: 24.865, lng: 67.0 },
+    { lat: 24.87, lng: 67.0 },
+  ];
+  holdPipe.setActiveRoute({
+    geometry: holdGeom,
+    generation: 1,
+    activeLeg: "approach",
+    ...FIXTURE_META,
+  });
+  const rHold1 = holdPipe.ingestValidatedFix({
+    lat: holdGeom[1].lat,
+    lng: holdGeom[1].lng,
+    speedMps: 8,
+    observedAt: timers.nowMs(),
+  });
+  timers.advance(2000);
+  const framesAfterFirst = holdFrames.length;
+  const rHold2 = holdPipe.ingestValidatedFix({
+    lat: holdGeom[0].lat,
+    lng: holdGeom[0].lng,
+    speedMps: 8,
+    observedAt: timers.nowMs() + 2000,
+  });
+  record(
+    "27b-progress-reject-emits-raw-not-silent-hold",
+    rHold1.mode === "snap" &&
+      rHold2.mode === "raw" &&
+      rHold2.held === true &&
+      holdFrames.length > framesAfterFirst &&
+      holdFrames.some((f) => f.raw === true || f.displayMode === "raw")
+      ? "PASS"
+      : "FAIL",
+    `r1=${rHold1.mode} r2=${rHold2.mode} held=${rHold2.held} frames=${holdFrames.length}`,
+    "unit"
+  );
+  record(
+    "27c-customer-raw-paint-animates",
+    read("customer-app/js/ride-flow.js").includes('pos.displayMode === "snap"') &&
+      read("customer-app/js/ride-flow.js").includes("skipAnimation: isSnap")
+      ? "PASS"
+      : "FAIL",
+    "raw frames animate; snap keeps skipAnimation",
     "static"
   );
 
@@ -951,10 +1008,10 @@ function performanceStaticTests() {
     SNAP_HIGH_DISTANCE_M === 25 &&
       SNAP_MAX_DISTANCE_M === 55 &&
       SNAP_HEADING_TOLERANCE_DEG === 55 &&
-      OFF_ROUTE_MIN_FIXES === 3 &&
-      OFF_ROUTE_DISTANCE_M === 65 &&
-      OFF_ROUTE_SUSTAIN_MS === 15_000 &&
-      REROUTE_COOLDOWN_MS === 75_000
+      OFF_ROUTE_MIN_FIXES === 2 &&
+      OFF_ROUTE_DISTANCE_M === 55 &&
+      OFF_ROUTE_SUSTAIN_MS === 6_000 &&
+      REROUTE_COOLDOWN_MS === 25_000
       ? "PASS"
       : "FAIL",
     JSON.stringify({
@@ -1594,6 +1651,31 @@ function deterministicVisualFixture() {
       : "FAIL",
     "",
     "visual"
+  );
+
+  const fallbackRemaining = remainingFallbackGeometryFromFix(fbV.route, noisy);
+  record(
+    "V05b-dashed-fallback-removes-travelled-tail",
+    fallbackRemaining?.length === 2 &&
+      Math.abs(fallbackRemaining[0].lat - noisy.lat) < 1e-9 &&
+      Math.abs(fallbackRemaining[0].lng - noisy.lng) < 1e-9 &&
+      Math.abs(fallbackRemaining[1].lat - curve[curve.length - 1].lat) < 1e-9 &&
+      Math.abs(fallbackRemaining[1].lng - curve[curve.length - 1].lng) < 1e-9
+      ? "PASS"
+      : "FAIL",
+    "fallback begins at live vehicle and ends at destination",
+    "visual"
+  );
+
+  const rideFlowSource = read("customer-app/js/ride-flow.js");
+  record(
+    "V05c-raw-marker-motion-enabled",
+    rideFlowSource.includes("allowPredict: !isSnap") &&
+      rideFlowSource.includes("setRawVehiclePosition?.(pos)")
+      ? "PASS"
+      : "FAIL",
+    "raw fixes animate while fallback line follows the live vehicle",
+    "static"
   );
 
   const chordCheck = pointAtProgress(buildRouteMetrics(curve), buildRouteMetrics(curve).totalLengthM * 0.45);

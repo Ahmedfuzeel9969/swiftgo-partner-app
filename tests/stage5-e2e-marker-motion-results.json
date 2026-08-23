@@ -1,0 +1,80 @@
+{
+  "stage": 5,
+  "generatedAt": "2026-08-20T04:32:23.115Z",
+  "pass": 10,
+  "fail": 0,
+  "serverAssignmentVersion": 88392619,
+  "counters": {
+    "fixesSent": 8,
+    "fixesReceived": 8,
+    "invalidMessages": 0,
+    "p2pRendered": 8,
+    "firebaseRendered": 4,
+    "staleRejected": 0,
+    "sourceSwitches": 2,
+    "displayRawFixes": 12,
+    "displaySnapFixes": 0,
+    "animationStarts": 0,
+    "animationCompletions": 0,
+    "driverFixesSent": 8,
+    "customerFixesReceived": 8,
+    "customerInvalid": 0,
+    "sourceSwitchP2pToFirebase": 1,
+    "sourceSwitchFirebaseToP2p": 1,
+    "firebaseThrottled": 0,
+    "firebaseIgnoredWhileP2p": 0,
+    "displayFrameCount": 12
+  },
+  "results": [
+    {
+      "name": "server-assignmentVersion-not-1",
+      "status": "PASS",
+      "detail": "serverAv=88392619"
+    },
+    {
+      "name": "driver-loc-packets-use-authoritative-assignmentVersion",
+      "status": "PASS",
+      "detail": "sessionAv=88392619"
+    },
+    {
+      "name": "five-p2p-fixes-sent-and-received",
+      "status": "PASS",
+      "detail": "sent=5 recv=5 invalid=0"
+    },
+    {
+      "name": "five-increasing-display-coordinates-from-p2p",
+      "status": "PASS",
+      "detail": "frames=5 p2pRendered=5"
+    },
+    {
+      "name": "p2p-silent-firebase-fallback-renders",
+      "status": "PASS",
+      "detail": "fbFrames=4 preferred=firebase fbRendered=4"
+    },
+    {
+      "name": "p2p-recovery-no-coordinate-rollback",
+      "status": "PASS",
+      "detail": "before=24.863000000000003 after=24.8636 preferred=p2p"
+    },
+    {
+      "name": "no-invalid-messages-end-to-end",
+      "status": "PASS",
+      "detail": "invalid=0"
+    },
+    {
+      "name": "firebase-backup-interval-4s-not-15s",
+      "status": "PASS",
+      "detail": "4000ms"
+    },
+    {
+      "name": "controller-path-assignmentVersion-synced",
+      "status": "PASS",
+      "detail": "av=50430743"
+    },
+    {
+      "name": "fallback-takeover-immediate-firebase-render",
+      "status": "PASS",
+      "detail": "renders=2 lastLat=4"
+    }
+  ]
+}

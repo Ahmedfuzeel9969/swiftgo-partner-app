@@ -1,0 +1,105 @@
+{
+  "stage": 4,
+  "generatedAt": "2026-08-20T14:14:37.135Z",
+  "pass": 13,
+  "fail": 0,
+  "matrix": [
+    {
+      "scenario": "visible-healthy-p2p",
+      "policy": "P2P_SPARSE_TRIP",
+      "intervalMs": 30000,
+      "hardInterval": true
+    },
+    {
+      "scenario": "visible-unhealthy-p2p",
+      "policy": "RESPONSIVE_FIREBASE",
+      "intervalMs": 4000,
+      "hardInterval": false
+    },
+    {
+      "scenario": "unknown-healthy-p2p",
+      "policy": "P2P_SPARSE_APPROACH",
+      "intervalMs": 60000,
+      "hardInterval": true
+    },
+    {
+      "scenario": "unknown-unhealthy-p2p",
+      "policy": "RESPONSIVE_FIREBASE",
+      "intervalMs": 4000,
+      "hardInterval": false
+    },
+    {
+      "scenario": "expired-unhealthy-p2p",
+      "policy": "RESPONSIVE_FIREBASE",
+      "intervalMs": 4000,
+      "hardInterval": false
+    }
+  ],
+  "results": [
+    {
+      "name": "matrix-visible-healthy-p2p",
+      "status": "PASS",
+      "detail": "P2P_SPARSE_TRIP@30000ms hard=true"
+    },
+    {
+      "name": "matrix-visible-unhealthy-p2p",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000ms hard=false"
+    },
+    {
+      "name": "matrix-unknown-healthy-p2p",
+      "status": "PASS",
+      "detail": "P2P_SPARSE_APPROACH@60000ms hard=true"
+    },
+    {
+      "name": "matrix-unknown-unhealthy-p2p",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000ms hard=false"
+    },
+    {
+      "name": "matrix-expired-unhealthy-p2p",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000ms hard=false"
+    },
+    {
+      "name": "controller-expired-healthy-p2p-sparse-trip",
+      "status": "PASS",
+      "detail": "P2P_SPARSE_TRIP@30000"
+    },
+    {
+      "name": "controller-expired-unhealthy-p2p-responsive",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "name": "controller-unknown-healthy-p2p-sparse",
+      "status": "PASS",
+      "detail": "P2P_SPARSE_TRIP@30000"
+    },
+    {
+      "name": "controller-lease-change-does-not-clear-p2p-health",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "native-upload-visible-responsive",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "name": "native-upload-unknown-responsive",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "name": "native-upload-expired-responsive",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "name": "unhealthy-p2p-never-sparse-for-active-ride",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

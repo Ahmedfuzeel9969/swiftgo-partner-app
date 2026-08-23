@@ -1,0 +1,112 @@
+{
+  "phase": 4,
+  "title": "P2P Communication — Voice Call",
+  "generatedAt": "2026-08-04T16:25:13.442Z",
+  "summary": {
+    "passed": 20,
+    "failed": 0,
+    "total": 20
+  },
+  "results": [
+    {
+      "name": "call_envelope_fits_large_sdp",
+      "status": "PASS",
+      "detail": "len=8232"
+    },
+    {
+      "name": "start_call_ok",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "incoming_rings",
+      "status": "PASS",
+      "detail": "incoming"
+    },
+    {
+      "name": "accept_ok",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "both_active",
+      "status": "PASS",
+      "detail": "A=active B=active"
+    },
+    {
+      "name": "mute_local",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "speaker_off",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "end_clears_both",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "state_saw_outgoing_incoming_active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "reject_returns_idle",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "transport_lost_recovers_idle",
+      "status": "PASS",
+      "detail": "idle"
+    },
+    {
+      "name": "restart_after_recover",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "blocks_when_media_not_ready",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "stress_8_call_cycles",
+      "status": "PASS",
+      "detail": "ok=8"
+    },
+    {
+      "name": "peer_session_has_media_bridge",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer_peer_media_bridge_synced",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "panel_call_controls",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no_video_in_call_module",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "call_wrappers_synced",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "controllers_expose_media_bridge",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

@@ -1,0 +1,5644 @@
+{
+  "generatedAt": "2026-08-15T16:17:09.766Z",
+  "host": "http://127.0.0.1:5000",
+  "cold": [
+    {
+      "label": "cold-1",
+      "marks": {
+        "moduleGraphCompleteMs": 1923,
+        "bootStartMs": 1943.5,
+        "ensureMapMs": 3201.300000011921,
+        "mapCreatedMs": 3241.300000011921,
+        "firstTileVisibleMs": 3922.800000011921
+      },
+      "preBootResources": [
+        {
+          "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "startMs": 1107,
+          "responseEndMs": 1262,
+          "durationMs": 155,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+          "startMs": 1107,
+          "responseEndMs": 1207,
+          "durationMs": 100,
+          "transferSize": 17879
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/i18n.js",
+          "startMs": 1520,
+          "responseEndMs": 1715,
+          "durationMs": 195,
+          "transferSize": 13470
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/map.js",
+          "startMs": 1521,
+          "responseEndMs": 1679,
+          "durationMs": 158,
+          "transferSize": 9169
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/sheet.js",
+          "startMs": 1521,
+          "responseEndMs": 1547,
+          "durationMs": 26,
+          "transferSize": 6353
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location.js",
+          "startMs": 1521,
+          "responseEndMs": 1548,
+          "durationMs": 27,
+          "transferSize": 8023
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/step-ui.js",
+          "startMs": 1521,
+          "responseEndMs": 1550,
+          "durationMs": 28,
+          "transferSize": 2491
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/screens.js",
+          "startMs": 1521,
+          "responseEndMs": 1551,
+          "durationMs": 30,
+          "transferSize": 1067
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/auth.js",
+          "startMs": 1521,
+          "responseEndMs": 1563,
+          "durationMs": 41,
+          "transferSize": 2817
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/data.js",
+          "startMs": 1522,
+          "responseEndMs": 1566,
+          "durationMs": 45,
+          "transferSize": 4979
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase.js",
+          "startMs": 1522,
+          "responseEndMs": 1564,
+          "durationMs": 43,
+          "transferSize": 1447
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dashboard.js",
+          "startMs": 1522,
+          "responseEndMs": 1568,
+          "durationMs": 47,
+          "transferSize": 1135
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/utility-drawer.js",
+          "startMs": 1522,
+          "responseEndMs": 1581,
+          "durationMs": 60,
+          "transferSize": 2366
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-modal.js",
+          "startMs": 1522,
+          "responseEndMs": 1582,
+          "durationMs": 61,
+          "transferSize": 1242
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/routing.js",
+          "startMs": 1522,
+          "responseEndMs": 1586,
+          "durationMs": 64,
+          "transferSize": 3340
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/fare.js",
+          "startMs": 1522,
+          "responseEndMs": 1592,
+          "durationMs": 70,
+          "transferSize": 2712
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-flow.js",
+          "startMs": 1522,
+          "responseEndMs": 1616,
+          "durationMs": 94,
+          "transferSize": 16167
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/driver-track.js",
+          "startMs": 1522,
+          "responseEndMs": 1604,
+          "durationMs": 82,
+          "transferSize": 3440
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/a11y.js",
+          "startMs": 1522,
+          "responseEndMs": 1607,
+          "durationMs": 84,
+          "transferSize": 2551
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/trust.js",
+          "startMs": 1523,
+          "responseEndMs": 1611,
+          "durationMs": 89,
+          "transferSize": 1909
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/native-shell.js",
+          "startMs": 1523,
+          "responseEndMs": 1639,
+          "durationMs": 116,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+          "startMs": 1523,
+          "responseEndMs": 1645,
+          "durationMs": 123,
+          "transferSize": 904
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/support.js",
+          "startMs": 1556,
+          "responseEndMs": 1637,
+          "durationMs": 81,
+          "transferSize": 1277
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+          "startMs": 1565,
+          "responseEndMs": 1815,
+          "durationMs": 249,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+          "startMs": 1568,
+          "responseEndMs": 1814,
+          "durationMs": 246,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+          "startMs": 1568,
+          "responseEndMs": 1831,
+          "durationMs": 262,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+          "startMs": 1569,
+          "responseEndMs": 1798,
+          "durationMs": 230,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+          "startMs": 1569,
+          "responseEndMs": 1817,
+          "durationMs": 249,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase-config.js",
+          "startMs": 1569,
+          "responseEndMs": 1644,
+          "durationMs": 75,
+          "transferSize": 998
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-view.js",
+          "startMs": 1589,
+          "responseEndMs": 1664,
+          "durationMs": 75,
+          "transferSize": 1993
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/tracking-target.mjs",
+          "startMs": 1608,
+          "responseEndMs": 1665,
+          "durationMs": 57,
+          "transferSize": 1414
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-render.mjs",
+          "startMs": 1608,
+          "responseEndMs": 1668,
+          "durationMs": 59,
+          "transferSize": 2697
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+          "startMs": 1608,
+          "responseEndMs": 1673,
+          "durationMs": 65,
+          "transferSize": 4380
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-client.js",
+          "startMs": 1625,
+          "responseEndMs": 1687,
+          "durationMs": 62,
+          "transferSize": 1079
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-status.js",
+          "startMs": 1625,
+          "responseEndMs": 1689,
+          "durationMs": 64,
+          "transferSize": 1292
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/offer-client.js",
+          "startMs": 1625,
+          "responseEndMs": 1691,
+          "durationMs": 66,
+          "transferSize": 3375
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-gate.js",
+          "startMs": 1625,
+          "responseEndMs": 1696,
+          "durationMs": 70,
+          "transferSize": 1570
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-latency.js",
+          "startMs": 1625,
+          "responseEndMs": 1707,
+          "durationMs": 81,
+          "transferSize": 1026
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/confirm-dialog.js",
+          "startMs": 1625,
+          "responseEndMs": 1770,
+          "durationMs": 144,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+          "startMs": 1626,
+          "responseEndMs": 1759,
+          "durationMs": 133,
+          "transferSize": 2251
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+          "startMs": 1626,
+          "responseEndMs": 1761,
+          "durationMs": 135,
+          "transferSize": 3192
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+          "startMs": 1626,
+          "responseEndMs": 1763,
+          "durationMs": 137,
+          "transferSize": 2509
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+          "startMs": 1626,
+          "responseEndMs": 1772,
+          "durationMs": 147,
+          "transferSize": 2878
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+          "startMs": 1626,
+          "responseEndMs": 1781,
+          "durationMs": 155,
+          "transferSize": 7906
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+          "startMs": 1626,
+          "responseEndMs": 1791,
+          "durationMs": 165,
+          "transferSize": 5831
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+          "startMs": 1626,
+          "responseEndMs": 1793,
+          "durationMs": 167,
+          "transferSize": 3624
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+          "startMs": 1626,
+          "responseEndMs": 1798,
+          "durationMs": 172,
+          "transferSize": 3794
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+          "startMs": 1626,
+          "responseEndMs": 1808,
+          "durationMs": 181,
+          "transferSize": 3473
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+          "startMs": 1627,
+          "responseEndMs": 1808,
+          "durationMs": 181,
+          "transferSize": 4284
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+          "startMs": 1627,
+          "responseEndMs": 1833,
+          "durationMs": 206,
+          "transferSize": 3296
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+          "startMs": 1627,
+          "responseEndMs": 1842,
+          "durationMs": 215,
+          "transferSize": 1130
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+          "startMs": 1627,
+          "responseEndMs": 1844,
+          "durationMs": 217,
+          "transferSize": 2945
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+          "startMs": 1694,
+          "responseEndMs": 1846,
+          "durationMs": 153,
+          "transferSize": 837
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+          "startMs": 1777,
+          "responseEndMs": 1853,
+          "durationMs": 76,
+          "transferSize": 9518
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+          "startMs": 1777,
+          "responseEndMs": 1855,
+          "durationMs": 78,
+          "transferSize": 2122
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+          "startMs": 1786,
+          "responseEndMs": 1864,
+          "durationMs": 78,
+          "transferSize": 4444
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+          "startMs": 1786,
+          "responseEndMs": 1872,
+          "durationMs": 86,
+          "transferSize": 2651
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+          "startMs": 1786,
+          "responseEndMs": 1875,
+          "durationMs": 89,
+          "transferSize": 2742
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-geometry.mjs",
+          "startMs": 1796,
+          "responseEndMs": 1877,
+          "durationMs": 81,
+          "transferSize": 2406
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-projection.mjs",
+          "startMs": 1803,
+          "responseEndMs": 1880,
+          "durationMs": 78,
+          "transferSize": 3942
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-progress.mjs",
+          "startMs": 1816,
+          "responseEndMs": 1882,
+          "durationMs": 66,
+          "transferSize": 1250
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+          "startMs": 1816,
+          "responseEndMs": 1891,
+          "durationMs": 75,
+          "transferSize": 1736
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+          "startMs": 1816,
+          "responseEndMs": 1896,
+          "durationMs": 80,
+          "transferSize": 1659
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+          "startMs": 1816,
+          "responseEndMs": 1900,
+          "durationMs": 84,
+          "transferSize": 1394
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/marker-heading.mjs",
+          "startMs": 1816,
+          "responseEndMs": 1903,
+          "durationMs": 87,
+          "transferSize": 1190
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+          "startMs": 1821,
+          "responseEndMs": 1908,
+          "durationMs": 87,
+          "transferSize": 5530
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-envelope.mjs",
+          "startMs": 1822,
+          "responseEndMs": 1909,
+          "durationMs": 88,
+          "transferSize": 5336
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+          "startMs": 1857,
+          "responseEndMs": 1914,
+          "durationMs": 57,
+          "transferSize": 2069
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+          "startMs": 1857,
+          "responseEndMs": 1918,
+          "durationMs": 61,
+          "transferSize": 4428
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+          "startMs": 1866,
+          "responseEndMs": 1923,
+          "durationMs": 57,
+          "transferSize": 3522
+        }
+      ]
+    },
+    {
+      "label": "cold-2",
+      "marks": {
+        "moduleGraphCompleteMs": 853,
+        "bootStartMs": 877.1999999880791,
+        "ensureMapMs": 904.8999999761581,
+        "mapCreatedMs": 926.5,
+        "firstTileVisibleMs": 1304.699999988079
+      },
+      "preBootResources": [
+        {
+          "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "startMs": 45,
+          "responseEndMs": 146,
+          "durationMs": 101,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+          "startMs": 45,
+          "responseEndMs": 95,
+          "durationMs": 50,
+          "transferSize": 17879
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/i18n.js",
+          "startMs": 477,
+          "responseEndMs": 511,
+          "durationMs": 34,
+          "transferSize": 13470
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/map.js",
+          "startMs": 477,
+          "responseEndMs": 524,
+          "durationMs": 47,
+          "transferSize": 9169
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/sheet.js",
+          "startMs": 477,
+          "responseEndMs": 520,
+          "durationMs": 42,
+          "transferSize": 6353
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location.js",
+          "startMs": 478,
+          "responseEndMs": 522,
+          "durationMs": 44,
+          "transferSize": 8023
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/step-ui.js",
+          "startMs": 478,
+          "responseEndMs": 526,
+          "durationMs": 48,
+          "transferSize": 2491
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/screens.js",
+          "startMs": 478,
+          "responseEndMs": 528,
+          "durationMs": 50,
+          "transferSize": 1067
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/auth.js",
+          "startMs": 478,
+          "responseEndMs": 537,
+          "durationMs": 59,
+          "transferSize": 2817
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/data.js",
+          "startMs": 478,
+          "responseEndMs": 554,
+          "durationMs": 76,
+          "transferSize": 4979
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase.js",
+          "startMs": 478,
+          "responseEndMs": 556,
+          "durationMs": 78,
+          "transferSize": 1447
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dashboard.js",
+          "startMs": 478,
+          "responseEndMs": 562,
+          "durationMs": 84,
+          "transferSize": 1135
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-modal.js",
+          "startMs": 478,
+          "responseEndMs": 562,
+          "durationMs": 83,
+          "transferSize": 1242
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/utility-drawer.js",
+          "startMs": 478,
+          "responseEndMs": 559,
+          "durationMs": 81,
+          "transferSize": 2366
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/routing.js",
+          "startMs": 479,
+          "responseEndMs": 566,
+          "durationMs": 88,
+          "transferSize": 3340
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/fare.js",
+          "startMs": 480,
+          "responseEndMs": 579,
+          "durationMs": 99,
+          "transferSize": 2712
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-flow.js",
+          "startMs": 481,
+          "responseEndMs": 588,
+          "durationMs": 107,
+          "transferSize": 16167
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/driver-track.js",
+          "startMs": 481,
+          "responseEndMs": 585,
+          "durationMs": 105,
+          "transferSize": 3440
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/a11y.js",
+          "startMs": 481,
+          "responseEndMs": 592,
+          "durationMs": 111,
+          "transferSize": 2551
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/trust.js",
+          "startMs": 481,
+          "responseEndMs": 594,
+          "durationMs": 113,
+          "transferSize": 1909
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/native-shell.js",
+          "startMs": 481,
+          "responseEndMs": 600,
+          "durationMs": 119,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+          "startMs": 481,
+          "responseEndMs": 615,
+          "durationMs": 134,
+          "transferSize": 904
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-render.mjs",
+          "startMs": 535,
+          "responseEndMs": 622,
+          "durationMs": 86,
+          "transferSize": 2697
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/support.js",
+          "startMs": 538,
+          "responseEndMs": 619,
+          "durationMs": 81,
+          "transferSize": 1277
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+          "startMs": 546,
+          "responseEndMs": 775,
+          "durationMs": 229,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+          "startMs": 565,
+          "responseEndMs": 816,
+          "durationMs": 251,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+          "startMs": 567,
+          "responseEndMs": 791,
+          "durationMs": 224,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+          "startMs": 567,
+          "responseEndMs": 800,
+          "durationMs": 234,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase-config.js",
+          "startMs": 567,
+          "responseEndMs": 620,
+          "durationMs": 53,
+          "transferSize": 998
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+          "startMs": 567,
+          "responseEndMs": 795,
+          "durationMs": 228,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-view.js",
+          "startMs": 571,
+          "responseEndMs": 625,
+          "durationMs": 53,
+          "transferSize": 1993
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/tracking-target.mjs",
+          "startMs": 591,
+          "responseEndMs": 628,
+          "durationMs": 37,
+          "transferSize": 1414
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+          "startMs": 591,
+          "responseEndMs": 639,
+          "durationMs": 48,
+          "transferSize": 4380
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-client.js",
+          "startMs": 597,
+          "responseEndMs": 638,
+          "durationMs": 40,
+          "transferSize": 1079
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-status.js",
+          "startMs": 598,
+          "responseEndMs": 643,
+          "durationMs": 45,
+          "transferSize": 1292
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/offer-client.js",
+          "startMs": 598,
+          "responseEndMs": 645,
+          "durationMs": 47,
+          "transferSize": 3375
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-gate.js",
+          "startMs": 598,
+          "responseEndMs": 652,
+          "durationMs": 54,
+          "transferSize": 1570
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-latency.js",
+          "startMs": 598,
+          "responseEndMs": 656,
+          "durationMs": 58,
+          "transferSize": 1026
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/confirm-dialog.js",
+          "startMs": 598,
+          "responseEndMs": 667,
+          "durationMs": 69,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+          "startMs": 598,
+          "responseEndMs": 672,
+          "durationMs": 74,
+          "transferSize": 2251
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+          "startMs": 598,
+          "responseEndMs": 676,
+          "durationMs": 78,
+          "transferSize": 3192
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+          "startMs": 598,
+          "responseEndMs": 674,
+          "durationMs": 75,
+          "transferSize": 2509
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+          "startMs": 599,
+          "responseEndMs": 680,
+          "durationMs": 81,
+          "transferSize": 2878
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+          "startMs": 599,
+          "responseEndMs": 688,
+          "durationMs": 89,
+          "transferSize": 7906
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+          "startMs": 599,
+          "responseEndMs": 697,
+          "durationMs": 98,
+          "transferSize": 5831
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+          "startMs": 599,
+          "responseEndMs": 702,
+          "durationMs": 103,
+          "transferSize": 3624
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+          "startMs": 599,
+          "responseEndMs": 704,
+          "durationMs": 105,
+          "transferSize": 3794
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+          "startMs": 599,
+          "responseEndMs": 707,
+          "durationMs": 108,
+          "transferSize": 3473
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+          "startMs": 599,
+          "responseEndMs": 711,
+          "durationMs": 112,
+          "transferSize": 4284
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+          "startMs": 599,
+          "responseEndMs": 726,
+          "durationMs": 127,
+          "transferSize": 3296
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+          "startMs": 600,
+          "responseEndMs": 740,
+          "durationMs": 140,
+          "transferSize": 1130
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+          "startMs": 600,
+          "responseEndMs": 746,
+          "durationMs": 146,
+          "transferSize": 2945
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+          "startMs": 649,
+          "responseEndMs": 742,
+          "durationMs": 93,
+          "transferSize": 837
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+          "startMs": 718,
+          "responseEndMs": 761,
+          "durationMs": 42,
+          "transferSize": 9518
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+          "startMs": 718,
+          "responseEndMs": 758,
+          "durationMs": 40,
+          "transferSize": 2122
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+          "startMs": 719,
+          "responseEndMs": 763,
+          "durationMs": 44,
+          "transferSize": 4444
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+          "startMs": 719,
+          "responseEndMs": 766,
+          "durationMs": 47,
+          "transferSize": 2651
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+          "startMs": 719,
+          "responseEndMs": 773,
+          "durationMs": 54,
+          "transferSize": 2742
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-geometry.mjs",
+          "startMs": 721,
+          "responseEndMs": 784,
+          "durationMs": 63,
+          "transferSize": 2406
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-projection.mjs",
+          "startMs": 721,
+          "responseEndMs": 799,
+          "durationMs": 78,
+          "transferSize": 3942
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-progress.mjs",
+          "startMs": 723,
+          "responseEndMs": 803,
+          "durationMs": 81,
+          "transferSize": 1250
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+          "startMs": 723,
+          "responseEndMs": 808,
+          "durationMs": 85,
+          "transferSize": 1736
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+          "startMs": 723,
+          "responseEndMs": 819,
+          "durationMs": 96,
+          "transferSize": 1659
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+          "startMs": 723,
+          "responseEndMs": 824,
+          "durationMs": 101,
+          "transferSize": 1394
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/marker-heading.mjs",
+          "startMs": 724,
+          "responseEndMs": 830,
+          "durationMs": 107,
+          "transferSize": 1190
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+          "startMs": 724,
+          "responseEndMs": 840,
+          "durationMs": 116,
+          "transferSize": 5530
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-envelope.mjs",
+          "startMs": 724,
+          "responseEndMs": 844,
+          "durationMs": 119,
+          "transferSize": 5336
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+          "startMs": 768,
+          "responseEndMs": 845,
+          "durationMs": 78,
+          "transferSize": 2069
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+          "startMs": 768,
+          "responseEndMs": 851,
+          "durationMs": 83,
+          "transferSize": 4428
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+          "startMs": 768,
+          "responseEndMs": 853,
+          "durationMs": 85,
+          "transferSize": 3522
+        }
+      ]
+    },
+    {
+      "label": "cold-3",
+      "marks": {
+        "moduleGraphCompleteMs": 968,
+        "bootStartMs": 999.8999999761581,
+        "ensureMapMs": 1028.5999999940395,
+        "mapCreatedMs": 1054.2999999821186,
+        "firstTileVisibleMs": 1442.199999988079
+      },
+      "preBootResources": [
+        {
+          "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "startMs": 38,
+          "responseEndMs": 118,
+          "durationMs": 80,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+          "startMs": 38,
+          "responseEndMs": 81,
+          "durationMs": 43,
+          "transferSize": 17879
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/i18n.js",
+          "startMs": 510,
+          "responseEndMs": 533,
+          "durationMs": 23,
+          "transferSize": 13470
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/map.js",
+          "startMs": 510,
+          "responseEndMs": 541,
+          "durationMs": 31,
+          "transferSize": 9169
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/sheet.js",
+          "startMs": 510,
+          "responseEndMs": 543,
+          "durationMs": 33,
+          "transferSize": 6353
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location.js",
+          "startMs": 510,
+          "responseEndMs": 551,
+          "durationMs": 40,
+          "transferSize": 8023
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/step-ui.js",
+          "startMs": 511,
+          "responseEndMs": 547,
+          "durationMs": 37,
+          "transferSize": 2491
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/screens.js",
+          "startMs": 511,
+          "responseEndMs": 550,
+          "durationMs": 39,
+          "transferSize": 1067
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/auth.js",
+          "startMs": 512,
+          "responseEndMs": 554,
+          "durationMs": 42,
+          "transferSize": 2817
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/data.js",
+          "startMs": 512,
+          "responseEndMs": 572,
+          "durationMs": 60,
+          "transferSize": 4979
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase.js",
+          "startMs": 512,
+          "responseEndMs": 569,
+          "durationMs": 57,
+          "transferSize": 1447
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dashboard.js",
+          "startMs": 512,
+          "responseEndMs": 574,
+          "durationMs": 62,
+          "transferSize": 1135
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/utility-drawer.js",
+          "startMs": 512,
+          "responseEndMs": 576,
+          "durationMs": 63,
+          "transferSize": 2366
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-modal.js",
+          "startMs": 512,
+          "responseEndMs": 578,
+          "durationMs": 65,
+          "transferSize": 1242
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/routing.js",
+          "startMs": 513,
+          "responseEndMs": 581,
+          "durationMs": 68,
+          "transferSize": 3340
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/fare.js",
+          "startMs": 513,
+          "responseEndMs": 599,
+          "durationMs": 86,
+          "transferSize": 2712
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-flow.js",
+          "startMs": 513,
+          "responseEndMs": 623,
+          "durationMs": 110,
+          "transferSize": 16167
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/driver-track.js",
+          "startMs": 513,
+          "responseEndMs": 603,
+          "durationMs": 90,
+          "transferSize": 3440
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/a11y.js",
+          "startMs": 513,
+          "responseEndMs": 601,
+          "durationMs": 88,
+          "transferSize": 2551
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/trust.js",
+          "startMs": 513,
+          "responseEndMs": 606,
+          "durationMs": 92,
+          "transferSize": 1909
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/native-shell.js",
+          "startMs": 514,
+          "responseEndMs": 612,
+          "durationMs": 98,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+          "startMs": 514,
+          "responseEndMs": 683,
+          "durationMs": 169,
+          "transferSize": 904
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-render.mjs",
+          "startMs": 557,
+          "responseEndMs": 694,
+          "durationMs": 137,
+          "transferSize": 2697
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/support.js",
+          "startMs": 559,
+          "responseEndMs": 680,
+          "durationMs": 121,
+          "transferSize": 1277
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+          "startMs": 562,
+          "responseEndMs": 825,
+          "durationMs": 263,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+          "startMs": 574,
+          "responseEndMs": 817,
+          "durationMs": 243,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+          "startMs": 575,
+          "responseEndMs": 834,
+          "durationMs": 259,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+          "startMs": 575,
+          "responseEndMs": 837,
+          "durationMs": 263,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+          "startMs": 575,
+          "responseEndMs": 798,
+          "durationMs": 223,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase-config.js",
+          "startMs": 575,
+          "responseEndMs": 683,
+          "durationMs": 108,
+          "transferSize": 998
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-view.js",
+          "startMs": 600,
+          "responseEndMs": 697,
+          "durationMs": 97,
+          "transferSize": 1993
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/tracking-target.mjs",
+          "startMs": 611,
+          "responseEndMs": 704,
+          "durationMs": 93,
+          "transferSize": 1414
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+          "startMs": 612,
+          "responseEndMs": 721,
+          "durationMs": 108,
+          "transferSize": 4380
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-client.js",
+          "startMs": 633,
+          "responseEndMs": 716,
+          "durationMs": 83,
+          "transferSize": 1079
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-status.js",
+          "startMs": 633,
+          "responseEndMs": 718,
+          "durationMs": 85,
+          "transferSize": 1292
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/offer-client.js",
+          "startMs": 634,
+          "responseEndMs": 723,
+          "durationMs": 90,
+          "transferSize": 3375
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-gate.js",
+          "startMs": 634,
+          "responseEndMs": 728,
+          "durationMs": 94,
+          "transferSize": 1570
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-latency.js",
+          "startMs": 634,
+          "responseEndMs": 741,
+          "durationMs": 107,
+          "transferSize": 1026
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/confirm-dialog.js",
+          "startMs": 634,
+          "responseEndMs": 752,
+          "durationMs": 118,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+          "startMs": 634,
+          "responseEndMs": 753,
+          "durationMs": 119,
+          "transferSize": 2251
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+          "startMs": 634,
+          "responseEndMs": 759,
+          "durationMs": 125,
+          "transferSize": 3192
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+          "startMs": 634,
+          "responseEndMs": 763,
+          "durationMs": 129,
+          "transferSize": 2509
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+          "startMs": 634,
+          "responseEndMs": 766,
+          "durationMs": 132,
+          "transferSize": 2878
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+          "startMs": 635,
+          "responseEndMs": 785,
+          "durationMs": 151,
+          "transferSize": 7906
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+          "startMs": 635,
+          "responseEndMs": 823,
+          "durationMs": 189,
+          "transferSize": 5831
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+          "startMs": 635,
+          "responseEndMs": 829,
+          "durationMs": 194,
+          "transferSize": 3624
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+          "startMs": 635,
+          "responseEndMs": 852,
+          "durationMs": 217,
+          "transferSize": 3794
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+          "startMs": 635,
+          "responseEndMs": 856,
+          "durationMs": 221,
+          "transferSize": 3473
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+          "startMs": 635,
+          "responseEndMs": 858,
+          "durationMs": 223,
+          "transferSize": 4284
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+          "startMs": 635,
+          "responseEndMs": 870,
+          "durationMs": 235,
+          "transferSize": 3296
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+          "startMs": 635,
+          "responseEndMs": 876,
+          "durationMs": 241,
+          "transferSize": 1130
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+          "startMs": 635,
+          "responseEndMs": 874,
+          "durationMs": 239,
+          "transferSize": 2945
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+          "startMs": 734,
+          "responseEndMs": 885,
+          "durationMs": 151,
+          "transferSize": 837
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+          "startMs": 772,
+          "responseEndMs": 889,
+          "durationMs": 117,
+          "transferSize": 9518
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+          "startMs": 772,
+          "responseEndMs": 887,
+          "durationMs": 115,
+          "transferSize": 2122
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+          "startMs": 790,
+          "responseEndMs": 903,
+          "durationMs": 113,
+          "transferSize": 4444
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+          "startMs": 790,
+          "responseEndMs": 909,
+          "durationMs": 120,
+          "transferSize": 2651
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+          "startMs": 790,
+          "responseEndMs": 912,
+          "durationMs": 123,
+          "transferSize": 2742
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-geometry.mjs",
+          "startMs": 834,
+          "responseEndMs": 916,
+          "durationMs": 83,
+          "transferSize": 2406
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-projection.mjs",
+          "startMs": 835,
+          "responseEndMs": 924,
+          "durationMs": 89,
+          "transferSize": 3942
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-progress.mjs",
+          "startMs": 859,
+          "responseEndMs": 922,
+          "durationMs": 62,
+          "transferSize": 1250
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+          "startMs": 859,
+          "responseEndMs": 935,
+          "durationMs": 76,
+          "transferSize": 1736
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+          "startMs": 860,
+          "responseEndMs": 940,
+          "durationMs": 80,
+          "transferSize": 1659
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+          "startMs": 860,
+          "responseEndMs": 950,
+          "durationMs": 91,
+          "transferSize": 1394
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/marker-heading.mjs",
+          "startMs": 860,
+          "responseEndMs": 944,
+          "durationMs": 85,
+          "transferSize": 1190
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+          "startMs": 863,
+          "responseEndMs": 952,
+          "durationMs": 89,
+          "transferSize": 5530
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-envelope.mjs",
+          "startMs": 863,
+          "responseEndMs": 954,
+          "durationMs": 91,
+          "transferSize": 5336
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+          "startMs": 893,
+          "responseEndMs": 964,
+          "durationMs": 71,
+          "transferSize": 2069
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+          "startMs": 893,
+          "responseEndMs": 966,
+          "durationMs": 73,
+          "transferSize": 4428
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+          "startMs": 906,
+          "responseEndMs": 968,
+          "durationMs": 62,
+          "transferSize": 3522
+        }
+      ]
+    },
+    {
+      "label": "cold-4",
+      "marks": {
+        "moduleGraphCompleteMs": 1131,
+        "bootStartMs": 1162.199999988079,
+        "ensureMapMs": 1211.0999999940395,
+        "mapCreatedMs": 1239.699999988079,
+        "firstTileVisibleMs": 1689.0999999940395
+      },
+      "preBootResources": [
+        {
+          "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "startMs": 40,
+          "responseEndMs": 539,
+          "durationMs": 500,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+          "startMs": 40,
+          "responseEndMs": 97,
+          "durationMs": 58,
+          "transferSize": 17879
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/map.js",
+          "startMs": 726,
+          "responseEndMs": 747,
+          "durationMs": 21,
+          "transferSize": 9169
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/i18n.js",
+          "startMs": 726,
+          "responseEndMs": 747,
+          "durationMs": 22,
+          "transferSize": 13470
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/sheet.js",
+          "startMs": 726,
+          "responseEndMs": 756,
+          "durationMs": 30,
+          "transferSize": 6353
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location.js",
+          "startMs": 726,
+          "responseEndMs": 759,
+          "durationMs": 33,
+          "transferSize": 8023
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/step-ui.js",
+          "startMs": 726,
+          "responseEndMs": 761,
+          "durationMs": 35,
+          "transferSize": 2491
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/screens.js",
+          "startMs": 726,
+          "responseEndMs": 765,
+          "durationMs": 39,
+          "transferSize": 1067
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/auth.js",
+          "startMs": 726,
+          "responseEndMs": 768,
+          "durationMs": 41,
+          "transferSize": 2817
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/data.js",
+          "startMs": 726,
+          "responseEndMs": 768,
+          "durationMs": 42,
+          "transferSize": 4979
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase.js",
+          "startMs": 726,
+          "responseEndMs": 777,
+          "durationMs": 51,
+          "transferSize": 1447
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dashboard.js",
+          "startMs": 726,
+          "responseEndMs": 784,
+          "durationMs": 57,
+          "transferSize": 1135
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-modal.js",
+          "startMs": 727,
+          "responseEndMs": 784,
+          "durationMs": 58,
+          "transferSize": 1242
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/utility-drawer.js",
+          "startMs": 727,
+          "responseEndMs": 787,
+          "durationMs": 60,
+          "transferSize": 2366
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/routing.js",
+          "startMs": 727,
+          "responseEndMs": 792,
+          "durationMs": 65,
+          "transferSize": 3340
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/fare.js",
+          "startMs": 727,
+          "responseEndMs": 797,
+          "durationMs": 70,
+          "transferSize": 2712
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-flow.js",
+          "startMs": 727,
+          "responseEndMs": 822,
+          "durationMs": 95,
+          "transferSize": 16167
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/driver-track.js",
+          "startMs": 727,
+          "responseEndMs": 811,
+          "durationMs": 84,
+          "transferSize": 3440
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/a11y.js",
+          "startMs": 727,
+          "responseEndMs": 809,
+          "durationMs": 82,
+          "transferSize": 2551
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/trust.js",
+          "startMs": 727,
+          "responseEndMs": 817,
+          "durationMs": 90,
+          "transferSize": 1909
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/native-shell.js",
+          "startMs": 727,
+          "responseEndMs": 823,
+          "durationMs": 96,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+          "startMs": 728,
+          "responseEndMs": 857,
+          "durationMs": 129,
+          "transferSize": 904
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-render.mjs",
+          "startMs": 752,
+          "responseEndMs": 873,
+          "durationMs": 121,
+          "transferSize": 2697
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/support.js",
+          "startMs": 773,
+          "responseEndMs": 863,
+          "durationMs": 90,
+          "transferSize": 1277
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+          "startMs": 773,
+          "responseEndMs": 1056,
+          "durationMs": 283,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+          "startMs": 774,
+          "responseEndMs": 1065,
+          "durationMs": 291,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+          "startMs": 786,
+          "responseEndMs": 1068,
+          "durationMs": 282,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+          "startMs": 787,
+          "responseEndMs": 1044,
+          "durationMs": 257,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+          "startMs": 787,
+          "responseEndMs": 1072,
+          "durationMs": 285,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase-config.js",
+          "startMs": 787,
+          "responseEndMs": 864,
+          "durationMs": 77,
+          "transferSize": 998
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-view.js",
+          "startMs": 789,
+          "responseEndMs": 875,
+          "durationMs": 86,
+          "transferSize": 1993
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/tracking-target.mjs",
+          "startMs": 815,
+          "responseEndMs": 881,
+          "durationMs": 67,
+          "transferSize": 1414
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+          "startMs": 815,
+          "responseEndMs": 888,
+          "durationMs": 74,
+          "transferSize": 4380
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-client.js",
+          "startMs": 828,
+          "responseEndMs": 893,
+          "durationMs": 65,
+          "transferSize": 1079
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-status.js",
+          "startMs": 828,
+          "responseEndMs": 897,
+          "durationMs": 68,
+          "transferSize": 1292
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/offer-client.js",
+          "startMs": 829,
+          "responseEndMs": 906,
+          "durationMs": 77,
+          "transferSize": 3375
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-gate.js",
+          "startMs": 829,
+          "responseEndMs": 904,
+          "durationMs": 76,
+          "transferSize": 1570
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-latency.js",
+          "startMs": 829,
+          "responseEndMs": 909,
+          "durationMs": 81,
+          "transferSize": 1026
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/confirm-dialog.js",
+          "startMs": 829,
+          "responseEndMs": 923,
+          "durationMs": 94,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+          "startMs": 829,
+          "responseEndMs": 929,
+          "durationMs": 101,
+          "transferSize": 2251
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+          "startMs": 829,
+          "responseEndMs": 935,
+          "durationMs": 106,
+          "transferSize": 3192
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+          "startMs": 829,
+          "responseEndMs": 933,
+          "durationMs": 104,
+          "transferSize": 2509
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+          "startMs": 829,
+          "responseEndMs": 938,
+          "durationMs": 108,
+          "transferSize": 2878
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+          "startMs": 829,
+          "responseEndMs": 943,
+          "durationMs": 114,
+          "transferSize": 7906
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+          "startMs": 829,
+          "responseEndMs": 952,
+          "durationMs": 123,
+          "transferSize": 5831
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+          "startMs": 829,
+          "responseEndMs": 959,
+          "durationMs": 129,
+          "transferSize": 3624
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+          "startMs": 830,
+          "responseEndMs": 961,
+          "durationMs": 132,
+          "transferSize": 3473
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+          "startMs": 830,
+          "responseEndMs": 967,
+          "durationMs": 138,
+          "transferSize": 3794
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+          "startMs": 830,
+          "responseEndMs": 973,
+          "durationMs": 144,
+          "transferSize": 4284
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+          "startMs": 830,
+          "responseEndMs": 987,
+          "durationMs": 157,
+          "transferSize": 3296
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+          "startMs": 830,
+          "responseEndMs": 995,
+          "durationMs": 165,
+          "transferSize": 1130
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+          "startMs": 830,
+          "responseEndMs": 1007,
+          "durationMs": 177,
+          "transferSize": 2945
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+          "startMs": 913,
+          "responseEndMs": 1001,
+          "durationMs": 89,
+          "transferSize": 837
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+          "startMs": 941,
+          "responseEndMs": 1012,
+          "durationMs": 71,
+          "transferSize": 9518
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+          "startMs": 942,
+          "responseEndMs": 1024,
+          "durationMs": 83,
+          "transferSize": 2122
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+          "startMs": 949,
+          "responseEndMs": 1034,
+          "durationMs": 86,
+          "transferSize": 4444
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+          "startMs": 949,
+          "responseEndMs": 1053,
+          "durationMs": 104,
+          "transferSize": 2651
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+          "startMs": 949,
+          "responseEndMs": 1069,
+          "durationMs": 120,
+          "transferSize": 2742
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-geometry.mjs",
+          "startMs": 956,
+          "responseEndMs": 1072,
+          "durationMs": 116,
+          "transferSize": 2406
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-projection.mjs",
+          "startMs": 963,
+          "responseEndMs": 1075,
+          "durationMs": 111,
+          "transferSize": 3942
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-progress.mjs",
+          "startMs": 966,
+          "responseEndMs": 1090,
+          "durationMs": 124,
+          "transferSize": 1250
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+          "startMs": 966,
+          "responseEndMs": 1094,
+          "durationMs": 127,
+          "transferSize": 1736
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+          "startMs": 966,
+          "responseEndMs": 1103,
+          "durationMs": 137,
+          "transferSize": 1659
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+          "startMs": 966,
+          "responseEndMs": 1105,
+          "durationMs": 139,
+          "transferSize": 1394
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/marker-heading.mjs",
+          "startMs": 967,
+          "responseEndMs": 1107,
+          "durationMs": 141,
+          "transferSize": 1190
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+          "startMs": 1005,
+          "responseEndMs": 1110,
+          "durationMs": 105,
+          "transferSize": 5530
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-envelope.mjs",
+          "startMs": 1005,
+          "responseEndMs": 1119,
+          "durationMs": 114,
+          "transferSize": 5336
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+          "startMs": 1019,
+          "responseEndMs": 1123,
+          "durationMs": 103,
+          "transferSize": 2069
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+          "startMs": 1020,
+          "responseEndMs": 1127,
+          "durationMs": 108,
+          "transferSize": 4428
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+          "startMs": 1040,
+          "responseEndMs": 1131,
+          "durationMs": 91,
+          "transferSize": 3522
+        }
+      ]
+    },
+    {
+      "label": "cold-5",
+      "marks": {
+        "moduleGraphCompleteMs": 998,
+        "bootStartMs": 1023.0999999940395,
+        "ensureMapMs": 1060.0999999940395,
+        "mapCreatedMs": 1087,
+        "firstTileVisibleMs": 1533.7000000178814
+      },
+      "preBootResources": [
+        {
+          "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "startMs": 38,
+          "responseEndMs": 489,
+          "durationMs": 452,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+          "startMs": 38,
+          "responseEndMs": 76,
+          "durationMs": 38,
+          "transferSize": 17879
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/i18n.js",
+          "startMs": 597,
+          "responseEndMs": 615,
+          "durationMs": 18,
+          "transferSize": 13470
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/map.js",
+          "startMs": 597,
+          "responseEndMs": 620,
+          "durationMs": 23,
+          "transferSize": 9169
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/sheet.js",
+          "startMs": 597,
+          "responseEndMs": 631,
+          "durationMs": 34,
+          "transferSize": 6353
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/step-ui.js",
+          "startMs": 597,
+          "responseEndMs": 628,
+          "durationMs": 31,
+          "transferSize": 2491
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location.js",
+          "startMs": 597,
+          "responseEndMs": 635,
+          "durationMs": 38,
+          "transferSize": 8023
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/screens.js",
+          "startMs": 597,
+          "responseEndMs": 633,
+          "durationMs": 35,
+          "transferSize": 1067
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/auth.js",
+          "startMs": 597,
+          "responseEndMs": 640,
+          "durationMs": 42,
+          "transferSize": 2817
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/data.js",
+          "startMs": 598,
+          "responseEndMs": 648,
+          "durationMs": 50,
+          "transferSize": 4979
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase.js",
+          "startMs": 598,
+          "responseEndMs": 655,
+          "durationMs": 57,
+          "transferSize": 1447
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dashboard.js",
+          "startMs": 598,
+          "responseEndMs": 660,
+          "durationMs": 63,
+          "transferSize": 1135
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/utility-drawer.js",
+          "startMs": 598,
+          "responseEndMs": 662,
+          "durationMs": 64,
+          "transferSize": 2366
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-modal.js",
+          "startMs": 598,
+          "responseEndMs": 667,
+          "durationMs": 69,
+          "transferSize": 1242
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/routing.js",
+          "startMs": 598,
+          "responseEndMs": 672,
+          "durationMs": 74,
+          "transferSize": 3340
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/fare.js",
+          "startMs": 598,
+          "responseEndMs": 676,
+          "durationMs": 78,
+          "transferSize": 2712
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-flow.js",
+          "startMs": 598,
+          "responseEndMs": 697,
+          "durationMs": 99,
+          "transferSize": 16167
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/driver-track.js",
+          "startMs": 598,
+          "responseEndMs": 687,
+          "durationMs": 88,
+          "transferSize": 3440
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/a11y.js",
+          "startMs": 598,
+          "responseEndMs": 690,
+          "durationMs": 92,
+          "transferSize": 2551
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/trust.js",
+          "startMs": 598,
+          "responseEndMs": 692,
+          "durationMs": 94,
+          "transferSize": 1909
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/native-shell.js",
+          "startMs": 599,
+          "responseEndMs": 697,
+          "durationMs": 98,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+          "startMs": 599,
+          "responseEndMs": 699,
+          "durationMs": 100,
+          "transferSize": 904
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-render.mjs",
+          "startMs": 628,
+          "responseEndMs": 717,
+          "durationMs": 89,
+          "transferSize": 2697
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/support.js",
+          "startMs": 643,
+          "responseEndMs": 704,
+          "durationMs": 60,
+          "transferSize": 1277
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+          "startMs": 647,
+          "responseEndMs": 955,
+          "durationMs": 308,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+          "startMs": 652,
+          "responseEndMs": 923,
+          "durationMs": 271,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+          "startMs": 664,
+          "responseEndMs": 931,
+          "durationMs": 267,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+          "startMs": 664,
+          "responseEndMs": 930,
+          "durationMs": 266,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+          "startMs": 664,
+          "responseEndMs": 928,
+          "durationMs": 264,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase-config.js",
+          "startMs": 664,
+          "responseEndMs": 705,
+          "durationMs": 41,
+          "transferSize": 998
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-view.js",
+          "startMs": 678,
+          "responseEndMs": 717,
+          "durationMs": 39,
+          "transferSize": 1993
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/tracking-target.mjs",
+          "startMs": 694,
+          "responseEndMs": 722,
+          "durationMs": 28,
+          "transferSize": 1414
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+          "startMs": 694,
+          "responseEndMs": 725,
+          "durationMs": 30,
+          "transferSize": 4380
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-client.js",
+          "startMs": 704,
+          "responseEndMs": 741,
+          "durationMs": 37,
+          "transferSize": 1079
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-status.js",
+          "startMs": 705,
+          "responseEndMs": 744,
+          "durationMs": 39,
+          "transferSize": 1292
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/offer-client.js",
+          "startMs": 705,
+          "responseEndMs": 752,
+          "durationMs": 47,
+          "transferSize": 3375
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-gate.js",
+          "startMs": 706,
+          "responseEndMs": 750,
+          "durationMs": 44,
+          "transferSize": 1570
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-latency.js",
+          "startMs": 706,
+          "responseEndMs": 756,
+          "durationMs": 50,
+          "transferSize": 1026
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/confirm-dialog.js",
+          "startMs": 706,
+          "responseEndMs": 759,
+          "durationMs": 53,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+          "startMs": 706,
+          "responseEndMs": 766,
+          "durationMs": 60,
+          "transferSize": 2251
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+          "startMs": 706,
+          "responseEndMs": 766,
+          "durationMs": 60,
+          "transferSize": 3192
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+          "startMs": 706,
+          "responseEndMs": 775,
+          "durationMs": 68,
+          "transferSize": 2509
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+          "startMs": 706,
+          "responseEndMs": 778,
+          "durationMs": 71,
+          "transferSize": 2878
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+          "startMs": 707,
+          "responseEndMs": 782,
+          "durationMs": 75,
+          "transferSize": 7906
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+          "startMs": 707,
+          "responseEndMs": 784,
+          "durationMs": 78,
+          "transferSize": 5831
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+          "startMs": 707,
+          "responseEndMs": 791,
+          "durationMs": 84,
+          "transferSize": 3624
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+          "startMs": 707,
+          "responseEndMs": 789,
+          "durationMs": 82,
+          "transferSize": 3794
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+          "startMs": 707,
+          "responseEndMs": 813,
+          "durationMs": 106,
+          "transferSize": 3473
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+          "startMs": 707,
+          "responseEndMs": 811,
+          "durationMs": 104,
+          "transferSize": 4284
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+          "startMs": 707,
+          "responseEndMs": 815,
+          "durationMs": 108,
+          "transferSize": 3296
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+          "startMs": 707,
+          "responseEndMs": 826,
+          "durationMs": 119,
+          "transferSize": 1130
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+          "startMs": 708,
+          "responseEndMs": 832,
+          "durationMs": 125,
+          "transferSize": 2945
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+          "startMs": 759,
+          "responseEndMs": 834,
+          "durationMs": 76,
+          "transferSize": 837
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+          "startMs": 782,
+          "responseEndMs": 862,
+          "durationMs": 80,
+          "transferSize": 9518
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+          "startMs": 782,
+          "responseEndMs": 874,
+          "durationMs": 92,
+          "transferSize": 2122
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+          "startMs": 791,
+          "responseEndMs": 877,
+          "durationMs": 86,
+          "transferSize": 4444
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+          "startMs": 791,
+          "responseEndMs": 880,
+          "durationMs": 89,
+          "transferSize": 2651
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+          "startMs": 791,
+          "responseEndMs": 883,
+          "durationMs": 92,
+          "transferSize": 2742
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-geometry.mjs",
+          "startMs": 794,
+          "responseEndMs": 927,
+          "durationMs": 134,
+          "transferSize": 2406
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-projection.mjs",
+          "startMs": 802,
+          "responseEndMs": 961,
+          "durationMs": 159,
+          "transferSize": 3942
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+          "startMs": 815,
+          "responseEndMs": 964,
+          "durationMs": 148,
+          "transferSize": 5530
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-envelope.mjs",
+          "startMs": 815,
+          "responseEndMs": 968,
+          "durationMs": 153,
+          "transferSize": 5336
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-progress.mjs",
+          "startMs": 817,
+          "responseEndMs": 971,
+          "durationMs": 154,
+          "transferSize": 1250
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+          "startMs": 817,
+          "responseEndMs": 975,
+          "durationMs": 157,
+          "transferSize": 1736
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+          "startMs": 818,
+          "responseEndMs": 981,
+          "durationMs": 163,
+          "transferSize": 1659
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+          "startMs": 818,
+          "responseEndMs": 989,
+          "durationMs": 171,
+          "transferSize": 1394
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/marker-heading.mjs",
+          "startMs": 818,
+          "responseEndMs": 991,
+          "durationMs": 174,
+          "transferSize": 1190
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+          "startMs": 891,
+          "responseEndMs": 994,
+          "durationMs": 103,
+          "transferSize": 2069
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+          "startMs": 891,
+          "responseEndMs": 996,
+          "durationMs": 105,
+          "transferSize": 4428
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+          "startMs": 893,
+          "responseEndMs": 998,
+          "durationMs": 105,
+          "transferSize": 3522
+        }
+      ]
+    }
+  ],
+  "warm": [
+    {
+      "label": "warm-1",
+      "marks": {
+        "moduleGraphCompleteMs": 653,
+        "bootStartMs": 666,
+        "ensureMapMs": 668.3999999761581,
+        "mapCreatedMs": 676.2999999821186,
+        "firstTileVisibleMs": 801.6999999880791
+      },
+      "preBootResources": [
+        {
+          "url": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+          "startMs": 46,
+          "responseEndMs": 85,
+          "durationMs": 39,
+          "transferSize": 17879
+        },
+        {
+          "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "startMs": 46,
+          "responseEndMs": 109,
+          "durationMs": 64,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/i18n.js",
+          "startMs": 230,
+          "responseEndMs": 264,
+          "durationMs": 34,
+          "transferSize": 13470
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/map.js",
+          "startMs": 231,
+          "responseEndMs": 266,
+          "durationMs": 35,
+          "transferSize": 9169
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/sheet.js",
+          "startMs": 231,
+          "responseEndMs": 264,
+          "durationMs": 34,
+          "transferSize": 6353
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location.js",
+          "startMs": 231,
+          "responseEndMs": 268,
+          "durationMs": 37,
+          "transferSize": 8023
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/step-ui.js",
+          "startMs": 231,
+          "responseEndMs": 284,
+          "durationMs": 53,
+          "transferSize": 2491
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/screens.js",
+          "startMs": 231,
+          "responseEndMs": 286,
+          "durationMs": 54,
+          "transferSize": 1067
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/auth.js",
+          "startMs": 231,
+          "responseEndMs": 290,
+          "durationMs": 59,
+          "transferSize": 2817
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/data.js",
+          "startMs": 231,
+          "responseEndMs": 292,
+          "durationMs": 61,
+          "transferSize": 4979
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase.js",
+          "startMs": 232,
+          "responseEndMs": 294,
+          "durationMs": 63,
+          "transferSize": 1447
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dashboard.js",
+          "startMs": 232,
+          "responseEndMs": 297,
+          "durationMs": 65,
+          "transferSize": 1135
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/utility-drawer.js",
+          "startMs": 232,
+          "responseEndMs": 303,
+          "durationMs": 72,
+          "transferSize": 2366
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-modal.js",
+          "startMs": 232,
+          "responseEndMs": 305,
+          "durationMs": 73,
+          "transferSize": 1242
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/routing.js",
+          "startMs": 232,
+          "responseEndMs": 318,
+          "durationMs": 86,
+          "transferSize": 3340
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/fare.js",
+          "startMs": 232,
+          "responseEndMs": 320,
+          "durationMs": 88,
+          "transferSize": 2712
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-flow.js",
+          "startMs": 232,
+          "responseEndMs": 371,
+          "durationMs": 139,
+          "transferSize": 16167
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/driver-track.js",
+          "startMs": 232,
+          "responseEndMs": 334,
+          "durationMs": 102,
+          "transferSize": 3440
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/a11y.js",
+          "startMs": 233,
+          "responseEndMs": 376,
+          "durationMs": 144,
+          "transferSize": 2551
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/trust.js",
+          "startMs": 233,
+          "responseEndMs": 384,
+          "durationMs": 151,
+          "transferSize": 1909
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/native-shell.js",
+          "startMs": 233,
+          "responseEndMs": 399,
+          "durationMs": 166,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+          "startMs": 233,
+          "responseEndMs": 402,
+          "durationMs": 169,
+          "transferSize": 904
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-render.mjs",
+          "startMs": 281,
+          "responseEndMs": 410,
+          "durationMs": 129,
+          "transferSize": 2697
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/support.js",
+          "startMs": 291,
+          "responseEndMs": 408,
+          "durationMs": 118,
+          "transferSize": 1277
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+          "startMs": 328,
+          "responseEndMs": 385,
+          "durationMs": 58,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+          "startMs": 328,
+          "responseEndMs": 385,
+          "durationMs": 57,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+          "startMs": 328,
+          "responseEndMs": 391,
+          "durationMs": 63,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+          "startMs": 329,
+          "responseEndMs": 407,
+          "durationMs": 78,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+          "startMs": 329,
+          "responseEndMs": 404,
+          "durationMs": 75,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase-config.js",
+          "startMs": 329,
+          "responseEndMs": 413,
+          "durationMs": 84,
+          "transferSize": 998
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-view.js",
+          "startMs": 330,
+          "responseEndMs": 417,
+          "durationMs": 87,
+          "transferSize": 1993
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/tracking-target.mjs",
+          "startMs": 355,
+          "responseEndMs": 421,
+          "durationMs": 66,
+          "transferSize": 1414
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+          "startMs": 356,
+          "responseEndMs": 438,
+          "durationMs": 83,
+          "transferSize": 4380
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-client.js",
+          "startMs": 384,
+          "responseEndMs": 457,
+          "durationMs": 73,
+          "transferSize": 1079
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-status.js",
+          "startMs": 384,
+          "responseEndMs": 460,
+          "durationMs": 75,
+          "transferSize": 1292
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/offer-client.js",
+          "startMs": 384,
+          "responseEndMs": 467,
+          "durationMs": 82,
+          "transferSize": 3375
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-gate.js",
+          "startMs": 385,
+          "responseEndMs": 472,
+          "durationMs": 88,
+          "transferSize": 1570
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-latency.js",
+          "startMs": 385,
+          "responseEndMs": 474,
+          "durationMs": 90,
+          "transferSize": 1026
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/confirm-dialog.js",
+          "startMs": 385,
+          "responseEndMs": 487,
+          "durationMs": 102,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+          "startMs": 385,
+          "responseEndMs": 500,
+          "durationMs": 116,
+          "transferSize": 2251
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+          "startMs": 385,
+          "responseEndMs": 505,
+          "durationMs": 120,
+          "transferSize": 2509
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+          "startMs": 385,
+          "responseEndMs": 507,
+          "durationMs": 122,
+          "transferSize": 3192
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+          "startMs": 385,
+          "responseEndMs": 513,
+          "durationMs": 128,
+          "transferSize": 2878
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+          "startMs": 385,
+          "responseEndMs": 515,
+          "durationMs": 130,
+          "transferSize": 7906
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+          "startMs": 385,
+          "responseEndMs": 526,
+          "durationMs": 141,
+          "transferSize": 5831
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+          "startMs": 385,
+          "responseEndMs": 541,
+          "durationMs": 156,
+          "transferSize": 3624
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+          "startMs": 386,
+          "responseEndMs": 544,
+          "durationMs": 158,
+          "transferSize": 3794
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+          "startMs": 386,
+          "responseEndMs": 549,
+          "durationMs": 164,
+          "transferSize": 3473
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+          "startMs": 386,
+          "responseEndMs": 551,
+          "durationMs": 165,
+          "transferSize": 4284
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+          "startMs": 386,
+          "responseEndMs": 547,
+          "durationMs": 161,
+          "transferSize": 3296
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+          "startMs": 386,
+          "responseEndMs": 556,
+          "durationMs": 170,
+          "transferSize": 1130
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+          "startMs": 386,
+          "responseEndMs": 571,
+          "durationMs": 185,
+          "transferSize": 2945
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+          "startMs": 470,
+          "responseEndMs": 573,
+          "durationMs": 103,
+          "transferSize": 837
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+          "startMs": 517,
+          "responseEndMs": 579,
+          "durationMs": 62,
+          "transferSize": 9518
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+          "startMs": 517,
+          "responseEndMs": 575,
+          "durationMs": 58,
+          "transferSize": 2122
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+          "startMs": 521,
+          "responseEndMs": 577,
+          "durationMs": 56,
+          "transferSize": 4444
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+          "startMs": 521,
+          "responseEndMs": 586,
+          "durationMs": 65,
+          "transferSize": 2651
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+          "startMs": 521,
+          "responseEndMs": 599,
+          "durationMs": 78,
+          "transferSize": 2742
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-geometry.mjs",
+          "startMs": 533,
+          "responseEndMs": 595,
+          "durationMs": 62,
+          "transferSize": 2406
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-projection.mjs",
+          "startMs": 550,
+          "responseEndMs": 601,
+          "durationMs": 51,
+          "transferSize": 3942
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-progress.mjs",
+          "startMs": 553,
+          "responseEndMs": 597,
+          "durationMs": 44,
+          "transferSize": 1250
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+          "startMs": 553,
+          "responseEndMs": 604,
+          "durationMs": 50,
+          "transferSize": 1736
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+          "startMs": 554,
+          "responseEndMs": 611,
+          "durationMs": 57,
+          "transferSize": 1659
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+          "startMs": 554,
+          "responseEndMs": 622,
+          "durationMs": 69,
+          "transferSize": 1394
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/marker-heading.mjs",
+          "startMs": 554,
+          "responseEndMs": 630,
+          "durationMs": 76,
+          "transferSize": 1190
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+          "startMs": 558,
+          "responseEndMs": 632,
+          "durationMs": 74,
+          "transferSize": 5530
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-envelope.mjs",
+          "startMs": 558,
+          "responseEndMs": 634,
+          "durationMs": 76,
+          "transferSize": 5336
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+          "startMs": 584,
+          "responseEndMs": 640,
+          "durationMs": 56,
+          "transferSize": 3522
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+          "startMs": 586,
+          "responseEndMs": 645,
+          "durationMs": 59,
+          "transferSize": 2069
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+          "startMs": 586,
+          "responseEndMs": 653,
+          "durationMs": 67,
+          "transferSize": 4428
+        }
+      ]
+    },
+    {
+      "label": "warm-2",
+      "marks": {
+        "moduleGraphCompleteMs": 605,
+        "bootStartMs": 613.2000000178814,
+        "ensureMapMs": 616.2000000178814,
+        "mapCreatedMs": 629.4000000059605,
+        "firstTileVisibleMs": 891
+      },
+      "preBootResources": [
+        {
+          "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "startMs": 33,
+          "responseEndMs": 163,
+          "durationMs": 130,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+          "startMs": 33,
+          "responseEndMs": 76,
+          "durationMs": 43,
+          "transferSize": 17879
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/i18n.js",
+          "startMs": 240,
+          "responseEndMs": 267,
+          "durationMs": 27,
+          "transferSize": 13470
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/map.js",
+          "startMs": 240,
+          "responseEndMs": 269,
+          "durationMs": 29,
+          "transferSize": 9169
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/sheet.js",
+          "startMs": 240,
+          "responseEndMs": 272,
+          "durationMs": 32,
+          "transferSize": 6353
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location.js",
+          "startMs": 240,
+          "responseEndMs": 279,
+          "durationMs": 39,
+          "transferSize": 8023
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/step-ui.js",
+          "startMs": 240,
+          "responseEndMs": 277,
+          "durationMs": 37,
+          "transferSize": 2491
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/screens.js",
+          "startMs": 240,
+          "responseEndMs": 279,
+          "durationMs": 39,
+          "transferSize": 1067
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/auth.js",
+          "startMs": 241,
+          "responseEndMs": 283,
+          "durationMs": 42,
+          "transferSize": 2817
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/data.js",
+          "startMs": 241,
+          "responseEndMs": 285,
+          "durationMs": 44,
+          "transferSize": 4979
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase.js",
+          "startMs": 241,
+          "responseEndMs": 287,
+          "durationMs": 46,
+          "transferSize": 1447
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dashboard.js",
+          "startMs": 241,
+          "responseEndMs": 291,
+          "durationMs": 50,
+          "transferSize": 1135
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/utility-drawer.js",
+          "startMs": 241,
+          "responseEndMs": 298,
+          "durationMs": 57,
+          "transferSize": 2366
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-modal.js",
+          "startMs": 241,
+          "responseEndMs": 300,
+          "durationMs": 59,
+          "transferSize": 1242
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/routing.js",
+          "startMs": 241,
+          "responseEndMs": 313,
+          "durationMs": 72,
+          "transferSize": 3340
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/fare.js",
+          "startMs": 242,
+          "responseEndMs": 326,
+          "durationMs": 85,
+          "transferSize": 2712
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-flow.js",
+          "startMs": 242,
+          "responseEndMs": 359,
+          "durationMs": 117,
+          "transferSize": 16167
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/driver-track.js",
+          "startMs": 242,
+          "responseEndMs": 331,
+          "durationMs": 89,
+          "transferSize": 3440
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/a11y.js",
+          "startMs": 242,
+          "responseEndMs": 404,
+          "durationMs": 162,
+          "transferSize": 2551
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/trust.js",
+          "startMs": 242,
+          "responseEndMs": 410,
+          "durationMs": 168,
+          "transferSize": 1909
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/native-shell.js",
+          "startMs": 242,
+          "responseEndMs": 418,
+          "durationMs": 176,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+          "startMs": 242,
+          "responseEndMs": 425,
+          "durationMs": 182,
+          "transferSize": 904
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-render.mjs",
+          "startMs": 292,
+          "responseEndMs": 426,
+          "durationMs": 135,
+          "transferSize": 2697
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/support.js",
+          "startMs": 294,
+          "responseEndMs": 431,
+          "durationMs": 137,
+          "transferSize": 1277
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+          "startMs": 294,
+          "responseEndMs": 385,
+          "durationMs": 91,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+          "startMs": 295,
+          "responseEndMs": 400,
+          "durationMs": 104,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+          "startMs": 297,
+          "responseEndMs": 382,
+          "durationMs": 85,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+          "startMs": 297,
+          "responseEndMs": 367,
+          "durationMs": 70,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+          "startMs": 297,
+          "responseEndMs": 373,
+          "durationMs": 75,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase-config.js",
+          "startMs": 297,
+          "responseEndMs": 434,
+          "durationMs": 137,
+          "transferSize": 998
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-view.js",
+          "startMs": 331,
+          "responseEndMs": 446,
+          "durationMs": 116,
+          "transferSize": 1993
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/tracking-target.mjs",
+          "startMs": 338,
+          "responseEndMs": 450,
+          "durationMs": 113,
+          "transferSize": 1414
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+          "startMs": 338,
+          "responseEndMs": 454,
+          "durationMs": 116,
+          "transferSize": 4380
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-client.js",
+          "startMs": 366,
+          "responseEndMs": 452,
+          "durationMs": 86,
+          "transferSize": 1079
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-status.js",
+          "startMs": 366,
+          "responseEndMs": 465,
+          "durationMs": 99,
+          "transferSize": 1292
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/offer-client.js",
+          "startMs": 366,
+          "responseEndMs": 470,
+          "durationMs": 104,
+          "transferSize": 3375
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-gate.js",
+          "startMs": 366,
+          "responseEndMs": 477,
+          "durationMs": 111,
+          "transferSize": 1570
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-latency.js",
+          "startMs": 367,
+          "responseEndMs": 482,
+          "durationMs": 115,
+          "transferSize": 1026
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/confirm-dialog.js",
+          "startMs": 367,
+          "responseEndMs": 480,
+          "durationMs": 114,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+          "startMs": 367,
+          "responseEndMs": 486,
+          "durationMs": 119,
+          "transferSize": 2251
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+          "startMs": 367,
+          "responseEndMs": 488,
+          "durationMs": 121,
+          "transferSize": 3192
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+          "startMs": 367,
+          "responseEndMs": 490,
+          "durationMs": 123,
+          "transferSize": 2509
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+          "startMs": 367,
+          "responseEndMs": 498,
+          "durationMs": 131,
+          "transferSize": 2878
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+          "startMs": 367,
+          "responseEndMs": 505,
+          "durationMs": 138,
+          "transferSize": 7906
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+          "startMs": 367,
+          "responseEndMs": 511,
+          "durationMs": 144,
+          "transferSize": 5831
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+          "startMs": 367,
+          "responseEndMs": 513,
+          "durationMs": 146,
+          "transferSize": 3624
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+          "startMs": 367,
+          "responseEndMs": 516,
+          "durationMs": 149,
+          "transferSize": 3794
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+          "startMs": 367,
+          "responseEndMs": 518,
+          "durationMs": 150,
+          "transferSize": 3473
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+          "startMs": 368,
+          "responseEndMs": 529,
+          "durationMs": 162,
+          "transferSize": 4284
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+          "startMs": 368,
+          "responseEndMs": 532,
+          "durationMs": 165,
+          "transferSize": 3296
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+          "startMs": 368,
+          "responseEndMs": 537,
+          "durationMs": 169,
+          "transferSize": 1130
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+          "startMs": 368,
+          "responseEndMs": 537,
+          "durationMs": 169,
+          "transferSize": 2945
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+          "startMs": 474,
+          "responseEndMs": 534,
+          "durationMs": 60,
+          "transferSize": 837
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+          "startMs": 504,
+          "responseEndMs": 540,
+          "durationMs": 36,
+          "transferSize": 9518
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+          "startMs": 505,
+          "responseEndMs": 555,
+          "durationMs": 50,
+          "transferSize": 2122
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+          "startMs": 512,
+          "responseEndMs": 558,
+          "durationMs": 46,
+          "transferSize": 4444
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+          "startMs": 512,
+          "responseEndMs": 560,
+          "durationMs": 48,
+          "transferSize": 2651
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+          "startMs": 513,
+          "responseEndMs": 562,
+          "durationMs": 50,
+          "transferSize": 2742
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-geometry.mjs",
+          "startMs": 519,
+          "responseEndMs": 564,
+          "durationMs": 45,
+          "transferSize": 2406
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-projection.mjs",
+          "startMs": 521,
+          "responseEndMs": 566,
+          "durationMs": 46,
+          "transferSize": 3942
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-progress.mjs",
+          "startMs": 525,
+          "responseEndMs": 576,
+          "durationMs": 51,
+          "transferSize": 1250
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+          "startMs": 525,
+          "responseEndMs": 582,
+          "durationMs": 57,
+          "transferSize": 1736
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+          "startMs": 525,
+          "responseEndMs": 581,
+          "durationMs": 55,
+          "transferSize": 1659
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+          "startMs": 525,
+          "responseEndMs": 584,
+          "durationMs": 59,
+          "transferSize": 1394
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/marker-heading.mjs",
+          "startMs": 526,
+          "responseEndMs": 590,
+          "durationMs": 64,
+          "transferSize": 1190
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+          "startMs": 542,
+          "responseEndMs": 596,
+          "durationMs": 54,
+          "transferSize": 5530
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-envelope.mjs",
+          "startMs": 542,
+          "responseEndMs": 599,
+          "durationMs": 57,
+          "transferSize": 5336
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+          "startMs": 549,
+          "responseEndMs": 601,
+          "durationMs": 52,
+          "transferSize": 2069
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+          "startMs": 549,
+          "responseEndMs": 605,
+          "durationMs": 56,
+          "transferSize": 4428
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+          "startMs": 563,
+          "responseEndMs": 603,
+          "durationMs": 39,
+          "transferSize": 3522
+        }
+      ]
+    },
+    {
+      "label": "warm-3",
+      "marks": {
+        "moduleGraphCompleteMs": 611,
+        "bootStartMs": 620.8000000119209,
+        "ensureMapMs": 623.3000000119209,
+        "mapCreatedMs": 632.5999999940395,
+        "firstTileVisibleMs": 752.1999999880791
+      },
+      "preBootResources": [
+        {
+          "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "startMs": 29,
+          "responseEndMs": 99,
+          "durationMs": 70,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+          "startMs": 29,
+          "responseEndMs": 61,
+          "durationMs": 32,
+          "transferSize": 17879
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/i18n.js",
+          "startMs": 240,
+          "responseEndMs": 267,
+          "durationMs": 28,
+          "transferSize": 13470
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/map.js",
+          "startMs": 240,
+          "responseEndMs": 269,
+          "durationMs": 29,
+          "transferSize": 9169
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/sheet.js",
+          "startMs": 240,
+          "responseEndMs": 265,
+          "durationMs": 25,
+          "transferSize": 6353
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location.js",
+          "startMs": 240,
+          "responseEndMs": 273,
+          "durationMs": 33,
+          "transferSize": 8023
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/step-ui.js",
+          "startMs": 240,
+          "responseEndMs": 275,
+          "durationMs": 35,
+          "transferSize": 2491
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/screens.js",
+          "startMs": 240,
+          "responseEndMs": 277,
+          "durationMs": 36,
+          "transferSize": 1067
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/auth.js",
+          "startMs": 241,
+          "responseEndMs": 284,
+          "durationMs": 44,
+          "transferSize": 2817
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/data.js",
+          "startMs": 241,
+          "responseEndMs": 286,
+          "durationMs": 45,
+          "transferSize": 4979
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase.js",
+          "startMs": 241,
+          "responseEndMs": 293,
+          "durationMs": 52,
+          "transferSize": 1447
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dashboard.js",
+          "startMs": 241,
+          "responseEndMs": 288,
+          "durationMs": 47,
+          "transferSize": 1135
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-modal.js",
+          "startMs": 241,
+          "responseEndMs": 296,
+          "durationMs": 55,
+          "transferSize": 1242
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/utility-drawer.js",
+          "startMs": 241,
+          "responseEndMs": 294,
+          "durationMs": 53,
+          "transferSize": 2366
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/routing.js",
+          "startMs": 241,
+          "responseEndMs": 317,
+          "durationMs": 76,
+          "transferSize": 3340
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/fare.js",
+          "startMs": 241,
+          "responseEndMs": 315,
+          "durationMs": 73,
+          "transferSize": 2712
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-flow.js",
+          "startMs": 241,
+          "responseEndMs": 328,
+          "durationMs": 86,
+          "transferSize": 16167
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/driver-track.js",
+          "startMs": 242,
+          "responseEndMs": 319,
+          "durationMs": 77,
+          "transferSize": 3440
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/a11y.js",
+          "startMs": 242,
+          "responseEndMs": 321,
+          "durationMs": 80,
+          "transferSize": 2551
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/trust.js",
+          "startMs": 242,
+          "responseEndMs": 324,
+          "durationMs": 82,
+          "transferSize": 1909
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/native-shell.js",
+          "startMs": 242,
+          "responseEndMs": 357,
+          "durationMs": 115,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+          "startMs": 242,
+          "responseEndMs": 359,
+          "durationMs": 117,
+          "transferSize": 904
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-render.mjs",
+          "startMs": 333,
+          "responseEndMs": 387,
+          "durationMs": 55,
+          "transferSize": 2697
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/support.js",
+          "startMs": 333,
+          "responseEndMs": 385,
+          "durationMs": 52,
+          "transferSize": 1277
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+          "startMs": 333,
+          "responseEndMs": 380,
+          "durationMs": 47,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+          "startMs": 333,
+          "responseEndMs": 389,
+          "durationMs": 55,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+          "startMs": 339,
+          "responseEndMs": 390,
+          "durationMs": 50,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+          "startMs": 340,
+          "responseEndMs": 392,
+          "durationMs": 53,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+          "startMs": 340,
+          "responseEndMs": 399,
+          "durationMs": 59,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase-config.js",
+          "startMs": 340,
+          "responseEndMs": 395,
+          "durationMs": 55,
+          "transferSize": 998
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-view.js",
+          "startMs": 341,
+          "responseEndMs": 395,
+          "durationMs": 55,
+          "transferSize": 1993
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/tracking-target.mjs",
+          "startMs": 342,
+          "responseEndMs": 397,
+          "durationMs": 55,
+          "transferSize": 1414
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+          "startMs": 342,
+          "responseEndMs": 400,
+          "durationMs": 58,
+          "transferSize": 4380
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-client.js",
+          "startMs": 343,
+          "responseEndMs": 430,
+          "durationMs": 87,
+          "transferSize": 1079
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-status.js",
+          "startMs": 343,
+          "responseEndMs": 428,
+          "durationMs": 85,
+          "transferSize": 1292
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/offer-client.js",
+          "startMs": 343,
+          "responseEndMs": 440,
+          "durationMs": 97,
+          "transferSize": 3375
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-gate.js",
+          "startMs": 343,
+          "responseEndMs": 449,
+          "durationMs": 105,
+          "transferSize": 1570
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-latency.js",
+          "startMs": 343,
+          "responseEndMs": 446,
+          "durationMs": 103,
+          "transferSize": 1026
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/confirm-dialog.js",
+          "startMs": 344,
+          "responseEndMs": 460,
+          "durationMs": 117,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+          "startMs": 344,
+          "responseEndMs": 469,
+          "durationMs": 125,
+          "transferSize": 2251
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+          "startMs": 344,
+          "responseEndMs": 471,
+          "durationMs": 128,
+          "transferSize": 2509
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+          "startMs": 344,
+          "responseEndMs": 476,
+          "durationMs": 133,
+          "transferSize": 3192
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+          "startMs": 344,
+          "responseEndMs": 480,
+          "durationMs": 136,
+          "transferSize": 2878
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+          "startMs": 344,
+          "responseEndMs": 484,
+          "durationMs": 140,
+          "transferSize": 7906
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+          "startMs": 344,
+          "responseEndMs": 496,
+          "durationMs": 151,
+          "transferSize": 5831
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+          "startMs": 344,
+          "responseEndMs": 512,
+          "durationMs": 168,
+          "transferSize": 3624
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+          "startMs": 344,
+          "responseEndMs": 514,
+          "durationMs": 169,
+          "transferSize": 3794
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+          "startMs": 344,
+          "responseEndMs": 516,
+          "durationMs": 172,
+          "transferSize": 3473
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+          "startMs": 345,
+          "responseEndMs": 523,
+          "durationMs": 179,
+          "transferSize": 4284
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+          "startMs": 345,
+          "responseEndMs": 520,
+          "durationMs": 176,
+          "transferSize": 3296
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+          "startMs": 345,
+          "responseEndMs": 518,
+          "durationMs": 173,
+          "transferSize": 1130
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+          "startMs": 345,
+          "responseEndMs": 541,
+          "durationMs": 196,
+          "transferSize": 2945
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+          "startMs": 442,
+          "responseEndMs": 539,
+          "durationMs": 97,
+          "transferSize": 837
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+          "startMs": 484,
+          "responseEndMs": 543,
+          "durationMs": 59,
+          "transferSize": 9518
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+          "startMs": 485,
+          "responseEndMs": 545,
+          "durationMs": 61,
+          "transferSize": 2122
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+          "startMs": 493,
+          "responseEndMs": 550,
+          "durationMs": 57,
+          "transferSize": 4444
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+          "startMs": 493,
+          "responseEndMs": 553,
+          "durationMs": 59,
+          "transferSize": 2651
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+          "startMs": 493,
+          "responseEndMs": 566,
+          "durationMs": 73,
+          "transferSize": 2742
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-geometry.mjs",
+          "startMs": 500,
+          "responseEndMs": 577,
+          "durationMs": 78,
+          "transferSize": 2406
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-projection.mjs",
+          "startMs": 515,
+          "responseEndMs": 580,
+          "durationMs": 64,
+          "transferSize": 3942
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-progress.mjs",
+          "startMs": 521,
+          "responseEndMs": 568,
+          "durationMs": 47,
+          "transferSize": 1250
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+          "startMs": 521,
+          "responseEndMs": 575,
+          "durationMs": 54,
+          "transferSize": 1736
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+          "startMs": 521,
+          "responseEndMs": 582,
+          "durationMs": 61,
+          "transferSize": 1659
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+          "startMs": 521,
+          "responseEndMs": 595,
+          "durationMs": 73,
+          "transferSize": 1394
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/marker-heading.mjs",
+          "startMs": 521,
+          "responseEndMs": 593,
+          "durationMs": 71,
+          "transferSize": 1190
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+          "startMs": 528,
+          "responseEndMs": 600,
+          "durationMs": 72,
+          "transferSize": 5530
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-envelope.mjs",
+          "startMs": 528,
+          "responseEndMs": 598,
+          "durationMs": 70,
+          "transferSize": 5336
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+          "startMs": 548,
+          "responseEndMs": 597,
+          "durationMs": 49,
+          "transferSize": 2069
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+          "startMs": 548,
+          "responseEndMs": 602,
+          "durationMs": 54,
+          "transferSize": 4428
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+          "startMs": 555,
+          "responseEndMs": 611,
+          "durationMs": 57,
+          "transferSize": 3522
+        }
+      ]
+    },
+    {
+      "label": "warm-4",
+      "marks": {
+        "moduleGraphCompleteMs": 598,
+        "bootStartMs": 610.1999999880791,
+        "ensureMapMs": 615.1999999880791,
+        "mapCreatedMs": 628.8999999761581,
+        "firstTileVisibleMs": 753.6999999880791
+      },
+      "preBootResources": [
+        {
+          "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "startMs": 32,
+          "responseEndMs": 101,
+          "durationMs": 69,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+          "startMs": 32,
+          "responseEndMs": 81,
+          "durationMs": 49,
+          "transferSize": 17879
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/i18n.js",
+          "startMs": 235,
+          "responseEndMs": 263,
+          "durationMs": 28,
+          "transferSize": 13470
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/map.js",
+          "startMs": 236,
+          "responseEndMs": 261,
+          "durationMs": 25,
+          "transferSize": 9169
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/sheet.js",
+          "startMs": 236,
+          "responseEndMs": 278,
+          "durationMs": 43,
+          "transferSize": 6353
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location.js",
+          "startMs": 236,
+          "responseEndMs": 275,
+          "durationMs": 39,
+          "transferSize": 8023
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/step-ui.js",
+          "startMs": 236,
+          "responseEndMs": 275,
+          "durationMs": 39,
+          "transferSize": 2491
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/screens.js",
+          "startMs": 236,
+          "responseEndMs": 278,
+          "durationMs": 42,
+          "transferSize": 1067
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/auth.js",
+          "startMs": 236,
+          "responseEndMs": 283,
+          "durationMs": 47,
+          "transferSize": 2817
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/data.js",
+          "startMs": 236,
+          "responseEndMs": 285,
+          "durationMs": 49,
+          "transferSize": 4979
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase.js",
+          "startMs": 236,
+          "responseEndMs": 289,
+          "durationMs": 52,
+          "transferSize": 1447
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dashboard.js",
+          "startMs": 237,
+          "responseEndMs": 293,
+          "durationMs": 56,
+          "transferSize": 1135
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/utility-drawer.js",
+          "startMs": 237,
+          "responseEndMs": 298,
+          "durationMs": 61,
+          "transferSize": 2366
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-modal.js",
+          "startMs": 237,
+          "responseEndMs": 300,
+          "durationMs": 63,
+          "transferSize": 1242
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/routing.js",
+          "startMs": 237,
+          "responseEndMs": 307,
+          "durationMs": 70,
+          "transferSize": 3340
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/fare.js",
+          "startMs": 237,
+          "responseEndMs": 309,
+          "durationMs": 72,
+          "transferSize": 2712
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-flow.js",
+          "startMs": 237,
+          "responseEndMs": 312,
+          "durationMs": 75,
+          "transferSize": 16167
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/driver-track.js",
+          "startMs": 237,
+          "responseEndMs": 310,
+          "durationMs": 73,
+          "transferSize": 3440
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/a11y.js",
+          "startMs": 237,
+          "responseEndMs": 316,
+          "durationMs": 79,
+          "transferSize": 2551
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/trust.js",
+          "startMs": 237,
+          "responseEndMs": 318,
+          "durationMs": 81,
+          "transferSize": 1909
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/native-shell.js",
+          "startMs": 238,
+          "responseEndMs": 362,
+          "durationMs": 125,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+          "startMs": 238,
+          "responseEndMs": 326,
+          "durationMs": 89,
+          "transferSize": 904
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-render.mjs",
+          "startMs": 273,
+          "responseEndMs": 395,
+          "durationMs": 122,
+          "transferSize": 2697
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/support.js",
+          "startMs": 318,
+          "responseEndMs": 389,
+          "durationMs": 71,
+          "transferSize": 1277
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+          "startMs": 325,
+          "responseEndMs": 375,
+          "durationMs": 50,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+          "startMs": 326,
+          "responseEndMs": 377,
+          "durationMs": 51,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+          "startMs": 326,
+          "responseEndMs": 399,
+          "durationMs": 73,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+          "startMs": 327,
+          "responseEndMs": 393,
+          "durationMs": 66,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+          "startMs": 327,
+          "responseEndMs": 395,
+          "durationMs": 67,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase-config.js",
+          "startMs": 328,
+          "responseEndMs": 390,
+          "durationMs": 62,
+          "transferSize": 998
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-view.js",
+          "startMs": 328,
+          "responseEndMs": 401,
+          "durationMs": 73,
+          "transferSize": 1993
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/tracking-target.mjs",
+          "startMs": 337,
+          "responseEndMs": 397,
+          "durationMs": 61,
+          "transferSize": 1414
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+          "startMs": 337,
+          "responseEndMs": 403,
+          "durationMs": 66,
+          "transferSize": 4380
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-client.js",
+          "startMs": 337,
+          "responseEndMs": 407,
+          "durationMs": 70,
+          "transferSize": 1079
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-status.js",
+          "startMs": 337,
+          "responseEndMs": 406,
+          "durationMs": 68,
+          "transferSize": 1292
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/offer-client.js",
+          "startMs": 338,
+          "responseEndMs": 420,
+          "durationMs": 82,
+          "transferSize": 3375
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-gate.js",
+          "startMs": 338,
+          "responseEndMs": 418,
+          "durationMs": 80,
+          "transferSize": 1570
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-latency.js",
+          "startMs": 338,
+          "responseEndMs": 423,
+          "durationMs": 85,
+          "transferSize": 1026
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/confirm-dialog.js",
+          "startMs": 338,
+          "responseEndMs": 425,
+          "durationMs": 87,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+          "startMs": 338,
+          "responseEndMs": 427,
+          "durationMs": 89,
+          "transferSize": 2251
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+          "startMs": 338,
+          "responseEndMs": 430,
+          "durationMs": 92,
+          "transferSize": 3192
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+          "startMs": 338,
+          "responseEndMs": 438,
+          "durationMs": 100,
+          "transferSize": 2509
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+          "startMs": 338,
+          "responseEndMs": 440,
+          "durationMs": 102,
+          "transferSize": 2878
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+          "startMs": 338,
+          "responseEndMs": 444,
+          "durationMs": 106,
+          "transferSize": 7906
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+          "startMs": 339,
+          "responseEndMs": 442,
+          "durationMs": 104,
+          "transferSize": 5831
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+          "startMs": 339,
+          "responseEndMs": 447,
+          "durationMs": 108,
+          "transferSize": 3624
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+          "startMs": 339,
+          "responseEndMs": 448,
+          "durationMs": 110,
+          "transferSize": 3794
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+          "startMs": 339,
+          "responseEndMs": 474,
+          "durationMs": 135,
+          "transferSize": 3473
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+          "startMs": 339,
+          "responseEndMs": 476,
+          "durationMs": 137,
+          "transferSize": 4284
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+          "startMs": 339,
+          "responseEndMs": 484,
+          "durationMs": 144,
+          "transferSize": 3296
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+          "startMs": 340,
+          "responseEndMs": 489,
+          "durationMs": 150,
+          "transferSize": 1130
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+          "startMs": 340,
+          "responseEndMs": 494,
+          "durationMs": 154,
+          "transferSize": 2945
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+          "startMs": 423,
+          "responseEndMs": 490,
+          "durationMs": 67,
+          "transferSize": 837
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+          "startMs": 447,
+          "responseEndMs": 526,
+          "durationMs": 79,
+          "transferSize": 9518
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+          "startMs": 447,
+          "responseEndMs": 519,
+          "durationMs": 72,
+          "transferSize": 2122
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-geometry.mjs",
+          "startMs": 453,
+          "responseEndMs": 517,
+          "durationMs": 64,
+          "transferSize": 2406
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-projection.mjs",
+          "startMs": 457,
+          "responseEndMs": 519,
+          "durationMs": 62,
+          "transferSize": 3942
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+          "startMs": 457,
+          "responseEndMs": 522,
+          "durationMs": 64,
+          "transferSize": 4444
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+          "startMs": 458,
+          "responseEndMs": 524,
+          "durationMs": 67,
+          "transferSize": 2651
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+          "startMs": 458,
+          "responseEndMs": 543,
+          "durationMs": 85,
+          "transferSize": 2742
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-progress.mjs",
+          "startMs": 478,
+          "responseEndMs": 547,
+          "durationMs": 69,
+          "transferSize": 1250
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+          "startMs": 478,
+          "responseEndMs": 552,
+          "durationMs": 74,
+          "transferSize": 1736
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+          "startMs": 478,
+          "responseEndMs": 559,
+          "durationMs": 81,
+          "transferSize": 1659
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+          "startMs": 480,
+          "responseEndMs": 561,
+          "durationMs": 81,
+          "transferSize": 1394
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/marker-heading.mjs",
+          "startMs": 480,
+          "responseEndMs": 569,
+          "durationMs": 89,
+          "transferSize": 1190
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+          "startMs": 484,
+          "responseEndMs": 578,
+          "durationMs": 94,
+          "transferSize": 5530
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-envelope.mjs",
+          "startMs": 485,
+          "responseEndMs": 584,
+          "durationMs": 99,
+          "transferSize": 5336
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+          "startMs": 535,
+          "responseEndMs": 582,
+          "durationMs": 46,
+          "transferSize": 3522
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+          "startMs": 536,
+          "responseEndMs": 593,
+          "durationMs": 57,
+          "transferSize": 2069
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+          "startMs": 537,
+          "responseEndMs": 598,
+          "durationMs": 61,
+          "transferSize": 4428
+        }
+      ]
+    },
+    {
+      "label": "warm-5",
+      "marks": {
+        "moduleGraphCompleteMs": 612,
+        "bootStartMs": 624.0999999940395,
+        "ensureMapMs": 628.6999999880791,
+        "mapCreatedMs": 648.7999999821186,
+        "firstTileVisibleMs": 782.1999999880791
+      },
+      "preBootResources": [
+        {
+          "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "startMs": 28,
+          "responseEndMs": 97,
+          "durationMs": 70,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+          "startMs": 28,
+          "responseEndMs": 65,
+          "durationMs": 37,
+          "transferSize": 17879
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/i18n.js",
+          "startMs": 227,
+          "responseEndMs": 262,
+          "durationMs": 35,
+          "transferSize": 13470
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/map.js",
+          "startMs": 227,
+          "responseEndMs": 259,
+          "durationMs": 31,
+          "transferSize": 9169
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/sheet.js",
+          "startMs": 227,
+          "responseEndMs": 267,
+          "durationMs": 39,
+          "transferSize": 6353
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location.js",
+          "startMs": 228,
+          "responseEndMs": 272,
+          "durationMs": 44,
+          "transferSize": 8023
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/step-ui.js",
+          "startMs": 228,
+          "responseEndMs": 265,
+          "durationMs": 37,
+          "transferSize": 2491
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/screens.js",
+          "startMs": 228,
+          "responseEndMs": 268,
+          "durationMs": 41,
+          "transferSize": 1067
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/auth.js",
+          "startMs": 228,
+          "responseEndMs": 280,
+          "durationMs": 52,
+          "transferSize": 2817
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/data.js",
+          "startMs": 228,
+          "responseEndMs": 279,
+          "durationMs": 51,
+          "transferSize": 4979
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase.js",
+          "startMs": 228,
+          "responseEndMs": 283,
+          "durationMs": 55,
+          "transferSize": 1447
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dashboard.js",
+          "startMs": 228,
+          "responseEndMs": 284,
+          "durationMs": 56,
+          "transferSize": 1135
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/utility-drawer.js",
+          "startMs": 229,
+          "responseEndMs": 289,
+          "durationMs": 60,
+          "transferSize": 2366
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-modal.js",
+          "startMs": 229,
+          "responseEndMs": 297,
+          "durationMs": 68,
+          "transferSize": 1242
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/routing.js",
+          "startMs": 229,
+          "responseEndMs": 299,
+          "durationMs": 70,
+          "transferSize": 3340
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/fare.js",
+          "startMs": 229,
+          "responseEndMs": 301,
+          "durationMs": 73,
+          "transferSize": 2712
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-flow.js",
+          "startMs": 229,
+          "responseEndMs": 335,
+          "durationMs": 106,
+          "transferSize": 16167
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/a11y.js",
+          "startMs": 229,
+          "responseEndMs": 334,
+          "durationMs": 105,
+          "transferSize": 2551
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/driver-track.js",
+          "startMs": 229,
+          "responseEndMs": 331,
+          "durationMs": 102,
+          "transferSize": 3440
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/trust.js",
+          "startMs": 229,
+          "responseEndMs": 335,
+          "durationMs": 105,
+          "transferSize": 1909
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/native-shell.js",
+          "startMs": 229,
+          "responseEndMs": 335,
+          "durationMs": 106,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+          "startMs": 230,
+          "responseEndMs": 335,
+          "durationMs": 106,
+          "transferSize": 904
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-render.mjs",
+          "startMs": 268,
+          "responseEndMs": 399,
+          "durationMs": 131,
+          "transferSize": 2697
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/support.js",
+          "startMs": 328,
+          "responseEndMs": 398,
+          "durationMs": 70,
+          "transferSize": 1277
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+          "startMs": 329,
+          "responseEndMs": 381,
+          "durationMs": 52,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+          "startMs": 329,
+          "responseEndMs": 389,
+          "durationMs": 60,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+          "startMs": 329,
+          "responseEndMs": 385,
+          "durationMs": 56,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+          "startMs": 329,
+          "responseEndMs": 391,
+          "durationMs": 62,
+          "transferSize": 0
+        },
+        {
+          "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+          "startMs": 329,
+          "responseEndMs": 393,
+          "durationMs": 64,
+          "transferSize": 0
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/firebase-config.js",
+          "startMs": 329,
+          "responseEndMs": 398,
+          "durationMs": 69,
+          "transferSize": 998
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/rate-details-view.js",
+          "startMs": 331,
+          "responseEndMs": 399,
+          "durationMs": 68,
+          "transferSize": 1993
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/tracking-target.mjs",
+          "startMs": 350,
+          "responseEndMs": 399,
+          "durationMs": 49,
+          "transferSize": 1414
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+          "startMs": 351,
+          "responseEndMs": 402,
+          "durationMs": 51,
+          "transferSize": 4380
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-client.js",
+          "startMs": 351,
+          "responseEndMs": 421,
+          "durationMs": 70,
+          "transferSize": 1079
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-status.js",
+          "startMs": 351,
+          "responseEndMs": 425,
+          "durationMs": 74,
+          "transferSize": 1292
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/offer-client.js",
+          "startMs": 351,
+          "responseEndMs": 431,
+          "durationMs": 79,
+          "transferSize": 3375
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/booking-gate.js",
+          "startMs": 351,
+          "responseEndMs": 428,
+          "durationMs": 77,
+          "transferSize": 1570
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-latency.js",
+          "startMs": 351,
+          "responseEndMs": 428,
+          "durationMs": 77,
+          "transferSize": 1026
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/confirm-dialog.js",
+          "startMs": 352,
+          "responseEndMs": 431,
+          "durationMs": 79,
+          "transferSize": 1063
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+          "startMs": 352,
+          "responseEndMs": 438,
+          "durationMs": 87,
+          "transferSize": 3192
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+          "startMs": 352,
+          "responseEndMs": 441,
+          "durationMs": 90,
+          "transferSize": 2251
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+          "startMs": 352,
+          "responseEndMs": 445,
+          "durationMs": 93,
+          "transferSize": 2509
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+          "startMs": 352,
+          "responseEndMs": 448,
+          "durationMs": 96,
+          "transferSize": 2878
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+          "startMs": 352,
+          "responseEndMs": 451,
+          "durationMs": 99,
+          "transferSize": 7906
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+          "startMs": 352,
+          "responseEndMs": 453,
+          "durationMs": 101,
+          "transferSize": 5831
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+          "startMs": 352,
+          "responseEndMs": 469,
+          "durationMs": 117,
+          "transferSize": 3624
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+          "startMs": 352,
+          "responseEndMs": 472,
+          "durationMs": 119,
+          "transferSize": 3794
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+          "startMs": 352,
+          "responseEndMs": 477,
+          "durationMs": 125,
+          "transferSize": 3473
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+          "startMs": 353,
+          "responseEndMs": 480,
+          "durationMs": 127,
+          "transferSize": 4284
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+          "startMs": 353,
+          "responseEndMs": 495,
+          "durationMs": 142,
+          "transferSize": 3296
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+          "startMs": 353,
+          "responseEndMs": 491,
+          "durationMs": 138,
+          "transferSize": 1130
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+          "startMs": 353,
+          "responseEndMs": 507,
+          "durationMs": 155,
+          "transferSize": 2945
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+          "startMs": 437,
+          "responseEndMs": 504,
+          "durationMs": 67,
+          "transferSize": 837
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+          "startMs": 452,
+          "responseEndMs": 513,
+          "durationMs": 62,
+          "transferSize": 9518
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+          "startMs": 452,
+          "responseEndMs": 511,
+          "durationMs": 59,
+          "transferSize": 2122
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+          "startMs": 460,
+          "responseEndMs": 515,
+          "durationMs": 55,
+          "transferSize": 4444
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+          "startMs": 460,
+          "responseEndMs": 518,
+          "durationMs": 57,
+          "transferSize": 2651
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+          "startMs": 461,
+          "responseEndMs": 536,
+          "durationMs": 76,
+          "transferSize": 2742
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-geometry.mjs",
+          "startMs": 461,
+          "responseEndMs": 550,
+          "durationMs": 89,
+          "transferSize": 2406
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-projection.mjs",
+          "startMs": 474,
+          "responseEndMs": 555,
+          "durationMs": 81,
+          "transferSize": 3942
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-progress.mjs",
+          "startMs": 481,
+          "responseEndMs": 548,
+          "durationMs": 66,
+          "transferSize": 1250
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+          "startMs": 482,
+          "responseEndMs": 559,
+          "durationMs": 77,
+          "transferSize": 1736
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+          "startMs": 482,
+          "responseEndMs": 566,
+          "durationMs": 85,
+          "transferSize": 1659
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+          "startMs": 482,
+          "responseEndMs": 579,
+          "durationMs": 98,
+          "transferSize": 1394
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/marker-heading.mjs",
+          "startMs": 482,
+          "responseEndMs": 585,
+          "durationMs": 103,
+          "transferSize": 1190
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+          "startMs": 483,
+          "responseEndMs": 595,
+          "durationMs": 112,
+          "transferSize": 5530
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/location-envelope.mjs",
+          "startMs": 484,
+          "responseEndMs": 596,
+          "durationMs": 112,
+          "transferSize": 5336
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+          "startMs": 520,
+          "responseEndMs": 588,
+          "durationMs": 67,
+          "transferSize": 2069
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+          "startMs": 521,
+          "responseEndMs": 600,
+          "durationMs": 79,
+          "transferSize": 4428
+        },
+        {
+          "url": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+          "startMs": 521,
+          "responseEndMs": 612,
+          "durationMs": 91,
+          "transferSize": 3522
+        }
+      ]
+    }
+  ],
+  "coldSummary": {
+    "moduleGraphCompleteMs": {
+      "medianMs": 998,
+      "minMs": 853,
+      "maxMs": 1923,
+      "valuesMs": [
+        853,
+        968,
+        998,
+        1131,
+        1923
+      ]
+    },
+    "bootStartMs": {
+      "medianMs": 1023.0999999940395,
+      "minMs": 877.1999999880791,
+      "maxMs": 1943.5,
+      "valuesMs": [
+        877.1999999880791,
+        999.8999999761581,
+        1023.0999999940395,
+        1162.199999988079,
+        1943.5
+      ]
+    },
+    "ensureMapMs": {
+      "medianMs": 1060.0999999940395,
+      "minMs": 904.8999999761581,
+      "maxMs": 3201.300000011921,
+      "valuesMs": [
+        904.8999999761581,
+        1028.5999999940395,
+        1060.0999999940395,
+        1211.0999999940395,
+        3201.300000011921
+      ]
+    },
+    "mapCreatedMs": {
+      "medianMs": 1087,
+      "minMs": 926.5,
+      "maxMs": 3241.300000011921,
+      "valuesMs": [
+        926.5,
+        1054.2999999821186,
+        1087,
+        1239.699999988079,
+        3241.300000011921
+      ]
+    },
+    "firstTileVisibleMs": {
+      "medianMs": 1533.7000000178814,
+      "minMs": 1304.699999988079,
+      "maxMs": 3922.800000011921,
+      "valuesMs": [
+        1304.699999988079,
+        1442.199999988079,
+        1533.7000000178814,
+        1689.0999999940395,
+        3922.800000011921
+      ]
+    }
+  },
+  "warmSummary": {
+    "moduleGraphCompleteMs": {
+      "medianMs": 611,
+      "minMs": 598,
+      "maxMs": 653,
+      "valuesMs": [
+        598,
+        605,
+        611,
+        612,
+        653
+      ]
+    },
+    "bootStartMs": {
+      "medianMs": 620.8000000119209,
+      "minMs": 610.1999999880791,
+      "maxMs": 666,
+      "valuesMs": [
+        610.1999999880791,
+        613.2000000178814,
+        620.8000000119209,
+        624.0999999940395,
+        666
+      ]
+    },
+    "ensureMapMs": {
+      "medianMs": 623.3000000119209,
+      "minMs": 615.1999999880791,
+      "maxMs": 668.3999999761581,
+      "valuesMs": [
+        615.1999999880791,
+        616.2000000178814,
+        623.3000000119209,
+        628.6999999880791,
+        668.3999999761581
+      ]
+    },
+    "mapCreatedMs": {
+      "medianMs": 632.5999999940395,
+      "minMs": 628.8999999761581,
+      "maxMs": 676.2999999821186,
+      "valuesMs": [
+        628.8999999761581,
+        629.4000000059605,
+        632.5999999940395,
+        648.7999999821186,
+        676.2999999821186
+      ]
+    },
+    "firstTileVisibleMs": {
+      "medianMs": 782.1999999880791,
+      "minMs": 752.1999999880791,
+      "maxMs": 891,
+      "valuesMs": [
+        752.1999999880791,
+        753.6999999880791,
+        782.1999999880791,
+        801.6999999880791,
+        891
+      ]
+    }
+  },
+  "preBootModuleInventory": [
+    {
+      "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+      "startMs": 38,
+      "responseEndMs": 489,
+      "durationMs": 452,
+      "transferSize": 0
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+      "startMs": 38,
+      "responseEndMs": 76,
+      "durationMs": 38,
+      "transferSize": 17879
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/i18n.js",
+      "startMs": 597,
+      "responseEndMs": 615,
+      "durationMs": 18,
+      "transferSize": 13470
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/map.js",
+      "startMs": 597,
+      "responseEndMs": 620,
+      "durationMs": 23,
+      "transferSize": 9169
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/sheet.js",
+      "startMs": 597,
+      "responseEndMs": 631,
+      "durationMs": 34,
+      "transferSize": 6353
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/step-ui.js",
+      "startMs": 597,
+      "responseEndMs": 628,
+      "durationMs": 31,
+      "transferSize": 2491
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/location.js",
+      "startMs": 597,
+      "responseEndMs": 635,
+      "durationMs": 38,
+      "transferSize": 8023
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/screens.js",
+      "startMs": 597,
+      "responseEndMs": 633,
+      "durationMs": 35,
+      "transferSize": 1067
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/auth.js",
+      "startMs": 597,
+      "responseEndMs": 640,
+      "durationMs": 42,
+      "transferSize": 2817
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/data.js",
+      "startMs": 598,
+      "responseEndMs": 648,
+      "durationMs": 50,
+      "transferSize": 4979
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/firebase.js",
+      "startMs": 598,
+      "responseEndMs": 655,
+      "durationMs": 57,
+      "transferSize": 1447
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/dashboard.js",
+      "startMs": 598,
+      "responseEndMs": 660,
+      "durationMs": 63,
+      "transferSize": 1135
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/utility-drawer.js",
+      "startMs": 598,
+      "responseEndMs": 662,
+      "durationMs": 64,
+      "transferSize": 2366
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/rate-details-modal.js",
+      "startMs": 598,
+      "responseEndMs": 667,
+      "durationMs": 69,
+      "transferSize": 1242
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/routing.js",
+      "startMs": 598,
+      "responseEndMs": 672,
+      "durationMs": 74,
+      "transferSize": 3340
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/fare.js",
+      "startMs": 598,
+      "responseEndMs": 676,
+      "durationMs": 78,
+      "transferSize": 2712
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/ride-flow.js",
+      "startMs": 598,
+      "responseEndMs": 697,
+      "durationMs": 99,
+      "transferSize": 16167
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/driver-track.js",
+      "startMs": 598,
+      "responseEndMs": 687,
+      "durationMs": 88,
+      "transferSize": 3440
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/a11y.js",
+      "startMs": 598,
+      "responseEndMs": 690,
+      "durationMs": 92,
+      "transferSize": 2551
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/trust.js",
+      "startMs": 598,
+      "responseEndMs": 692,
+      "durationMs": 94,
+      "transferSize": 1909
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/native-shell.js",
+      "startMs": 599,
+      "responseEndMs": 697,
+      "durationMs": 98,
+      "transferSize": 1063
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+      "startMs": 599,
+      "responseEndMs": 699,
+      "durationMs": 100,
+      "transferSize": 904
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/live-location-render.mjs",
+      "startMs": 628,
+      "responseEndMs": 717,
+      "durationMs": 89,
+      "transferSize": 2697
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/support.js",
+      "startMs": 643,
+      "responseEndMs": 704,
+      "durationMs": 60,
+      "transferSize": 1277
+    },
+    {
+      "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+      "startMs": 647,
+      "responseEndMs": 955,
+      "durationMs": 308,
+      "transferSize": 0
+    },
+    {
+      "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+      "startMs": 652,
+      "responseEndMs": 923,
+      "durationMs": 271,
+      "transferSize": 0
+    },
+    {
+      "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+      "startMs": 664,
+      "responseEndMs": 931,
+      "durationMs": 267,
+      "transferSize": 0
+    },
+    {
+      "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+      "startMs": 664,
+      "responseEndMs": 930,
+      "durationMs": 266,
+      "transferSize": 0
+    },
+    {
+      "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+      "startMs": 664,
+      "responseEndMs": 928,
+      "durationMs": 264,
+      "transferSize": 0
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/firebase-config.js",
+      "startMs": 664,
+      "responseEndMs": 705,
+      "durationMs": 41,
+      "transferSize": 998
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/rate-details-view.js",
+      "startMs": 678,
+      "responseEndMs": 717,
+      "durationMs": 39,
+      "transferSize": 1993
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/tracking-target.mjs",
+      "startMs": 694,
+      "responseEndMs": 722,
+      "durationMs": 28,
+      "transferSize": 1414
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+      "startMs": 694,
+      "responseEndMs": 725,
+      "durationMs": 30,
+      "transferSize": 4380
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/booking-client.js",
+      "startMs": 704,
+      "responseEndMs": 741,
+      "durationMs": 37,
+      "transferSize": 1079
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/ride-status.js",
+      "startMs": 705,
+      "responseEndMs": 744,
+      "durationMs": 39,
+      "transferSize": 1292
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/offer-client.js",
+      "startMs": 705,
+      "responseEndMs": 752,
+      "durationMs": 47,
+      "transferSize": 3375
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/booking-gate.js",
+      "startMs": 706,
+      "responseEndMs": 750,
+      "durationMs": 44,
+      "transferSize": 1570
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/dispatch-latency.js",
+      "startMs": 706,
+      "responseEndMs": 756,
+      "durationMs": 50,
+      "transferSize": 1026
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/confirm-dialog.js",
+      "startMs": 706,
+      "responseEndMs": 759,
+      "durationMs": 53,
+      "transferSize": 1063
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+      "startMs": 706,
+      "responseEndMs": 766,
+      "durationMs": 60,
+      "transferSize": 2251
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+      "startMs": 706,
+      "responseEndMs": 766,
+      "durationMs": 60,
+      "transferSize": 3192
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+      "startMs": 706,
+      "responseEndMs": 775,
+      "durationMs": 68,
+      "transferSize": 2509
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+      "startMs": 706,
+      "responseEndMs": 778,
+      "durationMs": 71,
+      "transferSize": 2878
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+      "startMs": 707,
+      "responseEndMs": 782,
+      "durationMs": 75,
+      "transferSize": 7906
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+      "startMs": 707,
+      "responseEndMs": 784,
+      "durationMs": 78,
+      "transferSize": 5831
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+      "startMs": 707,
+      "responseEndMs": 791,
+      "durationMs": 84,
+      "transferSize": 3624
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+      "startMs": 707,
+      "responseEndMs": 789,
+      "durationMs": 82,
+      "transferSize": 3794
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+      "startMs": 707,
+      "responseEndMs": 813,
+      "durationMs": 106,
+      "transferSize": 3473
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+      "startMs": 707,
+      "responseEndMs": 811,
+      "durationMs": 104,
+      "transferSize": 4284
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+      "startMs": 707,
+      "responseEndMs": 815,
+      "durationMs": 108,
+      "transferSize": 3296
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+      "startMs": 707,
+      "responseEndMs": 826,
+      "durationMs": 119,
+      "transferSize": 1130
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+      "startMs": 708,
+      "responseEndMs": 832,
+      "durationMs": 125,
+      "transferSize": 2945
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+      "startMs": 759,
+      "responseEndMs": 834,
+      "durationMs": 76,
+      "transferSize": 837
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+      "startMs": 782,
+      "responseEndMs": 862,
+      "durationMs": 80,
+      "transferSize": 9518
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+      "startMs": 782,
+      "responseEndMs": 874,
+      "durationMs": 92,
+      "transferSize": 2122
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+      "startMs": 791,
+      "responseEndMs": 877,
+      "durationMs": 86,
+      "transferSize": 4444
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+      "startMs": 791,
+      "responseEndMs": 880,
+      "durationMs": 89,
+      "transferSize": 2651
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+      "startMs": 791,
+      "responseEndMs": 883,
+      "durationMs": 92,
+      "transferSize": 2742
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/route-geometry.mjs",
+      "startMs": 794,
+      "responseEndMs": 927,
+      "durationMs": 134,
+      "transferSize": 2406
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/route-projection.mjs",
+      "startMs": 802,
+      "responseEndMs": 961,
+      "durationMs": 159,
+      "transferSize": 3942
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+      "startMs": 815,
+      "responseEndMs": 964,
+      "durationMs": 148,
+      "transferSize": 5530
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/location-envelope.mjs",
+      "startMs": 815,
+      "responseEndMs": 968,
+      "durationMs": 153,
+      "transferSize": 5336
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/route-progress.mjs",
+      "startMs": 817,
+      "responseEndMs": 971,
+      "durationMs": 154,
+      "transferSize": 1250
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+      "startMs": 817,
+      "responseEndMs": 975,
+      "durationMs": 157,
+      "transferSize": 1736
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+      "startMs": 818,
+      "responseEndMs": 981,
+      "durationMs": 163,
+      "transferSize": 1659
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+      "startMs": 818,
+      "responseEndMs": 989,
+      "durationMs": 171,
+      "transferSize": 1394
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/marker-heading.mjs",
+      "startMs": 818,
+      "responseEndMs": 991,
+      "durationMs": 174,
+      "transferSize": 1190
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+      "startMs": 891,
+      "responseEndMs": 994,
+      "durationMs": 103,
+      "transferSize": 2069
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+      "startMs": 891,
+      "responseEndMs": 996,
+      "durationMs": 105,
+      "transferSize": 4428
+    },
+    {
+      "url": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+      "startMs": 893,
+      "responseEndMs": 998,
+      "durationMs": 105,
+      "transferSize": 3522
+    }
+  ]
+}

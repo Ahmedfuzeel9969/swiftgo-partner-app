@@ -27,6 +27,7 @@ import {
   BACKGROUND_APPROACH_INTERVAL_MS,
   BACKGROUND_TRIP_INTERVAL_MS,
   CHECKPOINT_POLICY,
+  IDLE_LOCATION_INTERVAL_MS,
   MIN_LOCATION_MOVE_M,
   RESPONSIVE_INTERVAL_MS,
   VIEWER_LEASE,
@@ -87,12 +88,27 @@ function unitPolicyTests() {
     hasActiveRide: true,
     rideStatus: "accepted",
     viewerLease: VIEWER_LEASE.EXPIRED,
+    p2pHealthy: true,
   });
   record(
-    "02-hidden-accepted-60s",
-    hAcc.policy === CHECKPOINT_POLICY.BACKGROUND_APPROACH_CHECKPOINT &&
+    "02-expired-healthy-accepted-sparse-60s",
+    hAcc.policy === CHECKPOINT_POLICY.P2P_SPARSE_APPROACH &&
       hAcc.intervalMs === BACKGROUND_APPROACH_INTERVAL_MS &&
       hAcc.hardInterval
+      ? "PASS"
+      : "FAIL"
+  );
+
+  const hAccUnhealthy = resolveCheckpointPolicy({
+    hasActiveRide: true,
+    rideStatus: "accepted",
+    viewerLease: VIEWER_LEASE.EXPIRED,
+    p2pHealthy: false,
+  });
+  record(
+    "02b-expired-unhealthy-accepted-responsive-4s",
+    hAccUnhealthy.policy === CHECKPOINT_POLICY.RESPONSIVE_FIREBASE &&
+      hAccUnhealthy.intervalMs === RESPONSIVE_INTERVAL_MS
       ? "PASS"
       : "FAIL"
   );
@@ -101,9 +117,10 @@ function unitPolicyTests() {
     hasActiveRide: true,
     rideStatus: "arrived",
     viewerLease: VIEWER_LEASE.EXPIRED,
+    p2pHealthy: true,
   });
   record(
-    "03-hidden-arrived-60s",
+    "03-expired-healthy-arrived-sparse-60s",
     hArr.intervalMs === BACKGROUND_APPROACH_INTERVAL_MS && hArr.hardInterval
       ? "PASS"
       : "FAIL"
@@ -113,11 +130,26 @@ function unitPolicyTests() {
     hasActiveRide: true,
     rideStatus: "in_progress",
     viewerLease: VIEWER_LEASE.EXPIRED,
+    p2pHealthy: true,
   });
   record(
-    "04-hidden-in-progress-30s",
-    hTrip.policy === CHECKPOINT_POLICY.BACKGROUND_TRIP_CHECKPOINT &&
+    "04-expired-healthy-in-progress-sparse-30s",
+    hTrip.policy === CHECKPOINT_POLICY.P2P_SPARSE_TRIP &&
       hTrip.intervalMs === BACKGROUND_TRIP_INTERVAL_MS
+      ? "PASS"
+      : "FAIL"
+  );
+
+  const hTripUnhealthy = resolveCheckpointPolicy({
+    hasActiveRide: true,
+    rideStatus: "in_progress",
+    viewerLease: VIEWER_LEASE.EXPIRED,
+    p2pHealthy: false,
+  });
+  record(
+    "04b-expired-unhealthy-in-progress-responsive-4s",
+    hTripUnhealthy.policy === CHECKPOINT_POLICY.RESPONSIVE_FIREBASE &&
+      hTripUnhealthy.intervalMs === RESPONSIVE_INTERVAL_MS
       ? "PASS"
       : "FAIL"
   );
@@ -128,9 +160,9 @@ function unitPolicyTests() {
     viewerLease: VIEWER_LEASE.UNKNOWN,
   });
   record(
-    "05-unknown-accepted-60s-safe",
-    uAcc.policy === CHECKPOINT_POLICY.SAFE_UNKNOWN_APPROACH &&
-      uAcc.intervalMs === BACKGROUND_APPROACH_INTERVAL_MS
+    "05-unknown-accepted-responsive-until-presence",
+    uAcc.policy === CHECKPOINT_POLICY.RESPONSIVE_FIREBASE &&
+      uAcc.intervalMs === RESPONSIVE_INTERVAL_MS
       ? "PASS"
       : "FAIL"
   );
@@ -141,9 +173,9 @@ function unitPolicyTests() {
     viewerLease: VIEWER_LEASE.UNKNOWN,
   });
   record(
-    "06-unknown-in-progress-30s-safe",
-    uTrip.policy === CHECKPOINT_POLICY.SAFE_UNKNOWN_TRIP &&
-      uTrip.intervalMs === BACKGROUND_TRIP_INTERVAL_MS
+    "06-unknown-in-progress-responsive-until-presence",
+    uTrip.policy === CHECKPOINT_POLICY.RESPONSIVE_FIREBASE &&
+      uTrip.intervalMs === RESPONSIVE_INTERVAL_MS
       ? "PASS"
       : "FAIL"
   );
@@ -265,7 +297,7 @@ function unitPolicyTests() {
 
   record(
     "movement-threshold-documented",
-    MIN_LOCATION_MOVE_M === 10 ? "PASS" : "FAIL"
+    MIN_LOCATION_MOVE_M === 200 ? "PASS" : "FAIL"
   );
 
   const fakeLease = resolveViewerLeaseState({
@@ -275,13 +307,14 @@ function unitPolicyTests() {
     presenceReadable: true,
   });
   record(
-    "30-fake-client-expiry-cannot-keep-responsive",
+    "30-expired-unhealthy-fails-open-responsive",
     fakeLease === VIEWER_LEASE.EXPIRED &&
       resolveCheckpointPolicy({
         hasActiveRide: true,
         rideStatus: "accepted",
         viewerLease: fakeLease,
-      }).intervalMs === BACKGROUND_APPROACH_INTERVAL_MS
+        p2pHealthy: false,
+      }).intervalMs === RESPONSIVE_INTERVAL_MS
       ? "PASS"
       : "FAIL"
   );
@@ -435,9 +468,10 @@ async function unitPresenceConsumerTests() {
 
   const noRide = resolveCheckpointPolicy({ hasActiveRide: false });
   record(
-    "20-no-active-ride-preserves-dispatch-cadence",
+    "20-no-active-ride-idle-200m-or-5min",
     noRide.policy === CHECKPOINT_POLICY.NO_ACTIVE_RIDE &&
-      noRide.intervalMs === RESPONSIVE_INTERVAL_MS &&
+      noRide.intervalMs === IDLE_LOCATION_INTERVAL_MS &&
+      IDLE_LOCATION_INTERVAL_MS === 5 * 60_000 &&
       !noRide.hardInterval
       ? "PASS"
       : "FAIL"

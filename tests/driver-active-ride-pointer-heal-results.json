@@ -1,0 +1,181 @@
+{
+  "pass": 29,
+  "fail": 0,
+  "total": 29,
+  "results": [
+    {
+      "name": "U01-classify-completed-stale",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "U02-classify-genuine-active-blocks",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "U03-vehicle-wrong-vehicle-stale",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "U04-evaluate-partner-stale-heals",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "U05-client-stale-urdu-constant",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "U06-restore-rejects-terminal",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E01-partner-stale-completed-offer-succeeds",
+      "status": "PASS",
+      "detail": "activeRideId=cleared",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E02-vehicle-stale-completed-offer-succeeds",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E03-both-pointers-stale-healed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E04-missing-ride-pointer-healed",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E05-terminal-cancelled-heals",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E05-terminal-cancelled_by_user-heals",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E05-terminal-expired-heals",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E05-terminal-searching_driver-heals",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E06-old-vehicle-partner-heals-current-safe",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E07-wrong-driver-pointer-clears-no-cross-mutation",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E08-genuine-accepted-blocks",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E09-genuine-arrived-blocks",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E10-genuine-in-progress-blocks",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E11-unreferenced-active-query-blocks",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E12-duplicate-offer-after-heal-idempotent",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E13-concurrent-finalize-one-outcome",
+      "status": "PASS",
+      "detail": "success=2 fail=0",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E14-settlement-idempotent-clears-partner-vehicle",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E15-settlement-idempotent-no-double-earnings",
+      "status": "PASS",
+      "detail": "earn=1000 rides=2",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E16-pin-relink-blocks-genuine-active",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E17-heal-no-financial-mutation",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E18-no-other-driver-mutation",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E19-rematch-after-stale-heal",
+      "status": "PASS",
+      "detail": "rematched=18",
+      "suite": "driver-active-ride-pointer-heal"
+    },
+    {
+      "name": "E20-client-restore-genuine-vs-terminal",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-active-ride-pointer-heal"
+    }
+  ]
+}

@@ -1,0 +1,610 @@
+{
+  "generatedAt": "2026-08-15T13:02:05.445Z",
+  "host": "http://127.0.0.1:5000",
+  "marks": [
+    {
+      "name": "navigation:start",
+      "atMs": 616.6999999880791
+    },
+    {
+      "name": "boot:start",
+      "atMs": 2228.2999999821186
+    },
+    {
+      "name": "boot:i18n:done",
+      "atMs": 2254
+    },
+    {
+      "name": "boot:sheet:done",
+      "atMs": 2322.0999999940395
+    },
+    {
+      "name": "boot:fare:done",
+      "atMs": 2323.199999988079
+    },
+    {
+      "name": "boot:ride-flow:done",
+      "atMs": 2326.0999999940395
+    },
+    {
+      "name": "boot:driver-track:done",
+      "atMs": 2326.2999999821186
+    },
+    {
+      "name": "map:ensure-called",
+      "atMs": 2327.0999999940395,
+      "homeHidden": false,
+      "homeActive": true,
+      "stack": "Error\n    at ensureMap (http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4:203:12)\n    at ensureMapPickListeners (http://127.0.0.1:5000/js/location.js:653:14)\n    at initLocationModule (http://127.0.0.1:5000/js/location.js:901:3)\n    at boot (http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4:547:3)\n    at http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4:580:1"
+    },
+    {
+      "name": "map:init-start",
+      "atMs": 2328.899999976158
+    },
+    {
+      "name": "map:init-return",
+      "atMs": 2380.5
+    },
+    {
+      "name": "boot:location:done",
+      "atMs": 2380.699999988079
+    },
+    {
+      "name": "boot:routing:done",
+      "atMs": 2381
+    },
+    {
+      "name": "boot:step-ui:done",
+      "atMs": 2382.2999999821186
+    },
+    {
+      "name": "boot:dashboard:done",
+      "atMs": 2382.699999988079
+    },
+    {
+      "name": "boot:auth:start",
+      "atMs": 2382.899999976158
+    },
+    {
+      "name": "boot:auth:done",
+      "atMs": 2523.2999999821186
+    },
+    {
+      "name": "boot:user-data:bound",
+      "atMs": 2543.2999999821186
+    },
+    {
+      "name": "boot:events:bound",
+      "atMs": 2543.699999988079
+    },
+    {
+      "name": "boot:done",
+      "atMs": 2544.899999976158
+    },
+    {
+      "name": "map:ensure-called",
+      "atMs": 2726.7999999821186,
+      "homeHidden": false,
+      "homeActive": true,
+      "stack": "Error\n    at ensureMap (http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4:203:12)\n    at http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4:246:7"
+    },
+    {
+      "name": "map:ensure-called",
+      "atMs": 2727,
+      "homeHidden": false,
+      "homeActive": true,
+      "stack": "Error\n    at ensureMap (http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4:203:12)\n    at http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4:570:5"
+    },
+    {
+      "name": "map:first-tile-visible",
+      "atMs": 2779.0999999940395
+    }
+  ],
+  "moduleGraphLoadedAtMs": 2200,
+  "appModule": {
+    "name": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+    "initiatorType": "script",
+    "startTimeMs": 610,
+    "responseEndMs": 749,
+    "durationMs": 139
+  },
+  "firstTile": {
+    "name": "https://a.tile.openstreetmap.org/15/22481/14047.png",
+    "initiatorType": "img",
+    "startTimeMs": 2391,
+    "responseEndMs": 2776,
+    "durationMs": 385
+  },
+  "jsBeforeBoot": [
+    {
+      "name": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+      "initiatorType": "script",
+      "startTimeMs": 610,
+      "responseEndMs": 699,
+      "durationMs": 89
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/app.js?v=customer_map_fix_4",
+      "initiatorType": "script",
+      "startTimeMs": 610,
+      "responseEndMs": 749,
+      "durationMs": 139
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/i18n.js",
+      "initiatorType": "script",
+      "startTimeMs": 1210,
+      "responseEndMs": 1307,
+      "durationMs": 97
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/map.js",
+      "initiatorType": "script",
+      "startTimeMs": 1210,
+      "responseEndMs": 1315,
+      "durationMs": 105
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/sheet.js",
+      "initiatorType": "script",
+      "startTimeMs": 1210,
+      "responseEndMs": 1334,
+      "durationMs": 124
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/location.js",
+      "initiatorType": "script",
+      "startTimeMs": 1210,
+      "responseEndMs": 1344,
+      "durationMs": 133
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/step-ui.js",
+      "initiatorType": "script",
+      "startTimeMs": 1211,
+      "responseEndMs": 1309,
+      "durationMs": 99
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/screens.js",
+      "initiatorType": "script",
+      "startTimeMs": 1211,
+      "responseEndMs": 1328,
+      "durationMs": 117
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/auth.js",
+      "initiatorType": "script",
+      "startTimeMs": 1211,
+      "responseEndMs": 1347,
+      "durationMs": 136
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/data.js",
+      "initiatorType": "script",
+      "startTimeMs": 1211,
+      "responseEndMs": 1410,
+      "durationMs": 199
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/firebase.js",
+      "initiatorType": "script",
+      "startTimeMs": 1212,
+      "responseEndMs": 1350,
+      "durationMs": 139
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/dashboard.js",
+      "initiatorType": "script",
+      "startTimeMs": 1212,
+      "responseEndMs": 1364,
+      "durationMs": 153
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/utility-drawer.js",
+      "initiatorType": "script",
+      "startTimeMs": 1212,
+      "responseEndMs": 1419,
+      "durationMs": 207
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/rate-details-modal.js",
+      "initiatorType": "script",
+      "startTimeMs": 1212,
+      "responseEndMs": 1429,
+      "durationMs": 217
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/routing.js",
+      "initiatorType": "script",
+      "startTimeMs": 1212,
+      "responseEndMs": 1449,
+      "durationMs": 237
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/fare.js",
+      "initiatorType": "script",
+      "startTimeMs": 1212,
+      "responseEndMs": 1441,
+      "durationMs": 229
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/ride-flow.js",
+      "initiatorType": "script",
+      "startTimeMs": 1213,
+      "responseEndMs": 1513,
+      "durationMs": 300
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/driver-track.js",
+      "initiatorType": "script",
+      "startTimeMs": 1213,
+      "responseEndMs": 1534,
+      "durationMs": 321
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/a11y.js",
+      "initiatorType": "script",
+      "startTimeMs": 1213,
+      "responseEndMs": 1565,
+      "durationMs": 352
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/trust.js",
+      "initiatorType": "script",
+      "startTimeMs": 1213,
+      "responseEndMs": 1539,
+      "durationMs": 326
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/native-shell.js",
+      "initiatorType": "script",
+      "startTimeMs": 1213,
+      "responseEndMs": 1576,
+      "durationMs": 363
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/route-provider-bootstrap.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1213,
+      "responseEndMs": 1576,
+      "durationMs": 362
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/live-location-render.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1322,
+      "responseEndMs": 1578,
+      "durationMs": 257
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/support.js",
+      "initiatorType": "script",
+      "startTimeMs": 1331,
+      "responseEndMs": 1584,
+      "durationMs": 253
+    },
+    {
+      "name": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+      "initiatorType": "script",
+      "startTimeMs": 1353,
+      "responseEndMs": 1633,
+      "durationMs": 280
+    },
+    {
+      "name": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+      "initiatorType": "script",
+      "startTimeMs": 1357,
+      "responseEndMs": 1647,
+      "durationMs": 291
+    },
+    {
+      "name": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+      "initiatorType": "script",
+      "startTimeMs": 1357,
+      "responseEndMs": 1648,
+      "durationMs": 291
+    },
+    {
+      "name": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js",
+      "initiatorType": "script",
+      "startTimeMs": 1357,
+      "responseEndMs": 1633,
+      "durationMs": 276
+    },
+    {
+      "name": "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js",
+      "initiatorType": "script",
+      "startTimeMs": 1357,
+      "responseEndMs": 1646,
+      "durationMs": 289
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/firebase-config.js",
+      "initiatorType": "script",
+      "startTimeMs": 1357,
+      "responseEndMs": 1581,
+      "durationMs": 224
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/rate-details-view.js",
+      "initiatorType": "script",
+      "startTimeMs": 1432,
+      "responseEndMs": 1612,
+      "durationMs": 180
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/booking-client.js",
+      "initiatorType": "script",
+      "startTimeMs": 1522,
+      "responseEndMs": 1647,
+      "durationMs": 125
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/ride-status.js",
+      "initiatorType": "script",
+      "startTimeMs": 1522,
+      "responseEndMs": 1622,
+      "durationMs": 100
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/offer-client.js",
+      "initiatorType": "script",
+      "startTimeMs": 1523,
+      "responseEndMs": 1654,
+      "durationMs": 131
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/booking-gate.js",
+      "initiatorType": "script",
+      "startTimeMs": 1523,
+      "responseEndMs": 1665,
+      "durationMs": 142
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/dispatch-latency.js",
+      "initiatorType": "script",
+      "startTimeMs": 1523,
+      "responseEndMs": 1665,
+      "durationMs": 142
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/confirm-dialog.js",
+      "initiatorType": "script",
+      "startTimeMs": 1523,
+      "responseEndMs": 1678,
+      "durationMs": 155
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/cancel-reason-dialog.js",
+      "initiatorType": "script",
+      "startTimeMs": 1523,
+      "responseEndMs": 1690,
+      "durationMs": 167
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/ride-view-lifecycle.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1524,
+      "responseEndMs": 1701,
+      "durationMs": 177
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/viewer-presence-client.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1524,
+      "responseEndMs": 1733,
+      "durationMs": 209
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/p2p-ride-controller.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1524,
+      "responseEndMs": 1721,
+      "durationMs": 197
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/p2p-comm-panel.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1524,
+      "responseEndMs": 1708,
+      "durationMs": 184
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/two-leg-route-controller.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1524,
+      "responseEndMs": 1711,
+      "durationMs": 187
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/two-leg-route-layers.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1524,
+      "responseEndMs": 1728,
+      "durationMs": 204
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/road-route-provider.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1525,
+      "responseEndMs": 1744,
+      "durationMs": 220
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/display-location-pipeline.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1525,
+      "responseEndMs": 1747,
+      "durationMs": 222
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/field-diagnostics.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1525,
+      "responseEndMs": 1750,
+      "durationMs": 225
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/phase1-billing-diagnostics.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1525,
+      "responseEndMs": 1758,
+      "durationMs": 233
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/phase2-runtime-verification.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1525,
+      "responseEndMs": 1763,
+      "durationMs": 238
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/phase3-billing-proof.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1526,
+      "responseEndMs": 1765,
+      "durationMs": 239
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/p2p-protocol.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1526,
+      "responseEndMs": 1769,
+      "durationMs": 243
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/tracking-target.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1546,
+      "responseEndMs": 1772,
+      "durationMs": 226
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/dispatch-offer-settings.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1991,
+      "responseEndMs": 2027,
+      "durationMs": 36
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/p2p-comm-session.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1992,
+      "responseEndMs": 2116,
+      "durationMs": 124
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/p2p-comm-protocol.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1992,
+      "responseEndMs": 2121,
+      "durationMs": 129
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/p2p-comm-voice.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1993,
+      "responseEndMs": 2113,
+      "durationMs": 121
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/route-geometry.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1993,
+      "responseEndMs": 2123,
+      "durationMs": 130
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/p2p-peer-session.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1993,
+      "responseEndMs": 2144,
+      "durationMs": 150
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/live-location-source-arbiter.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1993,
+      "responseEndMs": 2138,
+      "durationMs": 145
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/route-projection.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1994,
+      "responseEndMs": 2154,
+      "durationMs": 160
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/route-progress.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1994,
+      "responseEndMs": 2159,
+      "durationMs": 165
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/route-motion-controller.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1994,
+      "responseEndMs": 2150,
+      "durationMs": 156
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/off-route-detector.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1995,
+      "responseEndMs": 2161,
+      "durationMs": 167
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/geometry-quality.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1995,
+      "responseEndMs": 2179,
+      "durationMs": 184
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/marker-heading.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1995,
+      "responseEndMs": 2181,
+      "durationMs": 186
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/location-checkpoint-policy.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1996,
+      "responseEndMs": 2186,
+      "durationMs": 190
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/location-envelope.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 1996,
+      "responseEndMs": 2192,
+      "durationMs": 196
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/p2p-comm-call.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 2126,
+      "responseEndMs": 2194,
+      "durationMs": 69
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/p2p-location-envelope.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 2148,
+      "responseEndMs": 2196,
+      "durationMs": 48
+    },
+    {
+      "name": "http://127.0.0.1:5000/js/p2p-pipeline-trace.mjs",
+      "initiatorType": "script",
+      "startTimeMs": 2148,
+      "responseEndMs": 2200,
+      "durationMs": 53
+    }
+  ]
+}

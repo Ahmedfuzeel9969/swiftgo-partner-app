@@ -35,10 +35,13 @@ import {
   GoogleAuthProvider,
   getRedirectResult,
   onAuthStateChanged,
-  signInWithPopup,
   signInWithRedirect,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import {
+  beginCanonicalGoogleSignIn,
+  resumeCanonicalGoogleSignIn,
+} from "/shared/js/google-auth-flow.mjs";
 import {
   deleteDoc,
   collection,
@@ -182,6 +185,7 @@ const els = {
   idleLocationIntervalPreset: document.getElementById("idleLocationIntervalPreset"),
   idleLocationMoveMetersInput: document.getElementById("idleLocationMoveMeters"),
   idleLocationMovePreset: document.getElementById("idleLocationMovePreset"),
+  customerLocationFallbackSecondsInput: document.getElementById("customerLocationFallbackSeconds"),
   idleHighMoveWarning: document.getElementById("idleHighMoveWarning"),
   idleMovementTriggerDisabledInput: document.getElementById("idleMovementTriggerDisabled"),
   idleDiagnosticDurationMinutes: document.getElementById("idleDiagnosticDurationMinutes"),
@@ -644,12 +648,12 @@ async function signInWithGoogle() {
   setStatus("");
   hideAccessDenied();
   try {
-    await signInWithPopup(auth, googleProvider);
+    await beginCanonicalGoogleSignIn({
+      auth,
+      provider: googleProvider,
+      signInWithRedirect,
+    });
   } catch (error) {
-    if (error?.code === "auth/popup-blocked") {
-      await signInWithRedirect(auth, googleProvider);
-      return;
-    }
     console.warn("[SwiftGo Admin] Google login", error);
     setBusy(false);
     setStatus("Google sign-in failed. Please try again.");
@@ -2330,6 +2334,14 @@ async function loadDispatchSettings() {
     if (els.idleLocationMoveMetersInput) {
       els.idleLocationMoveMetersInput.value = String(normalizedIdle.idleLocationMoveMeters);
     }
+    if (els.customerLocationFallbackSecondsInput) {
+      const fallbackSec = Number(data.customerLocationFallbackSeconds);
+      els.customerLocationFallbackSecondsInput.value = String(
+        Number.isInteger(fallbackSec) && (fallbackSec === 0 || (fallbackSec >= 30 && fallbackSec <= 300))
+          ? fallbackSec
+          : 60
+      );
+    }
     syncIdlePresetSelect(
       els.idleLocationMovePreset,
       els.idleLocationMoveMetersInput,
@@ -2419,6 +2431,17 @@ async function saveDispatchSettings(event) {
   }
 
   const diagnosticEnabled = Boolean(els.idleMovementTriggerDisabledInput?.checked);
+  const customerLocationFallbackSeconds = Math.round(Number(els.customerLocationFallbackSecondsInput?.value));
+  if (
+    !Number.isInteger(customerLocationFallbackSeconds) ||
+    (customerLocationFallbackSeconds !== 0 &&
+      (customerLocationFallbackSeconds < 30 || customerLocationFallbackSeconds > 300))
+  ) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = "صارف پس منظر ہنگامی وقفہ صفر یا 30 سے 300 سیکنڈ ہونا چاہیے۔";
+    }
+    return;
+  }
   const diagnosticDurationMin = Math.round(Number(els.idleDiagnosticDurationMinutes?.value));
   if (diagnosticEnabled) {
     if (
@@ -2483,6 +2506,7 @@ async function saveDispatchSettings(event) {
       maxSearchRadiusMeters: totalMeters,
       idleLocationIntervalMs: idleSeconds * 1000,
       idleLocationMoveMeters: idleMoveMeters,
+      customerLocationFallbackSeconds,
       idleMovementTriggerDisabled: diagnosticEnabled,
     };
     if (diagnosticEnabled) {
@@ -3255,10 +3279,20 @@ function boot() {
     return;
   }
 
-  getRedirectResult(firebase.auth).catch((error) => {
-    console.warn("[SwiftGo Admin] Google redirect", error);
-    setStatus("Google redirect sign-in failed.");
-  });
+  resumeCanonicalGoogleSignIn({
+    auth: firebase.auth,
+    provider: googleProvider,
+    signInWithRedirect,
+  })
+    .then((resumed) => {
+      if (resumed) return null;
+      return getRedirectResult(firebase.auth);
+    })
+    .catch((error) => {
+      console.warn("[SwiftGo Admin] Google redirect", error);
+      setBusy(false);
+      setStatus("Google redirect sign-in failed.");
+    });
 
   onAuthStateChanged(firebase.auth, async (user) => {
     if (denyingUnauthorized) return;

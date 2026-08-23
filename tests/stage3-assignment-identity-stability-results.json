@@ -1,0 +1,69 @@
+{
+  "stage": 3,
+  "suite": "assignment-identity-stability",
+  "generatedAt": "2026-08-20T13:20:14.311Z",
+  "pass": 12,
+  "fail": 0,
+  "results": [
+    {
+      "name": "bootstrap-0-to-server-av",
+      "status": "PASS",
+      "detail": "ctrlAv=147401163 syncedAv=147401163 serverAv=147401163"
+    },
+    {
+      "name": "session-av-matches-authoritative",
+      "status": "PASS",
+      "detail": "sessionAv=147401163"
+    },
+    {
+      "name": "same-ride-resync-10x-same-session",
+      "status": "PASS",
+      "detail": "sameRef=true peer=ps_mt1jslo8_31b3cbe0b190fe84266f3898"
+    },
+    {
+      "name": "same-ride-resync-10x-no-extra-offer",
+      "status": "PASS",
+      "detail": "offers=1->1"
+    },
+    {
+      "name": "same-ride-resync-10x-no-generation-churn",
+      "status": "PASS",
+      "detail": "gen=1->1"
+    },
+    {
+      "name": "authoritative-av-stable-after-resync",
+      "status": "PASS",
+      "detail": "synced=147401163 ctrl=147401163"
+    },
+    {
+      "name": "presence-callback-resync-no-rotation",
+      "status": "PASS",
+      "detail": "offers=1->1 gen=1->1"
+    },
+    {
+      "name": "genuine-av-change-invalidates-old-session",
+      "status": "PASS",
+      "detail": "syncedA=111001 syncedB=222002 peerChanged=true offers=2"
+    },
+    {
+      "name": "ride-a-to-b-race-lands-on-b",
+      "status": "PASS",
+      "detail": "ride=ride_stage3_B synced=147401164 offers=ride_stage3_A,ride_stage3_B"
+    },
+    {
+      "name": "late-server-a-cannot-mutate-b",
+      "status": "PASS",
+      "detail": "ride=ride_stage3_B synced=147401164 ctrl=147401164"
+    },
+    {
+      "name": "reconnect-retains-authoritative-av",
+      "status": "PASS",
+      "detail": "synced=147401163 sessionAv=147401163 state=RECONNECTING"
+    },
+    {
+      "name": "inflight-start-survives-authoritative-av-sync",
+      "status": "PASS",
+      "detail": "sameSession=true staleAborts=0 synced=147401163 state=CONNECTING"
+    }
+  ]
+}

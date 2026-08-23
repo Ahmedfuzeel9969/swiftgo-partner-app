@@ -18,8 +18,8 @@
     crossorigin=""
   />
   <link rel="stylesheet" href="css/driver-style.css?v=driver_location_timeout_1" />
-  <link rel="stylesheet" href="css/ride-radar.css?v=driver_rate_details_1" />
-  <link rel="stylesheet" href="css/driver-home.css?v=driver_home_2" />
+  <link rel="stylesheet" href="css/ride-radar.css?v=driver_offer_ui_1" />
+  <link rel="stylesheet" href="css/driver-home.css?v=map_controls_1" />
 </head>
 <body>
   <!-- ── Auth & gate overlays (fullscreen) ── -->
@@ -185,6 +185,9 @@
           <button type="button" class="partner-nav-item" id="navWallet" data-view="wallet">
             <span data-i18n="navWallet">والٹ</span>
           </button>
+          <button type="button" class="partner-nav-item" id="navDiagnostics" data-view="diagnostics">
+            <span data-i18n="navDiagnostics">ڈائگنوسٹکس</span>
+          </button>
           <button
             type="button"
             class="partner-nav-item partner-nav-item--sound"
@@ -348,6 +351,40 @@
             </div>
           </section>
         </div>
+
+        <div
+          class="partner-view"
+          id="diagnosticsSection"
+          data-view-panel="diagnostics"
+          hidden
+          aria-label="Diagnostics"
+        >
+          <header class="partner-view__head">
+            <h2 data-i18n="navDiagnostics">ڈائگنوسٹکس</h2>
+            <p data-i18n="diagnosticsSub">Field test log — GPS, Firebase, P2P, routing. No laptop console needed.</p>
+          </header>
+          <div class="diag-actions">
+            <button type="button" class="driver-recharge-btn" id="driverDiagCopyBtn" data-i18n="diagnosticsCopy">
+              Copy Diagnostic Report
+            </button>
+            <button type="button" class="driver-recharge-btn" id="driverDiagPhase1CopyBtn">
+              Copy Phase 1 Reports (Config + Ride + Billing)
+            </button>
+            <button type="button" class="driver-recharge-btn" id="driverDiagPhase2CopyBtn">
+              Copy Phase 2 Verification (PASS/FAIL)
+            </button>
+            <button type="button" class="driver-recharge-btn" id="driverDiagPhase3CopyBtn">
+              Copy Phase 3 Billing Proof
+            </button>
+            <button type="button" class="diag-btn-secondary" id="driverDiagClearBtn" data-i18n="diagnosticsClear">
+              Clear
+            </button>
+          </div>
+          <p class="diag-status" id="driverDiagCopyStatus" role="status" aria-live="polite"></p>
+          <div class="diag-summary" id="driverDiagSummary" aria-live="polite"></div>
+          <h3 class="diag-log-title" data-i18n="diagnosticsLogTitle">Recent events</h3>
+          <pre class="diag-log" id="driverDiagLog" aria-label="Diagnostic event log"></pre>
+        </div>
       </section>
     </div>
   </div>
@@ -399,17 +436,31 @@
   </section>
 
   <section class="active-ride-sheet" id="activeRideSheet" aria-live="polite" aria-label="فعال سواری کنٹرول" hidden>
-    <div class="active-ride-sheet__handle" aria-hidden="true"></div>
-    <p class="active-ride-sheet__eyebrow" id="activeRideEyebrow">Active Ride</p>
-    <h2 id="activeRideStatusTitle">سواری قبول شدہ</h2>
-    <div class="active-ride-sheet__route">
-      <p><span>پک اپ</span><strong id="activeRidePickup">—</strong></p>
-      <p><span>ڈراپ آف</span><strong id="activeRideDropoff">—</strong></p>
+    <button
+      type="button"
+      class="active-ride-sheet__handle"
+      id="activeRideSheetHandle"
+      aria-expanded="true"
+      aria-controls="activeRideSheetBody"
+      aria-label="نیچے والی پینل اوپر/نیچے کھولیں"
+    >
+      <span class="active-ride-sheet__handle-bar" aria-hidden="true"></span>
+      <span class="active-ride-sheet__handle-arrow" id="activeRideSheetHandleArrow" aria-hidden="true">▼</span>
+      <span class="active-ride-sheet__handle-label">اوپر / نیچے کھینچیں</span>
+    </button>
+    <div class="active-ride-sheet__body" id="activeRideSheetBody">
+      <p class="active-ride-sheet__eyebrow" id="activeRideEyebrow">Active Ride</p>
+      <h2 id="activeRideStatusTitle">سواری قبول شدہ</h2>
+      <div class="active-ride-sheet__route">
+        <p><span>پک اپ</span><strong id="activeRidePickup">—</strong></p>
+        <p><span>ڈراپ آف</span><strong id="activeRideDropoff">—</strong></p>
+      </div>
+      <p class="active-ride-sheet__fare">کرایہ: <strong id="activeRideFare">Rs. —</strong></p>
+      <div id="activeRideContactHost" class="active-ride-contact-host"></div>
+      <button type="button" class="active-ride-rate-btn" id="activeRideRateBtn">ریٹ کی تفصیل</button>
+      <button type="button" class="active-ride-action-btn" id="activeRideActionBtn">میں پہنچ گیا ہوں</button>
+      <button type="button" class="active-ride-cancel-btn" id="activeRideCancelBtn" hidden>سواری منسوخ کریں</button>
     </div>
-    <p class="active-ride-sheet__fare">کرایہ: <strong id="activeRideFare">Rs. —</strong></p>
-    <button type="button" class="active-ride-rate-btn" id="activeRideRateBtn">ریٹ کی تفصیل</button>
-    <button type="button" class="active-ride-action-btn" id="activeRideActionBtn">میں پہنچ گیا ہوں</button>
-    <button type="button" class="active-ride-cancel-btn" id="activeRideCancelBtn" hidden>سواری منسوخ کریں</button>
   </section>
 
   <section class="ride-complete-sheet" id="rideCompleteSheet" aria-live="polite" aria-label="سواری مکمل" hidden>
@@ -536,6 +587,6 @@
     </section>
   </div>
 
-  <script type="module" src="js/driver-app.js?v=dispatch_latency_1"></script>
+  <script type="module" src="js/driver-app.js?v=offer_split_4"></script>
 </body>
 </html>

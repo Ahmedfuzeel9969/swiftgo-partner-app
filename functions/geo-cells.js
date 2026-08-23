@@ -14,7 +14,7 @@ const GOLDEN_HOTSPOT_RADIUS_KM = 0.5;
 /** Firestore `in` / `array-contains-any` practical chunk size. */
 const GEO_QUERY_CHUNK = 10;
 /** Location older than this is ineligible for matching. */
-const STALE_LOCATION_MS = 10 * 60 * 1000;
+const STALE_LOCATION_MS = 5 * 60 * 1000;
 
 /**
  * Representative Karachi Golden Hotspots (centers).

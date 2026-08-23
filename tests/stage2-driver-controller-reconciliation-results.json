@@ -1,0 +1,69 @@
+{
+  "stage": 2,
+  "area": "driver-controller-reconciliation",
+  "generatedAt": "2026-08-20T12:01:08.931Z",
+  "pass": 12,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-assignmentKey",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-runStartLoop",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-pendingTarget",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-isStartCurrent",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-abortStaleAttempt",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-invalidateInFlight",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-syncAssignmentVersion",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-presence-independent syncForRide",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rideB-not-lost-while-rideA-offer-in-flight",
+      "status": "PASS",
+      "detail": "currentRide=ride_B offers=ride_A,ride_B"
+    },
+    {
+      "name": "stop-invalidates-late-offer-callback",
+      "status": "PASS",
+      "detail": "state=DISABLED rideId="
+    },
+    {
+      "name": "stale-rideA-watch-cannot-poison-rideB-assignmentVersion",
+      "status": "PASS",
+      "detail": "avBefore=100 avAfter=100"
+    },
+    {
+      "name": "server-assignmentVersion-synced-after-offer",
+      "status": "PASS",
+      "detail": "sessionAv=880088"
+    }
+  ]
+}

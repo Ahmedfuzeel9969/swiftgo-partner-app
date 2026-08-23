@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-10T11:47:50.691Z",
+  "generatedAt": "2026-08-06T18:18:36.511Z",
   "command": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/phase2a-run-all.mjs\"",
   "results": [
     {
@@ -323,7 +323,7 @@
     {
       "name": "B08-second-needs-confirmation",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"2R7QRglZqnbjd06IXNi0\",\"status\":\"searching_driver\"}]}",
+      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"gIXUovzK7SKzm8H1ATlp\",\"status\":\"searching_driver\"}]}",
       "rules": "bargaining"
     },
     {

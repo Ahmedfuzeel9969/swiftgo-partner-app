@@ -4,6 +4,14 @@
 
 const sessions = new Map();
 
+export function createDispatchTraceId() {
+  const random =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID().replace(/-/g, "").slice(0, 16)
+      : Math.random().toString(36).slice(2, 18);
+  return `dt_${Date.now().toString(36)}_${random}`;
+}
+
 function logMark(label, ms, extra = {}) {
   console.info(
     `[SwiftGo Latency] ${label}`,
@@ -16,6 +24,15 @@ function logMark(label, ms, extra = {}) {
 export function startDispatchSession(rideId) {
   if (!rideId) return;
   sessions.set(rideId, { t0: performance.now(), marks: {} });
+}
+
+/** Attach the pre-call session to the server-created ride ID. */
+export function bindDispatchSession(rideId, traceId) {
+  if (!rideId || !traceId) return;
+  const session = sessions.get(traceId);
+  if (!session) return;
+  sessions.delete(traceId);
+  sessions.set(rideId, session);
 }
 
 /** T1 — Book clicked → ride doc created (client CF response). */

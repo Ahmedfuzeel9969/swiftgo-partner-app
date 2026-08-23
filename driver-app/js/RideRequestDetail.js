@@ -4,12 +4,34 @@
 
 import { fetchRideRoute } from "./ride-radar-routing.js";
 import { submitDriverOffer, acceptRideWithBid, acceptCustomerInitialFare, declineRideCandidateClient, withdrawRideOfferClient } from "./ride-radar-actions.js";
+import { isRideSearchExpired, rideSearchDeadlineMs } from "./ride-radar-service.js";
+import {
+  isOfferPastExpiryLocal,
+  computeOfferDeadlineMs,
+  getOfferTimeoutSeconds,
+  rememberOfferSentAt,
+  requestExpireRideOffer,
+} from "./driver-offer-inbox.js";
 import { openRateDetails } from "./rate-details-modal.js";
 import { resolveVehicleKeyFromLabel } from "./pricing-client.js";
 import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getFirebase } from "./firebase.js";
+import { ensureDispatchOfferSettingsLoaded } from "./dispatch-offer-settings.mjs";
 
 const money = (n) => `Rs. ${Math.round(Math.max(0, Number(n) || 0)).toLocaleString("en-PK")}`;
+
+/** PACKAGE: offer-expiry-diag — read-only runtime observation (remove after one capture). */
+function logOfferExpiryDiag(source, payload) {
+  const entry = { ts: new Date().toISOString(), source, ...payload };
+  console.info("[SwiftGo][offer-expiry-diag]", entry);
+  try {
+    const ring = (window.__SWIFTGO_OFFER_EXPIRY_DIAG__ = window.__SWIFTGO_OFFER_EXPIRY_DIAG__ || []);
+    ring.push(entry);
+    if (ring.length > 500) ring.shift();
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * @param {HTMLElement | null} root
@@ -50,7 +72,11 @@ export function initRideRequestDetail(root, opts) {
     <section class="radar-detail" aria-label="رائٹ کی تفصیل">
       <header class="radar-detail__header">
         <button type="button" class="radar-detail__back" data-back aria-label="رائٹس کی فہرست">←</button>
-        <h2>رائٹ کی تفصیل</h2>
+        <div class="radar-detail__header-main">
+          <h2>رائٹ کی تفصیل</h2>
+          <p class="radar-detail__search-timer" data-search-timer hidden aria-live="polite"></p>
+          <p class="radar-detail__offer-timer" data-offer-timer hidden aria-live="polite"></p>
+        </div>
       </header>
       <div class="radar-detail__map-wrap">
         <div class="radar-detail__map" id="radarDetailMap" role="application" aria-label="پک اپ اور ڈراپ آف کا نقشہ"></div>
@@ -73,53 +99,59 @@ export function initRideRequestDetail(root, opts) {
           <span class="radar-detail__sheet-handle-label">نیچے والی تفصیل · اوپر/نیچے کھولیں</span>
         </button>
         <div class="radar-detail__sheet-body" id="radarDetailSheetBody">
-          <div class="radar-detail__sheet-inner">
-          <div class="radar-detail__summary">
-            <div><span>فاصلہ</span><strong data-trip-km>— km</strong></div>
-            <div><span>تخمینہ کرایہ</span><strong data-base-fare>—</strong></div>
-          </div>
-          <button type="button" class="radar-detail__rate-btn" data-rate-details-btn>
-            ریٹ کی مکمل تفصیل دیکھیں
-          </button>
-          <div class="radar-detail__rating">
-            <span>مسافر کی درجہ بندی</span>
-            <strong data-rating>4.8 ★</strong>
-          </div>
-          <div class="radar-detail__addresses">
-            <p><span class="radar-detail__tag radar-detail__tag--a">A</span> <span class="radar-detail__addr-label">پک اپ:</span> <span data-pickup-text>—</span></p>
-            <p><span class="radar-detail__tag radar-detail__tag--b">B</span> <span class="radar-detail__addr-label">ڈراپ آف:</span> <span data-dropoff-text>—</span></p>
-          </div>
-          <div class="radar-detail__customer-offer" data-customer-offer-panel>
-            <p class="radar-detail__customer-offer-label">مسافر کی پہلی پیشکش</p>
-            <p class="radar-detail__customer-offer-fare" data-customer-offer-fare>—</p>
-            <button type="button" class="radar-detail__accept-customer-offer" data-accept-customer-offer>
-              مسافر کی پیشکش قبول کریں
-            </button>
-          </div>
-          <p class="radar-detail__bid-label">یا اپنا کرایہ (Rs.) درج کریں یا تیز اختیار منتخب کریں</p>
-          <div class="radar-detail__custom-bid">
-            <input
-              type="number"
-              class="radar-detail__custom-bid-input"
-              data-custom-fare
-              min="0"
-              step="50"
-              inputmode="numeric"
-              placeholder="مثلاً 450"
-              aria-label="اپنا کرایہ"
-            />
-            <button type="button" class="radar-detail__custom-bid-send" data-send-custom-offer>پیشکش بھیجیں</button>
-          </div>
-          <p class="radar-detail__offer-status" data-offer-status hidden></p>
-          <div class="radar-detail__actions-row">
-            <button type="button" class="radar-detail__decline" data-decline-candidate>مسترد کریں</button>
-            <button type="button" class="radar-detail__withdraw" data-withdraw-offer>پیشکش واپس</button>
-          </div>
-          <div class="radar-detail__counter" data-counter-panel hidden>
-            <p class="radar-detail__counter-text" data-counter-text></p>
-            <button type="button" class="radar-detail__counter-accept" data-accept-counter>کاؤنٹر قبول کریں</button>
-          </div>
-          <div class="radar-detail__bids" data-bids></div>
+          <div class="radar-detail__sheet-inner radar-offer-grid">
+            <article class="radar-offer-card radar-offer-card--route">
+              <div class="radar-detail__addresses">
+                <p><span class="radar-detail__tag radar-detail__tag--a">A</span> <span class="radar-detail__addr-label">پک اپ:</span> <span data-pickup-text>—</span></p>
+                <p><span class="radar-detail__tag radar-detail__tag--b">B</span> <span class="radar-detail__addr-label">ڈراپ آف:</span> <span data-dropoff-text>—</span></p>
+              </div>
+            </article>
+            <article class="radar-offer-card radar-offer-card--metrics">
+              <div class="radar-detail__summary">
+                <div><span>فاصلہ</span><strong data-trip-km>— km</strong></div>
+                <div><span>تخمینہ کرایہ</span><strong data-base-fare>—</strong></div>
+              </div>
+              <div class="radar-detail__rating">
+                <span>مسافر</span>
+                <strong data-rating>4.8 ★</strong>
+              </div>
+              <button type="button" class="radar-detail__rate-btn" data-rate-details-btn>
+                ریٹ کی تفصیل
+              </button>
+            </article>
+            <article class="radar-offer-card radar-offer-card--customer radar-detail__customer-offer" data-customer-offer-panel>
+              <p class="radar-detail__customer-offer-label">مسافر کی پیشکش</p>
+              <p class="radar-detail__customer-offer-fare" data-customer-offer-fare>—</p>
+              <button type="button" class="radar-detail__accept-customer-offer" data-accept-customer-offer>
+                مسافر کی پیشکش قبول کریں
+              </button>
+            </article>
+            <article class="radar-offer-card radar-offer-card--driver">
+              <p class="radar-detail__bid-label">اپنا کرایہ / تیز اختیار</p>
+              <div class="radar-detail__custom-bid">
+                <input
+                  type="number"
+                  class="radar-detail__custom-bid-input"
+                  data-custom-fare
+                  min="0"
+                  step="50"
+                  inputmode="numeric"
+                  placeholder="مثلاً 450"
+                  aria-label="اپنا کرایہ"
+                />
+                <button type="button" class="radar-detail__custom-bid-send" data-send-custom-offer>پیشکش بھیجیں</button>
+              </div>
+              <div class="radar-detail__bids" data-bids></div>
+              <p class="radar-detail__offer-status" data-offer-status hidden></p>
+              <div class="radar-detail__counter" data-counter-panel hidden>
+                <p class="radar-detail__counter-text" data-counter-text></p>
+                <button type="button" class="radar-detail__counter-accept" data-accept-counter>کاؤنٹر قبول کریں</button>
+              </div>
+            </article>
+            <div class="radar-offer-card radar-offer-card--actions radar-detail__actions-row">
+              <button type="button" class="radar-detail__decline" data-decline-candidate>مسترد کریں</button>
+              <button type="button" class="radar-detail__withdraw" data-withdraw-offer>پیشکش واپس</button>
+            </div>
           </div>
         </div>
       </div>
@@ -134,8 +166,12 @@ export function initRideRequestDetail(root, opts) {
   const customerOfferFareEl = root.querySelector("[data-customer-offer-fare]");
   const customerOfferPanel = root.querySelector("[data-customer-offer-panel]");
   const offerStatusEl = root.querySelector("[data-offer-status]");
+  const searchTimerEl = root.querySelector("[data-search-timer]");
+  const offerTimerEl = root.querySelector("[data-offer-timer]");
   const counterPanel = root.querySelector("[data-counter-panel]");
   const counterTextEl = root.querySelector("[data-counter-text]");
+  const customBidRow = root.querySelector(".radar-detail__custom-bid");
+  const withdrawBtn = root.querySelector("[data-withdraw-offer]");
   const acceptCounterBtn = root.querySelector("[data-accept-counter]");
   const ratingEl = root.querySelector("[data-rating]");
   const pickupEl = root.querySelector("[data-pickup-text]");
@@ -300,6 +336,171 @@ export function initRideRequestDetail(root, opts) {
   let rideUnsub = () => {};
   let offerUnsub = () => {};
   let myOfferState = null;
+  /** @type {ReturnType<typeof setInterval> | null} */
+  let detailExpiryTick = null;
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let offerHardTimeoutId = null;
+  /** @type {number|null} */
+  let localOfferDeadlineMs = null;
+  /** @type {number|null} */
+  let offerSentAtMs = null;
+  let lastHardExpiredOfferId = "";
+
+  function formatCountdown(remainingMs) {
+    const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  }
+
+  function offerDeadlineMs(offer) {
+    const searchDl = currentRide ? rideSearchDeadlineMs(currentRide) : null;
+    let deadline = computeOfferDeadlineMs(offer, {
+      searchDeadlineMs: searchDl,
+      localSentAtMs: offerSentAtMs,
+    });
+    if (deadline == null && localOfferDeadlineMs != null) deadline = localOfferDeadlineMs;
+    if (deadline == null && offerSentAtMs != null) {
+      deadline = offerSentAtMs + getOfferTimeoutSeconds(offer || {}) * 1000;
+    }
+    return deadline;
+  }
+
+  function clearOfferHardTimeout() {
+    if (offerHardTimeoutId) {
+      clearTimeout(offerHardTimeoutId);
+      offerHardTimeoutId = null;
+    }
+  }
+
+  function getActiveOfferForTimer(driverUid) {
+    if (!currentRide?.id || !driverUid) return null;
+    const inboxOffer = getOfferForRide(currentRide.id);
+    const offer = myOfferState ?? inboxOffer;
+    if (!offer) return null;
+    if (!["open", "countered"].includes(String(offer.status || ""))) return null;
+    const belongs =
+      offer.driverId === driverUid ||
+      String(offer.id || "") === `${currentRide.id}_${driverUid}` ||
+      String(offer.id || "").endsWith(`_${driverUid}`);
+    if (!belongs) return null;
+    if (offer.status === "expired") return null;
+    return offer;
+  }
+
+  function paintSearchTimer() {
+    if (!searchTimerEl || !currentRide) return;
+    if (isRideSearchExpired(currentRide)) {
+      searchTimerEl.hidden = true;
+      searchTimerEl.textContent = "";
+      return;
+    }
+    const deadline = rideSearchDeadlineMs(currentRide);
+    if (!deadline) {
+      searchTimerEl.hidden = true;
+      searchTimerEl.textContent = "";
+      return;
+    }
+    const remaining = deadline - Date.now();
+    searchTimerEl.hidden = false;
+    searchTimerEl.textContent = `بکنگ وقت باقی ${formatCountdown(remaining)}`;
+  }
+
+  function scheduleOfferHardTimeout(offer) {
+    clearOfferHardTimeout();
+    if (!offer?.id) return;
+    const deadline = offerDeadlineMs(offer);
+    if (deadline == null) return;
+    const remaining = Math.max(0, deadline - Date.now());
+    offerHardTimeoutId = setTimeout(() => {
+      void onOfferTimerExpired(offer);
+    }, remaining);
+  }
+
+  async function onOfferTimerExpired(offer) {
+    const id = String(offer?.id || "").trim();
+    if (!id || lastHardExpiredOfferId === id) return;
+    const deadline = offerDeadlineMs(offer);
+    if (deadline != null && Date.now() + 500 < deadline) return;
+    lastHardExpiredOfferId = id;
+    if (myOfferState?.id === id && ["open", "countered"].includes(myOfferState.status)) {
+      myOfferState = { ...myOfferState, status: "expired", closedReason: "offer_timeout" };
+    }
+    await requestExpireRideOffer(id, { source: "detail_timer" });
+    syncFromInbox();
+    if (currentRide) applyOfferExpiryUi(currentRide, getDriver()?.uid);
+    paintDetailTimers();
+  }
+
+  function paintOfferTimer() {
+    if (!offerTimerEl) return;
+    const driver = getDriver();
+    const offer = getActiveOfferForTimer(driver?.uid);
+    if (!offer) {
+      offerTimerEl.hidden = true;
+      offerTimerEl.textContent = "";
+      return;
+    }
+    const deadline = offerDeadlineMs(offer);
+    if (deadline == null) {
+      offerTimerEl.hidden = true;
+      offerTimerEl.textContent = "";
+      return;
+    }
+    const remaining = deadline - Date.now();
+    offerTimerEl.hidden = false;
+    offerTimerEl.textContent = `آفر وقت باقی ${formatCountdown(remaining)}`;
+    if (remaining <= 0) {
+      void onOfferTimerExpired(offer);
+    }
+  }
+
+  function paintDetailTimers() {
+    paintSearchTimer();
+    paintOfferTimer();
+  }
+
+  function stopDetailExpiryTick() {
+    if (detailExpiryTick) {
+      clearInterval(detailExpiryTick);
+      detailExpiryTick = null;
+    }
+    clearOfferHardTimeout();
+  }
+
+  function applyOfferExpiryUi(ride, driverUid) {
+    syncOfferUi(ride, driverUid);
+  }
+
+  function closeDetailRideUnavailable(message) {
+    onError(message || "یہ رائٹ اب دستیاب نہیں");
+    onBack();
+  }
+
+  function guardRideStillAvailable(ride) {
+    if (!ride?.id) return false;
+    const status = String(ride.rawStatus || ride.status || "");
+    if (status === "expired" || status === "no_driver_found" || status.startsWith("cancelled")) {
+      closeDetailRideUnavailable("یہ رائٹ ختم ہو چکی ہے");
+      return false;
+    }
+    // "pending" is radar UI label only — not terminal.
+    if (isRideSearchExpired(ride)) {
+      closeDetailRideUnavailable("بکنگ کا وقت ختم ہو چکا ہے");
+      return false;
+    }
+    return true;
+  }
+
+  function startDetailExpiryTick(ride, driverUid) {
+    stopDetailExpiryTick();
+    detailExpiryTick = setInterval(() => {
+      if (!currentRide || currentRide.id !== ride?.id) return;
+      if (!guardRideStillAvailable(currentRide)) return;
+      paintDetailTimers();
+      syncFromInbox();
+    }, 1000);
+  }
 
   acceptCustomerOfferBtn?.addEventListener("click", () => acceptCustomerOffer());
 
@@ -321,7 +522,11 @@ export function initRideRequestDetail(root, opts) {
     rideUnsub = () => {};
     offerUnsub();
     offerUnsub = () => {};
+    stopDetailExpiryTick();
     myOfferState = null;
+    localOfferDeadlineMs = null;
+    offerSentAtMs = null;
+    lastHardExpiredOfferId = "";
   }
 
   function collectionNameFor(ride) {
@@ -334,12 +539,16 @@ export function initRideRequestDetail(root, opts) {
     const { db } = getFirebase();
     if (!db || !ride?.id) return;
 
+    startDetailExpiryTick(ride, driver?.uid);
+
     rideUnsub = onSnapshot(
       doc(db, collectionNameFor(ride), ride.id),
       (snap) => {
         if (!snap.exists() || !currentRide || snap.id !== currentRide.id) return;
         const data = { id: snap.id, ...snap.data(), sourceCollection: collectionNameFor(ride) };
-        syncOfferUi(data, driver?.uid);
+        currentRide = { ...currentRide, ...data };
+        if (!guardRideStillAvailable(data)) return;
+        applyOfferExpiryUi(data, driver?.uid);
 
         if (data.status === "accepted" && data.driverId === driver?.uid) {
           stopRideWatch();
@@ -349,37 +558,65 @@ export function initRideRequestDetail(root, opts) {
       (err) => console.warn("[SwiftGo Radar] Firestore listen retry... detail watch", err)
     );
 
-    if (driver?.uid) {
-      offerUnsub = onSnapshot(
-        doc(db, "ride_offers", `${ride.id}_${driver.uid}`),
-        (snap) => {
-          myOfferState = snap.exists() ? { id: snap.id, ...snap.data() } : null;
-          if (currentRide) syncOfferUi(currentRide, getDriver()?.uid || driver.uid);
-        },
-        (err) => console.warn("[SwiftGo Radar] Firestore listen retry... offer watch", err)
-      );
+    // PACKAGE 7-A DISABLED (PL-02): offer state from inbox getOfferForRide + syncFromInbox only.
+    if (false) {
+      if (driver?.uid) {
+        offerUnsub = onSnapshot(
+          doc(db, "ride_offers", `${ride.id}_${driver.uid}`),
+          (snap) => {
+            myOfferState = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+            if (currentRide) applyOfferExpiryUi(currentRide, getDriver()?.uid || driver.uid);
+          },
+          (err) => console.warn("[SwiftGo Radar] Firestore listen retry... offer watch", err)
+        );
+      }
     }
   }
 
   function syncFromInbox() {
     if (!currentRide?.id) return;
-    const cached = getOfferForRide(currentRide.id);
+    const rideId = currentRide.id;
+    const myOfferStateBeforeExists = Boolean(myOfferState);
+    const myOfferStateBeforeStatus = myOfferState?.status ?? null;
+    const cached = getOfferForRide(rideId);
     if (cached) {
       myOfferState = cached;
-      syncOfferUi(currentRide, getDriver()?.uid);
+      const resolved = offerDeadlineMs(cached);
+      if (resolved != null && (!offerSentAtMs || resolved <= rideSearchDeadlineMs(currentRide) + 5000)) {
+        localOfferDeadlineMs = resolved;
+      }
+    } else if (myOfferState && isOfferPastExpiryLocal(myOfferState)) {
+      myOfferState = { ...myOfferState, status: "expired", closedReason: "offer_timeout" };
     }
+    // Inbox may lag after submit — keep local myOfferState until snapshot catches up.
+    logOfferExpiryDiag("syncFromInbox", {
+      rideId,
+      offerId: myOfferState?.id ?? cached?.id ?? null,
+      inboxOfferExists: cached != null,
+      myOfferStateExists: Boolean(myOfferState),
+      offerStatus: myOfferState?.status ?? cached?.status ?? null,
+      myOfferStateBeforeExists,
+      myOfferStateBeforeStatus,
+    });
+    applyOfferExpiryUi(currentRide, getDriver()?.uid);
   }
 
   function syncOfferUi(ride, driverUid) {
-    const offer = myOfferState;
+    const inboxOffer = ride?.id ? getOfferForRide(ride.id) : null;
+    const offer = myOfferState ?? inboxOffer;
     const offerBelongsToDriver =
       offer &&
       driverUid &&
       (offer.driverId === driverUid ||
         String(offer.id || "") === `${ride?.id}_${driverUid}` ||
         String(offer.id || "").endsWith(`_${driverUid}`));
+    const expiredLocal =
+      offer &&
+      (offer.status === "expired" ||
+        (["open", "countered"].includes(offer.status) && isOfferPastExpiryLocal(offer)));
     const myOffer =
       offerBelongsToDriver &&
+      !expiredLocal &&
       ["open", "countered"].includes(offer.status) &&
       ride?.status !== "accepted";
     const counter = Math.round(Number(offer?.customerCounterFare) || 0);
@@ -392,11 +629,18 @@ export function initRideRequestDetail(root, opts) {
       } else if (myOffer && counter > 0) {
         offerStatusEl.hidden = false;
         offerStatusEl.textContent = `مسافر نے ${money(counter)} تجویز کی`;
+      } else if (expiredLocal && offerBelongsToDriver) {
+        offerStatusEl.hidden = false;
+        offerStatusEl.textContent = "پیشکش کا وقت ختم ہو چکا ہے";
       } else {
         offerStatusEl.hidden = true;
         offerStatusEl.textContent = "";
       }
     }
+
+    if (customBidRow) customBidRow.hidden = Boolean(myOffer);
+    if (bidsEl) bidsEl.hidden = Boolean(myOffer);
+    if (withdrawBtn) withdrawBtn.hidden = !myOffer;
 
     if (counterPanel && acceptCounterBtn) {
       const showCounter = myOffer && counter > 0;
@@ -412,12 +656,34 @@ export function initRideRequestDetail(root, opts) {
       }
     }
 
+    const driverOfferRecordExists =
+      offerBelongsToDriver &&
+      offer != null &&
+      !expiredLocal &&
+      ["open", "countered"].includes(offer.status) &&
+      ride?.status !== "accepted";
     const showAcceptInitial =
       ride.status === "searching_driver" &&
       !myOffer &&
+      !driverOfferRecordExists &&
       Math.round(Number(ride.estimatedFare ?? ride.farePkr ?? 0)) > 0;
     if (customerOfferPanel) customerOfferPanel.hidden = !showAcceptInitial;
     if (acceptCustomerOfferBtn) acceptCustomerOfferBtn.disabled = !showAcceptInitial;
+
+    if (myOffer && offer) {
+      scheduleOfferHardTimeout(offer);
+    } else {
+      clearOfferHardTimeout();
+    }
+    paintDetailTimers();
+
+    logOfferExpiryDiag("syncOfferUi", {
+      rideId: ride?.id ?? null,
+      offerId: offer?.id ?? null,
+      inboxOfferExists: ride?.id ? getOfferForRide(ride.id) != null : false,
+      myOfferStateExists: Boolean(offer),
+      offerStatus: offer?.status ?? null,
+    });
   }
 
   async function acceptCustomerOffer() {
@@ -425,6 +691,12 @@ export function initRideRequestDetail(root, opts) {
     const driver = getDriver();
     const vehicle = getLinkedVehicle();
     if (!ride?.id || !driver?.uid || !vehicle?.id) return;
+    if (!guardRideStillAvailable(ride)) return;
+    if (myOfferState && isOfferPastExpiryLocal(myOfferState)) {
+      applyOfferExpiryUi(ride, driver.uid);
+      onError("پیشکش کا وقت ختم ہو چکا ہے");
+      return;
+    }
     if (acceptCustomerOfferBtn) acceptCustomerOfferBtn.disabled = true;
     try {
       const result = await acceptCustomerInitialFare({
@@ -435,7 +707,10 @@ export function initRideRequestDetail(root, opts) {
       onAccepted({ rideId: ride.id, bidFare: Number(result?.bidFare) || 0 });
     } catch (err) {
       const code = err?.message || "";
-      if (code === "RIDE_NOT_AVAILABLE" || code.includes("NOT_NEGOTIATING")) {
+      if (code === "OFFER_EXPIRED" || String(code).includes("OFFER_EXPIRED")) {
+        applyOfferExpiryUi(ride, driver.uid);
+        onError("پیشکش کا وقت ختم ہو چکا ہے");
+      } else if (code === "RIDE_NOT_AVAILABLE" || code.includes("NOT_NEGOTIATING")) {
         onError("یہ رائٹ اب دستیاب نہیں");
       } else if (code === "VEHICLE_NOT_LINKED") onError("گاڑی کی تصدیق نہیں ہو سکی");
       else if (code === "DRIVER_HAS_ACTIVE_RIDE" || String(code).includes("DRIVER_HAS_ACTIVE_RIDE")) {
@@ -451,6 +726,12 @@ export function initRideRequestDetail(root, opts) {
     const driver = getDriver();
     const vehicle = getLinkedVehicle();
     if (!ride?.id || !driver?.uid || !vehicle?.id) return;
+    if (!guardRideStillAvailable(ride)) return;
+    if (myOfferState && isOfferPastExpiryLocal(myOfferState)) {
+      applyOfferExpiryUi(ride, driver.uid);
+      onError("پیشکش کا وقت ختم ہو چکا ہے");
+      return;
+    }
     acceptCounterBtn.disabled = true;
     try {
       await acceptRideWithBid({
@@ -462,7 +743,10 @@ export function initRideRequestDetail(root, opts) {
       });
     } catch (err) {
       const code = err?.message || "";
-      if (code === "RIDE_NOT_AVAILABLE") onError("یہ رائٹ اب دستیاب نہیں");
+      if (code === "OFFER_EXPIRED" || String(code).includes("OFFER_EXPIRED")) {
+        applyOfferExpiryUi(ride, driver.uid);
+        onError("پیشکش کا وقت ختم ہو چکا ہے");
+      } else if (code === "RIDE_NOT_AVAILABLE") onError("یہ رائٹ اب دستیاب نہیں");
       else if (code === "NO_COUNTER_OFFER") onError("کاؤنٹر پیشکش نہیں ملی");
       else onError("قبول نہیں ہو سکی");
       acceptCounterBtn.disabled = false;
@@ -488,6 +772,7 @@ export function initRideRequestDetail(root, opts) {
   }
 
   async function submitBid(ride, amount, btn) {
+    if (!guardRideStillAvailable(ride)) return;
     const driver = getDriver();
     const vehicle = getLinkedVehicle();
     if (!driver?.uid) {
@@ -507,13 +792,25 @@ export function initRideRequestDetail(root, opts) {
         driver,
         linkedVehicle: vehicle,
       });
+      offerSentAtMs = Date.now();
+      const offerId = result.offerId || `${ride.id}_${driver.uid}`;
+      rememberOfferSentAt(offerId, offerSentAtMs);
       myOfferState = {
-        id: result.offerId || `${ride.id}_${driver.uid}`,
+        id: offerId,
         driverId: driver.uid,
         fare: amount,
         status: "open",
         customerCounterFare: null,
+        createdAt: new Date(),
+        offerSubmittedAtMs: result.offerSubmittedAtMs ?? offerSentAtMs,
+        offerExpiresAtMs: result.offerExpiresAtMs ?? null,
+        offerTimeoutSeconds: result.offerTimeoutSeconds ?? null,
       };
+      const timeoutSec = getOfferTimeoutSeconds(myOfferState);
+      localOfferDeadlineMs =
+        result.offerExpiresAtMs ?? offerSentAtMs + Math.max(5, timeoutSec) * 1000;
+      lastHardExpiredOfferId = "";
+      scheduleOfferHardTimeout(myOfferState);
       syncOfferUi(ride, driver.uid);
       onOfferSent(result);
       btn.disabled = false;
@@ -533,6 +830,7 @@ export function initRideRequestDetail(root, opts) {
 
   function show(ride) {
     currentRide = ride;
+    if (!guardRideStillAvailable(ride)) return;
     tripDurationMin = null;
     root.hidden = false;
     setSheetExpanded(true);
@@ -557,10 +855,10 @@ export function initRideRequestDetail(root, opts) {
       customFareInput.placeholder = String(Math.round(Number(ride.estimatedFare) || 0) || "450");
     }
     renderBids(ride);
-    const cachedOffer = getOfferForRide(ride.id);
-    if (cachedOffer) myOfferState = cachedOffer;
-    syncOfferUi(ride, getDriver()?.uid);
+    void ensureDispatchOfferSettingsLoaded().then(() => paintDetailTimers());
+    syncFromInbox();
     startRideWatch(ride);
+    paintDetailTimers();
   }
 
   function hide() {

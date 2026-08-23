@@ -1,0 +1,63 @@
+{
+  "suite": "customer-p2p-background",
+  "generatedAt": "2026-08-23T13:06:36.800Z",
+  "pass": 11,
+  "fail": 0,
+  "results": [
+    {
+      "name": "background-detaches-firebase-listeners",
+      "status": "PASS",
+      "detail": "lifecycle detaches live Firestore subscriptions"
+    },
+    {
+      "name": "background-has-admin-bounded-emergency-read",
+      "status": "PASS",
+      "detail": "one-shot fallback runs only while hidden and P2P-unhealthy"
+    },
+    {
+      "name": "super-admin-owns-emergency-read-interval",
+      "status": "PASS",
+      "detail": "Super Admin may select 30–300 seconds or disable with zero"
+    },
+    {
+      "name": "background-preserves-p2p-session",
+      "status": "PASS",
+      "detail": "customer P2P controller keeps signaling/session attached"
+    },
+    {
+      "name": "foreground-firebase-policy-unchanged",
+      "status": "PASS",
+      "detail": "visible path remains the existing P2P/Firebase policy"
+    },
+    {
+      "name": "active-ride-starts-native-keepalive",
+      "status": "PASS",
+      "detail": "Android service starts only for trackable ride statuses"
+    },
+    {
+      "name": "terminal-ride-stops-native-keepalive",
+      "status": "PASS",
+      "detail": "terminal/session teardown stops service"
+    },
+    {
+      "name": "native-bridge-is-android-only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "manifest-declares-foreground-service",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "service-survives-task-removal",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "mainactivity-registers-customer-plugin",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="css/styles.css?v=customer_fare_rates_1" />
+  <link rel="stylesheet" href="css/styles.css?v=customer_map_fix_4" />
 </head>
 <body>
   <div class="app" id="app">
@@ -77,6 +77,12 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               </span>
               <span data-i18n="navContact">Contact Us</span>
+            </button>
+            <button type="button" class="nav-item" data-route="diagnostics">
+              <span class="nav-item__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15v-4"/><path d="M12 15V8"/><path d="M16 15v-6"/></svg>
+              </span>
+              <span data-i18n="navDiagnostics">Diagnostics</span>
             </button>
           </nav>
 
@@ -484,6 +490,38 @@
             </section>
           </div>
         </div>
+
+        <div class="screen" data-screen="diagnostics" id="screen-diagnostics" hidden>
+          <div class="panel panel--diagnostics">
+            <header class="panel__head">
+              <h1 class="panel__title" data-i18n="navDiagnostics">Diagnostics</h1>
+              <p class="panel__subtitle" data-i18n="diagnosticsSub">
+                Field test log — GPS, Firebase, P2P, routing. No laptop console needed.
+              </p>
+            </header>
+            <div class="diag-actions">
+              <button type="button" class="cta-btn" id="diagCopyBtn" data-i18n="diagnosticsCopy">
+                Copy Diagnostic Report
+              </button>
+              <button type="button" class="cta-btn" id="diagPhase1CopyBtn">
+                Copy Phase 1 Reports (Config + Ride + Billing)
+              </button>
+              <button type="button" class="cta-btn" id="diagPhase2CopyBtn">
+                Copy Phase 2 Verification (PASS/FAIL)
+              </button>
+              <button type="button" class="cta-btn" id="diagPhase3CopyBtn">
+                Copy Phase 3 Billing Proof
+              </button>
+              <button type="button" class="diag-btn-secondary" id="diagClearBtn" data-i18n="diagnosticsClear">
+                Clear
+              </button>
+            </div>
+            <p class="diag-status" id="diagCopyStatus" role="status" aria-live="polite"></p>
+            <div class="diag-summary" id="diagSummary" aria-live="polite"></div>
+            <h2 class="diag-log-title" data-i18n="diagnosticsLogTitle">Recent events</h2>
+            <pre class="diag-log" id="diagLog" aria-label="Diagnostic event log"></pre>
+          </div>
+        </div>
       </section>
 
       <!-- Bottom 10% — expandable sheet (home only) -->
@@ -739,6 +777,7 @@
               <h3 class="driver-offer-panel__title" id="driverOfferDriverName">—</h3>
               <p class="driver-offer-panel__meta" id="driverOfferVehicle">—</p>
               <p class="driver-offer-panel__fare" id="driverOfferFare">Rs. 0</p>
+              <p class="driver-offer-panel__timer" id="driverOfferTimer" hidden aria-live="polite"></p>
               <div class="driver-offer-panel__actions">
                 <button type="button" class="driver-offer-panel__accept" id="acceptDriverOfferBtn" data-i18n="driverOfferAccept">Accept fare</button>
                 <button type="button" class="driver-offer-panel__reject" id="rejectDriverOfferBtn" data-i18n="driverOfferReject">Decline</button>
@@ -773,6 +812,7 @@
               <p class="active-ride-track__eta" id="activeRideDriverEta" hidden></p>
             </div>
             <div class="active-ride-panel__actions">
+              <span id="activeRideContactHost" class="active-ride-contact-host"></span>
               <a class="active-ride-call-btn" id="activeRideCallLink" href="tel:+923001234567" data-i18n="activeRideCallDirect">Call directly</a>
               <button type="button" class="cancel-ride-btn active-ride-panel__cancel" id="activeRideCancelBtn" data-i18n="cancelRide" hidden>کینسل کریں</button>
             </div>
@@ -1163,6 +1203,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script type="module" src="js/app.js?v=in_progress_cancel_1"></script>
+  <script type="module" src="js/app.js?v=customer_map_fix_4"></script>
 </body>
 </html>

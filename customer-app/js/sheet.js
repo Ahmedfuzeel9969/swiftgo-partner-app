@@ -1,7 +1,7 @@
 /** Expandable bottom sheet + locations + Phase 6 vehicle selection */
 
 import { t, applyTranslations, formatMoney } from "./i18n.js";
-import { clearLocationCue } from "./map.js";
+import { clearLocationCue, resizeMap } from "./map.js";
 import { isSearchingDriver } from "./ride-flow.js";
 import { validatePromoCode } from "./data.js";
 
@@ -426,14 +426,17 @@ function handleLocationQuickAction(event) {
 
   const input = document.getElementById(button.dataset.locationTarget || "");
   const field = button.closest("[data-location-role]");
-  button.classList.add("is-pressed");
-  window.setTimeout(() => button.classList.remove("is-pressed"), 180);
-  input?.focus();
+  const action = button.dataset.locationAction || "";
+  if (action !== "map") {
+    button.classList.add("is-pressed");
+    window.setTimeout(() => button.classList.remove("is-pressed"), 180);
+    input?.focus();
+  }
 
   document.dispatchEvent(
     new CustomEvent("swiftgo:location-action", {
       detail: {
-        action: button.dataset.locationAction,
+        action,
         role: field?.dataset.locationRole || "stop",
         inputId: input?.id || "",
       },
@@ -512,6 +515,13 @@ export function updateBookRideCta() {
     .replace("{price}", price);
 }
 
+function scheduleMapResize() {
+  requestAnimationFrame(() => {
+    resizeMap();
+    window.setTimeout(() => resizeMap(), 280);
+  });
+}
+
 export function expandSheet() {
   if (!els.sheet) return;
   sheetState.expanded = true;
@@ -520,6 +530,7 @@ export function expandSheet() {
   els.shell?.classList.add("sheet-expanded");
   if (sheetState.rideReady || sheetState.category) els.shell?.classList.add("sheet-ride-ready");
   els.handle?.setAttribute("aria-label", t("collapseSheet"));
+  scheduleMapResize();
 }
 
 export function collapseSheet() {
@@ -530,6 +541,7 @@ export function collapseSheet() {
   els.shell?.classList.remove("sheet-expanded");
   els.shell?.classList.remove("sheet-ride-ready");
   els.handle?.setAttribute("aria-label", t("expandSheet"));
+  scheduleMapResize();
 }
 
 export function toggleSheet() {

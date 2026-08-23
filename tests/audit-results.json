@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-08-10T06:28:43.756Z",
+  "generatedAt": "2026-08-15T11:10:11.376Z",
   "baseUrl": "https://swiftgo-ride-app.web.app",
-  "total": 241,
-  "passed": 239,
-  "failed": 2,
-  "passRate": 99.2,
+  "total": 238,
+  "passed": 233,
+  "failed": 5,
+  "passRate": 97.9,
   "bySuite": {
     "structure": {
       "passed": 39,
@@ -32,14 +32,14 @@
       "total": 8
     },
     "security": {
-      "passed": 16,
-      "failed": 1,
+      "passed": 15,
+      "failed": 2,
       "total": 17
     },
     "wiring": {
-      "passed": 48,
-      "failed": 1,
-      "total": 49
+      "passed": 43,
+      "failed": 3,
+      "total": 46
     },
     "a11y": {
       "passed": 7,
@@ -773,13 +773,13 @@
       "suite": "i18n",
       "name": "i18n EN keys > 60",
       "status": "PASS",
-      "detail": "count=377"
+      "detail": "count=384"
     },
     {
       "suite": "i18n",
       "name": "i18n UR keys > 60",
       "status": "PASS",
-      "detail": "count=377"
+      "detail": "count=384"
     },
     {
       "suite": "i18n",
@@ -958,8 +958,8 @@
     {
       "suite": "security",
       "name": "Hosting SPA rewrite to index.html",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "security",
@@ -1227,15 +1227,15 @@
     },
     {
       "suite": "wiring",
-      "name": "Phase 15 canonical catalog-driven fare matrix and route listener",
+      "name": "Phase 15 dynamic fare matrix and route listener",
       "status": "PASS",
       "detail": ""
     },
     {
       "suite": "wiring",
       "name": "Phase 16.1 rides collection write + searching_driver status",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",
@@ -1294,26 +1294,8 @@
     {
       "suite": "wiring",
       "name": "Partner auth routes strictly by saved role",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "suite": "wiring",
-      "name": "Owner app gates dashboard by saved owner role only",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "suite": "wiring",
-      "name": "Owner onboarding is server-authoritative via Cloud Functions",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "suite": "wiring",
-      "name": "Super Admin panel lists owner applications on demand",
-      "status": "PASS",
-      "detail": ""
+      "status": "FAIL",
+      "detail": "assertion failed"
     },
     {
       "suite": "wiring",

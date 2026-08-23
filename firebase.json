@@ -10,6 +10,7 @@
     "predeploy": [
       "node tools/hosting-deploy-integrity.mjs",
       "node tools/build-hosting.mjs",
+      "node tools/hosting-startup-health.mjs --no-write",
       "node tools/hosting-deploy-integrity.mjs --verify-build"
     ],
     "redirects": [
@@ -73,7 +74,7 @@
         ]
       },
       {
-        "source": "**/*.@(js|css)",
+        "source": "**/*.@(js|mjs|css)",
         "headers": [
           {
             "key": "Cache-Control",

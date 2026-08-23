@@ -1,0 +1,49 @@
+{
+  "stage": 2,
+  "suite": "ack-semantics",
+  "generatedAt": "2026-08-20T14:08:04.713Z",
+  "pass": 8,
+  "fail": 0,
+  "results": [
+    {
+      "name": "valid-loc-loc-ack-establishes-loc-delivery",
+      "status": "PASS",
+      "detail": "custFixes=1 locHealthy=true locAcks=1"
+    },
+    {
+      "name": "rejected-loc-then-hb-response-not-loc-healthy",
+      "status": "PASS",
+      "detail": "locHealthy=false custFixes=0 locAcks=0"
+    },
+    {
+      "name": "hb-alone-transport-alive-not-loc-healthy",
+      "status": "PASS",
+      "detail": "transport=true locHealthy=false"
+    },
+    {
+      "name": "legacy-untyped-ack-not-loc-delivery-healthy",
+      "status": "PASS",
+      "detail": "locHealthy=false locAcks=0"
+    },
+    {
+      "name": "loc-ack-trust-rejects-future-duplicate-unsent",
+      "status": "PASS",
+      "detail": "invalidMessages=3"
+    },
+    {
+      "name": "customer-accepted-loc-still-renders",
+      "status": "PASS",
+      "detail": "rendered=24.9 recv=1"
+    },
+    {
+      "name": "checkpoint-responsive-when-not-loc-healthy",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000 hard=false"
+    },
+    {
+      "name": "checkpoint-sparse-only-after-explicit-loc-healthy-hysteresis",
+      "status": "PASS",
+      "detail": "P2P_SPARSE_TRIP@30000"
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+{
+  "stage": 7,
+  "scope": "sequence-strictness-and-cadence-docs",
+  "finding": "A8",
+  "generatedAt": "2026-08-20T13:52:06.864Z",
+  "cadenceDecision": {
+    "keepHalfInterval": true,
+    "P2P_SEND_INTERVAL_MS": 3000,
+    "P2P_MIN_LOC_GAP_MS": 1500,
+    "rationale": "1500ms min gap is intentional for smoother marker motion; documented as P2P_MIN_LOC_GAP_MS"
+  },
+  "summary": {
+    "pass": 24,
+    "fail": 0
+  },
+  "results": [
+    {
+      "name": "parse-rejects-missing",
+      "status": "PASS",
+      "detail": "raw=undefined"
+    },
+    {
+      "name": "parse-rejects-null",
+      "status": "PASS",
+      "detail": "raw=null"
+    },
+    {
+      "name": "parse-rejects-empty-string",
+      "status": "PASS",
+      "detail": "raw="
+    },
+    {
+      "name": "parse-rejects-zero",
+      "status": "PASS",
+      "detail": "raw=0"
+    },
+    {
+      "name": "parse-rejects-negative",
+      "status": "PASS",
+      "detail": "raw=-5"
+    },
+    {
+      "name": "parse-rejects-nan",
+      "status": "PASS",
+      "detail": "raw=NaN"
+    },
+    {
+      "name": "parse-rejects-non-number-string",
+      "status": "PASS",
+      "detail": "raw=nope"
+    },
+    {
+      "name": "parse-rejects-float",
+      "status": "PASS",
+      "detail": "raw=1.5"
+    },
+    {
+      "name": "parse-accepts-1",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "parse-accepts-string-7",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "parse-accepts-42",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "ingest-rejects-missing",
+      "status": "PASS",
+      "detail": "accepted=false reason=INVALID_SEQUENCE"
+    },
+    {
+      "name": "ingest-rejects-zero",
+      "status": "PASS",
+      "detail": "accepted=false reason=INVALID_SEQUENCE"
+    },
+    {
+      "name": "ingest-rejects-negative",
+      "status": "PASS",
+      "detail": "accepted=false reason=INVALID_SEQUENCE"
+    },
+    {
+      "name": "ingest-rejects-nan-string",
+      "status": "PASS",
+      "detail": "accepted=false reason=INVALID_SEQUENCE"
+    },
+    {
+      "name": "ingest-accepts-valid-sequence-3",
+      "status": "PASS",
+      "detail": "accepted=true sequence=3 reason=location_fix_accepted"
+    },
+    {
+      "name": "ingest-no-math-max-sequence-coercion",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "ingest-uses-parseRequiredSequence",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "p2p-send-interval-remains-3000",
+      "status": "PASS",
+      "detail": "P2P_SEND_INTERVAL_MS=3000"
+    },
+    {
+      "name": "min-loc-gap-intentional-1500",
+      "status": "PASS",
+      "detail": "P2P_MIN_LOC_GAP_MS=1500"
+    },
+    {
+      "name": "driver-customer-min-gap-parity",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "protocol-documents-min-gap-intent",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "flush-uses-named-min-gap",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-production-cadence-tightening",
+      "status": "PASS",
+      "detail": "kept intentional half-interval; did not force strict 3000ms"
+    }
+  ]
+}

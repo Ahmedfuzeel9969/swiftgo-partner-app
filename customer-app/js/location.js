@@ -22,6 +22,7 @@ import {
   expandSheet,
 } from "./sheet.js";
 import { setRoutePoint, clearRoutePoint, getRouteInfo } from "./routing.js";
+import { releaseFocusFrom } from "./a11y.js";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 const OLC_ALPHABET = "23456789CFGHJMPQRVWX";
@@ -612,6 +613,13 @@ function isLiveDragEnabled() {
   );
 }
 
+function dismissLocationKeyboard() {
+  releaseFocusFrom(document.getElementById("routeSearchCard"));
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) active.blur();
+  document.documentElement.style.setProperty("--keyboard-inset", "0px");
+}
+
 function syncLiveDragPin() {
   const live = isLiveDragEnabled();
   document.body.classList.toggle("map-live-drag", live);
@@ -647,12 +655,19 @@ function ensureMapPickListeners() {
   unsubDragStart();
 
   unsubDragStart = onMapDragStart(() => {
+    dismissLocationKeyboard();
+    hideSuggestions();
+    document.body.classList.add("map-dragging");
+    document.getElementById("shell")?.classList.add("map-dragging");
+    if (document.body.classList.contains("map-pick-active")) return;
     if (!isLiveDragEnabled()) return;
     liveDragPending = true;
-    hideSuggestions();
+    collapseSheet();
   });
 
   unsubMoveEnd = onMapMoveEnd((center) => {
+    document.body.classList.remove("map-dragging");
+    document.getElementById("shell")?.classList.remove("map-dragging");
     if (document.body.classList.contains("map-pick-active")) {
       updatePickPreview(center);
       return;
@@ -679,6 +694,35 @@ async function updatePickPreview(center) {
   }
 }
 
+function hasMatchingPickPreview(center) {
+  const lat = Number(center?.lat);
+  const lng = Number(center?.lng);
+  return (
+    Boolean(pickPreviewLabel) &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Number.isFinite(pickCoords?.lat) &&
+    Number.isFinite(pickCoords?.lng) &&
+    Math.abs(pickCoords.lat - lat) <= 0.000001 &&
+    Math.abs(pickCoords.lng - lng) <= 0.000001
+  );
+}
+
+async function resolveMapPickConfirmation(center, reverseGeocodeFn = reverseGeocode) {
+  if (hasMatchingPickPreview(center)) {
+    return { lat: pickCoords.lat, lng: pickCoords.lng, label: pickPreviewLabel };
+  }
+  try {
+    return await reverseGeocodeFn(center.lat, center.lng);
+  } catch {
+    return {
+      lat: center.lat,
+      lng: center.lng,
+      label: `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`,
+    };
+  }
+}
+
 function notifyMapPick(active) {
   document.dispatchEvent(
     new CustomEvent("swiftgo:route-ui-map-pick", { detail: { active } })
@@ -687,7 +731,8 @@ function notifyMapPick(active) {
 
 function exitMapPickMode({ restore = false } = {}) {
   setMapPickMode(false);
-  document.body.classList.remove("map-live-drag");
+  document.body.classList.remove("map-live-drag", "map-dragging");
+  document.getElementById("shell")?.classList.remove("map-dragging");
   showPinMode(false);
 
   if (restore && activeInputId) {
@@ -709,12 +754,14 @@ function enterMapPickMode({ inputId, role }) {
   ensureMap?.();
   navigateHome?.();
   hideSuggestions();
+  dismissLocationKeyboard();
   collapseSheet();
 
   activeInputId = inputId;
   pickPreviousValue = getLocationFieldValue(inputId);
   pickPreviewLabel = pickPreviousValue;
   highlightActiveRow(inputId);
+  document.getElementById(inputId)?.blur();
   setMapPickMode(true);
   ensureMapPickListeners();
 
@@ -862,16 +909,10 @@ export function initLocationModule(handlers = {}) {
   els.confirm?.addEventListener("click", async () => {
     const center = getMapCenter();
     if (activeInputId && center) {
-      try {
-        const place = await reverseGeocode(center.lat, center.lng);
-        setLocationFieldValue(activeInputId, place.label, { autoExpand: true });
-        placeLocationCue(activeInputId, place.lat, place.lng);
-        flyToLatLng(place.lat, place.lng, 16);
-      } catch {
-        const fallback = `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
-        setLocationFieldValue(activeInputId, fallback, { autoExpand: true });
-        placeLocationCue(activeInputId, center.lat, center.lng);
-      }
+      const place = await resolveMapPickConfirmation(center);
+      setLocationFieldValue(activeInputId, place.label, { autoExpand: true });
+      placeLocationCue(activeInputId, place.lat, place.lng);
+      flyToLatLng(place.lat, place.lng, 16);
     }
     exitMapPickMode({ restore: false });
   });

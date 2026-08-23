@@ -1071,7 +1071,10 @@ button {
   right: 0;
   bottom: 0;
   left: 0;
-  padding: 0.85rem 1rem max(1.1rem, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  max-height: min(78vh, 34rem);
+  padding: 0;
   border-radius: 24px 24px 0 0;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.22);
@@ -1090,11 +1093,96 @@ button {
 }
 
 .active-ride-sheet__handle {
-  width: 42px;
-  height: 5px;
-  margin: 0 auto 0.75rem;
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.55rem 1rem 0.4rem;
+  border: 0;
+  border-radius: 24px 24px 0 0;
+  background: rgba(255, 255, 255, 0.98);
+  color: #64748b;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.active-ride-sheet__handle:active {
+  cursor: grabbing;
+}
+
+.active-ride-sheet__handle-bar {
+  width: 2.75rem;
+  height: 4px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.18);
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.active-ride-sheet__handle-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 999px;
+  background: rgba(8, 119, 71, 0.12);
+  color: #0b7a4b;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform 0.28s var(--ease), background 0.2s ease;
+}
+
+.active-ride-sheet__handle:active .active-ride-sheet__handle-arrow {
+  background: rgba(8, 119, 71, 0.28);
+}
+
+.active-ride-sheet__handle-label {
+  font-family: var(--urdu);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.active-ride-sheet__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.15rem 1rem max(1.1rem, env(safe-area-inset-bottom));
+  transition:
+    max-height 0.34s var(--ease),
+    opacity 0.24s ease,
+    padding 0.24s ease;
+  max-height: min(68vh, 30rem);
+}
+
+.active-ride-sheet.is-collapsed .active-ride-sheet__body {
+  max-height: 0;
+  min-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding-top: 0;
+  padding-bottom: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.active-ride-sheet.is-collapsed .active-ride-sheet__handle-label {
+  display: none;
+}
+
+.active-ride-sheet.is-collapsed .active-ride-sheet__handle-arrow {
+  transform: rotate(180deg);
+}
+
+.active-ride-sheet.is-collapsed {
+  max-height: none;
 }
 
 .active-ride-sheet__eyebrow,
@@ -1219,6 +1307,20 @@ button {
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 12px 28px rgba(8, 119, 71, 0.28);
+}
+
+.active-ride-contact-host {
+  margin: 0.65rem 0;
+}
+
+.active-ride-contact-host:empty {
+  display: none;
+}
+
+.active-ride-contact-host .swiftgo-comm__contact-btn {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 14px;
 }
 
 .active-ride-action-btn:disabled,
@@ -3681,4 +3783,70 @@ html[dir="rtl"] .mobile-nav-rail__chevron {
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+/* Field diagnostics */
+.diag-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin: 0.75rem 1rem 0.5rem;
+}
+.diag-btn-secondary {
+  border: 1px solid rgba(8, 119, 71, 0.2);
+  background: #fff;
+  color: #0f172a;
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+}
+.diag-status {
+  min-height: 1.25rem;
+  margin: 0.25rem 1rem 0.75rem;
+  color: #087747;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.diag-summary {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 1rem;
+  padding: 0.85rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(8, 119, 71, 0.14);
+}
+.diag-row {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.diag-row__k {
+  color: #64748b;
+  font-weight: 700;
+}
+.diag-row__v {
+  color: #0f172a;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+.diag-log-title {
+  margin: 1rem 1rem 0.4rem;
+  font-size: 0.95rem;
+}
+.diag-log {
+  margin: 0 1rem 1.5rem;
+  max-height: 42vh;
+  overflow: auto;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: #0b1220;
+  color: #d7ffe9;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

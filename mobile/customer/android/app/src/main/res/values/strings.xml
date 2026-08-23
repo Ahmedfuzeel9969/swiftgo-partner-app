@@ -4,4 +4,8 @@
     <string name="title_activity_main">SwiftGo</string>
     <string name="package_name">com.swiftgo.customer</string>
     <string name="custom_url_scheme">com.swiftgo.customer</string>
+    <string name="p2p_keepalive_channel">سفر کی لائیو کنکشن</string>
+    <string name="p2p_keepalive_channel_desc">فعال سفر میں P2P کنکشن برقرار رکھنا</string>
+    <string name="p2p_keepalive_title">SwiftGo لائیو سفر جاری ہے</string>
+    <string name="p2p_keepalive_text">ڈرائیور کی لائیو لوکیشن کنکشن برقرار ہے</string>
 </resources>

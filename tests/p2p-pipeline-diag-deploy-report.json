@@ -1,0 +1,38 @@
+{
+  "title": "P2P Pipeline Investigation — Diagnostic-Only Deploy",
+  "phase": "P2P Pipeline Investigation",
+  "generatedAt": "2026-08-05T01:45:00.000Z",
+  "status": "DIAGNOSTIC_DEPLOYED_STOP_AFTER_CAPTURE",
+  "scope": "instrumentation_only",
+  "notChanged": [
+    "Chat",
+    "Voice Messages",
+    "Voice Calls",
+    "Firebase Billing",
+    "Location policy",
+    "Ride Flow",
+    "Matching",
+    "Diagnostics behaviour"
+  ],
+  "deployment": {
+    "status": "SUCCESS",
+    "target": "hosting",
+    "project": "swiftgo-ride-app",
+    "hostingUrl": "https://swiftgo-ride-app.web.app",
+    "partnerUrl": "https://swiftgo-ride-app.web.app/partner/",
+    "customerUrl": "https://swiftgo-ride-app.web.app/"
+  },
+  "artifacts": {
+    "sharedModule": "shared/js/p2p-pipeline-trace.mjs",
+    "peerSession": ["driver-app/js/p2p-peer-session.mjs", "customer-app/js/p2p-peer-session.mjs"],
+    "controllers": ["driver-app/js/p2p-ride-controller.mjs", "customer-app/js/p2p-ride-controller.mjs"],
+    "captureDoc": "tests/p2p-pipeline-diag-capture.md"
+  },
+  "fieldCapture": {
+    "bothDevices": true,
+    "command": "copy(JSON.stringify({side: location.pathname.includes('partner') ? 'driver' : 'customer', href: location.href, report: window.__SWIFTGO_P2P_PIPELINE_REPORT__, events: window.__SWIFTGO_P2P_PIPELINE__}, null, 2))",
+    "saveAs": ["driver-pipeline.json", "customer-pipeline.json"]
+  },
+  "answersDeferred": "Q1-Q8 require both phone dumps; agent cannot operate Android phones",
+  "noFixes": true
+}

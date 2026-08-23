@@ -43,6 +43,10 @@ let assignedDriverMoveListener = null;
 let assignedDriverTargetMeta = null;
 /** Last accepted fix used for animation interval (not pickup/dropoff). */
 let assignedDriverPrevAccepted = null;
+/** When true, map pans to keep assigned driver in view (disabled after user drag). */
+let followDriverEnabled = true;
+let followDriverListenersAttached = false;
+const FOLLOW_DRIVER_MIN_PAN_M = 35;
 
 /** @type {import('leaflet').Marker | null} */
 let pickupMarker = null;
@@ -115,11 +119,98 @@ function createDriverIcon(rotationDeg, delay) {
   });
 }
 
-function assignedDriverIconHtml(rotationDeg) {
+const MOTORCYCLE_VEHICLE_KEYS = new Set(["bike", "bike-cargo", "bikecargo", "motorcycle", "moto"]);
+
+function resolveAssignedMarkerMode() {
+  try {
+    const ride =
+      (typeof window !== "undefined" && window.__SWIFTGO_ACTIVE_RIDE__) || null;
+    if (!ride) return { motorcycle: false, occupied: false };
+    const key = String(ride.vehicleTypeKey || ride.vehicleKey || "")
+      .trim()
+      .toLowerCase();
+    const label = String(ride.vehicleType || ride.vehicleCategory || "")
+      .trim()
+      .toLowerCase();
+    const motorcycle =
+      MOTORCYCLE_VEHICLE_KEYS.has(key) ||
+      label.includes("bike") ||
+      label.includes("بائیک") ||
+      label.includes("moto");
+    const status = String(ride.status || "");
+    const occupied = status === "in_progress";
+    return { motorcycle, occupied };
+  } catch {
+    return { motorcycle: false, occupied: false };
+  }
+}
+
+/** Honda CD 70–style side view (simple cartoon). Solo = helmeted driver only. */
+function motorcycleSoloSvg() {
   return `
-    <div class="live-driver assigned-driver-marker" style="--rot:${rotationDeg}deg" aria-hidden="true">
-      <span class="assigned-driver-marker__pulse" aria-hidden="true"></span>
-      <svg viewBox="0 0 40 40" width="38" height="38">
+      <svg viewBox="0 0 104 66" width="86" height="54" aria-hidden="true">
+        <ellipse cx="52" cy="61" rx="34" ry="3.5" fill="#0f172a" opacity=".2"/>
+        <circle cx="26" cy="46" r="14" fill="#0b1220" stroke="#e2e8f0" stroke-width="2.8"/>
+        <circle cx="26" cy="46" r="6.5" fill="#f8fafc"/>
+        <circle cx="26" cy="46" r="2.4" fill="#64748b"/>
+        <circle cx="80" cy="46" r="14" fill="#0b1220" stroke="#e2e8f0" stroke-width="2.8"/>
+        <circle cx="80" cy="46" r="6.5" fill="#f8fafc"/>
+        <circle cx="80" cy="46" r="2.4" fill="#64748b"/>
+        <path d="M34 44h40" stroke="#334155" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M36 41c11-3 28-3 38 1" fill="none" stroke="#475569" stroke-width="2.6"/>
+        <path d="M70 41l18 2.5" stroke="#94a3b8" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M32 42c3-11 11-16 24-16 8 0 14 3 18 8l10 2.5v7.5H36l-4-2z" fill="#e11d48"/>
+        <path d="M42 27c6-4 14-5 19-1l2.5 4H44l-2-3z" fill="#be123c"/>
+        <path d="M18 40c3-5.5 8-7 12-4.5l2.5 7.5H22l-4-3z" fill="#fb7185"/>
+        <path d="M74 37c5.5-2 12 0 14.5 4.5l-1.5 6.5H73l2-11z" fill="#fb7185"/>
+        <path d="M46 29h22c2.8 0 4.4 1.5 4.4 3.2S69 36 66 36H48c-2.8 0-4.5-1.6-4.5-3.4S43.2 29 46 29z" fill="#020617"/>
+        <circle cx="92" cy="31" r="5.5" fill="#fef08a" stroke="#a16207" stroke-width="1.5"/>
+        <path d="M78 31h11M76 27.5v8" stroke="#0f172a" stroke-width="2.8" stroke-linecap="round"/>
+        <path d="M48 29c0-10 7-15.5 13.5-15.5S78 18.5 78 26.5c0 9-5.5 14-10 15.5" fill="#1d4ed8"/>
+        <circle cx="61.5" cy="10.5" r="8.5" fill="#020617" stroke="#7dd3fc" stroke-width="1.4"/>
+        <path d="M54.5 12.5h14c.6 3-2.6 5-7 5s-7.6-2-7-5z" fill="#bae6fd"/>
+        <path d="M56 7.5h11" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>
+        <path d="M55 34h13v6.5H55z" fill="#1e3a8a"/>
+      </svg>`;
+}
+
+/** After Start Ride: two helmeted riders (driver front, passenger rear). */
+function motorcycleDuoSvg() {
+  return `
+      <svg viewBox="0 0 116 66" width="94" height="54" aria-hidden="true">
+        <ellipse cx="58" cy="61" rx="36" ry="3.5" fill="#0f172a" opacity=".2"/>
+        <circle cx="26" cy="46" r="14" fill="#0b1220" stroke="#e2e8f0" stroke-width="2.8"/>
+        <circle cx="26" cy="46" r="6.5" fill="#f8fafc"/>
+        <circle cx="26" cy="46" r="2.4" fill="#64748b"/>
+        <circle cx="90" cy="46" r="14" fill="#0b1220" stroke="#e2e8f0" stroke-width="2.8"/>
+        <circle cx="90" cy="46" r="6.5" fill="#f8fafc"/>
+        <circle cx="90" cy="46" r="2.4" fill="#64748b"/>
+        <path d="M34 44h48" stroke="#334155" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M36 41c13-3 32-3 44 1" fill="none" stroke="#475569" stroke-width="2.6"/>
+        <path d="M76 41l20 2.5" stroke="#94a3b8" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M32 42c3-11 11-16 26-16 10 0 16 3 20 8l12 2.5v7.5H36l-4-2z" fill="#e11d48"/>
+        <path d="M44 27c7-4 16-5 22-1l2.5 4H46l-2-3z" fill="#be123c"/>
+        <path d="M18 40c3-5.5 8-7 12-4.5l2.5 7.5H22l-4-3z" fill="#fb7185"/>
+        <path d="M84 37c5.5-2 13 0 15.5 4.5l-1.5 6.5H83l2-11z" fill="#fb7185"/>
+        <path d="M42 29h38c3.2 0 5.2 1.6 5.2 3.4S81 36 76 36H45c-3.2 0-5.2-1.6-5.2-3.5S38.8 29 42 29z" fill="#020617"/>
+        <circle cx="102" cy="31" r="5.5" fill="#fef08a" stroke="#a16207" stroke-width="1.5"/>
+        <path d="M88 31h11M86 27.5v8" stroke="#0f172a" stroke-width="2.8" stroke-linecap="round"/>
+        <path d="M44 29c0-9 6-14 12-14s10 3.5 10 10c0 8-4.5 13-8.5 14.5" fill="#0f766e"/>
+        <circle cx="56" cy="11.5" r="7.6" fill="#134e4a" stroke="#99f6e4" stroke-width="1.4"/>
+        <path d="M49.5 13.2h13c.5 2.7-2.2 4.5-6.5 4.5s-7-1.8-6.5-4.5z" fill="#ccfbf1"/>
+        <path d="M51 8.5h10" stroke="#f8fafc" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M50 34h13v6H50z" fill="#115e59"/>
+        <path d="M62 29c0-10 7-15.5 13.5-15.5S92 18.5 92 26.5c0 9-5.5 14-10 15.5" fill="#1d4ed8"/>
+        <circle cx="75.5" cy="10.5" r="8.5" fill="#020617" stroke="#7dd3fc" stroke-width="1.4"/>
+        <path d="M68.5 12.5h14c.6 3-2.6 5-7 5s-7.6-2-7-5z" fill="#bae6fd"/>
+        <path d="M70 7.5h11" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>
+        <path d="M69 34h13v6.5H69z" fill="#1e3a8a"/>
+      </svg>`;
+}
+
+function carAssignedSvg() {
+  return `
+      <svg viewBox="0 0 40 40" width="38" height="38" aria-hidden="true">
         <ellipse cx="20" cy="34" rx="10" ry="2.5" fill="#062818" opacity=".25"/>
         <path d="M8 24h24l-2-8a4 4 0 0 0-4-3H14a4 4 0 0 0-4 3L8 24z" fill="#1d4ed8"/>
         <path d="M14 13h12l2 4H12l2-4z" fill="#fff" opacity=".95"/>
@@ -127,18 +218,53 @@ function assignedDriverIconHtml(rotationDeg) {
         <circle cx="27" cy="26" r="3.5" fill="#1e3a8a"/>
         <circle cx="13" cy="26" r="1.4" fill="#fff"/>
         <circle cx="27" cy="26" r="1.4" fill="#fff"/>
-      </svg>
+      </svg>`;
+}
+
+function assignedDriverIconHtml(rotationDeg, mode = { motorcycle: false, occupied: false }) {
+  const movingClass = mode.motorcycle ? " is-motorcycle-moving" : "";
+  const body = mode.motorcycle
+    ? mode.occupied
+      ? motorcycleDuoSvg()
+      : motorcycleSoloSvg()
+    : carAssignedSvg();
+  return `
+    <div class="live-driver assigned-driver-marker${movingClass}" style="--rot:${rotationDeg}deg" aria-hidden="true">
+      <span class="assigned-driver-marker__pulse" aria-hidden="true"></span>
+      ${body}
     </div>
   `;
 }
 
+let lastAssignedIconKey = "";
+
 function createAssignedDriverIcon(rotationDeg) {
+  const mode = resolveAssignedMarkerMode();
+  const rotKey = Math.round(Number(rotationDeg) || 0);
+  const iconKey = `${mode.motorcycle ? "moto" : "car"}:${mode.occupied ? "duo" : "solo"}:${rotKey}`;
+  lastAssignedIconKey = iconKey;
   return L.divIcon({
     className: "live-driver-wrap assigned-driver-wrap",
-    html: assignedDriverIconHtml(rotationDeg),
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    html: assignedDriverIconHtml(rotationDeg, mode),
+    iconSize: mode.motorcycle ? (mode.occupied ? [94, 54] : [86, 54]) : [40, 40],
+    iconAnchor: mode.motorcycle ? (mode.occupied ? [47, 27] : [43, 27]) : [20, 20],
   });
+}
+
+function maybeRefreshAssignedIcon(rotationDeg) {
+  if (!assignedDriverMarker) return;
+  const mode = resolveAssignedMarkerMode();
+  const rotKey = Math.round(Number(rotationDeg) || 0);
+  const iconKey = `${mode.motorcycle ? "moto" : "car"}:${mode.occupied ? "duo" : "solo"}:${rotKey}`;
+  if (iconKey === lastAssignedIconKey) return;
+  assignedDriverMarker.setIcon(createAssignedDriverIcon(rotationDeg));
+}
+
+/** Force icon variant refresh (e.g. Start Ride → duo motorcycle) without moving the marker. */
+export function refreshAssignedDriverIcon(rotationDeg = 0) {
+  if (!assignedDriverMarker) return;
+  lastAssignedIconKey = "";
+  maybeRefreshAssignedIcon(rotationDeg);
 }
 
 function cancelAssignedDriverAnimation() {
@@ -210,6 +336,40 @@ export function setSuppressSimulatedDrivers(suppressed) {
   if (suppressSimulatedDrivers) clearLiveDrivers();
 }
 
+export function setFollowDriverEnabled(enabled) {
+  followDriverEnabled = Boolean(enabled);
+}
+
+export function isFollowDriverEnabled() {
+  return followDriverEnabled;
+}
+
+function attachFollowDriverListeners() {
+  if (!map || followDriverListenersAttached) return;
+  followDriverListenersAttached = true;
+  map.on("dragstart", () => {
+    followDriverEnabled = false;
+  });
+}
+
+/**
+ * Pan map toward assigned driver when follow mode is enabled.
+ * Does not change zoom; no-op when user has panned away manually.
+ */
+export function followAssignedDriverIfEnabled(lat, lng) {
+  if (!map || !followDriverEnabled) return;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  attachFollowDriverListeners();
+  const center = map.getCenter();
+  const distM = distanceMetres({ lat: center.lat, lng: center.lng }, { lat, lng });
+  const outside =
+    typeof map.getBounds === "function" && map.getBounds()
+      ? !map.getBounds().contains([lat, lng])
+      : distM >= FOLLOW_DRIVER_MIN_PAN_M;
+  if (!outside && distM < FOLLOW_DRIVER_MIN_PAN_M) return;
+  map.panTo([lat, lng], { animate: true, duration: 0.45 });
+}
+
 export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) {
   if (!map || typeof L === "undefined") return;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
@@ -241,7 +401,7 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) 
   const samePlace =
     Math.abs(rendered.lat - to.lat) < 1e-7 && Math.abs(rendered.lng - to.lng) < 1e-7;
   if (samePlace) {
-    assignedDriverMarker.setIcon(createAssignedDriverIcon(rotationDeg));
+    maybeRefreshAssignedIcon(rotationDeg);
     assignedDriverPrevAccepted = { lat, lng, observedAt };
     return;
   }
@@ -251,7 +411,7 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) 
     assignedDriverPos = to;
     assignedDriverPrevAccepted = { lat, lng, observedAt };
     assignedDriverTargetMeta = { lat, lng, observedAt };
-    assignedDriverMarker.setIcon(createAssignedDriverIcon(rotationDeg));
+    maybeRefreshAssignedIcon(rotationDeg);
     assignedDriverMarker.setLatLng([lat, lng]);
     emitAssignedDriverPos(lat, lng);
     return;
@@ -270,7 +430,7 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) 
     });
 
   cancelAssignedDriverAnimation();
-  assignedDriverMarker.setIcon(createAssignedDriverIcon(rotationDeg));
+  maybeRefreshAssignedIcon(rotationDeg);
 
   if (snap) {
     assignedDriverPos = to;
@@ -309,6 +469,7 @@ export function clearAssignedDriver() {
   assignedDriverPos = null;
   assignedDriverPrevAccepted = null;
   assignedDriverTargetMeta = null;
+  lastAssignedIconKey = "";
   if (assignedDriverMarker && map) {
     try {
       map.removeLayer(assignedDriverMarker);

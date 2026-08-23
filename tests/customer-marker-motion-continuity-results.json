@@ -1,0 +1,37 @@
+{
+  "suite": "customer-marker-motion-continuity",
+  "dualPhysicalDevices": "BLOCKED",
+  "dualPhysicalDevicesNote": "Agent cannot operate two real phones or Gmail accounts. Automated in-process dual-client path verified; physical dual-device run required on-device.",
+  "generatedAt": "2026-08-23T13:06:36.874Z",
+  "pass": 5,
+  "fail": 0,
+  "blocked": 0,
+  "paintCount": 21,
+  "results": [
+    {
+      "name": "e2e-p2p-continuous-paints-arbiter-ingest-only",
+      "status": "PASS",
+      "detail": "paints=10 preferred=p2p"
+    },
+    {
+      "name": "e2e-firebase-fallback-continues-motion",
+      "status": "PASS",
+      "detail": "fbPaints=5 preferred=firebase silentMs=50500"
+    },
+    {
+      "name": "e2e-p2p-recovery-continues-motion",
+      "status": "PASS",
+      "detail": "recPaints=6 preferred=p2p"
+    },
+    {
+      "name": "e2e-no-frozen-marker-across-trip",
+      "status": "PASS",
+      "detail": "paints=21 movedSteps=20 arbRenders=21"
+    },
+    {
+      "name": "e2e-snap-progress-reject-still-paints",
+      "status": "PASS",
+      "detail": "s1=snap s2=raw paints=2"
+    }
+  ]
+}

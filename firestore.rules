@@ -344,21 +344,6 @@ service cloud.firestore {
           )
           ||
           (
-            // Live driver GPS mirror for customer map (assigned driver only).
-            resource.data.driverId == request.auth.uid
-            && partnerIsActiveDriver(request.auth.uid)
-            && resource.data.status in ['accepted', 'arrived', 'in_progress']
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'driverLocation', 'driverLocationUpdatedAt', 'driverDistanceKm', 'driverEtaMin'
-            ])
-            && request.resource.data.driverLocation.keys().hasAll(['lat', 'lng'])
-            && request.resource.data.driverLocation.lat >= -90
-            && request.resource.data.driverLocation.lat <= 90
-            && request.resource.data.driverLocation.lng >= -180
-            && request.resource.data.driverLocation.lng <= 180
-          )
-          ||
-          (
             // Phase 42: customer rates a completed ride (one time).
             resource.data.userId == request.auth.uid
             && resource.data.status == 'completed'
@@ -614,7 +599,7 @@ service cloud.firestore {
         isSuperAdmin() || request.auth.uid == partnerId
       );
 
-      // Partners may create owner/driver profiles only — never self-assign admin_driver.
+      // Partners may create driver profiles only — owner role is Admin-SDK via approveOwnerAccess.
       // Financial aggregates must start at zero if present.
       allow create: if isSignedIn()
         && request.auth.uid == partnerId
@@ -730,6 +715,12 @@ service cloud.firestore {
     match /support_reports/{reportId} {
       allow read: if isSuperAdmin()
         || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    // Per-ride location delivery reports — Admin read only; writes via Cloud Functions.
+    match /rideLocationReports/{rideId} {
+      allow get, list: if isSuperAdmin();
       allow create, update, delete: if false;
     }
 

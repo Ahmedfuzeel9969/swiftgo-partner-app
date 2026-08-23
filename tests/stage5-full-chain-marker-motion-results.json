@@ -1,0 +1,60 @@
+{
+  "stage": 5,
+  "suite": "full-chain-marker-motion",
+  "honestDescription": "Driver+customer controllers, serialized LOC via channel.send, customer validation, arbiter, display pipeline",
+  "generatedAt": "2026-08-20T14:14:37.832Z",
+  "pass": 10,
+  "fail": 0,
+  "results": [
+    {
+      "name": "authoritative-assignmentVersion-not-1",
+      "status": "PASS",
+      "detail": "serverAv=92155371"
+    },
+    {
+      "name": "controllers-establish-peer-sessions",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "all-loc-packets-use-authoritative-assignmentVersion",
+      "status": "PASS",
+      "detail": "avs=92155371,92155371,92155371,92155371,92155371 expected=92155371"
+    },
+    {
+      "name": "customer-invalidMessages-zero",
+      "status": "PASS",
+      "detail": "invalid=0"
+    },
+    {
+      "name": "five-fixes-through-controller-chain",
+      "status": "PASS",
+      "detail": "sent=5 recv=5"
+    },
+    {
+      "name": "display-marker-positions-move-forward",
+      "status": "PASS",
+      "detail": "frames=5 lastLat=24.862"
+    },
+    {
+      "name": "valid-acks-return-to-driver",
+      "status": "PASS",
+      "detail": "onAck=0 acksRecv=5"
+    },
+    {
+      "name": "p2p-loss-responsive-firebase-takeover",
+      "status": "PASS",
+      "detail": "fbFrames=3 preferred=firebase"
+    },
+    {
+      "name": "p2p-recovery-no-coordinate-rollback",
+      "status": "PASS",
+      "detail": "before=24.862899999999996 after=24.863499999999995 preferred=p2p"
+    },
+    {
+      "name": "stale-ride-loc-blocked-after-ride-switch",
+      "status": "PASS",
+      "detail": "renders=1 afterA=1"
+    }
+  ]
+}

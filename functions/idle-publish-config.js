@@ -1,24 +1,30 @@
 /**
  * CJS mirror of shared/js/idle-publish-config.mjs for Cloud Functions.
+ * Branch production defaults preserved (5 min / 200 m).
  */
 "use strict";
 
 const MATCHING_STALE_LOCATION_MS = 600_000;
 
 const IDLE_PUBLISH_DEFAULTS = Object.freeze({
-  idleLocationIntervalMs: 4_000,
-  idleLocationMoveMeters: 10,
+  idleLocationIntervalMs: 5 * 60_000,
+  idleLocationMoveMeters: 200,
   idleMovementTriggerDisabled: false,
 });
 
 const IDLE_PUBLISH_BOUNDS = Object.freeze({
-  intervalMsMin: 4_000,
+  intervalMsMin: 60_000,
   intervalMsMax: 300_000,
-  moveMetersMin: 10,
+  moveMetersMin: 50,
   moveMetersMax: 5_000,
-  highMoveWarningMeters: 100,
+  highMoveWarningMeters: 500,
   diagnosticDurationMinutesMin: 1,
   diagnosticDurationMinutesMax: 30,
+});
+
+const IDLE_PUBLISH_PRESETS = Object.freeze({
+  intervalSeconds: Object.freeze([60, 120, 180, 300]),
+  moveMeters: Object.freeze([50, 100, 200, 500]),
 });
 
 const MAX_IDLE_INTERVAL_MS = IDLE_PUBLISH_BOUNDS.intervalMsMax;
@@ -27,6 +33,16 @@ const IDLE_DIAGNOSTIC_MAX_DURATION_MS = 30 * 60_000;
 if (!(MAX_IDLE_INTERVAL_MS < MATCHING_STALE_LOCATION_MS)) {
   throw new Error("MAX_IDLE_INTERVAL_MS must stay below MATCHING_STALE_LOCATION_MS");
 }
+
+const IDLE_PUBLISH_CONFIG_KEYS = Object.freeze({
+  intervalMs: "idleLocationIntervalMs",
+  moveMeters: "idleLocationMoveMeters",
+  movementTriggerDisabled: "idleMovementTriggerDisabled",
+  diagnosticExpiresAt: "idleDiagnosticExpiresAt",
+  diagnosticEnabledBy: "idleDiagnosticEnabledBy",
+  diagnosticEnabledAt: "idleDiagnosticEnabledAt",
+  diagnosticReason: "idleDiagnosticReason",
+});
 
 function isStrictIntegerInRange(value, min, max) {
   return (
@@ -98,7 +114,6 @@ function applyValidIntervalAndMove(base, raw) {
       base.idleLocationIntervalMs = raw.idleLocationIntervalMs;
     }
   }
-
   if (raw.idleLocationMoveMeters != null) {
     if (
       isStrictIntegerInRange(
@@ -110,7 +125,6 @@ function applyValidIntervalAndMove(base, raw) {
       base.idleLocationMoveMeters = raw.idleLocationMoveMeters;
     }
   }
-
   return base;
 }
 
@@ -123,20 +137,14 @@ function isDiagnosticStateInvalid(raw, nowMs) {
 function normalizeIdlePublishConfig(raw = {}, { nowMs = Date.now() } = {}) {
   const now = Number(nowMs);
   if (!Number.isFinite(now)) return safeDefaults();
-
-  if (isDiagnosticStateInvalid(raw, now)) {
-    return safeDefaults();
-  }
-
+  if (isDiagnosticStateInvalid(raw, now)) return safeDefaults();
   const base = safeDefaults();
   applyValidIntervalAndMove(base, raw);
-
   if (raw.idleMovementTriggerDisabled === true) {
     const expiresMs = parseFirestoreTimestampMs(raw.idleDiagnosticExpiresAt);
     base.idleMovementTriggerDisabled = true;
     base.idleDiagnosticExpiresAtMs = expiresMs;
   }
-
   return base;
 }
 
@@ -205,14 +213,30 @@ function sanitizeDiagnosticReason(value) {
   return trimmed || null;
 }
 
+function isIdleMovementPublishEnabled(config = {}) {
+  return config.idleMovementTriggerDisabled !== true;
+}
+
+function isLocationFreshForMatching(lastWriteMs, nowMs = Date.now(), staleMs = MATCHING_STALE_LOCATION_MS) {
+  if (!Number.isFinite(lastWriteMs) || lastWriteMs <= 0) return false;
+  return nowMs - lastWriteMs < staleMs;
+}
+
+function maxSafeIdleIntervalMs(staleMs = MATCHING_STALE_LOCATION_MS) {
+  return MAX_IDLE_INTERVAL_MS < staleMs;
+}
+
 module.exports = {
   MATCHING_STALE_LOCATION_MS,
   IDLE_PUBLISH_DEFAULTS,
   IDLE_PUBLISH_BOUNDS,
+  IDLE_PUBLISH_PRESETS,
   MAX_IDLE_INTERVAL_MS,
   IDLE_DIAGNOSTIC_MAX_DURATION_MS,
-  normalizeIdlePublishConfig,
+  IDLE_PUBLISH_CONFIG_KEYS,
+  parseFirestoreTimestampMs,
   getSafeIdlePublishConfig,
+  normalizeIdlePublishConfig,
   resolveIdleIntervalMsForPolicy,
   resolveIdleMoveMetersForPolicy,
   validateIdleIntervalMsForCallable,
@@ -221,5 +245,7 @@ module.exports = {
   validateDiagnosticDurationMinutesForCallable,
   rejectClientDiagnosticExpiry,
   sanitizeDiagnosticReason,
-  parseFirestoreTimestampMs,
+  isIdleMovementPublishEnabled,
+  isLocationFreshForMatching,
+  maxSafeIdleIntervalMs,
 };

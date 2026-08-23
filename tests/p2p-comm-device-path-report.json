@@ -1,0 +1,80 @@
+{
+  "title": "P2P Communication — Device Path Emergency Debug",
+  "generatedAt": "2026-08-04T16:34:35.990Z",
+  "firstBreak": "Contact conversation session often never subscribed to DataChannel: UI mounted before peer session existed, and customer did not rebind on channel open. Inbound comm_* frames hit empty commHandlers and were dropped.",
+  "secondaryRisk": "Android WebView may deliver DC payloads as Blob/ArrayBuffer; String(blob) corrupted the JSON. onmessage now decodes ArrayBuffer/Blob.",
+  "fix": "onChannelOpen → syncRideCommChat / syncDriverRideCommChat; panel open + send refresh/retry; robust DC decode; __SWIFTGO_COMM_TRACE__ evidence ring.",
+  "deploy": "NOT_DEPLOYED_WAIT_FOR_REAL_DEVICE_PROOF",
+  "summary": {
+    "passed": 13,
+    "failed": 0,
+    "total": 13
+  },
+  "results": [
+    {
+      "name": "subscribe_required_to_receive",
+      "status": "PASS",
+      "detail": "n=1"
+    },
+    {
+      "name": "onChannelOpen_hook_exists",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "early_send_ok",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "early_message_not_received",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "sender_still_pending_ack",
+      "status": "PASS",
+      "detail": "n=1"
+    },
+    {
+      "name": "late_bind_receives_retry",
+      "status": "PASS",
+      "detail": "inbox=[\"Hello\"]"
+    },
+    {
+      "name": "customer_to_driver_ok",
+      "status": "PASS",
+      "detail": "[\"OK\"]"
+    },
+    {
+      "name": "reply_send_ok",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "onmessage_handles_arraybuffer_or_blob",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "customer_channel_open_rebinds_comm",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "driver_channel_open_rebinds_comm",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "panel_open_refreshes_bind",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "field_trace_global_documented",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

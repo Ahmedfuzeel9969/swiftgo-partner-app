@@ -1,0 +1,121 @@
+{
+  "stage": 1,
+  "generatedAt": "2026-08-20T01:00:47.215Z",
+  "pass": 17,
+  "fail": 0,
+  "results": [
+    {
+      "proof": "A",
+      "name": "server-assignmentVersion-not-default-1",
+      "status": "PASS",
+      "detail": "serverAv=966250795"
+    },
+    {
+      "proof": "A",
+      "name": "driver-session-starts-with-assignmentVersion-1",
+      "status": "PASS",
+      "detail": "sessionAv=1"
+    },
+    {
+      "proof": "A",
+      "name": "driver-loc-built-with-session-assignmentVersion-1",
+      "status": "PASS",
+      "detail": "locAv=1"
+    },
+    {
+      "proof": "A",
+      "name": "customer-rejects-driver-loc-when-serverAv-differs",
+      "status": "PASS",
+      "detail": "wrong_assignment"
+    },
+    {
+      "proof": "A",
+      "name": "controller-offer-returns-authoritative-assignmentVersion",
+      "status": "PASS",
+      "detail": "serverAv=966250795"
+    },
+    {
+      "proof": "A",
+      "name": "controller-session-adopts-authoritative-assignmentVersion-after-offer",
+      "status": "PASS",
+      "detail": "sessionAv=966250795 serverAv=966250795"
+    },
+    {
+      "proof": "B",
+      "name": "unknown-unhealthy-accepted-uses-responsive-firebase",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000ms hard=false"
+    },
+    {
+      "proof": "B",
+      "name": "unknown-unhealthy-accepted-not-30-60s-dead-zone",
+      "status": "PASS",
+      "detail": "intervalMs=4000"
+    },
+    {
+      "proof": "B",
+      "name": "unknown-unhealthy-in_progress-uses-responsive-firebase",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000ms hard=false"
+    },
+    {
+      "proof": "B",
+      "name": "unknown-unhealthy-in_progress-not-30-60s-dead-zone",
+      "status": "PASS",
+      "detail": "intervalMs=4000"
+    },
+    {
+      "proof": "B",
+      "name": "expired-unhealthy-in_progress-responsive-4s",
+      "status": "PASS",
+      "detail": "RESPONSIVE_FIREBASE@4000"
+    },
+    {
+      "proof": "B",
+      "name": "visible-healthy-p2p-sparse-trip-30s",
+      "status": "PASS",
+      "detail": "P2P_SPARSE_TRIP@30000"
+    },
+    {
+      "proof": "C",
+      "name": "syncForRide-viewerVisible-false-does-not-suspend-p2p",
+      "status": "PASS",
+      "detail": "state=CONNECTING offers=1"
+    },
+    {
+      "proof": "C",
+      "name": "syncForRide-viewerVisible-false-starts-or-keeps-signaling",
+      "status": "PASS",
+      "detail": "offers=1"
+    },
+    {
+      "proof": "D",
+      "name": "configured-firebase-backup-read-interval",
+      "status": "PASS",
+      "detail": "4000ms"
+    },
+    {
+      "proof": "D",
+      "name": "firebase-1s-feed-renders-at-backup-interval-not-every-second",
+      "status": "PASS",
+      "detail": "rendered=2 accepted=2 throttled=6"
+    },
+    {
+      "proof": "D",
+      "name": "firebase-throttle-not-15s-class",
+      "status": "PASS",
+      "detail": "interval=4000"
+    }
+  ],
+  "diagnoses": {
+    "A_assignmentVersionMismatch": "CONFIRMED",
+    "B_unknownPresenceDeadZone": "DISPROVED",
+    "C_driverP2pPresenceGating": "DISPROVED",
+    "D_firebaseRenderThrottle15s": "DISPROVED"
+  },
+  "stage2ScopeRecommendation": [
+    "Fix driver peer session to adopt server-authoritative assignmentVersion before any LOC/ACK/HB is sent.",
+    "Add regression: serverAv != 1 → customer accepts driver LOC.",
+    "Do not weaken validateP2pMessage wrong_assignment check."
+  ]
+}

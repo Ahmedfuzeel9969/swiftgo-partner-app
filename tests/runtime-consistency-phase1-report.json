@@ -1,0 +1,318 @@
+{
+  "suite": "runtime-consistency-phase1",
+  "title": "Phase 1 — Runtime Configuration Verification",
+  "generatedAt": "2026-08-04T14:10:00.000Z",
+  "scope": "Observe-only. No code changes.",
+  "sourcesOfTruth": {
+    "checkpoint": "driver-app/js/location-checkpoint-policy.mjs",
+    "p2p": "driver-app/js/p2p-protocol.mjs (mirrored in customer-app/js/p2p-protocol.mjs)",
+    "freshness": "customer-app/js/live-location-render.mjs",
+    "arbiter": "customer-app/js/live-location-source-arbiter.mjs (uses P2P_FALLBACK_AFTER_MS)",
+    "diagnosticsDuplicates": "shared/js/phase1-billing-diagnostics.mjs (imported by phase2/phase3 reports)"
+  },
+  "runtimeValues": {
+    "firebasePublishIntervalResponsiveMs": {
+      "value": 4000,
+      "file": "driver-app/js/location-checkpoint-policy.mjs",
+      "symbol": "RESPONSIVE_INTERVAL_MS"
+    },
+    "firebasePublishIntervalIdleMs": {
+      "value": 300000,
+      "file": "driver-app/js/location-checkpoint-policy.mjs",
+      "symbol": "IDLE_LOCATION_INTERVAL_MS",
+      "note": "5 minutes — idle / no active ride"
+    },
+    "firebasePublishIntervalBackgroundApproachMs": {
+      "value": 60000,
+      "file": "driver-app/js/location-checkpoint-policy.mjs",
+      "symbol": "BACKGROUND_APPROACH_INTERVAL_MS"
+    },
+    "firebasePublishIntervalBackgroundTripMs": {
+      "value": 30000,
+      "file": "driver-app/js/location-checkpoint-policy.mjs",
+      "symbol": "BACKGROUND_TRIP_INTERVAL_MS"
+    },
+    "firebaseMovementThresholdM": {
+      "value": 200,
+      "file": "driver-app/js/location-checkpoint-policy.mjs",
+      "symbol": "MIN_LOCATION_MOVE_M",
+      "note": "Used for idle + responsive movement gate"
+    },
+    "firebaseMatchStaleTimeoutMs": {
+      "value": 300000,
+      "file": "functions/geo-cells.js",
+      "symbol": "STALE_LOCATION_MS",
+      "note": "Server match stale location (5 min)"
+    },
+    "p2pSendIntervalMs": {
+      "value": 3000,
+      "file": "driver-app/js/p2p-protocol.mjs",
+      "symbol": "P2P_SEND_INTERVAL_MS"
+    },
+    "p2pDegradedTimeoutMs": {
+      "value": 9000,
+      "file": "driver-app/js/p2p-protocol.mjs",
+      "symbol": "P2P_DEGRADED_AFTER_MS"
+    },
+    "p2pFallbackTimeoutMs": {
+      "value": 30000,
+      "file": "driver-app/js/p2p-protocol.mjs",
+      "symbol": "P2P_FALLBACK_AFTER_MS"
+    },
+    "firebaseBackupReadIntervalMs": {
+      "value": 15000,
+      "file": "driver-app/js/p2p-protocol.mjs",
+      "symbol": "FIREBASE_BACKUP_READ_INTERVAL_MS"
+    },
+    "p2pHeartbeatIntervalMs": {
+      "value": 12000,
+      "file": "driver-app/js/p2p-protocol.mjs",
+      "symbol": "P2P_HEARTBEAT_INTERVAL_MS"
+    },
+    "checkpointP2pSparseEnterMs": {
+      "value": 5000,
+      "file": "driver-app/js/location-checkpoint-policy.mjs",
+      "symbol": "P2P_SPARSE_ENTER_HYSTERESIS_MS"
+    },
+    "checkpointP2pSparseExitMs": {
+      "value": 3000,
+      "file": "driver-app/js/location-checkpoint-policy.mjs",
+      "symbol": "P2P_SPARSE_EXIT_HYSTERESIS_MS"
+    },
+    "freshnessFreshMs": {
+      "value": 15000,
+      "file": "customer-app/js/live-location-render.mjs",
+      "symbol": "FRESHNESS_FRESH_MS"
+    },
+    "freshnessDelayedMs": {
+      "value": 45000,
+      "file": "customer-app/js/live-location-render.mjs",
+      "symbol": "FRESHNESS_DELAYED_MS"
+    },
+    "maxAcceptAccuracyM": {
+      "value": 80,
+      "file": "driver-app/js/location-envelope.mjs",
+      "symbol": "MAX_ACCEPT_ACCURACY_M"
+    }
+  },
+  "diagnosticValues": {
+    "CFG_RESPONSIVE_INTERVAL_MS": {
+      "value": 4000,
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "CFG_BACKGROUND_APPROACH_INTERVAL_MS": {
+      "value": 60000,
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "CFG_BACKGROUND_TRIP_INTERVAL_MS": {
+      "value": 30000,
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "CFG_MIN_LOCATION_MOVE_M": {
+      "value": 10,
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "CFG_P2P_SPARSE_ENTER_MS": {
+      "value": 5000,
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "CFG_P2P_SPARSE_EXIT_MS": {
+      "value": 3000,
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "CFG_P2P_FALLBACK_AFTER_MS": {
+      "value": 12000,
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "CFG_FRESHNESS_FRESH_MS": {
+      "value": 15000,
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "CFG_FRESHNESS_DELAYED_MS": {
+      "value": 45000,
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "CFG_MAX_ACCEPT_ACCURACY_M": {
+      "value": 80,
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "PHASE1_DRIVER_CONFIG.conditionsBeforeFirebaseWrite": {
+      "value": "…moved≥10m…",
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "PHASE1_P2P_CONFIG.firebaseFallbackTrigger": {
+      "value": "Silent P2P >12s…",
+      "file": "shared/js/phase1-billing-diagnostics.mjs"
+    },
+    "phase3-billing-proof text": {
+      "value": "Expected fallback: … (12 seconds); Expected write interval: … (4 seconds)",
+      "file": "shared/js/phase3-billing-proof.mjs"
+    }
+  },
+  "comparisons": [
+    {
+      "item": "Firebase publish interval (responsive)",
+      "runtime": 4000,
+      "diagnostic": 4000,
+      "identical": true
+    },
+    {
+      "item": "Firebase publish interval (background approach)",
+      "runtime": 60000,
+      "diagnostic": 60000,
+      "identical": true
+    },
+    {
+      "item": "Firebase publish interval (background trip)",
+      "runtime": 30000,
+      "diagnostic": 30000,
+      "identical": true
+    },
+    {
+      "item": "Firebase publish interval (idle / no ride)",
+      "runtime": 300000,
+      "diagnostic": null,
+      "identical": false,
+      "mismatch": "Diagnostics omit IDLE_LOCATION_INTERVAL_MS (5 min)"
+    },
+    {
+      "item": "Firebase movement threshold",
+      "runtime": 200,
+      "diagnostic": 10,
+      "identical": false,
+      "mismatch": "CFG_MIN_LOCATION_MOVE_M=10 vs MIN_LOCATION_MOVE_M=200"
+    },
+    {
+      "item": "P2P fallback timeout",
+      "runtime": 30000,
+      "diagnostic": 12000,
+      "identical": false,
+      "mismatch": "CFG_P2P_FALLBACK_AFTER_MS=12000 vs P2P_FALLBACK_AFTER_MS=30000"
+    },
+    {
+      "item": "P2P degraded timeout",
+      "runtime": 9000,
+      "diagnostic": null,
+      "identical": false,
+      "mismatch": "Not reported in phase1 CFG constants"
+    },
+    {
+      "item": "P2P send interval",
+      "runtime": 3000,
+      "diagnostic": null,
+      "identical": false,
+      "mismatch": "Not reported in phase1 CFG constants"
+    },
+    {
+      "item": "Firebase backup read interval",
+      "runtime": 15000,
+      "diagnostic": null,
+      "identical": false,
+      "mismatch": "FIREBASE_BACKUP_READ_INTERVAL_MS not in diagnostics CFG"
+    },
+    {
+      "item": "Checkpoint P2P sparse enter/exit",
+      "runtime": "5000 / 3000",
+      "diagnostic": "5000 / 3000",
+      "identical": true
+    },
+    {
+      "item": "Freshness fresh/delayed",
+      "runtime": "15000 / 45000",
+      "diagnostic": "15000 / 45000",
+      "identical": true
+    },
+    {
+      "item": "Max accept accuracy",
+      "runtime": 80,
+      "diagnostic": 80,
+      "identical": true
+    }
+  ],
+  "mismatches": [
+    {
+      "severity": "critical",
+      "item": "P2P fallback timeout",
+      "runtimeValue": 30000,
+      "diagnosticValue": 12000,
+      "runtimeSource": "driver-app/js/p2p-protocol.mjs → P2P_FALLBACK_AFTER_MS",
+      "diagnosticSource": "shared/js/phase1-billing-diagnostics.mjs → CFG_P2P_FALLBACK_AFTER_MS",
+      "alsoAffects": [
+        "shared/js/phase2-runtime-verification.mjs (imports CFG_P2P_FALLBACK_AFTER_MS)",
+        "shared/js/phase3-billing-proof.mjs (uses CFG + prose '12 seconds')",
+        "PHASE1_P2P_CONFIG.fallbackAfterMs / failureTimeoutMs / firebaseFallbackTrigger text"
+      ]
+    },
+    {
+      "severity": "critical",
+      "item": "Firebase movement threshold",
+      "runtimeValue": 200,
+      "diagnosticValue": 10,
+      "runtimeSource": "driver-app/js/location-checkpoint-policy.mjs → MIN_LOCATION_MOVE_M",
+      "diagnosticSource": "shared/js/phase1-billing-diagnostics.mjs → CFG_MIN_LOCATION_MOVE_M",
+      "alsoAffects": [
+        "PHASE1_DRIVER_CONFIG.minimumMovementMeters",
+        "PHASE1_DRIVER_CONFIG.conditionsBeforeFirebaseWrite prose ('moved≥10m')"
+      ]
+    },
+    {
+      "severity": "gap",
+      "item": "Idle Firebase publish interval (5 min)",
+      "runtimeValue": 300000,
+      "diagnosticValue": null,
+      "runtimeSource": "driver-app/js/location-checkpoint-policy.mjs → IDLE_LOCATION_INTERVAL_MS",
+      "diagnosticSource": "(missing from phase1 CFG)"
+    },
+    {
+      "severity": "gap",
+      "item": "P2P degraded timeout",
+      "runtimeValue": 9000,
+      "diagnosticValue": null,
+      "runtimeSource": "driver-app/js/p2p-protocol.mjs → P2P_DEGRADED_AFTER_MS",
+      "diagnosticSource": "(missing)"
+    },
+    {
+      "severity": "gap",
+      "item": "P2P send interval",
+      "runtimeValue": 3000,
+      "diagnosticValue": null,
+      "runtimeSource": "driver-app/js/p2p-protocol.mjs → P2P_SEND_INTERVAL_MS",
+      "diagnosticSource": "(missing)"
+    },
+    {
+      "severity": "gap",
+      "item": "Firebase backup apply throttle",
+      "runtimeValue": 15000,
+      "diagnosticValue": null,
+      "runtimeSource": "driver-app/js/p2p-protocol.mjs → FIREBASE_BACKUP_READ_INTERVAL_MS",
+      "diagnosticSource": "(missing)"
+    },
+    {
+      "severity": "gap",
+      "item": "P2P heartbeat interval",
+      "runtimeValue": 12000,
+      "diagnosticValue": null,
+      "runtimeSource": "driver-app/js/p2p-protocol.mjs → P2P_HEARTBEAT_INTERVAL_MS",
+      "diagnosticSource": "(missing; note: 12000 here is heartbeat, NOT fallback)"
+    },
+    {
+      "severity": "stale-prose",
+      "item": "Diagnostic narrative strings",
+      "runtimeValue": "fallback 30s; move ≥200m",
+      "diagnosticValue": "fallback >12s; move ≥10m",
+      "runtimeSource": "p2p-protocol.mjs + location-checkpoint-policy.mjs",
+      "diagnosticSource": "phase1-billing-diagnostics.mjs PHASE1_*_CONFIG strings; phase3-billing-proof.mjs"
+    }
+  ],
+  "identicalItems": [
+    "Responsive Firebase interval 4000ms",
+    "Background approach 60000ms",
+    "Background trip 30000ms",
+    "P2P sparse enter/exit hysteresis 5000/3000ms",
+    "Freshness 15000/45000ms",
+    "Max GPS accuracy 80m"
+  ],
+  "architecturalFinding": "Diagnostics duplicate constants in shared/js/phase1-billing-diagnostics.mjs instead of importing runtime exports. Duplicates drifted after Firebase idle 200m/5min and P2P fallback 30s changes.",
+  "codeChangesThisPhase": "NONE — Phase 1 observe-only",
+  "status": "STOPPED — awaiting approval for Phase 2"
+}

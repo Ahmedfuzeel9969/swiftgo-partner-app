@@ -5,9 +5,10 @@
 
 "use strict";
 
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const { logger } = require("firebase-functions");
-const { onDocumentWritten, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentWritten, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { initializeApp, getApps } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { createDispatchTimer, withDispatchTimeout } = require("./dispatch-latency");
@@ -18,6 +19,8 @@ const {
   cancelAllSearchingBookings,
   expireSearchingBooking,
   expireDueSearchingBookings,
+  expireDueRideOffers,
+  expireRideOffer,
   matchRideCandidates,
   previewCancellationFare,
   submitRideOffer,
@@ -27,6 +30,9 @@ const {
   acceptCustomerInitialFareAsDriver,
   readDispatchSettings,
   rematchNearbySearchingRidesForVehicle,
+  normalizeSearchTimeoutSeconds,
+  SEARCH_TIMEOUT_SECONDS_MIN,
+  SEARCH_TIMEOUT_SECONDS_MAX,
 } = require("./bargaining");
 const {
   declineRideCandidate,
@@ -36,6 +42,7 @@ const {
 } = require("./ride-cancellation");
 const { submitCompletedRideRating } = require("./ride-rating");
 const { validateCandidateDriverLimit } = require("./matching");
+const { evaluateVehicleRematchTrigger } = require("./dispatch-rematch");
 const {
   bootstrapAdminClaim,
   initSuperAdminAccess,
@@ -63,6 +70,7 @@ const {
   recordSettlementFailure,
   recordMatchingFailure,
   recordAuthDenial,
+  recordDispatchDeliverySlo,
   getOpsHealthSummary,
   logStructured,
 } = require("./ops-monitor");
@@ -76,13 +84,26 @@ const {
   publishRidePeerAnswer,
   closeRidePeerSession,
 } = require("./ride-peer-session");
+const { issueP2pTurnCredentials } = require("./p2p-turn-credentials");
 const { submitRideBreadcrumbBatch } = require("./breadcrumb-batch");
 const { submitRideLocationReportSection } = require("./ride-location-report");
+const {
+  issueBackgroundLocationCredential,
+  refreshBackgroundLocationCredential,
+  ingestBackgroundDriverLocation,
+} = require("./background-location-upload");
+
+/**
+ * Main-alignment note (Stage 8 tranche 4):
+ * Owner/admin/lifecycle exports ported from origin/main.
+ * Keep branch-only background location HTTPS exports (issue/refresh/ingest) below.
+ */
 
 if (!getApps().length) {
   initializeApp();
 }
 const db = getFirestore();
+const backgroundLocationUploadSecret = defineSecret("BACKGROUND_LOCATION_UPLOAD_SECRET");
 
 function mapErr(err) {
   const code = err?.code || "internal";
@@ -105,14 +126,16 @@ function mapErr(err) {
   if (message === "INVALID_PICKUP" || message === "INVALID_DROPOFF") {
     return new HttpsError("invalid-argument", message);
   }
-  if (
-    message === "EMPTY_VEHICLE_TYPE" ||
-    message === "UNKNOWN_VEHICLE_TYPE" ||
-    message === "VEHICLE_TYPE_CONFLICT"
-  ) {
-    return new HttpsError("invalid-argument", message);
-  }
   return new HttpsError("internal", message);
+}
+
+function normalizeDispatchTraceId(value) {
+  const traceId = String(value || "").trim();
+  if (!traceId) return "";
+  if (!/^dt_[a-z0-9]+_[a-z0-9]+$/i.test(traceId) || traceId.length > 80) {
+    throw new HttpsError("invalid-argument", "INVALID_DISPATCH_TRACE_ID");
+  }
+  return traceId;
 }
 
 async function wrapCall(name, request, fn) {
@@ -260,6 +283,7 @@ exports.createCustomerBooking = onCall(
       created = await createCustomerBooking(db, {
         customerUid: request.auth.uid,
         confirmedExtraBooking: Boolean(data.confirmedExtraBooking),
+        dispatchTraceId: normalizeDispatchTraceId(data.dispatchTraceId),
         ridePayload: {
           pickupLocation: data.pickupLocation,
           dropoffLocation: data.dropoffLocation,
@@ -279,94 +303,14 @@ exports.createCustomerBooking = onCall(
       });
       timer.mark("ride_tx_complete", { rideId: created?.id });
 
-      let matching = null;
-      let matchingError = null;
-      try {
-        const pickup = {
-          lat: Number(data.pickupLocation?.lat),
-          lng: Number(data.pickupLocation?.lng),
-        };
-        if (!Number.isFinite(pickup.lat) || !Number.isFinite(pickup.lng)) {
-          matchingError = "INVALID_PICKUP";
-          await db.collection("rides").doc(created.id).set(
-            {
-              matchingStatus: "invalid_pickup",
-              matchedAt: FieldValue.serverTimestamp(),
-            },
-            { merge: true }
-          );
-        } else {
-          timer.mark("match_start", { rideId: created.id });
-          matching = await withDispatchTimeout(
-            matchRideCandidates(db, {
-              rideId: created.id,
-              pickup,
-              _latencyTimer: timer,
-            }),
-            15000,
-            "matchRideCandidates"
-          );
-          timer.mark("match_complete", {
-            rideId: created.id,
-            candidateCount: matching?.candidateCount ?? matching?.candidates?.length ?? 0,
-          });
-        }
-      } catch (matchErr) {
-        matchingError = String(matchErr?.message || matchErr).slice(0, 200);
-        logger.error("[Dispatch Error] createCustomerBooking auto-match failed:", matchErr);
-        await recordMatchingFailure(db, matchingError).catch(() => {});
-        logStructured("ERROR", "auto_match_failed", {
-          rideId: created.id,
-          message: matchingError,
-        });
-        try {
-          await db.collection("rides").doc(created.id).set(
-            {
-              matchingStatus: "match_failed",
-              matchingError,
-              matchedAt: FieldValue.serverTimestamp(),
-            },
-            { merge: true }
-          );
-        } catch (writeErr) {
-          logger.warn("[Dispatch Error] could not write match_failed on ride", writeErr);
-        }
-      }
-
-      let candidateCount = 0;
-      let matchingStatus = matchingError ? "match_failed" : "pending";
-      if (!matchingError) {
-        try {
-          const rideAfter = await db.collection("rides").doc(created.id).get();
-          const rideData = rideAfter.exists ? rideAfter.data() || {} : {};
-          candidateCount = Number(
-            rideData.candidateCount ??
-              matching?.candidateCount ??
-              matching?.candidates?.length ??
-              0
-          );
-          matchingStatus = String(
-            rideData.matchingStatus ||
-              (candidateCount > 0 ? "candidates_ready" : matching ? "no_candidates" : "pending")
-          );
-        } catch (readErr) {
-          candidateCount = Number(matching?.candidateCount ?? matching?.candidates?.length ?? 0);
-          matchingStatus = matching
-            ? candidateCount > 0
-              ? "candidates_ready"
-              : "no_candidates"
-            : "pending";
-          logger.warn("[Dispatch] ride read after match", readErr?.message || readErr);
-        }
-      }
-
       const latencyPayload = timer.finish({ rideId: created.id });
       return sanitizeCallableResult({
         id: created.id,
         count: created.count,
-        matchingStatus,
-        candidateCount,
-        matchingError: matchingError || "",
+        dispatchTraceId: String(data.dispatchTraceId || ""),
+        matchingStatus: "pending",
+        candidateCount: 0,
+        matchingError: "",
         latencyMs: Number(latencyPayload?.totalMs) || 0,
       });
     } catch (err) {
@@ -376,6 +320,46 @@ exports.createCustomerBooking = onCall(
       });
       logger.error("[Dispatch Error] createCustomerBooking failed:", err);
       throw mapErr(err);
+    }
+  }
+);
+
+/**
+ * Match after a successful booking write. Keeping this work out of the booking
+ * callable gives the customer an immediate searching state while preserving
+ * server-authoritative geo matching and candidate writes.
+ */
+exports.dispatchNewRideCandidates = onDocumentCreated(
+  { document: "rides/{rideId}", region: "us-central1" },
+  async (event) => {
+    const rideId = event.params.rideId;
+    const ride = event.data?.data() || {};
+    if (String(ride.status || "") !== "searching_driver") return;
+    const pickup = {
+      lat: Number(ride.pickupLocation?.lat),
+      lng: Number(ride.pickupLocation?.lng),
+    };
+    if (!Number.isFinite(pickup.lat) || !Number.isFinite(pickup.lng)) {
+      await db.collection("rides").doc(rideId).set(
+        { matchingStatus: "invalid_pickup", matchedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+      return;
+    }
+    try {
+      await withDispatchTimeout(matchRideCandidates(db, { rideId, pickup }), 15000, "matchRideCandidates");
+    } catch (err) {
+      const matchingError = String(err?.message || err).slice(0, 200);
+      logger.error("dispatch_new_ride_match_failed", { rideId, matchingError });
+      await recordMatchingFailure(db, matchingError).catch(() => {});
+      await db.collection("rides").doc(rideId).set(
+        {
+          matchingStatus: "match_failed",
+          matchingError,
+          matchedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
     }
   }
 );
@@ -439,6 +423,55 @@ exports.expireDueSearchingBookings = onCall({ region: "us-central1" }, async (re
   }
 });
 
+/**
+ * P1-B: Admin-only sweeper for per-offer timeouts.
+ * Do NOT enable Cloud Scheduler until billing impact is approved.
+ */
+exports.expireDueRideOffers = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  const isAdmin = await callerIsAdmin(request);
+  if (!isAdmin) throw new HttpsError("permission-denied", "ADMIN_REQUIRED");
+  try {
+    const limit = request.data?.limit;
+    return await expireDueRideOffers(db, {
+      limit: limit != null ? Number(limit) : 25,
+    });
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+/**
+ * P1-B: Party-scoped offer expiry (customer or driver on the offer).
+ * Used by client timers / reconnect — server re-checks offerExpiresAt.
+ */
+exports.expireRideOffer = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    const offerId = String(request.data?.offerId || "").trim();
+    logger.info("expireRideOffer_invoke", {
+      uid: request.auth.uid,
+      offerId,
+    });
+    const result = await expireRideOffer(db, {
+      offerId,
+      actorUid: request.auth.uid,
+    });
+    logger.info("expireRideOffer_result", {
+      offerId,
+      status: result?.status,
+      alreadyClosed: result?.alreadyClosed,
+      closedReason: result?.closedReason || null,
+    });
+    return result;
+  } catch (err) {
+    logger.warn("expireRideOffer_error", {
+      message: String(err?.message || err).slice(0, 160),
+    });
+    throw mapErr(err);
+  }
+});
+
 /** Trusted matching after ride create (Admin SDK writes candidates). Phase 3B: geo-scoped only. */
 exports.matchRideCandidates = onCall(
   { region: "us-central1", minInstances: 1 },
@@ -483,6 +516,83 @@ exports.matchRideCandidates = onCall(
     throw mapErr(err);
   }
 });
+
+/**
+ * Best-effort driver receipt telemetry for dispatch SLOs.
+ * Only an invited driver may record their own receipt; client timestamps are
+ * diagnostic-only while serverReceivedAt is the authoritative event time.
+ */
+exports.recordDispatchDeliveryReceipt = onCall(
+  { region: "us-central1" },
+  async (request) => {
+    const driverUid = request.auth?.uid;
+    if (!driverUid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+    const rideId = String(request.data?.rideId || "").trim();
+    const dispatchTraceId = normalizeDispatchTraceId(request.data?.dispatchTraceId);
+    if (!rideId || !dispatchTraceId) {
+      throw new HttpsError("invalid-argument", "MISSING_DISPATCH_RECEIPT_FIELDS");
+    }
+
+    const candidateRef = db.collection("ride_candidates").doc(`${rideId}_${driverUid}`);
+    const rideRef = db.collection("rides").doc(rideId);
+    const receiptRef = rideRef.collection("dispatch_receipts").doc(driverUid);
+    const [candidateSnap, rideSnap, priorReceiptSnap] = await Promise.all([
+      candidateRef.get(),
+      rideRef.get(),
+      receiptRef.get(),
+    ]);
+    const candidate = candidateSnap.exists ? candidateSnap.data() || {} : null;
+    const ride = rideSnap.exists ? rideSnap.data() || {} : null;
+    if (
+      !candidate ||
+      candidate.driverId !== driverUid ||
+      !["invited", "accepted"].includes(String(candidate.status || "")) ||
+      !ride ||
+      String(ride.dispatchTraceId || "") !== dispatchTraceId
+    ) {
+      throw new HttpsError("permission-denied", "DISPATCH_RECEIPT_NOT_INVITED");
+    }
+
+    const clientReceivedAtMs = Number(request.data?.clientReceivedAtMs);
+    const clientRenderedAtMs = Number(request.data?.clientRenderedAtMs);
+    const serverReceivedAtMs = Date.now();
+    await receiptRef.set(
+      {
+        driverId: driverUid,
+        dispatchTraceId,
+        candidateId: candidateSnap.id,
+        clientReceivedAtMs: Number.isFinite(clientReceivedAtMs) ? Math.round(clientReceivedAtMs) : null,
+        clientRenderedAtMs: Number.isFinite(clientRenderedAtMs) ? Math.round(clientRenderedAtMs) : null,
+        serverReceivedAtMs,
+        serverReceivedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    let slo = null;
+    if (!priorReceiptSnap.exists) {
+      try {
+        slo = await recordDispatchDeliverySlo(db, {
+          ride,
+          candidate,
+          nowMs: serverReceivedAtMs,
+        });
+      } catch (metricErr) {
+        logger.warn("dispatch_delivery_metric_failed", {
+          rideId,
+          message: String(metricErr?.message || metricErr).slice(0, 160),
+        });
+      }
+    }
+    logger.info("dispatch_delivery_receipt", {
+      rideId,
+      driverUid,
+      dispatchTraceId,
+      firstReceipt: !priorReceiptSnap.exists,
+      deliveryMs: slo?.deliveryMs ?? null,
+    });
+    return { ok: true, firstReceipt: !priorReceiptSnap.exists };
+  }
+);
 
 exports.submitRideOffer = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
@@ -634,7 +744,7 @@ exports.acceptCustomerInitialFare = onCall({ region: "us-central1" }, async (req
 
 /** Super Admin: dispatch settings (candidate limit + search radius). */
 exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (request) => {
-  if (!request.auth?.uid) {
+  if (!request.auth?.uid || !(await ensureCallerCanAdminWrite(db, request.auth))) {
     throw new HttpsError("permission-denied", "ADMIN_ONLY");
   }
   if (requestTouchesDiagnosticControls(request.data)) {
@@ -642,11 +752,16 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       throw new HttpsError("permission-denied", "SUPER_ADMIN_DIAGNOSTIC_ONLY");
     }
   }
-  if (!(await ensureCallerCanAdminWrite(db, request.auth))) {
-    throw new HttpsError("permission-denied", "ADMIN_ONLY");
-  }
   try {
     const { validateCandidateDriverLimit, validateSearchRadius, buildSearchRingsKm } = require("./matching");
+    const {
+      validateIdleIntervalMsForCallable,
+      validateIdleMoveMetersForCallable,
+      validateIdleMovementTriggerDisabledForCallable,
+      validateDiagnosticDurationMinutesForCallable,
+      sanitizeDiagnosticReason,
+      IDLE_DIAGNOSTIC_MAX_DURATION_MS,
+    } = require("./idle-publish-config");
     const limit = validateCandidateDriverLimit(request.data?.candidateDriverLimit);
 
     let radius = null;
@@ -678,19 +793,6 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       updatedBy: request.auth.uid,
     };
 
-    const {
-      validateIdleIntervalMsForCallable,
-      validateIdleMoveMetersForCallable,
-      validateIdleMovementTriggerDisabledForCallable,
-      validateDiagnosticDurationMinutesForCallable,
-      sanitizeDiagnosticReason,
-      IDLE_DIAGNOSTIC_MAX_DURATION_MS,
-    } = require("./idle-publish-config");
-
-    if (request.data?.idleDiagnosticExpiresAt != null) {
-      throw new HttpsError("invalid-argument", "IDLE_DIAGNOSTIC_EXPIRY_CLIENT_FORBIDDEN");
-    }
-
     if (request.data?.idleLocationIntervalMs != null) {
       const idleMs = request.data.idleLocationIntervalMs;
       if (!validateIdleIntervalMsForCallable(idleMs)) {
@@ -705,7 +807,9 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       }
       payload.idleLocationMoveMeters = moveM;
     }
-
+    if (request.data?.idleDiagnosticExpiresAt != null) {
+      throw new HttpsError("invalid-argument", "IDLE_DIAGNOSTIC_EXPIRY_CLIENT_FORBIDDEN");
+    }
     if (request.data?.idleMovementTriggerDisabled != null) {
       if (!validateIdleMovementTriggerDisabledForCallable(request.data.idleMovementTriggerDisabled)) {
         throw new HttpsError("invalid-argument", "IDLE_MOVEMENT_TRIGGER_FLAG_INVALID");
@@ -732,6 +836,31 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
         payload.idleDiagnosticEnabledAt = FieldValue.delete();
         payload.idleDiagnosticReason = FieldValue.delete();
       }
+    }
+    if (request.data?.offerTimeoutSeconds != null) {
+      const offerSec = Math.round(Number(request.data.offerTimeoutSeconds));
+      if (!Number.isFinite(offerSec) || offerSec < 5 || offerSec > 300) {
+        throw new HttpsError("invalid-argument", "OFFER_TIMEOUT_OUT_OF_RANGE");
+      }
+      payload.offerTimeoutSeconds = offerSec;
+    }
+    if (request.data?.searchTimeoutSeconds != null) {
+      const searchSec = Math.round(Number(request.data.searchTimeoutSeconds));
+      if (
+        !Number.isFinite(searchSec) ||
+        searchSec < SEARCH_TIMEOUT_SECONDS_MIN ||
+        searchSec > SEARCH_TIMEOUT_SECONDS_MAX
+      ) {
+        throw new HttpsError("invalid-argument", "SEARCH_TIMEOUT_OUT_OF_RANGE");
+      }
+      payload.searchTimeoutSeconds = normalizeSearchTimeoutSeconds(searchSec);
+    }
+    if (request.data?.customerLocationFallbackSeconds != null) {
+      const fallbackSec = Math.round(Number(request.data.customerLocationFallbackSeconds));
+      if (!Number.isFinite(fallbackSec) || (fallbackSec !== 0 && (fallbackSec < 30 || fallbackSec > 300))) {
+        throw new HttpsError("invalid-argument", "CUSTOMER_LOCATION_FALLBACK_OUT_OF_RANGE");
+      }
+      payload.customerLocationFallbackSeconds = fallbackSec;
     }
 
     if (radius) {
@@ -761,6 +890,8 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       idleLocationMoveMeters: payload.idleLocationMoveMeters ?? null,
       idleMovementTriggerDisabled: payload.idleMovementTriggerDisabled ?? null,
       idleDiagnosticExpiresAt: payload.idleDiagnosticExpiresAt ?? null,
+      offerTimeoutSeconds: payload.offerTimeoutSeconds ?? null,
+      customerLocationFallbackSeconds: payload.customerLocationFallbackSeconds ?? null,
     };
   } catch (err) {
     throw mapErr(err);
@@ -893,43 +1024,6 @@ exports.saveAdminPricingSettings = onCall({ region: "us-central1" }, async (requ
   }
 });
 
-/** Super Admin: persist location reporting config (settings/locationReporting). Diagnostic only. */
-exports.saveAdminLocationReportingSettings = onCall({ region: "us-central1" }, async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError("permission-denied", "ADMIN_ONLY");
-  }
-  if (!(await isCallerAuthorizedForDiagnostic(db, request.auth))) {
-    throw new HttpsError("permission-denied", "SUPER_ADMIN_REPORTING_CONFIG_ONLY");
-  }
-  try {
-    const {
-      LOCATION_REPORTING_SCHEMA_VERSION,
-      LOCATION_REPORTING_CONFIG_DOC_PATH,
-      buildValidatedLocationReportingSettings,
-    } = require("./location-reporting-config");
-    const config = buildValidatedLocationReportingSettings(request.data || {});
-    await db.doc(LOCATION_REPORTING_CONFIG_DOC_PATH).set(
-      {
-        schemaVersion: LOCATION_REPORTING_SCHEMA_VERSION,
-        ...config,
-        updatedAt: FieldValue.serverTimestamp(),
-        updatedBy: request.auth.uid,
-      },
-      { merge: true }
-    );
-    const { invalidateLocationReportingConfigCache } = require("./location-reporting-config-cache");
-    invalidateLocationReportingConfigCache();
-    return { ok: true, config };
-  } catch (err) {
-    const msg = String(err?.message || err || "");
-    if (msg.startsWith("INVALID_")) {
-      throw new HttpsError("invalid-argument", msg);
-    }
-    console.error("[saveAdminLocationReportingSettings]", err?.code || err?.message || err);
-    throw mapErr(err);
-  }
-});
-
 exports.getDispatchSettings = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   return readDispatchSettings(db);
@@ -952,7 +1046,6 @@ exports.requestAccountDeletion = onCall({ region: "us-central1" }, async (reques
   }
 });
 
-/** Task 3B — authenticated user requests fleet-owner approval (pending state only). */
 exports.requestOwnerAccess = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   try {
@@ -1047,23 +1140,13 @@ exports.mirrorDriverLocationOnVehicleUpdate = onDocumentWritten(
       }
     }
 
-    const becameOnline = before?.status !== "online" && after.status === "online";
-    const gotGeoCell = !before?.geoCell && after.geoCell;
-    const geoCellChanged =
-      before?.geoCell && after.geoCell && before.geoCell !== after.geoCell;
-    const hadValidLoc =
-      Number.isFinite(Number(before?.location?.lat)) &&
-      Number.isFinite(Number(before?.location?.lng));
-    const hasValidLoc =
-      Number.isFinite(Number(after?.location?.lat)) &&
-      Number.isFinite(Number(after?.location?.lng));
-    const gotValidLocation = !hadValidLoc && hasValidLoc;
+    const rematchTrigger = evaluateVehicleRematchTrigger(before, after);
     if (
       !after.activeRideId &&
       after.status === "online" &&
       after.geoCell &&
-      hasValidLoc &&
-      (becameOnline || gotGeoCell || geoCellChanged || gotValidLocation)
+      rematchTrigger.hasLocation &&
+      rematchTrigger.shouldRematch
     ) {
       try {
         const result = await rematchNearbySearchingRidesForVehicle(
@@ -1076,6 +1159,7 @@ exports.mirrorDriverLocationOnVehicleUpdate = onDocumentWritten(
             vehicleId: event.params.vehicleId,
             driverId: after.driverId,
             rematched: result.rematched,
+            reason: rematchTrigger.reason,
           });
         }
       } catch (err) {
@@ -1159,6 +1243,14 @@ exports.closeRidePeerSession = onCall({ region: "us-central1" }, async (request)
   );
 });
 
+/** Phase 3 — ephemeral TURN credentials for NAT traversal (coturn REST API). */
+exports.getP2pTurnCredentials = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("getP2pTurnCredentials", request, () =>
+    issueP2pTurnCredentials({ uid: request.auth.uid })
+  );
+});
+
 /**
  * Phase 6 — shadow breadcrumb batch (dense chord telemetry only).
  * Does not mutate traveledDistanceKm, fare, wallet, or settlement.
@@ -1171,6 +1263,40 @@ exports.submitRideBreadcrumbBatch = onCall({ region: "us-central1" }, async (req
       batch: request.data?.batch,
     })
   );
+});
+
+/** Super Admin: persist location reporting config (settings/locationReporting). Diagnostic only. */
+exports.saveAdminLocationReportingSettings = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid || !(await isCallerAuthorizedForDiagnostic(db, request.auth))) {
+    throw new HttpsError("permission-denied", "SUPER_ADMIN_ONLY");
+  }
+  try {
+    const {
+      LOCATION_REPORTING_SCHEMA_VERSION,
+      LOCATION_REPORTING_CONFIG_DOC_PATH,
+      buildValidatedLocationReportingSettings,
+    } = require("./location-reporting-config");
+    const config = buildValidatedLocationReportingSettings(request.data || {});
+    await db.doc(LOCATION_REPORTING_CONFIG_DOC_PATH).set(
+      {
+        schemaVersion: LOCATION_REPORTING_SCHEMA_VERSION,
+        ...config,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: request.auth.uid,
+      },
+      { merge: true }
+    );
+    const { invalidateLocationReportingConfigCache } = require("./location-reporting-config-cache");
+    invalidateLocationReportingConfigCache();
+    return { ok: true, config };
+  } catch (err) {
+    const msg = String(err?.message || err || "");
+    if (msg.startsWith("INVALID_")) {
+      throw new HttpsError("invalid-argument", msg);
+    }
+    console.error("[saveAdminLocationReportingSettings]", err?.code || err?.message || err);
+    throw mapErr(err);
+  }
 });
 
 /** Per-ride location delivery report — driver/customer diagnostic section submit. */
@@ -1188,3 +1314,114 @@ exports.submitRideLocationReportSection = onCall({ region: "us-central1" }, asyn
     })
   );
 });
+
+/**
+ * Issue short-lived HMAC credential for Android background location upload.
+ * Auth required — assigned driver only.
+ */
+exports.issueBackgroundLocationCredential = onCall(
+  { region: "us-central1", secrets: [backgroundLocationUploadSecret] },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+    return wrapCall("issueBackgroundLocationCredential", request, () =>
+      issueBackgroundLocationCredential(db, {
+        driverUid: request.auth.uid,
+        rideId: request.data?.rideId,
+        vehicleId: request.data?.vehicleId,
+        trackingSessionId: request.data?.trackingSessionId,
+        assignmentSessionToken: request.data?.assignmentSessionToken,
+        ttlMs: request.data?.ttlMs,
+      })
+    );
+  }
+);
+
+/**
+ * Native HTTPS credential rotation (no Firebase Auth SDK).
+ * Accepts a still-valid scoped HMAC token; revalidates assignment; returns successor.
+ */
+exports.refreshBackgroundDriverLocationCredential = onRequest(
+  { region: "us-central1", cors: true, secrets: [backgroundLocationUploadSecret] },
+  async (req, res) => {
+    if (req.method === "OPTIONS") {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type");
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      res.status(405).json({ ok: false, reason: "METHOD_NOT_ALLOWED" });
+      return;
+    }
+    try {
+      const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      const result = await refreshBackgroundLocationCredential(db, {
+        token: body.token,
+      });
+      const status =
+        result?.ok === true
+          ? 200
+          : result?.reason === "TOKEN_EXPIRED" ||
+              result?.reason === "INVALID_SIGNATURE" ||
+              result?.reason === "INVALID_TOKEN"
+            ? 401
+            : result?.reason === "SECRET_NOT_CONFIGURED"
+              ? 503
+              : 403;
+      res.status(status).json(result);
+    } catch (err) {
+      logger.error("refreshBackgroundDriverLocationCredential_failed", {
+        code: err?.code || null,
+        message: String(err?.message || err).slice(0, 200),
+      });
+      await recordFunctionError(db, "refreshBackgroundDriverLocationCredential", err).catch(
+        () => {}
+      );
+      res.status(500).json({ ok: false, reason: "INTERNAL" });
+    }
+  }
+);
+
+/**
+ * Native HTTPS ingest (no Firebase Auth SDK — uses scoped HMAC token).
+ * Writes only vehicles/{vehicleId}; mirror CF updates rides.driverLocation.
+ */
+exports.ingestBackgroundDriverLocation = onRequest(
+  { region: "us-central1", cors: true, secrets: [backgroundLocationUploadSecret] },
+  async (req, res) => {
+    if (req.method === "OPTIONS") {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type");
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      res.status(405).json({ ok: false, reason: "METHOD_NOT_ALLOWED" });
+      return;
+    }
+    try {
+      const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      const result = await ingestBackgroundDriverLocation(db, {
+        token: body.token,
+        fix: body.fix,
+        force: Boolean(body.force),
+      });
+      const status =
+        result?.reason === "TOKEN_EXPIRED" || result?.reason === "INVALID_SIGNATURE"
+          ? 401
+          : result?.reason === "SECRET_NOT_CONFIGURED"
+            ? 503
+            : 200;
+      res.status(status).json(result);
+    } catch (err) {
+      logger.error("ingestBackgroundDriverLocation_failed", {
+        code: err?.code || null,
+        message: String(err?.message || err).slice(0, 200),
+      });
+      await recordFunctionError(db, "ingestBackgroundDriverLocation", err).catch(() => {});
+      res.status(500).json({ ok: false, accepted: false, reason: "INTERNAL" });
+    }
+  }
+);

@@ -6,6 +6,7 @@ import {
   watchRideRequest,
   submitRideRating,
   fetchRideById,
+  fetchCustomerLocationFallbackSeconds,
 } from "./data.js";
 import { createCustomerBookingClient, cancelCustomerBookingClient, cancelAllSearchingBookingsClient, expireSearchingBookingClient, previewCancellationFareClient } from "./booking-client.js";
 import { CANCELLABLE_RIDE_STATUSES } from "./ride-status.js";
@@ -17,8 +18,9 @@ import {
   watchRideOffers,
 } from "./offer-client.js";
 import { checkCustomerBookingGate, listActiveCustomerBookings } from "./booking-gate.js";
-import { assertCanonicalVehicleTypeKeyForWrite } from "./vehicle-catalog.mjs";
 import {
+  bindDispatchSession,
+  createDispatchTraceId,
   startDispatchSession,
   markT1RideCreated,
   markT2MatchFromCreate,
@@ -47,8 +49,6 @@ import {
 } from "./ride-view-lifecycle.mjs";
 import { createViewerPresenceClient } from "./viewer-presence-client.mjs";
 import { createCustomerP2pController } from "./p2p-ride-controller.mjs";
-import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
-import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
 import { createTwoLegRouteController } from "./two-leg-route-controller.mjs";
 import {
   createTwoLegRouteLayers,
@@ -56,9 +56,19 @@ import {
 } from "./two-leg-route-layers.mjs";
 import { resolveRouteProvider } from "./road-route-provider.mjs";
 import { createDisplayLocationPipeline } from "./display-location-pipeline.mjs";
-import { getMap, setAssignedDriverLocation } from "./map.js";
+import { getMap, setAssignedDriverLocation, followAssignedDriverIfEnabled, setFollowDriverEnabled } from "./map.js";
 import { getFirebase } from "./firebase.js";
 import { createRideLocationReportClient } from "./ride-location-report-client.mjs";
+import { createCustomerP2pBackgroundKeepalive } from "./p2p-background-keepalive.mjs";
+import { assignmentVersionFromRide } from "../../shared/js/breadcrumb-schema.mjs";
+
+function customerP2pSyncOpts(ride, isVisible) {
+  const opts = { isVisible };
+  if (ride?.driverId || ride?.vehicleId) {
+    opts.assignmentVersion = assignmentVersionFromRide(ride);
+  }
+  return opts;
+}
 
 const SEARCH_TIMEOUT_MS = 180_000;
 const TRACKABLE_VIEW_STATUSES = new Set(["accepted", "arrived", "in_progress"]);
@@ -106,19 +116,8 @@ let searchStartedAtMs = 0;
 let rideViewLifecycle = null;
 /** @type {ReturnType<typeof createViewerPresenceClient> | null} */
 let presenceClient = null;
-function customerP2pAssignmentVersion(ride) {
-  return assignmentVersionFromToken(String(ride?.assignmentSessionToken || ""));
-}
-
-function syncCustomerP2pForRide(ride, { isVisible = true } = {}) {
-  customerP2p?.syncForRide(ride, {
-    isVisible,
-    assignmentVersion: customerP2pAssignmentVersion(ride),
-  });
-}
-
-let customerP2p = null;
 /** @type {ReturnType<typeof createCustomerP2pController> | null} */
+let customerP2p = null;
 /** @type {ReturnType<typeof createTwoLegRouteController> | null} */
 let twoLegRoutes = null;
 /** @type {ReturnType<typeof createTwoLegRouteLayers> | null} */
@@ -127,8 +126,52 @@ let twoLegLayers = null;
 let displayPipeline = null;
 /** @type {ReturnType<typeof createRideLocationReportClient> | null} */
 let customerLocationReport = null;
+let customerLocationReportBindingPromise = Promise.resolve({ ok: false, reason: "not_started" });
 let detachBrowserLifecycle = () => {};
 let detachingFromLifecycle = false;
+/** Android foreground service keeps the WebView process eligible for active P2P in background. */
+const customerP2pBackgroundKeepalive = createCustomerP2pBackgroundKeepalive();
+let backgroundLocationFallbackTimer = 0;
+
+function stopBackgroundLocationFallback() {
+  if (backgroundLocationFallbackTimer) {
+    clearTimeout(backgroundLocationFallbackTimer);
+    backgroundLocationFallbackTimer = 0;
+  }
+}
+
+async function startBackgroundLocationFallback() {
+  stopBackgroundLocationFallback();
+  const rideId = String(activeRide?.id || "").trim();
+  if (!rideId || !TRACKABLE_VIEW_STATUSES.has(String(activeRide?.status || ""))) return;
+  let seconds = 60;
+  try {
+    seconds = await fetchCustomerLocationFallbackSeconds();
+  } catch {
+    seconds = 60;
+  }
+  if (seconds === 0) return;
+  const tick = async () => {
+    backgroundLocationFallbackTimer = 0;
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState === "hidden" &&
+      String(activeRide?.id || "") === rideId
+    ) {
+      const healthy = customerP2p?.getState?.()?.isLocDeliveryHealthy === true;
+      if (!healthy) {
+        try {
+          const latest = await fetchRideById(rideId);
+          if (latest && String(activeRide?.id || "") === rideId) handleRideSnapshot(latest);
+        } catch {
+          /* next bounded probe retries */
+        }
+      }
+      backgroundLocationFallbackTimer = setTimeout(tick, seconds * 1000);
+    }
+  };
+  backgroundLocationFallbackTimer = setTimeout(tick, seconds * 1000);
+}
 
 function ensureCustomerLocationReport() {
   if (customerLocationReport) return customerLocationReport;
@@ -138,15 +181,15 @@ function ensureCustomerLocationReport() {
     getRuntimeCounters: () => ({
       p2p: customerP2p?.getCounters?.() || {},
       display: displayPipeline?.getCounters?.() || {},
-      lifecycle: rideViewLifecycle?.getCounters?.() || {},
     }),
   });
   if (typeof window !== "undefined") {
-    window.__SWIFTGO_LOCATION_REPORT_COUNTERS__ = () => customerLocationReport?.snapshotSection?.() || null;
+    window.__SWIFTGO_LOCATION_REPORT_COUNTERS__ = () =>
+      customerLocationReport?.snapshotSection?.() || null;
     window.addEventListener("online", () => {
       void ensureCustomerLocationReport().retryPendingReports();
     });
-    window.addEventListener("visibilitychange", () => {
+    document.addEventListener("visibilitychange", () => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         void ensureCustomerLocationReport().retryPendingReports();
       }
@@ -157,17 +200,54 @@ function ensureCustomerLocationReport() {
 
 function syncCustomerLocationReportBinding(ride) {
   const token = String(ride?.assignmentSessionToken || "").trim();
-  if (!ride?.id || !token || !isCustomerActiveRideStatus(ride.status)) return;
-  void ensureCustomerLocationReport().bindForRide({
+  if (!ride?.id || !token || !isCustomerActiveRideStatus(ride.status)) {
+    return customerLocationReportBindingPromise;
+  }
+  customerLocationReportBindingPromise = ensureCustomerLocationReport().bindForRide({
     rideId: ride.id,
     assignmentSessionToken: token,
-  });
+  }).catch((error) => ({ ok: false, reason: String(error?.message || error || "bind_failed") }));
+  return customerLocationReportBindingPromise;
 }
 
 function maybeFlushCustomerLocationReport(ride, previousStatus) {
   if (!ride?.id || !isTerminalRideStatus(ride.status)) return;
   if (previousStatus && isTerminalRideStatus(previousStatus)) return;
-  void ensureCustomerLocationReport().flushFinal({ finalSubmit: true });
+  const report = ensureCustomerLocationReport();
+  const binding = report.getBinding?.();
+  if (binding?.rideId === ride.id) {
+    // Capture before the completed/cancelled branch tears down P2P and map state.
+    report.syncCountersFromRuntime();
+    void report.flushFinal({ finalSubmit: true });
+    return;
+  }
+
+  // A customer may resume directly into a terminal snapshot before the earlier
+  // async hash/config bind completed. Bind from the terminal ride token, then
+  // submit instead of silently producing a driver-only report.
+  const token = String(ride.assignmentSessionToken || "").trim();
+  if (!token) return;
+  void (async () => {
+    await customerLocationReportBindingPromise;
+    if (report.getBinding?.()?.rideId !== ride.id) {
+      await report.bindForRide({ rideId: ride.id, assignmentSessionToken: token });
+    }
+    report.syncCountersFromRuntime();
+    await report.flushFinal({ finalSubmit: true });
+  })();
+}
+
+function scheduleCustomerLocationReportStartupRetry() {
+  void (async () => {
+    for (let i = 0; i < 30; i += 1) {
+      const fb = getFirebase();
+      if (fb?.ready && fb?.functions) {
+        await ensureCustomerLocationReport().retryPendingReports();
+        return;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 100));
+    }
+  })();
 }
 
 function authUid() {
@@ -186,7 +266,7 @@ function viewerDiag(code) {
   }
 }
 
-function clearLiveSubscriptions() {
+function clearLiveSubscriptions({ preserveP2p = false } = {}) {
   unsubscribeRide();
   unsubscribeRide = () => {};
   unsubscribeOffers();
@@ -195,7 +275,10 @@ function clearLiveSubscriptions() {
   unsubscribeVehicle = () => {};
   watchedVehicleId = "";
   stopDriverTrack();
-  void customerP2p?.stop({ closeRemote: false });
+  if (!preserveP2p) {
+    void customerP2p?.stop({ closeRemote: false });
+    void customerP2pBackgroundKeepalive.stop();
+  }
   twoLegRoutes?.setVisible(false);
 }
 
@@ -209,11 +292,34 @@ function clearTwoLegRoutes() {
 function paintDisplayFrame(pos) {
   if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lng)) return;
   const rot = Number.isFinite(pos.headingDeg) ? pos.headingDeg : 0;
+  const isSnap = pos.displayMode === "snap";
+  const observedAt = Number(pos.observedAt) || Date.now();
+  if (typeof window !== "undefined") {
+    const ring = (window.__SWIFTGO_MOTION_TRACE__ = window.__SWIFTGO_MOTION_TRACE__ || []);
+    ring.push({
+      t: Date.now(),
+      lat: pos.lat,
+      lng: pos.lng,
+      mode: pos.displayMode || (isSnap ? "snap" : "raw"),
+      observedAt,
+      reason: pos.reason || "",
+    });
+    if (ring.length > 400) ring.splice(0, ring.length - 400);
+  }
   setAssignedDriverLocation(pos.lat, pos.lng, rot, {
-    observedAt: Date.now(),
-    skipAnimation: true,
-    allowPredict: false,
+    observedAt,
+    // Snap frames are already along-route RAF; raw/sparse Firebase needs chord motion.
+    skipAnimation: isSnap,
+    allowPredict: !isSnap,
   });
+  // Verified routes trim by projected progress. Direct fallback routes cannot
+  // be snapped, so anchor their remaining line at the latest raw vehicle fix.
+  twoLegLayers?.setRawVehiclePosition?.(pos);
+  const visible =
+    typeof document === "undefined" || document.visibilityState !== "hidden";
+  if (visible) {
+    followAssignedDriverIfEnabled(pos.lat, pos.lng);
+  }
 }
 
 function syncDisplayPipelineFromModel(model) {
@@ -263,6 +369,9 @@ function ensureTwoLegRoutes() {
   displayPipeline = createDisplayLocationPipeline({
     onDisplayFrame: paintDisplayFrame,
     onRawFallback: paintDisplayFrame,
+    onRouteProgress: (progressM, activeLeg) => {
+      twoLegLayers?.setProgress?.(progressM, activeLeg);
+    },
     onDiag: (code) => {
       try {
         console.info(JSON.stringify({ type: "snap_diag", reason: String(code || "") }));
@@ -427,6 +536,7 @@ function ensureRideViewLifecycle() {
       if (!ride) {
         stopDriverTrack();
         void customerP2p?.stop({ closeRemote: true });
+        void customerP2pBackgroundKeepalive.stop();
         clearTwoLegRoutes();
         activeRide = null;
         clearActiveRideId();
@@ -469,12 +579,15 @@ function ensureRideViewLifecycle() {
     unsubscribeLive: () => {
       detachingFromLifecycle = true;
       try {
-        clearLiveSubscriptions();
+        // Customer background policy: Firebase listeners/rendering stop, but the
+        // active P2P session and Android keepalive remain alive until terminal.
+        clearLiveSubscriptions({ preserveP2p: true });
       } finally {
         detachingFromLifecycle = false;
       }
     },
     startPresenceHeartbeat: (rideId, gen) => {
+      stopBackgroundLocationFallback();
       if (!presenceClient) return;
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       const status = normalizeCustomerRideStatus(activeRide?.status);
@@ -482,22 +595,22 @@ function ensureRideViewLifecycle() {
       presenceClient.start({ rideId, generation: gen });
       customerP2p?.setVisible(true);
       if (activeRide) {
-        syncCustomerP2pForRide(activeRide, { isVisible: true });
+        customerP2p?.syncForRide(activeRide, customerP2pSyncOpts(activeRide, true));
         syncTwoLegForRide(activeRide, { isVisible: true });
+        void customerP2pBackgroundKeepalive.syncForRide(activeRide);
       }
     },
     stopPresenceHeartbeat: () => {
       presenceClient?.stop();
       customerP2p?.setVisible(false);
       twoLegRoutes?.setVisible(false);
+      // Do not stop P2P or native keepalive here: this is the background path.
+      void startBackgroundLocationFallback();
     },
   });
 
   detachBrowserLifecycle = attachBrowserLifecycleListeners(rideViewLifecycle);
-  if (typeof window !== "undefined") {
-    window.__SWIFTGO_VIEWER_COUNTERS__ = () => rideViewLifecycle?.getCounters?.() || null;
-    window.__SWIFTGO_P2P_COUNTERS__ = () => customerP2p?.getCounters?.() || null;
-  }
+  installCustomerDebugDumps();
   return rideViewLifecycle;
 }
 
@@ -518,6 +631,7 @@ function unbindRideView() {
 
 /** Sign-out / session teardown — zero listeners and heartbeats. */
 export function clearCustomerRideSession() {
+  stopBackgroundLocationFallback();
   unbindRideView();
   void ensureCustomerLocationReport().clearBinding({ flushFirst: true });
   presenceClient?.stop();
@@ -647,19 +761,6 @@ export function initRideFlow(handlers = {}) {
   ensureRideViewLifecycle();
   ensureCustomerLocationReport();
   scheduleCustomerLocationReportStartupRetry();
-}
-
-function scheduleCustomerLocationReportStartupRetry() {
-  void (async () => {
-    for (let i = 0; i < 30; i += 1) {
-      const fb = getFirebase();
-      if (fb?.ready && fb?.functions) {
-        await ensureCustomerLocationReport().retryPendingReports();
-        return;
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, 100));
-    }
-  })();
 }
 
 function clearSearchTimers() {
@@ -1041,7 +1142,8 @@ function showActiveRideState(status = "accepted") {
   updateActiveRideStatusUi(status);
   const visible =
     typeof document === "undefined" || document.visibilityState !== "hidden";
-  syncCustomerP2pForRide(activeRide, { isVisible: visible });
+  customerP2p?.syncForRide(activeRide, customerP2pSyncOpts(activeRide, visible));
+  void customerP2pBackgroundKeepalive.syncForRide(activeRide);
   syncTwoLegForRide(activeRide, { isVisible: visible });
   if (!customerP2p && activeRide) updateDriverTrack(activeRide);
 
@@ -1055,6 +1157,7 @@ function showActiveRideState(status = "accepted") {
 function showInvoicePanel(ride) {
   stopDriverTrack();
   void customerP2p?.stop({ closeRemote: true });
+  void customerP2pBackgroundKeepalive.stop();
   clearTwoLegRoutes();
   els.searchingPanel?.classList.remove("is-visible");
   els.activePanel?.classList.remove("is-visible");
@@ -1111,6 +1214,7 @@ function resetToVehicleSelection(messageKey) {
   stopRideWatch();
   stopDriverTrack();
   void customerP2p?.stop({ closeRemote: true });
+  void customerP2pBackgroundKeepalive.stop();
   clearTwoLegRoutes();
   activeRide = null;
   clearActiveRideId();
@@ -1182,12 +1286,17 @@ function handleRideSnapshot(rawRide) {
   document.body.classList.toggle("has-active-ride", Boolean(activeRide));
   syncVehicleWatch(activeRide);
 
+  // Snapshot terminal counters before P2P, route, and map teardown. The report
+  // client persists the payload synchronously, then uploads it best-effort.
+  maybeFlushCustomerLocationReport(ride, previousStatus);
+
   if (ride.status === "accepted" || ride.status === "arrived" || ride.status === "in_progress") {
     clearSearchTimers();
     maybeStartPresenceForActiveRide();
     const visible =
       typeof document === "undefined" || document.visibilityState !== "hidden";
-    syncCustomerP2pForRide(ride, { isVisible: visible });
+    customerP2p?.syncForRide(ride, customerP2pSyncOpts(ride, visible));
+    void customerP2pBackgroundKeepalive.syncForRide(ride);
     syncTwoLegForRide(ride, { isVisible: visible });
     if (ride?.driverLocation) {
       customerP2p?.ingestFirebaseLocation(ride.driverLocation, ride);
@@ -1199,6 +1308,7 @@ function handleRideSnapshot(rawRide) {
       previousStatus !== "arrived" &&
       previousStatus !== "in_progress";
     if (firstActive) {
+      setFollowDriverEnabled(true);
       showActiveRideState(ride.status);
       if (ride.status === "accepted") {
         onToast?.(t("rideAccepted"));
@@ -1222,11 +1332,13 @@ function handleRideSnapshot(rawRide) {
   } else if (ride.status === "declined") {
     stopDriverTrack();
     void customerP2p?.stop({ closeRemote: true });
+    void customerP2pBackgroundKeepalive.stop();
     clearTwoLegRoutes();
     if (previousStatus !== "declined") resetToVehicleSelection("driverDeclined");
   } else if (ride.status === "completed") {
     stopDriverTrack();
     void customerP2p?.stop({ closeRemote: true });
+    void customerP2pBackgroundKeepalive.stop();
     clearTwoLegRoutes();
     if (previousStatus !== "completed") {
       stopRideWatch();
@@ -1257,7 +1369,6 @@ function handleRideSnapshot(rawRide) {
     updateDriverOfferUi(ride);
   }
 
-  maybeFlushCustomerLocationReport(ride, previousStatus);
 }
 
 /**
@@ -1268,17 +1379,11 @@ function handleRideSnapshot(rawRide) {
 export async function startRideRequest(state) {
   if (requesting || activeRide) return null;
   requesting = true;
+  onToast?.("بکنگ بنائی جا رہی ہے…");
+  announce("بکنگ بنائی جا رہی ہے");
 
   const route = getRouteInfo();
-  let vehicleKey;
-  try {
-    vehicleKey = assertCanonicalVehicleTypeKeyForWrite(state.vehicle || "bike");
-  } catch (err) {
-    console.warn("[SwiftGo] invalid vehicle type for booking", err);
-    onToast?.(t("rideRequestFailed") || "Invalid vehicle type");
-    requesting = false;
-    return null;
-  }
+  const vehicleKey = state.vehicle || "";
   const faresByVehicle = window.SwiftGo?.lastFaresByVehicle || {};
   const liveByVehicle = Number(faresByVehicle[vehicleKey]);
   const liveEstimate = Number(window.SwiftGo?.lastEstimatedFare);
@@ -1394,9 +1499,12 @@ export async function startRideRequest(state) {
     }
     pendingExtraBookingConfirm = false;
 
+    const dispatchTraceId = createDispatchTraceId();
+    startDispatchSession(dispatchTraceId);
     const bookT0 = performance.now();
     const created = await createCustomerBookingClient({
       confirmedExtraBooking: true,
+      dispatchTraceId,
       pickupLocation: {
         lat: route.pickup?.lat,
         lng: route.pickup?.lng,
@@ -1426,10 +1534,11 @@ export async function startRideRequest(state) {
       throw new Error("MISSING_RIDE_ID");
     }
 
-    startDispatchSession(rideId);
+    bindDispatchSession(rideId, dispatchTraceId);
     markT1RideCreated(rideId, {
       cfMs: Math.round(performance.now() - bookT0),
       serverLatencyMs: created.latencyMs ?? null,
+      dispatchTraceId,
     });
     markT2MatchFromCreate(rideId, {
       candidateCount: created.candidateCount ?? 0,
@@ -1455,9 +1564,6 @@ export async function startRideRequest(state) {
     showSearchingState();
     startSearchTimers(ride.id);
     attachRideWatch(ride.id);
-    if (!created.candidateCount && created.matchingStatus !== "candidates_ready") {
-      await matchCandidatesForRide(ride.id);
-    }
     const invited = created.matchingStatus === "candidates_ready" || Number(created.candidateCount) > 0;
     if (invited) {
       onToast?.(
@@ -1575,4 +1681,38 @@ export async function resumeActiveRideWatch(customerUid) {
   }
 
   mountActiveRideUi(ride, rideId);
+}
+
+/** Always-on console probes (available as soon as ride-flow.js loads). */
+function installCustomerDebugDumps() {
+  if (typeof window === "undefined") return;
+  window.__SWIFTGO_VIEWER_COUNTERS__ = () => rideViewLifecycle?.getCounters?.() || null;
+  window.__SWIFTGO_P2P_COUNTERS__ = () => customerP2p?.getCounters?.() || null;
+  window.__SWIFTGO_SNAP_COUNTERS__ = () => displayPipeline?.getCounters?.() || null;
+  window.__SWIFTGO_DUMP_MOTION_TRACE__ = () => {
+    const ring = window.__SWIFTGO_MOTION_TRACE__ || [];
+    const payload = {
+      role: "customer",
+      dumpedAt: new Date().toISOString(),
+      paints: ring.length,
+      last20: ring.slice(-20),
+      p2p: customerP2p?.getCounters?.() || null,
+      snap: displayPipeline?.getCounters?.() || null,
+      arbiter: customerP2p?.getArbiter?.()?.getState?.() || null,
+      note:
+        ring.length === 0
+          ? "No paints yet — open an accepted/arrived/in_progress ride, then dump again."
+          : undefined,
+    };
+    try {
+      console.info(JSON.stringify({ type: "swiftgo_motion_dump", ...payload }));
+    } catch {
+      /* ignore */
+    }
+    return payload;
+  };
+}
+
+if (typeof window !== "undefined") {
+  installCustomerDebugDumps();
 }
