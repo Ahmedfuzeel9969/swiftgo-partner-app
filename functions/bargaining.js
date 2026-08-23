@@ -37,6 +37,7 @@ const {
   healStaleDriverPointers,
   isDriverAvailableForRematch,
 } = require("./active-ride-reconcile");
+const { assignmentLocationBaselineResetPatch } = require("./server-mirror-aggregate");
 
 const CANCEL_REASON_KEYS = Object.freeze([
   "taking_too_long",
@@ -1768,9 +1769,9 @@ async function finalizeAssignmentFromOffer(db, params) {
           estimatedFare: finalFare,
           driverBidFare: finalFare,
           assignedAt: FieldValue.serverTimestamp(),
-          // Immutable for this assignment; never overwrite if somehow already present.
-          assignmentSessionToken:
-            String(ride.assignmentSessionToken || "").trim() || mintAssignmentSessionToken(),
+          // Every assignment owns a fresh tracking identity and ordering baseline.
+          assignmentSessionToken: mintAssignmentSessionToken(),
+          ...assignmentLocationBaselineResetPatch(),
         });
 
         tx.update(offerRef, {
@@ -2004,8 +2005,8 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
         estimatedFare: finalFare,
         driverBidFare: finalFare,
         assignedAt: FieldValue.serverTimestamp(),
-        assignmentSessionToken:
-          String(ride.assignmentSessionToken || "").trim() || mintAssignmentSessionToken(),
+        assignmentSessionToken: mintAssignmentSessionToken(),
+        ...assignmentLocationBaselineResetPatch(),
       });
 
       const offerPayload = {

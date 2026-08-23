@@ -98,6 +98,8 @@ export const P2P_UNHEALTHY_HYSTERESIS_MS = 3_000;
 export const P2P_RECONNECT_BASE_MS = 1_000;
 export const P2P_RECONNECT_MAX_MS = 30_000;
 export const P2P_RECONNECT_MAX_ATTEMPTS = 8;
+/** After a full failed burst, retry at low cost instead of spinning or stopping forever. */
+export const P2P_RECONNECT_COOLDOWN_MS = 120_000;
 export const P2P_MAX_MESSAGE_BYTES = 2_048;
 export const P2P_MAX_SDP_CHARS = 16_384;
 export const P2P_SESSION_TTL_MS = 15 * 60_000;

@@ -196,6 +196,7 @@ function createEmptyDerivedSection() {
     avgMapRefreshIntervalMs: null,
     deliveryRatios: {
       mirrorToGps: null,
+      mirrorToVehicleWrite: null,
       customerFirebaseToMirror: null,
       customerP2pToSent: null,
       renderedToReceived: null,
@@ -344,6 +345,10 @@ function computeDerivedMetrics(sections = {}) {
     avgMapRefreshIntervalMs,
     deliveryRatios: {
       mirrorToGps: safeRatio(server.counters?.mirrorAccepted, driverCounters.gpsFixesReceived),
+      mirrorToVehicleWrite: safeRatio(
+        server.counters?.mirrorAccepted,
+        driverCounters.vehicleWritesAcknowledged
+      ),
       customerFirebaseToMirror: safeRatio(
         customerCounters.firebaseSnapshotsReceived,
         server.counters?.mirrorAccepted
@@ -451,8 +456,12 @@ function classifyReportHealth(input = {}) {
   }
 
   const ratios = input.derived?.deliveryRatios || computeDerivedMetrics(input).deliveryRatios;
-  if (ratios.mirrorToGps != null && ratios.mirrorToGps < 0.5) {
-    reasons.push("mirror_to_gps_ratio_low");
+  // GPS-to-mirror is deliberately low under the Super Admin cost-saving cadence.
+  const mirrorToVehicleWrite =
+    ratios.mirrorToVehicleWrite ??
+    safeRatio(mirrorCount, driver.counters?.vehicleWritesAcknowledged);
+  if (mirrorToVehicleWrite != null && mirrorToVehicleWrite < 0.8) {
+    reasons.push("mirror_to_vehicle_write_ratio_low");
   }
   if (ratios.renderedToReceived != null && ratios.renderedToReceived < 0.5) {
     reasons.push("rendered_to_received_ratio_low");

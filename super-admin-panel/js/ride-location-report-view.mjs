@@ -62,8 +62,8 @@ const COUNTER_LABELS = Object.freeze({
   p2pFramesReceived: "P2P frames received",
   p2pValidRendered: "P2P valid rendered",
   staleRejected: "Stale rejected",
-  duplicateRejected: "Duplicate rejected",
-  rollbackRejected: "Rollback rejected",
+  duplicateRejected: "Map backward-jitter fallbacks",
+  rollbackRejected: "Road-projection fallbacks",
   sourceSwitchP2pToFirebase: "Source switch P2P → Firebase",
   sourceSwitchFirebaseToP2p: "Source switch Firebase → P2P",
 });
@@ -310,6 +310,7 @@ function renderDerivedSection(derived) {
     ["اوسط P2P receive", formatReportDurationMs(derived.avgP2pReceiveIntervalMs)],
     ["اوسط map refresh", formatReportDurationMs(derived.avgMapRefreshIntervalMs)],
     ["Mirror/GPS ratio", formatRatio(ratios.mirrorToGps)],
+    ["Mirror/acknowledged writes", formatRatio(ratios.mirrorToVehicleWrite)],
     ["Customer Firebase/Mirror", formatRatio(ratios.customerFirebaseToMirror)],
     ["Customer P2P/Sent", formatRatio(ratios.customerP2pToSent)],
     ["Rendered/Received", formatRatio(ratios.renderedToReceived)],

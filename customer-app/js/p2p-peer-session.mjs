@@ -17,6 +17,7 @@ import {
   P2P_HEARTBEAT_INTERVAL_MS,
   P2P_MAX_SENT_SEQUENCES_RETAINED,
   P2P_MAX_SDP_CHARS,
+  P2P_RECONNECT_COOLDOWN_MS,
   P2P_RECONNECT_MAX_ATTEMPTS,
   P2P_SEND_FAILURE_RETRY_MS,
   P2P_MIN_LOC_GAP_MS,
@@ -602,6 +603,9 @@ export function createP2pPeerSession(deps) {
         if (ackKind === P2P_ACK_KIND.LOC) {
           lastAckSequence = seq;
           lastLocAckAt = nowMs();
+          // Opening a channel is not delivery proof. Only a confirmed location
+          // delivery earns a fresh retry budget.
+          reconnectAttempt = 0;
           releaseSentSequence(seq);
           counters.acknowledgementsReceived += 1;
           clearT(firstAckTimer);
@@ -667,7 +671,6 @@ export function createP2pPeerSession(deps) {
       clearT(channelOpenTimer);
       channelOpenTimer = 0;
       counters.channelsOpened += 1;
-      reconnectAttempt = 0;
       iceRestartAttempted = false;
       pushPipeline(
         "datachannel_open",
@@ -1334,8 +1337,18 @@ export function createP2pPeerSession(deps) {
   }
 
   function scheduleReconnect(startFn) {
-    if (closed || reconnectAttempt >= P2P_RECONNECT_MAX_ATTEMPTS) {
+    if (closed) return;
+    const fn = typeof startFn === "function" ? startFn : resumeFn;
+    if (reconnectAttempt >= P2P_RECONNECT_MAX_ATTEMPTS) {
       setState(P2P_STATE.FIREBASE_FALLBACK, "reconnect_exhausted");
+      if (!reconnectTimer && typeof fn === "function") {
+        reconnectTimer = setT(() => {
+          reconnectTimer = 0;
+          if (closed) return;
+          reconnectAttempt = 0;
+          void fn();
+        }, P2P_RECONNECT_COOLDOWN_MS);
+      }
       return;
     }
     if (reconnectTimer) return;
@@ -1344,7 +1357,6 @@ export function createP2pPeerSession(deps) {
     counters.reconnectAttempts += 1;
     setState(P2P_STATE.RECONNECTING);
     diag(P2P_DIAG.RECONNECT_SCHEDULED);
-    const fn = typeof startFn === "function" ? startFn : resumeFn;
     reconnectTimer = setT(() => {
       reconnectTimer = 0;
       if (closed || typeof fn !== "function") return;
