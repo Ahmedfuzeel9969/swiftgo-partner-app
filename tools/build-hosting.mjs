@@ -66,6 +66,21 @@ function syncSharedJsInto(destJsDir) {
   fs.copyFileSync(catalogJsonFrom, catalogJsonTo);
 }
 
+function copySharedCrossAppDependencies() {
+  const dependencies = [
+    ["driver-app/js/location-checkpoint-policy.mjs", "driver-app/js/location-checkpoint-policy.mjs"],
+    ["driver-app/js/p2p-protocol.mjs", "driver-app/js/p2p-protocol.mjs"],
+    ["customer-app/js/live-location-render.mjs", "customer-app/js/live-location-render.mjs"],
+    ["driver-app/js/location-envelope.mjs", "driver-app/js/location-envelope.mjs"],
+    ["driver-app/js/idle-publish-config.mjs", "driver-app/js/idle-publish-config.mjs"],
+  ];
+  for (const [sourceRel, destinationRel] of dependencies) {
+    const destination = path.join(DIST, destinationRel);
+    ensureDir(path.dirname(destination));
+    fs.copyFileSync(path.join(ROOT, sourceRel), destination);
+  }
+}
+
 function stampModuleEntrypoint(htmlRel, modulePath, headSha) {
   const htmlPath = path.join(DIST, htmlRel);
   const html = fs.readFileSync(htmlPath, "utf8");
@@ -120,6 +135,7 @@ function main() {
     if (!entry.name.endsWith(".mjs") && !entry.name.endsWith(".js")) continue;
     fs.copyFileSync(path.join(sharedSrc, entry.name), path.join(sharedDist, entry.name));
   }
+  copySharedCrossAppDependencies();
 
   console.info("[build-hosting] packaged apps into hosting-dist/");
   console.info("  /              <- customer-app");

@@ -36,7 +36,7 @@ export async function ensureFreshAuthUser() {
   return user;
 }
 
-async function callAdmin(name, data = {}) {
+export async function callAdmin(name, data = {}) {
   const { ready, functions } = getFirebase();
   if (!ready || !functions) {
     const err = new Error("FUNCTIONS_UNAVAILABLE");

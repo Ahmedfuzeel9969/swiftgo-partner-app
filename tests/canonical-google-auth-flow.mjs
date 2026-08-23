@@ -80,5 +80,17 @@ for (const [appFile, configFile] of [
 const buildTool = fs.readFileSync(path.join(root, "tools/build-hosting.mjs"), "utf8");
 assert.match(buildTool, /stampModuleEntrypoint\("partner\/index\.html", "js\/driver-app\.js", headSha\)/);
 assert.match(buildTool, /stampModuleEntrypoint\("admin\/index\.html", "\/admin\/js\/admin-app\.js", headSha\)/);
+assert.match(buildTool, /copySharedCrossAppDependencies\(\)/);
+
+const adminSettings = fs.readFileSync(
+  path.join(root, "super-admin-panel/js/admin-settings-client.js"),
+  "utf8"
+);
+assert.match(adminSettings, /export async function callAdmin/);
+
+const firebaseJson = JSON.parse(fs.readFileSync(path.join(root, "firebase.json"), "utf8"));
+assert.ok(
+  firebaseJson.hosting.predeploy.includes("node tools/hosting-startup-health.mjs --no-write")
+);
 
 console.log("Canonical Google auth flow checks passed.");

@@ -31,6 +31,7 @@ function argValue(flag) {
 
 const LIVE_URL = argValue("--url");
 const DIST = path.resolve(ROOT, argValue("--dist") || "hosting-dist");
+const NO_WRITE = args.includes("--no-write");
 
 const results = [];
 function record(name, ok, detail = "") {
@@ -329,8 +330,9 @@ async function checkApp({ name, htmlRel, homeMarkers, firebaseRel, p2pRels }) {
     path.posix.join(path.posix.dirname(htmlRel), localEntry)
   ).replace(/^\.\//, "");
   // html at "" (root) dirname is "." → join("./js/app.js")
-  const entry =
-    htmlRel === "index.html" || htmlRel === ""
+  const entry = localEntry.startsWith("/")
+    ? localEntry.replace(/^\//, "")
+    : htmlRel === "index.html" || htmlRel === ""
       ? localEntry.replace(/^\.\//, "")
       : path.posix.join(path.posix.dirname(htmlRel), localEntry).replace(/\\/g, "/");
 
@@ -410,6 +412,14 @@ async function main() {
     ],
   });
 
+  await checkApp({
+    name: "admin",
+    htmlRel: "admin/index.html",
+    homeMarkers: ['id="adminGoogleLoginBtn"', "admin-app.js"],
+    firebaseRel: "admin/js/firebase.js",
+    p2pRels: [],
+  });
+
   // Guard: known hybrid footguns must not be HTML when referenced by live graphs
   for (const rel of [
     "partner/js/phase1-billing-diagnostics.mjs",
@@ -436,25 +446,27 @@ async function main() {
     "tests",
     LIVE_URL ? "hosting-startup-health-live-results.json" : "hosting-startup-health-results.json"
   );
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(
-    outPath,
-    JSON.stringify(
-      {
-        generatedAt: new Date().toISOString(),
-        mode: LIVE_URL ? "live" : "dist",
-        target: LIVE_URL || DIST,
-        pass: results.length - failed.length,
-        fail: failed.length,
-        results,
-      },
-      null,
-      2
-    )
-  );
+  if (!NO_WRITE) {
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(
+      outPath,
+      JSON.stringify(
+        {
+          generatedAt: new Date().toISOString(),
+          mode: LIVE_URL ? "live" : "dist",
+          target: LIVE_URL || DIST,
+          pass: results.length - failed.length,
+          fail: failed.length,
+          results,
+        },
+        null,
+        2
+      )
+    );
+  }
 
   console.log(`\nSummary pass=${results.length - failed.length} fail=${failed.length}`);
-  console.log(`Wrote ${outPath}`);
+  if (!NO_WRITE) console.log(`Wrote ${outPath}`);
   if (failed.length) {
     process.exitCode = 1;
   }
