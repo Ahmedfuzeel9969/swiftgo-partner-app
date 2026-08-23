@@ -6,6 +6,7 @@ import {
   watchRideRequest,
   submitRideRating,
   fetchRideById,
+  fetchCustomerLocationFallbackSeconds,
 } from "./data.js";
 import { createCustomerBookingClient, cancelCustomerBookingClient, cancelAllSearchingBookingsClient, expireSearchingBookingClient, previewCancellationFareClient } from "./booking-client.js";
 import { CANCELLABLE_RIDE_STATUSES } from "./ride-status.js";
@@ -130,6 +131,47 @@ let detachBrowserLifecycle = () => {};
 let detachingFromLifecycle = false;
 /** Android foreground service keeps the WebView process eligible for active P2P in background. */
 const customerP2pBackgroundKeepalive = createCustomerP2pBackgroundKeepalive();
+let backgroundLocationFallbackTimer = 0;
+
+function stopBackgroundLocationFallback() {
+  if (backgroundLocationFallbackTimer) {
+    clearTimeout(backgroundLocationFallbackTimer);
+    backgroundLocationFallbackTimer = 0;
+  }
+}
+
+async function startBackgroundLocationFallback() {
+  stopBackgroundLocationFallback();
+  const rideId = String(activeRide?.id || "").trim();
+  if (!rideId || !TRACKABLE_VIEW_STATUSES.has(String(activeRide?.status || ""))) return;
+  let seconds = 60;
+  try {
+    seconds = await fetchCustomerLocationFallbackSeconds();
+  } catch {
+    seconds = 60;
+  }
+  if (seconds === 0) return;
+  const tick = async () => {
+    backgroundLocationFallbackTimer = 0;
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState === "hidden" &&
+      String(activeRide?.id || "") === rideId
+    ) {
+      const healthy = customerP2p?.getState?.()?.isLocDeliveryHealthy === true;
+      if (!healthy) {
+        try {
+          const latest = await fetchRideById(rideId);
+          if (latest && String(activeRide?.id || "") === rideId) handleRideSnapshot(latest);
+        } catch {
+          /* next bounded probe retries */
+        }
+      }
+      backgroundLocationFallbackTimer = setTimeout(tick, seconds * 1000);
+    }
+  };
+  backgroundLocationFallbackTimer = setTimeout(tick, seconds * 1000);
+}
 
 function ensureCustomerLocationReport() {
   if (customerLocationReport) return customerLocationReport;
@@ -545,6 +587,7 @@ function ensureRideViewLifecycle() {
       }
     },
     startPresenceHeartbeat: (rideId, gen) => {
+      stopBackgroundLocationFallback();
       if (!presenceClient) return;
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       const status = normalizeCustomerRideStatus(activeRide?.status);
@@ -562,6 +605,7 @@ function ensureRideViewLifecycle() {
       customerP2p?.setVisible(false);
       twoLegRoutes?.setVisible(false);
       // Do not stop P2P or native keepalive here: this is the background path.
+      void startBackgroundLocationFallback();
     },
   });
 
@@ -587,6 +631,7 @@ function unbindRideView() {
 
 /** Sign-out / session teardown — zero listeners and heartbeats. */
 export function clearCustomerRideSession() {
+  stopBackgroundLocationFallback();
   unbindRideView();
   void ensureCustomerLocationReport().clearBinding({ flushFirst: true });
   presenceClient?.stop();

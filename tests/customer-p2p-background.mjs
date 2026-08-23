@@ -44,6 +44,22 @@ check(
   flow.includes("clearLiveSubscriptions({ preserveP2p: true })"),
   "lifecycle detaches live Firestore subscriptions"
 );
+const adminHtml = fs.readFileSync(path.join(root, "super-admin-panel/index.html"), "utf8");
+const functionIndex = fs.readFileSync(path.join(root, "functions/index.js"), "utf8");
+check(
+  "background-has-admin-bounded-emergency-read",
+  flow.includes("startBackgroundLocationFallback") &&
+    flow.includes("fetchCustomerLocationFallbackSeconds") &&
+    flow.includes("!healthy"),
+  "one-shot fallback runs only while hidden and P2P-unhealthy"
+);
+check(
+  "super-admin-owns-emergency-read-interval",
+  adminHtml.includes('id="customerLocationFallbackSeconds"') &&
+    functionIndex.includes("CUSTOMER_LOCATION_FALLBACK_OUT_OF_RANGE") &&
+    functionIndex.includes("customerLocationFallbackSeconds"),
+  "Super Admin may select 30–300 seconds or disable with zero"
+);
 check(
   "background-preserves-p2p-session",
   controller.includes("screen hidden/background must not suspend or stop P2P"),

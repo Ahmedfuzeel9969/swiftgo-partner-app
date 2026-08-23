@@ -344,21 +344,6 @@ service cloud.firestore {
           )
           ||
           (
-            // Live driver GPS mirror for customer map (assigned driver only).
-            resource.data.driverId == request.auth.uid
-            && partnerIsActiveDriver(request.auth.uid)
-            && resource.data.status in ['accepted', 'arrived', 'in_progress']
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'driverLocation', 'driverLocationUpdatedAt', 'driverDistanceKm', 'driverEtaMin'
-            ])
-            && request.resource.data.driverLocation.keys().hasAll(['lat', 'lng'])
-            && request.resource.data.driverLocation.lat >= -90
-            && request.resource.data.driverLocation.lat <= 90
-            && request.resource.data.driverLocation.lng >= -180
-            && request.resource.data.driverLocation.lng <= 180
-          )
-          ||
-          (
             // Phase 42: customer rates a completed ride (one time).
             resource.data.userId == request.auth.uid
             && resource.data.status == 'completed'

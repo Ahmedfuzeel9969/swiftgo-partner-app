@@ -4653,6 +4653,18 @@ async function completeRideWithEarnings(ride) {
     estimatedFare: Number(result?.grossFare) || rideFareAmount(ride),
     alreadySettled: Boolean(result?.alreadySettled),
   };
+
+  // Persist cross-runtime counters while an active ride is running. A mobile
+  // WebView can be killed without a terminal callback; waiting until settlement
+  // made the final report lose real GPS/P2P/native activity.
+  window.setInterval(() => {
+    if (activeExecutionRide?.id && ACTIVE_EXECUTION_STATUSES.has(String(activeExecutionRide.status || ""))) {
+      driverLocationReport.syncCountersFromRuntime();
+    }
+  }, 5_000);
+  window.addEventListener("pagehide", () => {
+    driverLocationReport.syncCountersFromRuntime();
+  });
 }
 
 async function cancelAssignedActiveRideByDriver() {

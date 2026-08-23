@@ -1,13 +1,23 @@
 {
   "suite": "customer-p2p-background",
-  "generatedAt": "2026-08-20T13:42:20.200Z",
-  "pass": 9,
+  "generatedAt": "2026-08-23T12:33:39.572Z",
+  "pass": 11,
   "fail": 0,
   "results": [
     {
       "name": "background-detaches-firebase-listeners",
       "status": "PASS",
       "detail": "lifecycle detaches live Firestore subscriptions"
+    },
+    {
+      "name": "background-has-admin-bounded-emergency-read",
+      "status": "PASS",
+      "detail": "one-shot fallback runs only while hidden and P2P-unhealthy"
+    },
+    {
+      "name": "super-admin-owns-emergency-read-interval",
+      "status": "PASS",
+      "detail": "Super Admin may select 30–300 seconds or disable with zero"
     },
     {
       "name": "background-preserves-p2p-session",

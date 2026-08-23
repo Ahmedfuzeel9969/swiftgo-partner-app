@@ -1171,8 +1171,10 @@ function staticChecks() {
     "static"
   );
   record(
-    "33-ride-driverLocation-rule-retained",
-    rulesText.includes("'driverLocation', 'driverLocationUpdatedAt'") ? "PASS" : "FAIL",
+    "33-ride-driverLocation-client-rule-removed",
+    !rulesText.includes("'driverLocation', 'driverLocationUpdatedAt', 'driverDistanceKm', 'driverEtaMin'")
+      ? "PASS"
+      : "FAIL",
     "",
     "static"
   );

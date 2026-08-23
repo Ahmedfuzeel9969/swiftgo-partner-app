@@ -271,6 +271,17 @@ export async function fetchRideById(rideId) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
+/** Super-Admin cost control for hidden-screen emergency one-shot reads. */
+export async function fetchCustomerLocationFallbackSeconds() {
+  if (!isFirebaseConfigured()) return 60;
+  const { db } = getFirebase();
+  const snap = await getDoc(doc(db, "settings", "dispatch"));
+  const raw = snap.exists() ? Number(snap.data()?.customerLocationFallbackSeconds) : 60;
+  if (raw === 0) return 0;
+  if (!Number.isInteger(raw) || raw < 30 || raw > 300) return 60;
+  return raw;
+}
+
 /** Live assigned vehicle GPS — allowed when vehicle is on customer's active ride. */
 export function watchAssignedVehicle(vehicleId, onData, onError = () => {}) {
   const { ready, db, auth } = getFirebase();

@@ -23,6 +23,17 @@ function answerIdentity(rideId, docData, fallbackVersion = 0) {
   return `${rid}|${sid}|${tid}|${av}`;
 }
 
+const ANSWER_MEMORY_PREFIX = "swiftgo_p2p_answered_v1:";
+const ANSWER_MEMORY_MAX_AGE_MS = 6 * 60 * 60_000;
+
+function defaultAnswerMemory() {
+  try {
+    return globalThis.localStorage || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * @param {{
  *   onRenderFix?: (fix: object, meta: object) => void,
@@ -37,6 +48,8 @@ function answerIdentity(rideId, docData, fallbackVersion = 0) {
  */
 export function createCustomerP2pController(opts = {}) {
   const diag = opts.onDiag || (() => {});
+  const answerMemory = opts.answerMemory === undefined ? defaultAnswerMemory() : opts.answerMemory;
+  const nowMs = typeof opts.nowMs === "function" ? opts.nowMs : () => Date.now();
   const arbiter = createLiveLocationSourceArbiter({
     onDiag: diag,
     onRender: (fix, meta) => opts.onRenderFix?.(fix, meta),
@@ -54,6 +67,7 @@ export function createCustomerP2pController(opts = {}) {
   let lastOfferSdp = "";
   /** Identity of the last offer whose answer the server accepted. */
   let answeredOfferKey = "";
+  let reconnectRequestedKey = "";
   let pendingOfferDoc = null;
   let expectedAssignmentVersion = 0;
   let answerGeneration = 0;
@@ -64,6 +78,34 @@ export function createCustomerP2pController(opts = {}) {
   /** @type {object | null} */
   let queuedAnswerDoc = null;
   const MAX_WATCH_RETRIES = 8;
+
+  function answerMemoryKey(rid) {
+    return `${ANSWER_MEMORY_PREFIX}${String(rid || "").trim()}`;
+  }
+
+  function rememberAnsweredOffer(key) {
+    const rid = String(rideId || "").trim();
+    if (!rid || !key || !answerMemory?.setItem) return;
+    try {
+      answerMemory.setItem(answerMemoryKey(rid), JSON.stringify({ key, at: nowMs() }));
+    } catch {
+      /* storage is best-effort; live reconnect still works */
+    }
+  }
+
+  function restoreAnsweredOffer(rid) {
+    if (!rid || !answerMemory?.getItem) return "";
+    try {
+      const parsed = JSON.parse(answerMemory.getItem(answerMemoryKey(rid)) || "null");
+      if (!parsed?.key || nowMs() - Number(parsed.at || 0) > ANSWER_MEMORY_MAX_AGE_MS) {
+        answerMemory?.removeItem?.(answerMemoryKey(rid));
+        return "";
+      }
+      return String(parsed.key);
+    } catch {
+      return "";
+    }
+  }
 
   const ctrlCounters = {
     offersReceived: 0,
@@ -186,6 +228,16 @@ export function createCustomerP2pController(opts = {}) {
     }
   }
 
+  function requestFreshDriverOffer(reason = "") {
+    const key = answerIdentity(rideId, pendingOfferDoc, expectedAssignmentVersion);
+    if (!rideId || (key && key === reconnectRequestedKey)) return;
+    reconnectRequestedKey = key || `${rideId}|${String(reason || "reconnect")}`;
+    arbiter.noteP2pUnhealthy();
+    // Closing the trusted signaling document tells the driver controller to
+    // rotate its offer. Re-answering the same SDP cannot revive a dead PC.
+    void closeSignaling(rideId);
+  }
+
   function isOfferCurrent(docData, forRideId = rideId) {
     if (!docData) return false;
     const contextRideId = String(forRideId || "").trim();
@@ -254,7 +306,13 @@ export function createCustomerP2pController(opts = {}) {
     // Android/WebView background suspension. Never destroy a live/degraded PC
     // merely to answer the exact same already-answered offer again. Only the
     // driver's freshly rotated offer can establish a new peer session.
-    if (newKey && newKey === answeredOfferKey) return;
+    if (newKey && newKey === answeredOfferKey) {
+      // After WebView/process restoration there is no live peer connection,
+      // even though this offer was answered before. Ask the driver for a fresh
+      // offer instead of publishing another answer to stale SDP.
+      if (!session) requestFreshDriverOffer("answered_offer_replayed");
+      return;
+    }
 
     if (boundSessionId === sid && session && offer === lastOfferSdp) {
       const st = String(session.getState?.()?.state || "");
@@ -322,6 +380,10 @@ export function createCustomerP2pController(opts = {}) {
               arbiter.noteP2pUnhealthy();
             }
           },
+          onNeedReconnect: () => {
+            if (localSession !== session) return;
+            requestFreshDriverOffer("customer_transport_stalled");
+          },
           onLocationFix: (fix) => {
             if (localSession !== session) return;
             const fixAv = Math.floor(Number(fix?.assignmentVersion) || 0);
@@ -359,6 +421,8 @@ export function createCustomerP2pController(opts = {}) {
               peerSessionId: meta.peerSessionId,
             });
             answeredOfferKey = currentOfferKey;
+            rememberAnsweredOffer(currentOfferKey);
+            reconnectRequestedKey = "";
             if (!isAnswerStillValid(gen, capturedRideId, docData) || localSession !== session) {
               ctrlCounters.staleAborts += 1;
               return;
@@ -461,11 +525,13 @@ export function createCustomerP2pController(opts = {}) {
       invalidateAnswerState();
       pendingOfferDoc = null;
       answeredOfferKey = "";
+      reconnectRequestedKey = "";
       destroySession();
     }
 
     beginCounterRide(rid);
     rideId = rid;
+    answeredOfferKey = restoreAnsweredOffer(rid);
     arbiter.reset({ clearCounters: true });
     attachWatch(rid);
   }
@@ -555,6 +621,7 @@ export function createCustomerP2pController(opts = {}) {
     pendingOfferDoc = null;
     expectedAssignmentVersion = 0;
     answeredOfferKey = "";
+    reconnectRequestedKey = "";
     rideId = "";
     arbiter.reset();
   }

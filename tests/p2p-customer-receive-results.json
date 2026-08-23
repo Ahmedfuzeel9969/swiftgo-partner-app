@@ -1,7 +1,7 @@
 {
   "suite": "p2p-customer-receive",
-  "generatedAt": "2026-08-20T13:20:28.365Z",
-  "pass": 9,
+  "generatedAt": "2026-08-23T12:29:46.706Z",
+  "pass": 14,
   "fail": 0,
   "results": [
     {
@@ -11,6 +11,21 @@
     },
     {
       "name": "static-customer-hidden-does-not-suspend-p2p",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-customer-stall-requests-fresh-driver-offer",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-answered-offer-survives-webview-restart",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-driver-rotates-when-customer-closes-stalled-session",
       "status": "PASS",
       "detail": ""
     },
@@ -43,6 +58,16 @@
       "name": "customer-resume-no-duplicate-when-session-alive",
       "status": "PASS",
       "detail": "answers=1 before=1"
+    },
+    {
+      "name": "customer-degraded-session-does-not-reanswer-old-offer",
+      "status": "PASS",
+      "detail": "answers=1 before=1"
+    },
+    {
+      "name": "customer-answers-fresh-rotated-offer",
+      "status": "PASS",
+      "detail": "answers=2 latest=ps_rotated012345"
     },
     {
       "name": "customer-watch-error-retries-signaling",

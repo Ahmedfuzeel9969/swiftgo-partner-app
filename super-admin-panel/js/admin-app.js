@@ -185,6 +185,7 @@ const els = {
   idleLocationIntervalPreset: document.getElementById("idleLocationIntervalPreset"),
   idleLocationMoveMetersInput: document.getElementById("idleLocationMoveMeters"),
   idleLocationMovePreset: document.getElementById("idleLocationMovePreset"),
+  customerLocationFallbackSecondsInput: document.getElementById("customerLocationFallbackSeconds"),
   idleHighMoveWarning: document.getElementById("idleHighMoveWarning"),
   idleMovementTriggerDisabledInput: document.getElementById("idleMovementTriggerDisabled"),
   idleDiagnosticDurationMinutes: document.getElementById("idleDiagnosticDurationMinutes"),
@@ -2333,6 +2334,14 @@ async function loadDispatchSettings() {
     if (els.idleLocationMoveMetersInput) {
       els.idleLocationMoveMetersInput.value = String(normalizedIdle.idleLocationMoveMeters);
     }
+    if (els.customerLocationFallbackSecondsInput) {
+      const fallbackSec = Number(data.customerLocationFallbackSeconds);
+      els.customerLocationFallbackSecondsInput.value = String(
+        Number.isInteger(fallbackSec) && (fallbackSec === 0 || (fallbackSec >= 30 && fallbackSec <= 300))
+          ? fallbackSec
+          : 60
+      );
+    }
     syncIdlePresetSelect(
       els.idleLocationMovePreset,
       els.idleLocationMoveMetersInput,
@@ -2422,6 +2431,17 @@ async function saveDispatchSettings(event) {
   }
 
   const diagnosticEnabled = Boolean(els.idleMovementTriggerDisabledInput?.checked);
+  const customerLocationFallbackSeconds = Math.round(Number(els.customerLocationFallbackSecondsInput?.value));
+  if (
+    !Number.isInteger(customerLocationFallbackSeconds) ||
+    (customerLocationFallbackSeconds !== 0 &&
+      (customerLocationFallbackSeconds < 30 || customerLocationFallbackSeconds > 300))
+  ) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = "صارف پس منظر ہنگامی وقفہ صفر یا 30 سے 300 سیکنڈ ہونا چاہیے۔";
+    }
+    return;
+  }
   const diagnosticDurationMin = Math.round(Number(els.idleDiagnosticDurationMinutes?.value));
   if (diagnosticEnabled) {
     if (
@@ -2486,6 +2506,7 @@ async function saveDispatchSettings(event) {
       maxSearchRadiusMeters: totalMeters,
       idleLocationIntervalMs: idleSeconds * 1000,
       idleLocationMoveMeters: idleMoveMeters,
+      customerLocationFallbackSeconds,
       idleMovementTriggerDisabled: diagnosticEnabled,
     };
     if (diagnosticEnabled) {

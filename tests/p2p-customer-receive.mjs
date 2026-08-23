@@ -265,6 +265,28 @@ async function testStaticLastPublishedOfferDeclared() {
       ? "PASS"
       : "FAIL"
   );
+  record(
+    "static-customer-stall-requests-fresh-driver-offer",
+    custSrc.includes('onNeedReconnect: () =>') &&
+      custSrc.includes('requestFreshDriverOffer("customer_transport_stalled")') &&
+      custSrc.includes("closeSignaling(rideId)")
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "static-answered-offer-survives-webview-restart",
+    custSrc.includes("ANSWER_MEMORY_PREFIX") &&
+      custSrc.includes("rememberAnsweredOffer") &&
+      custSrc.includes("restoreAnsweredOffer")
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "static-driver-rotates-when-customer-closes-stalled-session",
+    src.includes('String(docData.state || "") === "closed"') && src.includes("triggerReconnect();")
+      ? "PASS"
+      : "FAIL"
+  );
 }
 
 async function testCustomerWatchErrorRetries() {

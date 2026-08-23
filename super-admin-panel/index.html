@@ -567,6 +567,11 @@
                   یہ سیٹنگ صرف کنٹرولڈ ٹیسٹنگ کے لیے ہے۔
                 </p>
               </div>
+              <label class="finance-field" for="customerLocationFallbackSeconds">
+                <span class="finance-field__label">صارف پس منظر ہنگامی مقام وقفہ / Customer background fallback</span>
+                <input type="number" id="customerLocationFallbackSeconds" name="customerLocationFallbackSeconds" min="0" max="300" step="30" value="60" />
+                <p class="finance-field__hint">30–300 سیکنڈ؛ صفر سے مکمل بند۔ صرف چھپے صفحے اور ناکام براہِ راست مقام پر ایک دستاویز پڑھی جائے گی۔</p>
+              </label>
               <p class="admin-live-note admin-cost-warning" role="note">
                 <strong>لاگت انتباہ:</strong> چھوٹا وقفہ (مثلاً 4 سیکنڈ) Firebase میں زیادہ لوکیشن writes کرتا ہے اور بل بڑھ سکتا ہے۔
                 بڑا وقفہ یا زیادہ میٹر حد لاگت کم کرتی ہے، مگر آن لائن ڈرائیور کی محفوظ لوکیشن پرانی ہو سکتی ہے۔

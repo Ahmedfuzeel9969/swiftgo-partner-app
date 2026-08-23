@@ -855,6 +855,13 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       }
       payload.searchTimeoutSeconds = normalizeSearchTimeoutSeconds(searchSec);
     }
+    if (request.data?.customerLocationFallbackSeconds != null) {
+      const fallbackSec = Math.round(Number(request.data.customerLocationFallbackSeconds));
+      if (!Number.isFinite(fallbackSec) || (fallbackSec !== 0 && (fallbackSec < 30 || fallbackSec > 300))) {
+        throw new HttpsError("invalid-argument", "CUSTOMER_LOCATION_FALLBACK_OUT_OF_RANGE");
+      }
+      payload.customerLocationFallbackSeconds = fallbackSec;
+    }
 
     if (radius) {
       payload.maxSearchRadiusKm = radius.maxSearchRadiusKm;
@@ -884,6 +891,7 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       idleMovementTriggerDisabled: payload.idleMovementTriggerDisabled ?? null,
       idleDiagnosticExpiresAt: payload.idleDiagnosticExpiresAt ?? null,
       offerTimeoutSeconds: payload.offerTimeoutSeconds ?? null,
+      customerLocationFallbackSeconds: payload.customerLocationFallbackSeconds ?? null,
     };
   } catch (err) {
     throw mapErr(err);
