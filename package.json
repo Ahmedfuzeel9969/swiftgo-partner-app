@@ -53,6 +53,7 @@
     "test:customer-location-report-counters": "node tests/customer-location-report-counters.mjs",
     "test:customer-map-follow-driver": "node tests/customer-map-follow-driver.mjs",
     "test:customer-marker-motion": "node tests/customer-marker-motion-continuity.mjs",
+    "test:live-location-terminal-reliability": "node tests/live-location-terminal-reliability.mjs",
     "test:two-leg-route-blank-gap": "node tests/stage8-tranche2-blank-gap-ride-switch.mjs",
     "test:stage8-tranche3-idle": "node tests/stage8-tranche3-idle-index.mjs",
     "test:stage8-tranche4-owner-admin": "node tests/stage8-tranche4-owner-admin-hosting.mjs",

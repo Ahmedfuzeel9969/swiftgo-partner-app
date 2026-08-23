@@ -317,6 +317,13 @@ let locationTrackingSequence = 0;
 let locationTrackingSessionStartPending = false;
 /** Generation token — late GPS callbacks after stop are ignored. */
 let locationTrackingGeneration = 0;
+/** Native GPS suppresses browser fixes only while native fixes are actually fresh. */
+let lastNativeGpsFixAtMs = 0;
+const NATIVE_GPS_FRESH_MS = 15_000;
+const GPS_WATCHDOG_INTERVAL_MS = 10_000;
+const GPS_WATCH_STALE_MS = 25_000;
+let gpsWatchdogTimer = 0;
+let gpsRecoveryInFlight = false;
 /** @type {object|null} */
 let lastAcceptedLocationEnvelope = null;
 const locationDiagCounters = createLocationDiagCounters();
@@ -472,6 +479,7 @@ const backgroundLocationNative = createBackgroundLocationNativeController({
   getLastSequence: () => locationTrackingSequence,
   onNativeFix: (fix) => {
     if (!fix || typeof fix.lat !== "number" || typeof fix.lng !== "number") return;
+    lastNativeGpsFixAtMs = Date.now();
     // Feed the same pipeline as browser geolocation so P2P stays first while WebView lives.
     const fakePos = {
       __fromNative: true,
@@ -586,11 +594,13 @@ if (typeof window !== "undefined") {
     }
     void breadcrumbCollector.onNetworkResume();
     void driverLocationReport.retryPendingReports();
+    recoverStalledLocationWatch("network_online");
   });
-  window.addEventListener("visibilitychange", () => {
+  document.addEventListener("visibilitychange", () => {
     if (typeof document !== "undefined" && document.visibilityState === "visible") {
       void breadcrumbCollector.onAppResume();
       void driverLocationReport.retryPendingReports();
+      recoverStalledLocationWatch("app_visible");
       try {
         if (activeExecutionRide?.id) syncDriverP2pForActiveRide();
       } catch {
@@ -2892,9 +2902,14 @@ function invalidateHomeMapIfActive() {
 }
 
 function updateDriverLocation(position) {
-  // While Android foreground service owns the active ride, ignore browser GPS
-  // so P2P + Firebase share one authoritative native sequence path.
-  if (backgroundLocationNative.isStarted() && !position?.__fromNative) {
+  // Prefer native GPS, but never let a nominally-started yet silent native
+  // service suppress the browser fallback for the rest of the ride.
+  if (
+    backgroundLocationNative.isStarted() &&
+    !position?.__fromNative &&
+    lastNativeGpsFixAtMs > 0 &&
+    Date.now() - lastNativeGpsFixAtMs <= NATIVE_GPS_FRESH_MS
+  ) {
     return;
   }
   const { latitude, longitude, accuracy, speed, heading } = position.coords;
@@ -3816,6 +3831,87 @@ function stopDispatchIdleSettingsWatch() {
   unsubscribeDispatchIdleSettings = () => {};
 }
 
+function stopGpsWatchdog() {
+  if (gpsWatchdogTimer) {
+    window.clearInterval(gpsWatchdogTimer);
+    gpsWatchdogTimer = 0;
+  }
+  gpsRecoveryInFlight = false;
+}
+
+function armBrowserLocationWatch(generation) {
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  watchId = navigator.geolocation.watchPosition(
+    (position) => {
+      if (generation !== locationTrackingGeneration || !isOnlineReady()) return;
+      updateDriverLocation(position);
+    },
+    (error) => {
+      if (generation !== locationTrackingGeneration || !isOnlineReady()) return;
+      handleLocationError(error);
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 15000,
+    }
+  );
+}
+
+function recoverStalledLocationWatch(reason = "watchdog") {
+  if (
+    gpsRecoveryInFlight ||
+    !navigator.geolocation ||
+    !isOnlineReady() ||
+    !activeExecutionRide?.id ||
+    (typeof document !== "undefined" && document.visibilityState === "hidden")
+  ) {
+    return;
+  }
+  if (
+    backgroundLocationNative.isStarted() &&
+    lastNativeGpsFixAtMs > 0 &&
+    Date.now() - lastNativeGpsFixAtMs <= NATIVE_GPS_FRESH_MS
+  ) {
+    return;
+  }
+  if (lastGpsFixAtMs > 0 && Date.now() - lastGpsFixAtMs <= GPS_WATCH_STALE_MS) return;
+
+  const generation = locationTrackingGeneration;
+  gpsRecoveryInFlight = true;
+  armBrowserLocationWatch(generation);
+  try {
+    getFieldDiagnostics()?.record("gps_watch_recovery", {
+      reason: String(reason || "watchdog"),
+      staleForMs: lastGpsFixAtMs > 0 ? Date.now() - lastGpsFixAtMs : null,
+    });
+  } catch {
+    /* ignore */
+  }
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      gpsRecoveryInFlight = false;
+      if (generation !== locationTrackingGeneration || !isOnlineReady()) return;
+      updateDriverLocation(position);
+    },
+    () => {
+      gpsRecoveryInFlight = false;
+    },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 }
+  );
+}
+
+function startGpsWatchdog() {
+  stopGpsWatchdog();
+  gpsWatchdogTimer = window.setInterval(
+    () => recoverStalledLocationWatch("watchdog"),
+    GPS_WATCHDOG_INTERVAL_MS
+  );
+}
+
 function startLocationWatch() {
   if (!navigator.geolocation) {
     setLocationMessage("یہ براؤزر لائیو لوکیشن سپورٹ نہیں کرتا");
@@ -3825,6 +3921,7 @@ function startLocationWatch() {
 
   hasCenteredOnDriver = false;
   if (!locationTrackingSessionId) beginLocationTrackingSession();
+  const generation = locationTrackingGeneration;
   setLocationMessage("آپ کا موجودہ مقام تلاش کیا جا رہا ہے...");
   startDispatchIdleSettingsWatch();
   startLocationRefreshRequestWatch();
@@ -3832,14 +3929,8 @@ function startLocationWatch() {
   // Immediate fix for matching — don't wait for watchPosition throttle.
   navigator.geolocation.getCurrentPosition(
     (pos) => {
+      if (generation !== locationTrackingGeneration || !isOnlineReady()) return;
       updateDriverLocation(pos);
-      syncVehicleLocationToFirestore(pos.coords.latitude, pos.coords.longitude, {
-        force: true,
-        heading: Number.isFinite(pos.coords.heading) ? pos.coords.heading : null,
-        accuracy: pos.coords.accuracy,
-        speed: Number.isFinite(pos.coords.speed) && pos.coords.speed >= 0 ? pos.coords.speed : null,
-        observedAt: Number(pos.timestamp) || Date.now(),
-      });
     },
     () => {
       /* watchPosition will surface errors */
@@ -3847,22 +3938,17 @@ function startLocationWatch() {
     { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 }
   );
 
-  watchId = navigator.geolocation.watchPosition(
-    updateDriverLocation,
-    handleLocationError,
-    {
-      enableHighAccuracy: true,
-      maximumAge: 5000,
-      timeout: 15000,
-    }
-  );
+  armBrowserLocationWatch(generation);
+  startGpsWatchdog();
 }
 
 function stopLocationWatch() {
+  stopGpsWatchdog();
   if (watchId !== null) {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
+  lastNativeGpsFixAtMs = 0;
   stopLocationRefreshRequestWatch();
   stopDispatchIdleSettingsWatch();
   endLocationTrackingSession();

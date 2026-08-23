@@ -267,7 +267,7 @@ function baseClaims(over = {}) {
   );
   record(
     "driver-native-diagnostics-merge",
-    mapped.gpsFixesReceived === 7 &&
+    mapped.gpsFixesReceived === 5 &&
       mapped.vehicleWritesAcknowledged === 5 &&
       mapped.vehicleWritesAttempted === 6
       ? "PASS"

@@ -1259,8 +1259,8 @@ exports.submitRideBreadcrumbBatch = onCall({ region: "us-central1" }, async (req
 
 /** Super Admin: persist location reporting config (settings/locationReporting). Diagnostic only. */
 exports.saveAdminLocationReportingSettings = onCall({ region: "us-central1" }, async (request) => {
-  if (!request.auth?.uid || !(await ensureCallerCanAdminWrite(db, request.auth))) {
-    throw new HttpsError("permission-denied", "ADMIN_ONLY");
+  if (!request.auth?.uid || !(await isCallerAuthorizedForDiagnostic(db, request.auth))) {
+    throw new HttpsError("permission-denied", "SUPER_ADMIN_ONLY");
   }
   try {
     const {

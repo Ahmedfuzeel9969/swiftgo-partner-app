@@ -153,6 +153,12 @@ export function createBackgroundLocationNativeController(opts = {}) {
       });
       stateListener = await plugin.addListener("serviceState", (state) => {
         try {
+          const serviceState = String(state?.state || "");
+          if (serviceState === "permission_denied" || serviceState.startsWith("stopped")) {
+            started = false;
+          } else if (serviceState === "started" || serviceState === "restored_sticky") {
+            started = true;
+          }
           const upload = state?.upload || {};
           lastNativeDiagnostics = {
             fixCount: Number(state?.fixCount) || 0,
@@ -267,6 +273,14 @@ export function createBackgroundLocationNativeController(opts = {}) {
       token: cred.token || "",
       tokenExpiresAtMs: cred.expiresAtMs || 0,
     });
+    if (result?.ok === false || result?.running === false) {
+      started = false;
+      clearTimers();
+      return {
+        ok: false,
+        reason: String(result?.reason || "native_start_rejected").slice(0, 80),
+      };
+    }
     handle = plugin;
     started = true;
     startAlivePulse(plugin);

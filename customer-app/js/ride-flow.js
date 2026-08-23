@@ -1216,6 +1216,10 @@ function handleRideSnapshot(rawRide) {
   document.body.classList.toggle("has-active-ride", Boolean(activeRide));
   syncVehicleWatch(activeRide);
 
+  // Snapshot terminal counters before P2P, route, and map teardown. The report
+  // client persists the payload synchronously, then uploads it best-effort.
+  maybeFlushCustomerLocationReport(ride, previousStatus);
+
   if (ride.status === "accepted" || ride.status === "arrived" || ride.status === "in_progress") {
     clearSearchTimers();
     maybeStartPresenceForActiveRide();
@@ -1295,7 +1299,6 @@ function handleRideSnapshot(rawRide) {
     updateDriverOfferUi(ride);
   }
 
-  maybeFlushCustomerLocationReport(ride, previousStatus);
 }
 
 /**

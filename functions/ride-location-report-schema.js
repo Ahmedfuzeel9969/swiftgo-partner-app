@@ -423,6 +423,22 @@ function classifyReportHealth(input = {}) {
     return { status: "insufficient_data", reasons: ["no_location_events"] };
   }
 
+  const completeness = computeReportCompleteness(input);
+  if (completeness !== "complete") reasons.push(`report_incomplete:${completeness}`);
+
+  const validDriverCount = driver.counters?.validFixesAccepted || 0;
+  const hasValidDriverCount = Object.prototype.hasOwnProperty.call(
+    driver.counters || {},
+    "validFixesAccepted"
+  );
+  const lifecycleMs = Number(input.lifecycle?.totalLifecycleMs) || 0;
+  if (driverCount > 0 && hasValidDriverCount && validDriverCount === 0) {
+    reasons.push("driver_valid_fix_count_zero");
+  }
+  if (lifecycleMs >= 60_000 && driverCount < 2) {
+    reasons.push("driver_fix_count_too_low_for_lifecycle");
+  }
+
   const gaps = [
     ["driver_longest_gap_ms", driver.longestGapMs],
     ["server_longest_gap_ms", server.longestGapMs],
@@ -442,7 +458,13 @@ function classifyReportHealth(input = {}) {
     reasons.push("rendered_to_received_ratio_low");
   }
 
-  const hasCritical = reasons.some((r) => r.includes(String(HEALTH_CRITICAL_GAP_MS)) || r.includes("_low"));
+  const hasCritical = reasons.some(
+    (r) =>
+      r.includes(String(HEALTH_CRITICAL_GAP_MS)) ||
+      r.includes("_low") ||
+      r === "driver_valid_fix_count_zero" ||
+      r === "driver_fix_count_too_low_for_lifecycle"
+  );
   const hasWarning = reasons.some((r) => r.includes(String(HEALTH_WARNING_GAP_MS)));
 
   if (hasCritical) return { status: "critical", reasons };

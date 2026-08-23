@@ -85,6 +85,35 @@ export function createDriverP2pController(opts = {}) {
     watchRetries: 0,
     staleAborts: 0,
   };
+  const completedSessionCounters = {};
+  let counterRideId = "";
+
+  function beginCounterRide(nextRideId) {
+    const rid = String(nextRideId || "").trim();
+    if (!rid || rid === counterRideId) return;
+    for (const key of Object.keys(completedSessionCounters)) delete completedSessionCounters[key];
+    counterRideId = rid;
+  }
+
+  function archiveSessionCounters(target) {
+    const snapshot = target?.getCounters?.() || {};
+    for (const [key, raw] of Object.entries(snapshot)) {
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 0) continue;
+      completedSessionCounters[key] = (Number(completedSessionCounters[key]) || 0) + value;
+    }
+  }
+
+  function allSessionCounters() {
+    const combined = { ...completedSessionCounters };
+    const current = session?.getCounters?.() || {};
+    for (const [key, raw] of Object.entries(current)) {
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 0) continue;
+      combined[key] = (Number(combined[key]) || 0) + value;
+    }
+    return combined;
+  }
 
   function clearWatchRetry() {
     if (watchRetryTimer) {
@@ -192,7 +221,10 @@ export function createDriverP2pController(opts = {}) {
     answeredSessionId = "";
     lastAcceptedAnswer = "";
     lastPublishedOffer = "";
-    if (s) void s.close({ reason: "destroy" });
+    if (s) {
+      void s.close({ reason: "destroy" });
+      archiveSessionCounters(s);
+    }
     notifyHealth();
   }
 
@@ -351,6 +383,7 @@ export function createDriverP2pController(opts = {}) {
 
         ctrlCounters.startAttempts += 1;
         destroySession();
+        beginCounterRide(target.rideId);
         rideId = target.rideId;
         trackingSessionId = target.trackingSessionId;
         vehicleId = target.vehicleId || "";
@@ -521,7 +554,7 @@ export function createDriverP2pController(opts = {}) {
     createCommTransport,
     createMediaBridge,
     getCounters: () => ({
-      ...(session?.getCounters?.() || {}),
+      ...allSessionCounters(),
       ...ctrlCounters,
     }),
     getState: () => session?.getState?.() || { state: P2P_STATE.DISABLED },

@@ -73,6 +73,35 @@ export function createCustomerP2pController(opts = {}) {
     reassignmentSessionDestroys: 0,
     staleAssignmentFixes: 0,
   };
+  const completedSessionCounters = {};
+  let counterRideId = "";
+
+  function beginCounterRide(nextRideId) {
+    const rid = String(nextRideId || "").trim();
+    if (!rid || rid === counterRideId) return;
+    for (const key of Object.keys(completedSessionCounters)) delete completedSessionCounters[key];
+    counterRideId = rid;
+  }
+
+  function archiveSessionCounters(target) {
+    const snapshot = target?.getCounters?.() || {};
+    for (const [key, raw] of Object.entries(snapshot)) {
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 0) continue;
+      completedSessionCounters[key] = (Number(completedSessionCounters[key]) || 0) + value;
+    }
+  }
+
+  function allSessionCounters() {
+    const combined = { ...completedSessionCounters };
+    const current = session?.getCounters?.() || {};
+    for (const [key, raw] of Object.entries(current)) {
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 0) continue;
+      combined[key] = (Number(combined[key]) || 0) + value;
+    }
+    return combined;
+  }
 
   function invokeUnwatch(fn) {
     if (typeof fn !== "function") return;
@@ -128,7 +157,10 @@ export function createCustomerP2pController(opts = {}) {
     session = null;
     boundSessionId = "";
     lastOfferSdp = "";
-    if (s) void s.close({ reason: "destroy" });
+    if (s) {
+      void s.close({ reason: "destroy" });
+      archiveSessionCounters(s);
+    }
     arbiter.noteP2pUnhealthy();
   }
 
@@ -416,8 +448,9 @@ export function createCustomerP2pController(opts = {}) {
       destroySession();
     }
 
+    beginCounterRide(rid);
     rideId = rid;
-    arbiter.reset();
+    arbiter.reset({ clearCounters: true });
     attachWatch(rid);
   }
 
@@ -529,7 +562,7 @@ export function createCustomerP2pController(opts = {}) {
     createCommTransport: () => session?.createCommTransport?.() || null,
     createMediaBridge: () => session?.createMediaBridge?.() || null,
     getCounters: () => ({
-      ...(session?.getCounters?.() || {}),
+      ...allSessionCounters(),
       ...(arbiter.getCounters?.() || {}),
       ...ctrlCounters,
     }),

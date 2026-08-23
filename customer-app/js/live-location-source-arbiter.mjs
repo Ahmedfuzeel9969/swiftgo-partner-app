@@ -198,7 +198,7 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     };
   }
 
-  function reset() {
+  function reset({ clearCounters = false } = {}) {
     bumpGeneration();
     lastRendered = null;
     lastP2pAt = 0;
@@ -206,6 +206,9 @@ export function createLiveLocationSourceArbiter(opts = {}) {
     lastFirebaseRenderAt = 0;
     preferred = "firebase";
     p2pHealthy = false;
+    if (clearCounters) {
+      for (const key of Object.keys(counters)) counters[key] = 0;
+    }
   }
 
   function destroy() {

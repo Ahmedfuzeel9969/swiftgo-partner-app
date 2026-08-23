@@ -40,21 +40,27 @@ export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}, nativeDiag =
   const nativeUploaded = Number(nativeDiag.uploaded) || 0;
   const nativeRejected = Number(nativeDiag.rejected) || 0;
   const nativeFixCount = Number(nativeDiag.fixCount) || 0;
+  const p2pSent = Number(p2p.fixesSent) || 0;
+  const p2pSendFailures = Number(p2p.sendFailures) || 0;
+  const p2pAcknowledged = Number(p2p.acknowledgementsReceived) || 0;
   return {
-    gpsFixesReceived: rawGps + nativeFixCount,
-    validFixesAccepted: Math.max(0, rawGps - rejected) + nativeFixCount,
+    // Native fixes are fed through the same JS checkpoint pipeline while the
+    // WebView is alive. Use the larger source count so those fixes are not
+    // counted twice; native-only background fixes still remain visible.
+    gpsFixesReceived: Math.max(rawGps, nativeFixCount),
+    validFixesAccepted: Math.max(Math.max(0, rawGps - rejected), nativeFixCount),
     duplicateOrOutOfOrderRejected: rejected + nativeRejected,
     vehicleWritesAttempted: attempted + nativeUploaded + nativeRejected,
     vehicleWritesAcknowledged: committed + nativeUploaded,
     vehicleWritesFailed: Math.max(0, attempted - committed),
     p2pSessionsStarted: Number(p2p.sessionsStarted) || 0,
     p2pChannelsOpened: Number(p2p.channelsOpened) || 0,
-    p2pFramesAttempted: Number(p2p.fixesAttempted) || 0,
-    p2pFramesSent: Number(p2p.fixesSent) || 0,
-    p2pFramesAcknowledged: Number(p2p.acknowledgementsReceived) || 0,
+    p2pFramesAttempted: Number(p2p.fixesAttempted) || p2pSent + p2pSendFailures,
+    p2pFramesSent: p2pSent,
+    p2pFramesAcknowledged: p2pAcknowledged,
     p2pFramesRejected: Number(p2p.invalidMessages) || 0,
-    p2pSendFailures: Number(p2p.sendFailures) || 0,
-    p2pHealthySessionCount: Number(p2p.healthySessions) || 0,
+    p2pSendFailures,
+    p2pHealthySessionCount: Number(p2p.healthySessions) || (p2pAcknowledged > 0 ? 1 : 0),
     p2pDegradedOrFallbackTransitions: Number(p2p.fallbackTransitions) || 0,
   };
 }
@@ -64,13 +70,14 @@ export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}, nativeDiag =
  * @param {Record<string, unknown>} display display-location-pipeline counters (rejections only)
  */
 export function mapCustomerRuntimeCounters(p2p = {}, display = {}) {
+  const p2pReceived = Number(p2p.p2pAccepted) || Number(p2p.fixesReceived) || 0;
   return {
     firebaseSnapshotsReceived: Number(p2p.firebaseAccepted) || 0,
     firebaseValidRendered: Number(p2p.firebaseRendered) || 0,
     p2pSessionsStarted: Number(p2p.sessionsStarted) || 0,
     p2pChannelsOpened: Number(p2p.channelsOpened) || 0,
-    p2pHealthySessionCount: Number(p2p.healthySessions) || 0,
-    p2pFramesReceived: Number(p2p.p2pAccepted) || Number(p2p.fixesReceived) || 0,
+    p2pHealthySessionCount: Number(p2p.healthySessions) || (p2pReceived > 0 ? 1 : 0),
+    p2pFramesReceived: p2pReceived,
     p2pValidRendered: Number(p2p.p2pRendered) || 0,
     staleRejected: Number(p2p.staleRejected) || 0,
     duplicateRejected: Number(display.backwardJitterRejects) || 0,
@@ -297,18 +304,32 @@ export function createRideLocationReportClient(opts) {
   }
 
   async function flushFinal({ finalSubmit = true, timeoutMs = RIDE_LOCATION_REPORT_FINAL_FLUSH_TIMEOUT_MS } = {}) {
-    await ensureConfig();
-    const config = readCachedLocationReportingConfig(storage, nowMs());
-    if (!roleMetricsEnabled(role, config)) return { ok: true, skipped: true, reason: "reporting_disabled" };
     if (!store.isBound()) return { ok: false, reason: "not_bound" };
     if (flushInFlight) return { ok: false, reason: "in_flight" };
     flushInFlight = true;
     try {
+      // Capture and persist the final runtime counters synchronously, before the
+      // caller tears down P2P/map state. Network/config awaits must never turn a
+      // real ride into an all-zero terminal report.
       syncCountersFromRuntime();
       store.bumpSubmitSequence();
       const section = store.snapshotSection();
       const binding = store.getBinding();
       if (!section || !binding) return { ok: false, reason: "empty_section" };
+      enqueuePendingReport(storage, {
+        rideId: binding.rideId,
+        role,
+        assignmentSessionTokenHash: binding.assignmentSessionTokenHash,
+        section,
+        finalSubmit: finalSubmit === true,
+      });
+
+      await ensureConfig();
+      const config = readCachedLocationReportingConfig(storage, nowMs());
+      if (!roleMetricsEnabled(role, config)) {
+        removePendingReport(storage, { ...binding, role });
+        return { ok: true, skipped: true, reason: "reporting_disabled" };
+      }
 
       const submitPromise = submitSectionPayload({ section, binding, finalSubmit });
 
@@ -324,13 +345,14 @@ export function createRideLocationReportClient(opts) {
       });
 
       if (result?.ok && !result?.skipped) {
-        removePendingReport(storage, binding);
+        removePendingReport(storage, { ...binding, role });
         store.clear();
         boundRideId = "";
       }
       return { ok: true, result };
     } catch (error) {
-      enqueueCurrentSection(finalSubmit);
+      // The captured payload was queued before any await, so it survives a
+      // terminal UI teardown, navigation, timeout, or transient network loss.
       return { ok: false, reason: String(error?.message || error).slice(0, 120) };
     } finally {
       flushInFlight = false;
