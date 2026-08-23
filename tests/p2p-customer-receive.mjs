@@ -201,6 +201,39 @@ async function testCustomerResumeReanswersSameOffer() {
     `answers=${answers.length} before=${answersBeforeResume}`
   );
 
+  // Android/WebView resume can replay the same signaling document after the
+  // old data channel has become degraded. Re-answering that old offer destroys
+  // the customer's PC but cannot repair the driver's already-stable PC.
+  const answeredSession = cust._getSessionForTest();
+  answeredSession?.suspend?.();
+  const answersBeforeSameDegradedOffer = answers.length;
+  watchCb?.(offerDoc);
+  await new Promise((r) => setTimeout(r, 40));
+  record(
+    "customer-degraded-session-does-not-reanswer-old-offer",
+    answers.length === answersBeforeSameDegradedOffer &&
+      cust._getSessionForTest() === answeredSession
+      ? "PASS"
+      : "FAIL",
+    `answers=${answers.length} before=${answersBeforeSameDegradedOffer}`
+  );
+
+  const rotatedOfferDoc = {
+    ...offerDoc,
+    sessionId: "ps_rotated012345",
+    offer: "v=0\r\no=- rotated-offer\r\n",
+  };
+  watchCb?.(rotatedOfferDoc);
+  await new Promise((r) => setTimeout(r, 40));
+  record(
+    "customer-answers-fresh-rotated-offer",
+    answers.length === answersBeforeSameDegradedOffer + 1 &&
+      answers.at(-1)?.peerSessionId === rotatedOfferDoc.sessionId
+      ? "PASS"
+      : "FAIL",
+    `answers=${answers.length} latest=${answers.at(-1)?.peerSessionId || ""}`
+  );
+
   // Inject LOC via peer session test helper if available
   const st = cust.getState();
   const sess = cust.getCounters?.();

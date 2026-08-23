@@ -52,6 +52,8 @@ export function createCustomerP2pController(opts = {}) {
   let uiVisible = true;
   let watching = false;
   let lastOfferSdp = "";
+  /** Identity of the last offer whose answer the server accepted. */
+  let answeredOfferKey = "";
   let pendingOfferDoc = null;
   let expectedAssignmentVersion = 0;
   let answerGeneration = 0;
@@ -246,6 +248,13 @@ export function createCustomerP2pController(opts = {}) {
     const sid = String(docData?.sessionId || "");
     const offer = String(docData?.offer || "");
     ctrlCounters.offersReceived += 1;
+    const newKey = answerIdentity(rideId, docData, expectedAssignmentVersion);
+
+    // A reconnecting Firestore listener can replay the current document after
+    // Android/WebView background suspension. Never destroy a live/degraded PC
+    // merely to answer the exact same already-answered offer again. Only the
+    // driver's freshly rotated offer can establish a new peer session.
+    if (newKey && newKey === answeredOfferKey) return;
 
     if (boundSessionId === sid && session && offer === lastOfferSdp) {
       const st = String(session.getState?.()?.state || "");
@@ -261,7 +270,6 @@ export function createCustomerP2pController(opts = {}) {
     const prevKey = queuedAnswerDoc
       ? answerIdentity(rideId, queuedAnswerDoc, expectedAssignmentVersion)
       : "";
-    const newKey = answerIdentity(rideId, docData, expectedAssignmentVersion);
     queuedAnswerDoc = docData;
     pendingOfferDoc = docData;
 
@@ -282,6 +290,12 @@ export function createCustomerP2pController(opts = {}) {
         queuedAnswerDoc = null;
         const capturedRideId = String(rideId || "").trim();
         if (!isOfferCurrent(docData, capturedRideId)) continue;
+        const currentOfferKey = answerIdentity(
+          capturedRideId,
+          docData,
+          expectedAssignmentVersion
+        );
+        if (currentOfferKey && currentOfferKey === answeredOfferKey) continue;
 
         answerGeneration += 1;
         const gen = answerGeneration;
@@ -344,6 +358,7 @@ export function createCustomerP2pController(opts = {}) {
               answerSdp: sdp,
               peerSessionId: meta.peerSessionId,
             });
+            answeredOfferKey = currentOfferKey;
             if (!isAnswerStillValid(gen, capturedRideId, docData) || localSession !== session) {
               ctrlCounters.staleAborts += 1;
               return;
@@ -445,6 +460,7 @@ export function createCustomerP2pController(opts = {}) {
     if (switching) {
       invalidateAnswerState();
       pendingOfferDoc = null;
+      answeredOfferKey = "";
       destroySession();
     }
 
@@ -538,6 +554,7 @@ export function createCustomerP2pController(opts = {}) {
     destroySession();
     pendingOfferDoc = null;
     expectedAssignmentVersion = 0;
+    answeredOfferKey = "";
     rideId = "";
     arbiter.reset();
   }

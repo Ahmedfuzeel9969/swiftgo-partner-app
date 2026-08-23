@@ -478,12 +478,16 @@ async function healthAndPeerTests() {
   );
 
   const drvTimers = createFakeTimers();
+  let driverReconnectRequests = 0;
   const drv = createP2pPeerSession({
     role: "driver",
     RTCPeerConnection: MockRTCPeerConnection,
     nowMs: drvTimers.nowMs,
     setTimeoutFn: drvTimers.setTimeoutFn,
     clearTimeoutFn: drvTimers.clearTimeoutFn,
+    onNeedReconnect: () => {
+      driverReconnectRequests += 1;
+    },
   });
   await drv.startAsDriver({
     peerSessionId: "ps_testsession01",
@@ -517,6 +521,19 @@ async function healthAndPeerTests() {
     "39b-fix-plus-ack-healthy-driver",
     drv.getState().state === P2P_STATE.P2P_HEALTHY ? "PASS" : "FAIL",
     `${drv.getState().state} invalid=${drv.getCounters().invalidMessages} fixesSent=${drv.getCounters().fixesSent}`
+  );
+
+  // A frozen customer WebView can leave the data channel nominally open. New
+  // outbound sends are not delivery proof: a newer unacknowledged LOC beyond
+  // the fallback window must rotate signaling instead of staying degraded.
+  drvTimers.advance(P2P_FALLBACK_AFTER_MS + 1);
+  drv.enqueueLocationFix({ lat: 1.001, lng: 1.001, observedAt: drvTimers.nowMs() });
+  drv.evaluateHealth();
+  record(
+    "39c-open-zombie-channel-requests-fresh-offer",
+    drv.getState().state === P2P_STATE.FIREBASE_FALLBACK &&
+      driverReconnectRequests === 1,
+    `state=${drv.getState().state} reconnects=${driverReconnectRequests}`
   );
 
   // Backpressure coalesce

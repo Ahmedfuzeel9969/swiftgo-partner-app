@@ -268,6 +268,7 @@ export function createP2pPeerSession(deps) {
       if (!isCurrent(gen) || channelEverOpened) return;
       diag(P2P_DIAG.CHANNEL_OPEN_TIMEOUT);
       setState(P2P_STATE.FIREBASE_FALLBACK, "channel_open_timeout");
+      requestReconnect("channel_open_timeout");
     }, P2P_CHANNEL_OPEN_TIMEOUT_MS);
   }
 
@@ -278,6 +279,7 @@ export function createP2pPeerSession(deps) {
       if (!isCurrent(gen) || lastLocAckAt != null) return;
       diag(P2P_DIAG.ACK_TIMEOUT);
       setState(P2P_STATE.FIREBASE_FALLBACK, "first_ack_timeout");
+      requestReconnect("first_ack_timeout");
     }, P2P_FIRST_ACK_TIMEOUT_MS);
   }
 
@@ -388,8 +390,32 @@ export function createP2pPeerSession(deps) {
     }
     const locAckAge = lastLocAckAt != null ? now - lastLocAckAt : Infinity;
     const sentLoc = lastSequenceSent > 0 && lastValidFixAt != null;
-    if (channel?.readyState === "open" && sentLoc && locAckAge <= P2P_DEGRADED_AFTER_MS) {
+    const hasUnacknowledgedLoc = lastSequenceSent > lastAckSequence;
+    if (
+      channel?.readyState === "open" &&
+      sentLoc &&
+      lastLocAckAt != null &&
+      (!hasUnacknowledgedLoc || locAckAge <= P2P_DEGRADED_AFTER_MS)
+    ) {
       setState(P2P_STATE.P2P_HEALTHY);
+    } else if (
+      channel?.readyState === "open" &&
+      sentLoc &&
+      lastLocAckAt != null &&
+      locAckAge <= P2P_FALLBACK_AFTER_MS
+    ) {
+      setState(P2P_STATE.P2P_DEGRADED);
+    } else if (channel?.readyState === "open" && sentLoc && lastLocAckAt == null) {
+      // The bounded first-ACK timer owns initial delivery failure. Do not
+      // reconnect on every 2s health poll while the first ACK is in flight.
+      setState(P2P_STATE.P2P_DEGRADED);
+    } else if (channel?.readyState === "open" && sentLoc) {
+      // A WebRTC data channel can remain nominally "open" after the customer
+      // WebView is frozen or killed. Outbound sends are not proof of delivery;
+      // rotate the offer when a newer LOC has gone unacknowledged for the full
+      // fallback window.
+      setState(P2P_STATE.FIREBASE_FALLBACK, "driver_location_ack_timeout");
+      requestReconnect("driver_location_ack_timeout");
     } else if (channel?.readyState === "open" && isTransportAliveNow()) {
       setState(P2P_STATE.P2P_DEGRADED);
     } else if (channel?.readyState === "open") {
@@ -670,6 +696,7 @@ export function createP2pPeerSession(deps) {
       );
       if (!isCurrent(gen) || closed) return;
       setState(P2P_STATE.FIREBASE_FALLBACK, "channel_error");
+      requestReconnect("channel_error");
     };
     ch.onmessage = (ev) => {
       const data = ev?.data;
