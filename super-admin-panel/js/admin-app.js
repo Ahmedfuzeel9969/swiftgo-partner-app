@@ -644,9 +644,17 @@ async function signInWithGoogle() {
   setStatus("");
   hideAccessDenied();
   try {
+    if (window.location.hostname === "swiftgo-ride-app.web.app") {
+      await signInWithRedirect(auth, googleProvider);
+      return;
+    }
     await signInWithPopup(auth, googleProvider);
   } catch (error) {
-    if (error?.code === "auth/popup-blocked") {
+    if (
+      error?.code === "auth/popup-blocked" ||
+      error?.code === "auth/cancelled-popup-request" ||
+      error?.code === "auth/operation-not-supported-in-this-environment"
+    ) {
       await signInWithRedirect(auth, googleProvider);
       return;
     }
