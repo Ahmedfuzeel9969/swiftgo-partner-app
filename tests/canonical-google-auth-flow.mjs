@@ -77,4 +77,8 @@ for (const [appFile, configFile] of [
   assert.match(config, /authDomain: "swiftgo-ride-app\.firebaseapp\.com"/);
 }
 
+const buildTool = fs.readFileSync(path.join(root, "tools/build-hosting.mjs"), "utf8");
+assert.match(buildTool, /stampModuleEntrypoint\("partner\/index\.html", "js\/driver-app\.js", headSha\)/);
+assert.match(buildTool, /stampModuleEntrypoint\("admin\/index\.html", "\/admin\/js\/admin-app\.js", headSha\)/);
+
 console.log("Canonical Google auth flow checks passed.");

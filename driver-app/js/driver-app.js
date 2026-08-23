@@ -4868,14 +4868,15 @@ function boot() {
 
   const firebase = getFirebase();
   if (firebase.auth) {
-    getRedirectResult(firebase.auth)
-      .then(() =>
-        resumeCanonicalGoogleSignIn({
-          auth: firebase.auth,
-          provider: googleProvider,
-          signInWithRedirect,
-        })
-      )
+    resumeCanonicalGoogleSignIn({
+      auth: firebase.auth,
+      provider: googleProvider,
+      signInWithRedirect,
+    })
+      .then((resumed) => {
+        if (resumed) return null;
+        return getRedirectResult(firebase.auth);
+      })
       .catch((error) => {
         console.warn("[SwiftGo Driver] Google redirect", error);
         setLoginBusy(false);

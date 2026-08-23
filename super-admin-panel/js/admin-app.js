@@ -3258,14 +3258,15 @@ function boot() {
     return;
   }
 
-  getRedirectResult(firebase.auth)
-    .then(() =>
-      resumeCanonicalGoogleSignIn({
-        auth: firebase.auth,
-        provider: googleProvider,
-        signInWithRedirect,
-      })
-    )
+  resumeCanonicalGoogleSignIn({
+    auth: firebase.auth,
+    provider: googleProvider,
+    signInWithRedirect,
+  })
+    .then((resumed) => {
+      if (resumed) return null;
+      return getRedirectResult(firebase.auth);
+    })
     .catch((error) => {
       console.warn("[SwiftGo Admin] Google redirect", error);
       setBusy(false);

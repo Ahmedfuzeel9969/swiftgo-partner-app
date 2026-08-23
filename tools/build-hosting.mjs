@@ -66,6 +66,18 @@ function syncSharedJsInto(destJsDir) {
   fs.copyFileSync(catalogJsonFrom, catalogJsonTo);
 }
 
+function stampModuleEntrypoint(htmlRel, modulePath, headSha) {
+  const htmlPath = path.join(DIST, htmlRel);
+  const html = fs.readFileSync(htmlPath, "utf8");
+  const escapedPath = modulePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`(src=["']${escapedPath})(?:\\?[^"']*)?(["'])`);
+  const stamped = html.replace(pattern, `$1?v=${headSha.slice(0, 12)}$2`);
+  if (stamped === html) {
+    throw new Error(`Could not stamp module entrypoint ${modulePath} in ${htmlRel}`);
+  }
+  fs.writeFileSync(htmlPath, stamped);
+}
+
 function main() {
   const syncCatalog = spawnSync(process.execPath, [path.join(ROOT, "tools", "sync-vehicle-catalog.mjs")], {
     cwd: ROOT,
@@ -125,6 +137,8 @@ function main() {
   } catch {
     console.warn("[build-hosting] warning: could not resolve git HEAD for hosting source stamp");
   }
+  stampModuleEntrypoint("partner/index.html", "js/driver-app.js", headSha);
+  stampModuleEntrypoint("admin/index.html", "/admin/js/admin-app.js", headSha);
   fs.writeFileSync(
     path.join(DIST, ".hosting-source.json"),
     JSON.stringify(
