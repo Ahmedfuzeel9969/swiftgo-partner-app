@@ -243,8 +243,11 @@ function paintDisplayFrame(pos) {
     observedAt,
     // Snap frames are already along-route RAF; raw/sparse Firebase needs chord motion.
     skipAnimation: isSnap,
-    allowPredict: false,
+    allowPredict: !isSnap,
   });
+  // Verified routes trim by projected progress. Direct fallback routes cannot
+  // be snapped, so anchor their remaining line at the latest raw vehicle fix.
+  twoLegLayers?.setRawVehiclePosition?.(pos);
   const visible =
     typeof document === "undefined" || document.visibilityState !== "hidden";
   if (visible) {

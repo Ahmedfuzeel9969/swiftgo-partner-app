@@ -63,6 +63,7 @@ import {
   smoothHeadingToward,
   HEADING_MIN_SPEED_MPS,
 } from "../customer-app/js/marker-heading.mjs";
+import { remainingFallbackGeometryFromFix } from "../customer-app/js/two-leg-route-layers.mjs";
 
 const FIXTURE_META = {
   geometryKind: GEOMETRY_KIND.FIXTURE_ROAD_ROUTE,
@@ -1650,6 +1651,31 @@ function deterministicVisualFixture() {
       : "FAIL",
     "",
     "visual"
+  );
+
+  const fallbackRemaining = remainingFallbackGeometryFromFix(fbV.route, noisy);
+  record(
+    "V05b-dashed-fallback-removes-travelled-tail",
+    fallbackRemaining?.length === 2 &&
+      Math.abs(fallbackRemaining[0].lat - noisy.lat) < 1e-9 &&
+      Math.abs(fallbackRemaining[0].lng - noisy.lng) < 1e-9 &&
+      Math.abs(fallbackRemaining[1].lat - curve[curve.length - 1].lat) < 1e-9 &&
+      Math.abs(fallbackRemaining[1].lng - curve[curve.length - 1].lng) < 1e-9
+      ? "PASS"
+      : "FAIL",
+    "fallback begins at live vehicle and ends at destination",
+    "visual"
+  );
+
+  const rideFlowSource = read("customer-app/js/ride-flow.js");
+  record(
+    "V05c-raw-marker-motion-enabled",
+    rideFlowSource.includes("allowPredict: !isSnap") &&
+      rideFlowSource.includes("setRawVehiclePosition?.(pos)")
+      ? "PASS"
+      : "FAIL",
+    "raw fixes animate while fallback line follows the live vehicle",
+    "static"
   );
 
   const chordCheck = pointAtProgress(buildRouteMetrics(curve), buildRouteMetrics(curve).totalLengthM * 0.45);
