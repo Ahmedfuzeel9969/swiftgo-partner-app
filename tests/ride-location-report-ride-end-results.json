@@ -1,0 +1,62 @@
+{
+  "generatedAt": "2026-08-10T11:42:02.868Z",
+  "pass": 11,
+  "fail": 0,
+  "results": [
+    {
+      "name": "unit-map-driver-runtime-counters",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-map-customer-runtime-counters",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-final-flush-timeout-4s",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-driver-flush-before-settlement",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-driver-settlement-order",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-customer-terminal-flush",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-pending-queue-module",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-retry-on-startup-driver",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-retry-on-startup-customer",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-flush-final-timeout-non-blocking",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-flush-success-clears-binding",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-20T01:00:52.939Z",
+  "generatedAt": "2026-08-23T13:06:37.943Z",
   "pass": 7,
   "fail": 0,
   "results": [
@@ -36,7 +36,7 @@
     {
       "name": "health-not-critical-when-rendered-matches-received",
       "status": "PASS",
-      "detail": "healthy"
+      "detail": "warning"
     }
   ]
 }

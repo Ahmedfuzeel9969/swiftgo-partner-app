@@ -443,6 +443,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Per-ride location delivery reports — Admin read only; writes via Cloud Functions.
+    match /rideLocationReports/{rideId} {
+      allow get, list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
     // ── ride_requests/{id} ── Phase 2B: legacy archive — read-only; canonical bookings are rides/.
     match /ride_requests/{requestId} {
       allow get, list: if isSignedIn() && (

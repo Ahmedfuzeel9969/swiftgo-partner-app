@@ -608,6 +608,10 @@ assert(
 );
 const routingJs = read("customer-app/js/routing.js");
 const fareJs = read("customer-app/js/fare.js");
+const catalogJson = read("shared/vehicle-catalog.json");
+const catalogJs = read("shared/js/vehicle-catalog.mjs");
+const catalogCanonicalCount = (catalogJson.match(/"bike"|"go"|"go-plus"|"business"|"bike-cargo"|"suzuki"|"truck"/g) || [])
+  .filter((v, i, a) => a.indexOf(v) === i).length;
 assert(
   "wiring",
   "Phase 14.1 OSRM polyline + auto fitBounds",
@@ -629,16 +633,22 @@ assert(
 );
 assert(
   "wiring",
-  "Phase 15 dynamic fare matrix and route listener",
+  "Phase 15 canonical catalog-driven fare matrix and route listener",
   fareJs.includes("swiftgo:route-updated") &&
     fareJs.includes("window.SwiftGo?.getRouteInfo?.()") &&
     fareJs.includes("calculateVehicleFare") &&
-    countMatches(fareJs, /perKm:/g) === 7 &&
-    countMatches(fareJs, /perMin:/g) === 7 &&
+    fareJs.includes('from "./vehicle-catalog.mjs"') &&
+    fareJs.includes("CANONICAL_VEHICLE_IDS.map") &&
+    fareJs.includes("FARE_MATRIX") &&
     fareJs.includes('".price, .vehicle-card__price"') &&
     fareJs.includes('".eta, .vehicle-card__eta"') &&
     sheetJs.includes("setDynamicVehicleFares") &&
-    appJs.includes("initFareCalculation")
+    appJs.includes("initFareCalculation") &&
+    catalogJs.includes("exportCatalogDataForParity") &&
+    catalogJson.includes('"canonicalVehicleIds"') &&
+    catalogCanonicalCount >= 7 &&
+    !dataJs.includes("baseFare: 40,\n      perKmRate: 15") &&
+    read("functions/vehicle-catalog.data.json") === catalogJson
 );
 const rideFlowJs = read("customer-app/js/ride-flow.js");
 assert(
@@ -769,12 +779,58 @@ assert(
     !driverHtml.includes('id="roleSelectionOverlay"') &&
     !driverHtml.includes('id="btnReturnToOwner"') &&
     !driverHtml.includes("مالک موڈ میں واپس جائیں") &&
-    driverAppJs.includes("if (!partnerSnapshot.exists() || !partnerSnapshot.data().role)") &&
+    driverAppJs.includes('from "./auth-surface-routing.mjs"') &&
+    driverAppJs.includes('resolveSurfaceEntry({') &&
+    driverAppJs.includes('surface: "partner"') &&
+    driverAppJs.includes("stayOnDriverSurface") &&
     driverAppJs.includes('role: "driver"') &&
-    driverAppJs.includes('partner.role === "owner"') &&
-    driverAppJs.includes('window.location.replace("/owner/")') &&
+    driverAppJs.includes("entry.outcome === \"app_shell\"") &&
+    driverAppJs.includes("entry.outcome === \"provision_driver\"") &&
+    !driverAppJs.includes('window.location.replace("/owner/")') &&
     driverAppJs.includes("await signOut(auth)") &&
     driverAppJs.includes("hideProtectedUi()")
+);
+assert(
+  "wiring",
+  "Owner app gates dashboard by saved owner role only",
+  ownerHtml.includes("سوئفٹ گو مالک") &&
+    ownerHtml.includes('id="ownerRideList"') &&
+    ownerHtml.includes('id="ownerVehicleGrid"') &&
+    ownerAppJs.includes('from "./auth-surface-routing.mjs"') &&
+    ownerAppJs.includes('surface: "owner"') &&
+    ownerAppJs.includes('entry.outcome === "app_shell"') &&
+    ownerAppJs.includes('entry.outcome === "login_denied"') &&
+    !ownerAppJs.match(/setDoc\([\s\S]{0,400}role:\s*"owner"/) &&
+    ownerAppJs.includes("requestOwnerAccessClient") &&
+    ownerAppJs.includes("showOwnerDashboard()") &&
+    !ownerAppJs.includes('window.location.replace("/partner/")') &&
+    ownerCss.includes(".owner-ride-history") &&
+    rules.includes("resource.data.ownerId == request.auth.uid") &&
+    rules.includes("request.resource.data.role == 'driver'") &&
+    rules.includes("match /owner_applications/{appId}")
+);
+assert(
+  "wiring",
+  "Owner onboarding is server-authoritative via Cloud Functions",
+  read("functions/index.js").includes("exports.requestOwnerAccess") &&
+    read("functions/index.js").includes("exports.approveOwnerAccess") &&
+    read("functions/index.js").includes("exports.rejectOwnerAccess") &&
+    read("functions/owner-onboarding.js").includes("requestOwnerAccess") &&
+    read("functions/owner-onboarding.js").includes("approveOwnerAccess") &&
+    read("functions/owner-onboarding.js").includes("rejectOwnerAccess") &&
+    read("functions/owner-onboarding.js").includes("isCallerAuthorizedForDiagnostic") &&
+    read("functions/owner-onboarding.js").includes("ROLE_NOT_ACCEPTED_FROM_CLIENT") &&
+    rules.includes("match /owner_applications/{appId}") &&
+    rules.includes("allow create, update, delete: if false")
+);
+assert(
+  "wiring",
+  "Super Admin panel lists owner applications on demand",
+  read("super-admin-panel/index.html").includes('data-view-panel="owner-applications"') &&
+    read("super-admin-panel/js/admin-app.js").includes("fetchOwnerApplicationsOnDemand") &&
+    read("super-admin-panel/js/admin-app.js").includes("approveOwnerAccessClient") &&
+    read("super-admin-panel/js/admin-app.js").includes("rejectOwnerAccessClient") &&
+    read("super-admin-panel/js/admin-app.js").includes("OWNER_APPLICATIONS_FETCH_LIMIT = 50")
 );
 assert(
   "wiring",
@@ -787,7 +843,6 @@ assert(
     !ownerHtml.includes('id="roleSelectionOverlay"') &&
     ownerAppJs.includes('where("ownerId", "==", currentDriver.uid)') &&
     ownerAppJs.includes("startOwnerRidesListener()") &&
-    ownerAppJs.includes('role: "owner"') &&
     ownerAppJs.includes("showOwnerDashboard()") &&
     !ownerAppJs.includes('window.location.replace("/partner/")') &&
     ownerCss.includes(".owner-ride-history") &&

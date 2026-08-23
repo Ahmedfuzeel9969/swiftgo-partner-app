@@ -1,25 +1,16 @@
 /**
- * Server-side fare math — mirrors customer-app/js/data.js (trusted cancel billing).
+ * Server-side fare math — uses canonical vehicle catalog for rate resolution.
  */
 
 "use strict";
 
-const FALLBACK_VEHICLE_RATES = Object.freeze({
-  go: Object.freeze({ baseFare: 40, perKmRate: 15, commissionPercent: 10 }),
-  mini: Object.freeze({ baseFare: 100, perKmRate: 35, commissionPercent: 10 }),
-  ac: Object.freeze({ baseFare: 130, perKmRate: 40, commissionPercent: 10 }),
-  rickshaw: Object.freeze({ baseFare: 60, perKmRate: 20, commissionPercent: 10 }),
-  premium: Object.freeze({ baseFare: 200, perKmRate: 60, commissionPercent: 10 }),
-  bike: Object.freeze({ baseFare: 60, perKmRate: 20, commissionPercent: 10 }),
-  van: Object.freeze({ baseFare: 250, perKmRate: 50, commissionPercent: 10 }),
-  cargo: Object.freeze({ baseFare: 500, perKmRate: 80, commissionPercent: 10 }),
-});
-
-const FALLBACK_PRICING = Object.freeze({
-  baseFare: FALLBACK_VEHICLE_RATES.go.baseFare,
-  perKmRate: FALLBACK_VEHICLE_RATES.go.perKmRate,
-  commissionPercent: FALLBACK_VEHICLE_RATES.go.commissionPercent,
-});
+const {
+  DEFAULT_VEHICLE_RATES,
+  DEFAULT_PRICING,
+  resolveVehicleTypeKeyForRead,
+  lookupPricingVehicleEntry,
+  getDefaultVehicleRate,
+} = require("./vehicle-catalog");
 
 function normalizeRate(raw, fallback) {
   const baseFare = Number(raw?.baseFare ?? raw?.base);
@@ -29,7 +20,9 @@ function normalizeRate(raw, fallback) {
     baseFare: Number.isFinite(baseFare) && baseFare >= 0 ? baseFare : fallback.baseFare,
     perKmRate: Number.isFinite(perKmRate) && perKmRate >= 0 ? perKmRate : fallback.perKmRate,
     commissionPercent:
-      Number.isFinite(commissionPercent) && commissionPercent >= 0
+      Number.isFinite(commissionPercent) &&
+      commissionPercent >= 0 &&
+      commissionPercent <= 100
         ? commissionPercent
         : fallback.commissionPercent,
     distanceTiers: Array.isArray(raw?.distanceTiers) ? raw.distanceTiers : [],
@@ -38,21 +31,27 @@ function normalizeRate(raw, fallback) {
 }
 
 function resolveVehicleRates(pricing, ride) {
+  const rawKey = ride?.vehicleTypeKey || ride?.vehicleType || "";
+  const resolution = resolveVehicleTypeKeyForRead(rawKey);
+  if (!resolution.ok) {
+    const err = new Error(`${resolution.code}:${resolution.input}`);
+    err.code = resolution.code;
+    err.diagnostic = resolution;
+    throw err;
+  }
+
+  const defaults = getDefaultVehicleRate(resolution.canonicalId);
   const vehicles = pricing?.vehicles || {};
-  const key = String(ride?.vehicleTypeKey || "").trim();
-  if (key && vehicles[key]) {
-    return normalizeRate(vehicles[key], FALLBACK_VEHICLE_RATES[key] || FALLBACK_VEHICLE_RATES.go);
+  const entry = lookupPricingVehicleEntry(vehicles, resolution);
+  if (entry) {
+    return normalizeRate(entry, defaults);
   }
-  const type = String(ride?.vehicleType || "").trim().toLowerCase();
-  for (const [k, cfg] of Object.entries(vehicles)) {
-    if (k.toLowerCase() === type) {
-      return normalizeRate(cfg, FALLBACK_VEHICLE_RATES[k] || FALLBACK_VEHICLE_RATES.go);
-    }
-  }
+
   if (Number.isFinite(Number(pricing?.baseFare)) || Number.isFinite(Number(pricing?.perKmRate))) {
-    return normalizeRate(pricing, FALLBACK_PRICING);
+    return normalizeRate(pricing, defaults);
   }
-  return normalizeRate(FALLBACK_VEHICLE_RATES.go, FALLBACK_VEHICLE_RATES.go);
+
+  return normalizeRate(defaults, defaults);
 }
 
 function resolveEffectiveRates(rates, distanceKm, timeMins) {
@@ -102,5 +101,6 @@ module.exports = {
   resolveVehicleRates,
   resolveEffectiveRates,
   calculateVehicleFare,
-  FALLBACK_VEHICLE_RATES,
+  FALLBACK_VEHICLE_RATES: DEFAULT_VEHICLE_RATES,
+  DEFAULT_PRICING,
 };

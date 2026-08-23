@@ -1,11 +1,11 @@
 {
-  "pass": 114,
+  "pass": 115,
   "fail": 0,
   "blocked": 0,
-  "total": 114,
+  "total": 115,
   "summary": {
     "unit": {
-      "pass": 76,
+      "pass": 77,
       "fail": 0,
       "blocked": 0
     },
@@ -411,7 +411,14 @@
     {
       "name": "fresh-receivedAt-wins-over-future-observedAt",
       "status": "PASS",
-      "detail": "2647",
+      "detail": "2053",
+      "suite": "live-location-foundation",
+      "category": "unit"
+    },
+    {
+      "name": "fresh-newest-wins-over-stale-receivedAt",
+      "status": "PASS",
+      "detail": "2000",
       "suite": "live-location-foundation",
       "category": "unit"
     },
@@ -432,7 +439,7 @@
     {
       "name": "fresh-server-updatedAt-when-no-receivedAt",
       "status": "PASS",
-      "detail": "600647",
+      "detail": "600053",
       "suite": "live-location-foundation",
       "category": "unit"
     },
@@ -640,7 +647,7 @@
       "category": "static"
     },
     {
-      "name": "33-ride-driverLocation-rule-retained",
+      "name": "33-ride-driverLocation-client-rule-removed",
       "status": "PASS",
       "detail": "",
       "suite": "live-location-foundation",

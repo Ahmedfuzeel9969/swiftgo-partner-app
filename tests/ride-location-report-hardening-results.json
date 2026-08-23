@@ -1,0 +1,258 @@
+{
+  "generatedAt": "2026-08-10T13:16:45.400Z",
+  "pass": 39,
+  "fail": 0,
+  "billingEvidence": [
+    {
+      "cadenceSec": 4,
+      "acceptedCheckpoints": 300,
+      "before7A": {
+        "ridesReads": 300,
+        "ridesWrites": 300,
+        "reportReads": 300,
+        "reportWrites": 300,
+        "terminalReportWrites": 2
+      },
+      "after7A1": {
+        "ridesReads": 300,
+        "ridesWrites": 300,
+        "reportReads": 0,
+        "reportWrites": 0,
+        "terminalReportWrites": 2
+      }
+    },
+    {
+      "cadenceSec": 30,
+      "acceptedCheckpoints": 40,
+      "before7A": {
+        "ridesReads": 40,
+        "ridesWrites": 40,
+        "reportReads": 40,
+        "reportWrites": 40,
+        "terminalReportWrites": 2
+      },
+      "after7A1": {
+        "ridesReads": 40,
+        "ridesWrites": 40,
+        "reportReads": 0,
+        "reportWrites": 0,
+        "terminalReportWrites": 2
+      }
+    },
+    {
+      "cadenceSec": 60,
+      "acceptedCheckpoints": 20,
+      "before7A": {
+        "ridesReads": 20,
+        "ridesWrites": 20,
+        "reportReads": 20,
+        "reportWrites": 20,
+        "terminalReportWrites": 2
+      },
+      "after7A1": {
+        "ridesReads": 20,
+        "ridesWrites": 20,
+        "reportReads": 0,
+        "reportWrites": 0,
+        "terminalReportWrites": 2
+      }
+    }
+  ],
+  "results": [
+    {
+      "name": "unit-customer-no-firebase-double-count",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-mixed-source-p2p-not-counted-as-firebase-render",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-driver-no-invented-invalid-fixes-counter",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-driver-p2p-separate-counters",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-customer-source-switch-directional",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-completeness-partial-both-clients",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-lifecycle-segment-durations",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-derived-firebase-window-only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-retention-policy-marker",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-config-unimplemented-modes-blocked",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-config-disabled-inactive",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-pending-queue-enqueue",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-pending-retry-ack-removes",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-flush-timeout-enqueues-pending",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-billing-4s-zero-checkpoint-report-doc-ops",
+      "status": "PASS",
+      "detail": "accepted=300"
+    },
+    {
+      "name": "unit-billing-30s-zero-checkpoint-report-doc-ops",
+      "status": "PASS",
+      "detail": "accepted=40"
+    },
+    {
+      "name": "unit-billing-60s-zero-checkpoint-report-doc-ops",
+      "status": "PASS",
+      "detail": "accepted=20"
+    },
+    {
+      "name": "static-driver-location-no-report-collection",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-driver-location-uses-ride-aggregate",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-config-propagation-bounds-documented",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-accepted-checkpoint-doc-ops",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-skipped-checkpoint-no-ride-write",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-config-failure-mirror-continues",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-assignment-reset-in-bargaining",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-no-record-server-mirror-outcome-in-production",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-disabled-skips-ride-aggregate",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-final-submit-merges-ride-server-aggregate",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-cancelled-ride-driver-submit",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-active-finalSubmit-not-final",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-cancelled-all-sections-final",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-rematch-stale-token-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-rematch-resets-server-mirror-aggregate",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-wrong-assignment-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-final-requires-all-enabled-sections",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-config-mode-behavior-table",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-server-config-cache-respects-ttl-bound",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-client-config-cache-respects-ttl-bound",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-customer-startup-retry-drains-pending",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-idempotent-retry-safe",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

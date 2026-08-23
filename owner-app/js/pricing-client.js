@@ -4,16 +4,16 @@
 
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getFirebase, isFirebaseConfigured } from "./firebase.js";
+import {
+  CANONICAL_VEHICLE_IDS,
+  DEFAULT_VEHICLE_RATES as CATALOG_DEFAULT_VEHICLE_RATES,
+  getDefaultVehicleRate,
+  lookupPricingVehicleEntry,
+  resolveVehicleTypeKeyForRead,
+  resolveVehicleTypeKeyFromLabel,
+} from "./vehicle-catalog.mjs";
 
-export const FALLBACK_VEHICLE_RATES = Object.freeze({
-  bike: Object.freeze({ baseFare: 40, perKmRate: 15, commissionPercent: 10, distanceTiers: [], paceTiers: [] }),
-  go: Object.freeze({ baseFare: 100, perKmRate: 35, commissionPercent: 10, distanceTiers: [], paceTiers: [] }),
-  "go-plus": Object.freeze({ baseFare: 130, perKmRate: 40, commissionPercent: 10, distanceTiers: [], paceTiers: [] }),
-  business: Object.freeze({ baseFare: 200, perKmRate: 60, commissionPercent: 10, distanceTiers: [], paceTiers: [] }),
-  "bike-cargo": Object.freeze({ baseFare: 60, perKmRate: 20, commissionPercent: 10, distanceTiers: [], paceTiers: [] }),
-  suzuki: Object.freeze({ baseFare: 250, perKmRate: 50, commissionPercent: 10, distanceTiers: [], paceTiers: [] }),
-  truck: Object.freeze({ baseFare: 500, perKmRate: 80, commissionPercent: 10, distanceTiers: [], paceTiers: [] }),
-});
+export const FALLBACK_VEHICLE_RATES = CATALOG_DEFAULT_VEHICLE_RATES;
 
 export const VEHICLE_LABELS = Object.freeze({
   bike: "بائیک",
@@ -115,9 +115,13 @@ export function normalizePricingSettings(data = {}) {
     : null;
 
   const vehicles = {};
-  Object.keys(FALLBACK_VEHICLE_RATES).forEach((key) => {
+  CANONICAL_VEHICLE_IDS.forEach((key) => {
+    const resolution = resolveVehicleTypeKeyForRead(key);
+    const fromDoc =
+      (resolution.ok && lookupPricingVehicleEntry(data.vehicles, resolution)) ||
+      data.vehicles?.[key];
     vehicles[key] = normalizeRate(
-      data?.vehicles?.[key] || legacyRate || FALLBACK_VEHICLE_RATES[key],
+      fromDoc || legacyRate || FALLBACK_VEHICLE_RATES[key],
       FALLBACK_VEHICLE_RATES[key]
     );
   });
@@ -132,42 +136,32 @@ export function normalizePricingSettings(data = {}) {
 }
 
 export function resolveVehicleKeyFromLabel(label) {
-  const raw = String(label || "").trim().toLowerCase();
-  if (!raw) return "";
-  const map = {
-    bike: "bike",
-    بائیک: "bike",
-    go: "go",
-    گو: "go",
-    "go plus": "go-plus",
-    "go-plus": "go-plus",
-    "گو پلس": "go-plus",
-    business: "business",
-    بزنس: "business",
-    "bike cargo": "bike-cargo",
-    "bike-cargo": "bike-cargo",
-    "بائیک کارگو": "bike-cargo",
-    suzuki: "suzuki",
-    سوزوکی: "suzuki",
-    truck: "truck",
-    ٹرک: "truck",
-  };
-  return map[raw] || "";
+  return resolveVehicleTypeKeyFromLabel(label);
 }
 
 export function getVehicleRates(pricing, vehicleKey) {
-  const key = vehicleKey || "go";
-  const fromMap = pricing?.vehicles?.[key];
-  if (fromMap) return fromMap;
-  const fallback = FALLBACK_VEHICLE_RATES[key];
-  if (fallback) return fallback;
-  return {
-    baseFare: pricing?.baseFare ?? FALLBACK_VEHICLE_RATES.go.baseFare,
-    perKmRate: pricing?.perKmRate ?? FALLBACK_VEHICLE_RATES.go.perKmRate,
-    commissionPercent: pricing?.commissionPercent ?? FALLBACK_VEHICLE_RATES.go.commissionPercent,
-    distanceTiers: [],
-    paceTiers: [],
-  };
+  const raw = String(vehicleKey ?? "").trim();
+  if (!raw) {
+    return normalizeRate(null, getDefaultVehicleRate("go"));
+  }
+  const resolution = resolveVehicleTypeKeyForRead(raw);
+  if (!resolution.ok) {
+    const err = new Error(`${resolution.code}:${resolution.input}`);
+    err.code = resolution.code;
+    throw err;
+  }
+  const fromMap = lookupPricingVehicleEntry(pricing?.vehicles, resolution);
+  if (fromMap) {
+    return normalizeRate(fromMap, getDefaultVehicleRate(resolution.canonicalId));
+  }
+  const fallback = getDefaultVehicleRate(resolution.canonicalId);
+  if (
+    Number.isFinite(Number(pricing?.baseFare)) ||
+    Number.isFinite(Number(pricing?.perKmRate))
+  ) {
+    return normalizeRate(pricing, fallback);
+  }
+  return normalizeRate(fallback, fallback);
 }
 
 /** Pick effective base/perKm from distance range, then optional pace (min/km) override. */

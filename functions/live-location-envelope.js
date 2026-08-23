@@ -7,6 +7,9 @@
  * - First ride fix is NOT accepted merely because no previous ride location exists
  *   when session IDs mismatch or location.sessionId is missing.
  * - Same sessionId: next.sequence AND next.observedAt must both be strictly greater.
+ * - First ride fix for an established vehicle session uses trusted-fix recency
+ *   (vehicles.locationUpdatedAt anchor), NOT the new-session start window.
+ * - New tracking session transitions on the ride still use session-start freshness.
  * - Exact same sessionId/sequence/observedAt/coords → duplicate.
  * - Different sessionId alone is NOT enough to accept.
  * - A new session is accepted only when vehicle.trackingSessionStartedAt (server time)
@@ -58,6 +61,7 @@ const LOCATION_DIAG = Object.freeze({
   SESSION_MISMATCH: "location_fix_session_mismatch",
   MIRRORED: "ride_location_mirrored",
   NOOP_UNCHANGED: "ride_location_noop_unchanged",
+  REPORTING_CONFIG_UNAVAILABLE: "location_reporting_config_unavailable",
 });
 
 function isValidTrackingSessionId(id) {

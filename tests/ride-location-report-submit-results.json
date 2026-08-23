@@ -1,0 +1,97 @@
+{
+  "generatedAt": "2026-08-10T11:42:30.545Z",
+  "pass": 18,
+  "fail": 0,
+  "results": [
+    {
+      "name": "unit-map-mirror-accepted",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-map-mirror-noop",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "unit-hash-token",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-callable-exported",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-no-settlement-import",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "static-no-record-server-mirror-outcome-in-production",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-driver-submit-ok",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-wrong-driver-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-stale-token-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-driver-sequence-advance-merge",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-idempotent-same-sequence",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-stale-sequence-denied",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-customer-submit-ok",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-server-mirror-counters",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-completeness-complete",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-derived-health-present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-lifecycle-assigned-at",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "emulator-final-status-after-terminal",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

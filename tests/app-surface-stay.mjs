@@ -25,7 +25,13 @@ function check(name, ok) {
 check("owner never redirects drivers to partner", !ownerJs.includes('window.location.replace("/partner/")'));
 check("driver never redirects to owner", !driverJs.includes('window.location.replace("/owner/")'));
 check("driver does not force owner→driver role rewrite", !driverJs.includes("reconcileOwnerRoleOnDriverApp"));
-check("driver allows owner role on partner surface", driverJs.includes('partner.role === "driver" || partner.role === "owner"'));
+check(
+  "driver allows owner role on partner surface",
+  driverJs.includes('from "./auth-surface-routing.mjs"') &&
+    driverJs.includes('resolveSurfaceEntry({') &&
+    driverJs.includes('surface: "partner"') &&
+    !driverJs.includes('window.location.replace("/owner/")')
+);
 
 console.log(`\nSurface stay: ${pass} pass / ${fail} fail`);
 if (fail) process.exitCode = 1;

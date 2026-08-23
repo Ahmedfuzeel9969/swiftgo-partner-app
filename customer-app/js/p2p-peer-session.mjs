@@ -237,6 +237,17 @@ export function createP2pPeerSession(deps) {
     sentSequences.delete(seq);
   }
 
+  function classifyInboundAck(msg) {
+    const explicit = classifyAckKind(msg);
+    if (explicit) return explicit;
+    const seq = Math.floor(Number(msg?.seq) || 0);
+    // Backward compatibility for customers deployed before ackKind existed:
+    // only an ACK for a location sequence this driver actually sent may be
+    // inferred as a location acknowledgement.
+    if (role === "driver" && seq > 0 && sentSequences.has(seq)) return P2P_ACK_KIND.LOC;
+    return "";
+  }
+
   function isTransportAliveNow() {
     if (channel?.readyState !== "open") return false;
     const vals = [lastAckAt, lastHbAt, lastValidFixAt, lastOutboundAt]
@@ -539,7 +550,7 @@ export function createP2pPeerSession(deps) {
     }
 
     if (validated.type === "ack" && role === "driver") {
-      const ackKind = classifyAckKind(validated.message);
+      const ackKind = classifyInboundAck(validated.message);
       if (ackKind === P2P_ACK_KIND.LOC) {
         const ackCheck = validateDriverAck(validated.message);
         if (!ackCheck.ok) {
@@ -585,7 +596,7 @@ export function createP2pPeerSession(deps) {
       evaluateHealth();
     } else if (validated.type === "ack") {
       const seq = Math.floor(Number(validated.message?.seq) || 0);
-      const ackKind = classifyAckKind(validated.message);
+      const ackKind = classifyInboundAck(validated.message);
       lastAckAt = nowMs();
       if (role === "driver") {
         if (ackKind === P2P_ACK_KIND.LOC) {

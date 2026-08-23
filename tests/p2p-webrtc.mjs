@@ -532,7 +532,9 @@ async function healthAndPeerTests() {
   record(
     "39c-open-zombie-channel-requests-fresh-offer",
     drv.getState().state === P2P_STATE.FIREBASE_FALLBACK &&
-      driverReconnectRequests === 1,
+      driverReconnectRequests === 1
+      ? "PASS"
+      : "FAIL",
     `state=${drv.getState().state} reconnects=${driverReconnectRequests}`
   );
 

@@ -2,7 +2,7 @@
   "stage": 8,
   "tranche": 4,
   "scope": "owner-admin-lifecycle-hosting",
-  "generatedAt": "2026-08-20T14:14:36.742Z",
+  "generatedAt": "2026-08-23T13:06:40.124Z",
   "summary": {
     "pass": 17,
     "fail": 0
@@ -66,7 +66,7 @@
     {
       "name": "hosting-predeploy-integrity-build",
       "status": "PASS",
-      "detail": "[\"node tools/hosting-deploy-integrity.mjs\",\"node tools/build-hosting.mjs\",\"node tools/hosting-deploy-integrity.mjs --verify-build\"] (startup-health kept as npm script; phase1 cross-app imports)"
+      "detail": "[\"node tools/hosting-deploy-integrity.mjs\",\"node tools/build-hosting.mjs\",\"node tools/hosting-startup-health.mjs --no-write\",\"node tools/hosting-deploy-integrity.mjs --verify-build\"] (startup-health kept as npm script; phase1 cross-app imports)"
     },
     {
       "name": "hosting-startup-health-tool-retained",
