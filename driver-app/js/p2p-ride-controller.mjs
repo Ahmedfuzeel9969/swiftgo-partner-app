@@ -269,14 +269,18 @@ export function createDriverP2pController(opts = {}) {
     const onData = (docData) => {
       if (!isStartCurrent(gen, attemptKey) || localSession !== session || !docData) return;
       watchRetryAttempt = 0;
+      const sid = String(docData.sessionId || "");
       if (String(docData.state || "") === "closed") {
         // The customer closes a stalled signaling session to request fresh
         // offer/answer identity. Ignoring this left both peers stuck on the
         // same unusable SDP for the remainder of the ride.
-        triggerReconnect();
+        // A delayed close snapshot for an older offer must not rotate the
+        // currently active peer connection.
+        if (sid && sid === String(session.getState?.()?.peerSessionId || "")) {
+          triggerReconnect();
+        }
         return;
       }
-      const sid = String(docData.sessionId || "");
       const answer = String(docData.answer || "");
       if (!answer || !sid) return;
       if (sid !== session.getState().peerSessionId) return;

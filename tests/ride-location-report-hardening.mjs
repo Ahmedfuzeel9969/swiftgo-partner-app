@@ -123,6 +123,7 @@ record(
     const gen = arbiter.getGeneration();
     arbiter.ingestP2p({ lat: 24.86, lng: 67.0, observedAt: 1000 }, gen);
     arbiter.ingestP2p({ lat: 24.861, lng: 67.001, observedAt: 2000 }, gen);
+    arbiter.noteP2pUnhealthy();
     arbiter.ingestFirebase({ lat: 24.862, lng: 67.002, observedAt: 3000 }, gen);
     const mapped = mapCustomerRuntimeCounters(arbiter.getCounters(), {});
     return mapped.p2pValidRendered === 2 && mapped.firebaseValidRendered === 1 && mapped.firebaseValidRendered !== mapped.p2pValidRendered

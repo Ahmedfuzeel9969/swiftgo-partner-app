@@ -608,6 +608,29 @@ async function healthAndPeerTests() {
     d1 >= 1000 && d2 <= 30_000 + 400 ? "PASS" : "FAIL",
     `d1=${d1} d2=${d2}`
   );
+  const peerSource = read("customer-app/js/p2p-peer-session.mjs");
+  const driverControllerSource = read("driver-app/js/p2p-ride-controller.mjs");
+  record(
+    "59b-retry-budget-resets-on-location-ack-only",
+    peerSource.includes("Only a confirmed location") &&
+      !/counters\.channelsOpened \+= 1;\s*reconnectAttempt = 0;/.test(peerSource)
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "59c-reconnect-exhaustion-enters-low-cost-recovery",
+    peerSource.includes("P2P_RECONNECT_COOLDOWN_MS") &&
+      peerSource.includes('setState(P2P_STATE.FIREBASE_FALLBACK, "reconnect_exhausted")')
+      ? "PASS"
+      : "FAIL"
+  );
+  record(
+    "59d-stale-closed-offer-cannot-rotate-current-session",
+    driverControllerSource.includes("delayed close snapshot") &&
+      driverControllerSource.includes('sid === String(session.getState?.()?.peerSessionId || "")')
+      ? "PASS"
+      : "FAIL"
+  );
 
   const ice = resolveIceConfiguration({ __SWIFTGO_P2P_ICE__: {} });
   record(

@@ -206,7 +206,53 @@ record(
         lastRenderedAtMs: 11_000,
       },
     });
-    return d.avgDriverGpsIntervalMs === 4000 && d.deliveryRatios.mirrorToGps === 1 ? "PASS" : "FAIL";
+    return d.avgDriverGpsIntervalMs === 4000 &&
+      d.deliveryRatios.mirrorToGps === 1 &&
+      d.deliveryRatios.mirrorToVehicleWrite === 1
+      ? "PASS"
+      : "FAIL";
+  })()
+);
+
+record(
+  "health-cost-saving-mirror-gps-ratio-not-critical",
+  (() => {
+    const health = classifyReportHealth({
+      driver: {
+        counters: {
+          gpsFixesReceived: 492,
+          validFixesAccepted: 492,
+          vehicleWritesAcknowledged: 104,
+        },
+      },
+      server: { counters: { mirrorAccepted: 105 } },
+      customer: { counters: { firebaseValidRendered: 22 } },
+      derived: { deliveryRatios: { mirrorToGps: 0.213, mirrorToVehicleWrite: 1.01 } },
+    });
+    return !health.reasons.includes("mirror_to_gps_ratio_low") &&
+      !health.reasons.includes("mirror_to_vehicle_write_ratio_low")
+      ? "PASS"
+      : "FAIL";
+  })()
+);
+
+record(
+  "health-mirror-misses-acknowledged-writes-critical",
+  (() => {
+    const health = classifyReportHealth({
+      driver: {
+        counters: {
+          gpsFixesReceived: 100,
+          validFixesAccepted: 100,
+          vehicleWritesAcknowledged: 100,
+        },
+      },
+      server: { counters: { mirrorAccepted: 20 } },
+      customer: { counters: { firebaseValidRendered: 1 } },
+    });
+    return health.reasons.includes("mirror_to_vehicle_write_ratio_low") && health.status === "critical"
+      ? "PASS"
+      : "FAIL";
   })()
 );
 
