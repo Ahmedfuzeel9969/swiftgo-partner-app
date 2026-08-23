@@ -4,7 +4,7 @@
  */
 export const firebaseConfig = {
   apiKey: "AIzaSyCOxicIjAxPSPK24MAUe_Nv_X8EFRejQiw",
-  authDomain: "swiftgo-ride-app.web.app",
+  authDomain: "swiftgo-ride-app.firebaseapp.com",
   projectId: "swiftgo-ride-app",
   storageBucket: "swiftgo-ride-app.firebasestorage.app",
   messagingSenderId: "120370160153",

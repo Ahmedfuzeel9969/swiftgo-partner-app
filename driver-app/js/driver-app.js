@@ -6,10 +6,13 @@ import {
   GoogleAuthProvider,
   getRedirectResult,
   onAuthStateChanged,
-  signInWithPopup,
   signInWithRedirect,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import {
+  beginCanonicalGoogleSignIn,
+  resumeCanonicalGoogleSignIn,
+} from "/shared/js/google-auth-flow.mjs";
 import {
   addDoc,
   collection,
@@ -2017,20 +2020,12 @@ async function signInDriverWithGoogle() {
   setLoginBusy(true);
   setAuthStatus("");
   try {
-    if (window.location.hostname === "swiftgo-ride-app.web.app") {
-      await signInWithRedirect(auth, googleProvider);
-      return;
-    }
-    await signInWithPopup(auth, googleProvider);
+    await beginCanonicalGoogleSignIn({
+      auth,
+      provider: googleProvider,
+      signInWithRedirect,
+    });
   } catch (error) {
-    if (
-      error?.code === "auth/popup-blocked" ||
-      error?.code === "auth/cancelled-popup-request" ||
-      error?.code === "auth/operation-not-supported-in-this-environment"
-    ) {
-      await signInWithRedirect(auth, googleProvider);
-      return;
-    }
     console.warn("[SwiftGo Driver] Google login", error);
     setLoginBusy(false);
     setAuthStatus("Google لاگ اِن نہیں ہو سکا، دوبارہ کوشش کریں");
@@ -4873,10 +4868,19 @@ function boot() {
 
   const firebase = getFirebase();
   if (firebase.auth) {
-    getRedirectResult(firebase.auth).catch((error) => {
-      console.warn("[SwiftGo Driver] Google redirect", error);
-      setAuthStatus("Google لاگ اِن مکمل نہیں ہو سکا");
-    });
+    getRedirectResult(firebase.auth)
+      .then(() =>
+        resumeCanonicalGoogleSignIn({
+          auth: firebase.auth,
+          provider: googleProvider,
+          signInWithRedirect,
+        })
+      )
+      .catch((error) => {
+        console.warn("[SwiftGo Driver] Google redirect", error);
+        setLoginBusy(false);
+        setAuthStatus("Google لاگ اِن مکمل نہیں ہو سکا");
+      });
     onAuthStateChanged(firebase.auth, async (user) => {
       if (!user) {
         authSequence += 1;
