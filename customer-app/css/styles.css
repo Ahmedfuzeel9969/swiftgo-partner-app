@@ -4845,13 +4845,13 @@ body.route-ui-map-pick .map-pin-mode {
   pointer-events: none;
 }
 
-/* Live drag-to-select while search card is open (no confirm bar). */
+/* Live drag-to-select while search card is open; confirm after pin is placed. */
 body.map-live-drag .map-pin-mode {
   display: block;
   pointer-events: none;
 }
 
-body.map-live-drag .map-pin-mode__confirm {
+body.map-live-drag:not(.map-live-drag-confirm) .map-pin-mode__confirm {
   display: none !important;
 }
 

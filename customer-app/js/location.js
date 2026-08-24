@@ -36,6 +36,8 @@ let pickCoords = null;
 let unsubMoveEnd = () => {};
 let unsubDragStart = () => {};
 let liveDragPending = false;
+/** Search-card map drag: pin moves freely; location applies only after confirm tap. */
+let liveDragAwaitingConfirm = false;
 let voiceRecognition = null;
 let searchTimer = null;
 let searchSeq = 0;
@@ -623,30 +625,23 @@ function dismissLocationKeyboard() {
 function syncLiveDragPin() {
   const live = isLiveDragEnabled();
   document.body.classList.toggle("map-live-drag", live);
+  document.body.classList.toggle("map-live-drag-confirm", live && liveDragAwaitingConfirm);
   if (live) {
     ensureMap?.();
     ensureMapPickListeners();
   }
   if (document.body.classList.contains("map-pick-active")) return;
-  showPinMode(live, { confirm: false });
+  const showPin = live && (liveDragPending || liveDragAwaitingConfirm);
+  showPinMode(showPin, { confirm: liveDragAwaitingConfirm });
 }
 
-async function applyCenterToActiveInput(center) {
-  if (!center) return;
-  const inputId = activeInputId || "destInput";
-  const seq = ++reverseSeq;
-  try {
-    const place = await reverseGeocode(center.lat, center.lng);
-    if (seq !== reverseSeq) return;
-    setLocationFieldValue(inputId, place.label, { autoExpand: false });
-    placeLocationCue(inputId, place.lat, place.lng);
-  } catch (err) {
-    console.warn("[SwiftGo] live drag reverse geocode", err);
-    if (seq !== reverseSeq) return;
-    const fallback = `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
-    setLocationFieldValue(inputId, fallback, { autoExpand: false });
-    placeLocationCue(inputId, center.lat, center.lng);
-  }
+function resolveActiveLocationInputId() {
+  if (activeInputId) return activeInputId;
+  const pickup = getLocationFieldValue("pickupInput")?.trim();
+  const dest = getLocationFieldValue("destInput")?.trim();
+  if (!pickup) return "pickupInput";
+  if (!dest) return "destInput";
+  return "destInput";
 }
 
 function ensureMapPickListeners() {
@@ -662,7 +657,10 @@ function ensureMapPickListeners() {
     if (document.body.classList.contains("map-pick-active")) return;
     if (!isLiveDragEnabled()) return;
     liveDragPending = true;
+    liveDragAwaitingConfirm = false;
+    document.body.classList.remove("map-live-drag-confirm");
     collapseSheet();
+    showPinMode(true, { confirm: false });
   });
 
   unsubMoveEnd = onMapMoveEnd((center) => {
@@ -674,7 +672,10 @@ function ensureMapPickListeners() {
     }
     if (!liveDragPending || !isLiveDragEnabled()) return;
     liveDragPending = false;
-    applyCenterToActiveInput(center);
+    updatePickPreview(center);
+    liveDragAwaitingConfirm = true;
+    document.body.classList.add("map-live-drag-confirm");
+    showPinMode(true, { confirm: true });
   });
 }
 
@@ -902,24 +903,55 @@ export function initLocationModule(handlers = {}) {
   document.addEventListener("swiftgo:location-action", onLocationAction);
   document.addEventListener("swiftgo:route-ui-state", () => {
     liveDragPending = false;
+    liveDragAwaitingConfirm = false;
+    document.body.classList.remove("map-live-drag-confirm");
     syncLiveDragPin();
   });
   syncLiveDragPin();
 
   els.confirm?.addEventListener("click", async () => {
     const center = getMapCenter();
-    if (activeInputId && center) {
-      const place = await resolveMapPickConfirmation(center);
-      setLocationFieldValue(activeInputId, place.label, { autoExpand: true });
-      placeLocationCue(activeInputId, place.lat, place.lng);
-      flyToLatLng(place.lat, place.lng, 16);
+    if (document.body.classList.contains("map-pick-active")) {
+      const inputId = resolveActiveLocationInputId();
+      if (center) {
+        const place = await resolveMapPickConfirmation(center);
+        setLocationFieldValue(inputId, place.label, { autoExpand: true });
+        placeLocationCue(inputId, place.lat, place.lng);
+        flyToLatLng(place.lat, place.lng, 16);
+      }
+      exitMapPickMode({ restore: false });
+      return;
     }
-    exitMapPickMode({ restore: false });
+
+    if (liveDragAwaitingConfirm && center) {
+      const inputId = resolveActiveLocationInputId();
+      const place = await resolveMapPickConfirmation(center);
+      setLocationFieldValue(inputId, place.label, { autoExpand: true });
+      placeLocationCue(inputId, place.lat, place.lng);
+      flyToLatLng(place.lat, place.lng, 16);
+      liveDragAwaitingConfirm = false;
+      pickPreviewLabel = "";
+      pickCoords = null;
+      document.body.classList.remove("map-live-drag-confirm");
+      syncLiveDragPin();
+      expandSheet();
+      resizeMap();
+    }
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && document.body.classList.contains("map-pick-active")) {
+    if (event.key !== "Escape") return;
+    if (document.body.classList.contains("map-pick-active")) {
       exitMapPickMode({ restore: true });
+      return;
+    }
+    if (liveDragAwaitingConfirm) {
+      liveDragAwaitingConfirm = false;
+      pickPreviewLabel = "";
+      pickCoords = null;
+      document.body.classList.remove("map-live-drag-confirm");
+      syncLiveDragPin();
+      expandSheet();
     }
   });
 }
