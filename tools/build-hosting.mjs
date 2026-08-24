@@ -56,7 +56,7 @@ function syncSharedJsInto(destJsDir) {
   ensureDir(destJsDir);
   for (const name of SHARED_JS_MODULES) {
     const from = path.join(sharedDir, name);
-    if (!fs.existsSync(from)) {
+    if (!fileExists(from)) {
       throw new Error(`Missing canonical shared module: shared/js/${name}`);
     }
     fs.copyFileSync(from, path.join(destJsDir, name));
@@ -64,6 +64,54 @@ function syncSharedJsInto(destJsDir) {
   const catalogJsonFrom = path.join(ROOT, "shared", "vehicle-catalog.json");
   const catalogJsonTo = path.join(destJsDir, "..", "vehicle-catalog.json");
   fs.copyFileSync(catalogJsonFrom, catalogJsonTo);
+}
+
+/** Hosting-safe rewrite for phase1 diagnostics (monorepo source imports stay intact). */
+const PHASE1_HOSTING_IMPORT_REWRITES = [
+  ["../../driver-app/js/location-checkpoint-policy.mjs", "./location-checkpoint-policy.mjs"],
+  ["../../driver-app/js/p2p-protocol.mjs", "./p2p-protocol.mjs"],
+  ["../../customer-app/js/live-location-render.mjs", "./live-location-render.mjs"],
+  ["../../driver-app/js/location-envelope.mjs", "./location-envelope.mjs"],
+];
+
+/** Runtime modules required beside rewritten phase1 imports in hosting-dist. */
+const PHASE1_RUNTIME_DEPS = [
+  { from: "driver-app/js/location-checkpoint-policy.mjs", name: "location-checkpoint-policy.mjs" },
+  { from: "driver-app/js/p2p-protocol.mjs", name: "p2p-protocol.mjs" },
+  { from: "customer-app/js/live-location-render.mjs", name: "live-location-render.mjs" },
+  { from: "driver-app/js/location-envelope.mjs", name: "location-envelope.mjs" },
+];
+
+const PHASE1_HOSTING_JS_TARGETS = ["js", "customer/js", "partner/js", "shared/js"];
+
+function fileExists(p) {
+  try {
+    fs.accessSync(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Rewrite phase1 cross-app imports to local ./ deps and copy runtime modules. */
+function packagePhase1DiagnosticsForHosting(destJsDir) {
+  const sharedPhase1 = path.join(ROOT, "shared", "js", "phase1-billing-diagnostics.mjs");
+  if (!fileExists(sharedPhase1)) {
+    throw new Error("Missing shared/js/phase1-billing-diagnostics.mjs");
+  }
+  ensureDir(destJsDir);
+  let content = fs.readFileSync(sharedPhase1, "utf8");
+  for (const [fromPath, toPath] of PHASE1_HOSTING_IMPORT_REWRITES) {
+    content = content.split(fromPath).join(toPath);
+  }
+  fs.writeFileSync(path.join(destJsDir, "phase1-billing-diagnostics.mjs"), content);
+  for (const dep of PHASE1_RUNTIME_DEPS) {
+    const src = path.join(ROOT, dep.from);
+    if (!fileExists(src)) {
+      throw new Error(`Missing phase1 runtime dep: ${dep.from}`);
+    }
+    fs.copyFileSync(src, path.join(destJsDir, dep.name));
+  }
 }
 
 function main() {
@@ -107,6 +155,11 @@ function main() {
     if (!entry.isFile()) continue;
     if (!entry.name.endsWith(".mjs") && !entry.name.endsWith(".js")) continue;
     fs.copyFileSync(path.join(sharedSrc, entry.name), path.join(sharedDist, entry.name));
+  }
+
+  // Step 4 — hosting-safe phase1 diagnostics (driver/customer boot depends on this).
+  for (const rel of PHASE1_HOSTING_JS_TARGETS) {
+    packagePhase1DiagnosticsForHosting(path.join(DIST, ...rel.split("/")));
   }
 
   console.info("[build-hosting] packaged apps into hosting-dist/");

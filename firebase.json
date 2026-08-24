@@ -14,6 +14,36 @@
     ],
     "redirects": [
       {
+        "source": "/driver-app",
+        "destination": "/partner/",
+        "type": 301
+      },
+      {
+        "source": "/driver-app/**",
+        "destination": "/partner/",
+        "type": 301
+      },
+      {
+        "source": "/super-admin-panel",
+        "destination": "/admin/",
+        "type": 301
+      },
+      {
+        "source": "/super-admin-panel/**",
+        "destination": "/admin/",
+        "type": 301
+      },
+      {
+        "source": "/owner-app",
+        "destination": "/owner/",
+        "type": 301
+      },
+      {
+        "source": "/owner-app/**",
+        "destination": "/owner/",
+        "type": 301
+      },
+      {
         "source": "/driver",
         "destination": "/partner/",
         "type": 301
