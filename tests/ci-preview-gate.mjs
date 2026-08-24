@@ -27,6 +27,13 @@ step("booking false-success contract suite", () => {
   execSync("node tests/booking-false-success-suite.mjs", { cwd: root, stdio: "inherit" });
 });
 
+step("dispatch completion rating latency regressions", () => {
+  execSync("node tests/ride-latency-rating-regression.mjs", {
+    cwd: root,
+    stdio: "inherit",
+  });
+});
+
 step("hosting build", () => {
   execSync("npm run build:hosting", { cwd: root, stdio: "inherit" });
 });
