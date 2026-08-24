@@ -303,14 +303,44 @@ exports.createCustomerBooking = onCall(
       });
       timer.mark("ride_tx_complete", { rideId: created?.id });
 
+      // This callable is kept warm. Match here so invited drivers do not wait
+      // for the separate Firestore-created function to cold-start. The
+      // document trigger remains as a durable fallback if this attempt fails.
+      let matchingStatus = "pending";
+      let candidateCount = 0;
+      let matchingError = "";
+      try {
+        const matched = await withDispatchTimeout(
+          matchRideCandidates(db, {
+            rideId: created.id,
+            pickup: {
+              lat: Number(data.pickupLocation?.lat),
+              lng: Number(data.pickupLocation?.lng),
+            },
+            dispatchSettings: created.dispatchSettings,
+            _latencyTimer: timer,
+          }),
+          15000,
+          "matchRideCandidates"
+        );
+        candidateCount = Math.max(0, Number(matched?.candidateCount) || 0);
+        matchingStatus = candidateCount ? "candidates_ready" : "no_candidates";
+      } catch (matchErr) {
+        matchingError = String(matchErr?.message || matchErr).slice(0, 200);
+        logger.warn("dispatch_inline_match_deferred_to_trigger", {
+          rideId: created.id,
+          matchingError,
+        });
+      }
+
       const latencyPayload = timer.finish({ rideId: created.id });
       return sanitizeCallableResult({
         id: created.id,
         count: created.count,
         dispatchTraceId: String(data.dispatchTraceId || ""),
-        matchingStatus: "pending",
-        candidateCount: 0,
-        matchingError: "",
+        matchingStatus,
+        candidateCount,
+        matchingError,
         latencyMs: Number(latencyPayload?.totalMs) || 0,
       });
     } catch (err) {
@@ -335,6 +365,16 @@ exports.dispatchNewRideCandidates = onDocumentCreated(
     const rideId = event.params.rideId;
     const ride = event.data?.data() || {};
     if (String(ride.status || "") !== "searching_driver") return;
+    // The warm booking callable normally completes matching first. Re-read the
+    // small ride document to avoid repeating geo queries and candidate writes.
+    const currentSnap = await db.collection("rides").doc(rideId).get();
+    const current = currentSnap.exists ? currentSnap.data() || {} : {};
+    if (
+      ["candidates_ready", "no_candidates"].includes(String(current.matchingStatus || "")) &&
+      current.matchedAt
+    ) {
+      return;
+    }
     const pickup = {
       lat: Number(ride.pickupLocation?.lat),
       lng: Number(ride.pickupLocation?.lng),

@@ -36,20 +36,24 @@ async function submitCompletedRideRating(db, { customerUid, rideId, rating }) {
     if (ride.customerRating != null) throw err("already-exists", "ALREADY_RATED");
 
     partnerId = ride.driverId ? String(ride.driverId) : null;
+    let partnerRef = null;
+    let partnerSnap = null;
+    if (partnerId) {
+      partnerRef = db.collection("partners").doc(partnerId);
+      // Firestore transactions require every read before the first write.
+      partnerSnap = await tx.get(partnerRef);
+    }
+
     tx.update(rideRef, {
       customerRating: stars,
       ratedAt: FieldValue.serverTimestamp(),
     });
 
-    if (partnerId) {
-      const partnerRef = db.collection("partners").doc(partnerId);
-      const partnerSnap = await tx.get(partnerRef);
-      if (partnerSnap.exists) {
-        tx.update(partnerRef, {
-          customerRatingSum: FieldValue.increment(stars),
-          customerRatingCount: FieldValue.increment(1),
-        });
-      }
+    if (partnerRef && partnerSnap?.exists) {
+      tx.update(partnerRef, {
+        customerRatingSum: FieldValue.increment(stars),
+        customerRatingCount: FieldValue.increment(1),
+      });
     }
   });
 

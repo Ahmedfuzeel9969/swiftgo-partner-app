@@ -4720,40 +4720,14 @@ async function advanceActiveRideStatus() {
       activeRideCompletionInFlight = true;
       setLocationMessage("سفر مکمل ہو رہا ہے…");
       announce("سفر مکمل ہو رہا ہے");
-      const rideCollection = ride.sourceCollection || "rides";
-      const liveSnap = await getDoc(doc(db, rideCollection, ride.id));
-      if (!liveSnap.exists()) {
-        await dismissStaleActiveRide();
-        setLocationMessage("سواری سرور پر نہیں ملی — کیش صاف کر دی گئی");
-        if (els.activeRideActionBtn) els.activeRideActionBtn.disabled = false;
-        return;
-      }
-      const live = liveSnap.data() || {};
-      const validation = validateRideForDriverRestore(live, currentDriver?.uid);
-      if (!validation.ok) {
-        if (String(live.status || "") === "completed") {
-          await finalizeSuccessfulRideCompletion(
-            { ...ride, ...live, id: ride.id, sourceCollection: rideCollection },
-            {
-              commissionAmount: live.commissionAmount,
-              driverEarnings: live.driverEarnings,
-              grossFare: live.estimatedFare ?? live.farePkr,
-              alreadySettled: true,
-            }
-          );
-          return;
-        }
-        await dismissStaleActiveRide();
-        setLocationMessage("فعال سواری اب درست نہیں — ریفریش کریں");
-        if (els.activeRideActionBtn) els.activeRideActionBtn.disabled = false;
-        return;
-      }
       // Diagnostics are best-effort and must not delay the driver's completion action.
       void breadcrumbCollector.flushBeforeSettlement().catch(() => {});
       void flushLocationReportBeforeSettlement().catch(() => {});
-      const settlementResult = await completeRideWithEarnings({ ...ride, ...live });
+      // Settlement is authoritative and idempotent, so a separate Firestore
+      // preflight read only adds a full network round trip to ride completion.
+      const settlementResult = await completeRideWithEarnings(ride);
       await finalizeSuccessfulRideCompletion(
-        { ...ride, ...live, id: ride.id, sourceCollection: rideCollection },
+        ride,
         settlementResult
       );
       return;

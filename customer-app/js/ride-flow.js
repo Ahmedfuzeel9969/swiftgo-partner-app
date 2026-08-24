@@ -870,6 +870,34 @@ function setSelectedRating(value) {
   if (activeRide?.customerRating) return;
   selectedRating = Math.max(1, Math.min(5, Math.round(Number(value) || 0)));
   updateRatingStarsUi();
+  void submitSelectedRatingNow();
+}
+
+async function submitSelectedRatingNow() {
+  const ride = activeRide;
+  const stars = selectedRating;
+  if (ratingSubmitting || !ride?.id || ride.customerRating || stars < 1) return false;
+
+  ratingSubmitting = true;
+  if (els.invoiceDoneBtn) els.invoiceDoneBtn.disabled = true;
+  try {
+    await submitRideRating(ride.id, stars, ride.driverId);
+    // Keep the local terminal snapshot aligned immediately; the live ride
+    // listener will confirm the same server-owned value for Super Admin.
+    if (activeRide?.id === ride.id) activeRide.customerRating = stars;
+    if (els.ratingThanks) els.ratingThanks.hidden = false;
+    if (els.ratingBlock) els.ratingBlock.classList.add("is-rated");
+    updateRatingStarsUi(stars);
+    onToast?.(t("rideRatingThanks"));
+    return true;
+  } catch (err) {
+    console.warn("[SwiftGo] ride rating", err);
+    onToast?.(t("rideRatingError"));
+    return false;
+  } finally {
+    ratingSubmitting = false;
+    if (els.invoiceDoneBtn) els.invoiceDoneBtn.disabled = false;
+  }
 }
 
 function updateRatingStarsUi(existingRating = null) {
@@ -1249,25 +1277,7 @@ function dismissInvoiceAndReset() {
     return;
   }
 
-  ratingSubmitting = true;
-  if (els.invoiceDoneBtn) els.invoiceDoneBtn.disabled = true;
-
-  submitRideRating(ride.id, selectedRating, ride.driverId)
-    .then(() => {
-      if (els.ratingThanks) els.ratingThanks.hidden = false;
-      if (els.ratingBlock) els.ratingBlock.classList.add("is-rated");
-      updateRatingStarsUi(selectedRating);
-      onToast?.(t("rideRatingThanks"));
-    })
-    .catch((err) => {
-      console.warn("[SwiftGo] ride rating", err);
-      onToast?.(t("rideRatingError"));
-    })
-    .finally(() => {
-      ratingSubmitting = false;
-      if (els.invoiceDoneBtn) els.invoiceDoneBtn.disabled = false;
-      finish();
-    });
+  void submitSelectedRatingNow().finally(finish);
 }
 
 function handleRideSnapshot(rawRide) {
