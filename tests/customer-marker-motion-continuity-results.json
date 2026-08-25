@@ -2,7 +2,7 @@
   "suite": "customer-marker-motion-continuity",
   "dualPhysicalDevices": "BLOCKED",
   "dualPhysicalDevicesNote": "Agent cannot operate two real phones or Gmail accounts. Automated in-process dual-client path verified; physical dual-device run required on-device.",
-  "generatedAt": "2026-08-20T10:46:39.861Z",
+  "generatedAt": "2026-08-25T18:42:38.705Z",
   "pass": 5,
   "fail": 0,
   "blocked": 0,

@@ -2,7 +2,7 @@
   "stage": 5,
   "suite": "full-chain-marker-motion",
   "honestDescription": "Driver+customer controllers, serialized LOC via channel.send, customer validation, arbiter, display pipeline",
-  "generatedAt": "2026-08-20T14:14:37.832Z",
+  "generatedAt": "2026-08-25T18:42:40.911Z",
   "pass": 10,
   "fail": 0,
   "results": [

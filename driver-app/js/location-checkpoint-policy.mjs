@@ -81,6 +81,11 @@ export const RESPONSIVE_INTERVAL_MS = 4_000;
 export const IDLE_LOCATION_INTERVAL_MS = IDLE_PUBLISH_DEFAULTS.idleLocationIntervalMs;
 /** Idle movement gate (metres): branch production default. */
 export const MIN_LOCATION_MOVE_M = IDLE_PUBLISH_DEFAULTS.idleLocationMoveMeters;
+/**
+ * Active-ride responsive movement gate (metres).
+ * Must NOT reuse idle 200m — that freezes short-trip marker motion between 4s ticks.
+ */
+export const ACTIVE_LOCATION_MOVE_M = 10;
 
 /** Dispatch settings keys for idle publish. */
 export const IDLE_PUBLISH_CONFIG_KEYS = Object.freeze({

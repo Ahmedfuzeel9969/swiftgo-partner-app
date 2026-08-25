@@ -67,6 +67,7 @@ import {
 import { createLocationWriteSerializer } from "./location-write-queue.mjs";
 import {
   MIN_LOCATION_MOVE_M,
+  ACTIVE_LOCATION_MOVE_M,
   RESPONSIVE_INTERVAL_MS,
   VIEWER_LEASE,
   createCheckpointPolicyController,
@@ -3259,7 +3260,7 @@ async function syncVehicleLocationToFirestore(
     const movedKm = haversineKm(lastVehicleLocationLatLng, { lat, lng });
     const moveThresholdM = idleWaiting
       ? checkpointPolicy.getIdleMoveMeters()
-      : MIN_LOCATION_MOVE_M;
+      : ACTIVE_LOCATION_MOVE_M;
     movedEnough = movedKm == null || movedKm * 1000 >= moveThresholdM;
   }
   const nextStatus = activeExecutionRide?.id ? "in_ride" : "online";

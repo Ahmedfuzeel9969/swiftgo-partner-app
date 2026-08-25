@@ -5,6 +5,7 @@
 import { P2P_STATE, P2P_EXECUTION_STATUSES } from "./p2p-protocol.mjs";
 import { createP2pPeerSession } from "./p2p-peer-session.mjs";
 import { createLiveLocationSourceArbiter } from "./live-location-source-arbiter.mjs";
+import { timestampToMs } from "./live-location-render.mjs";
 import { getFieldDiagnostics } from "./field-diagnostics.mjs";
 
 /** Lazy — app wrapper pulls Firebase https imports unsuitable for Node tests. */
@@ -425,9 +426,12 @@ export function createCustomerP2pController(opts = {}) {
     const lat = Number(loc?.lat);
     const lng = Number(loc?.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    // Never use Number(FirestoreTimestamp) / Number(0) — both collapse to Date.now()
+    // and poison the arbiter so later real GPS observedAt values look "stale".
     const observedAt =
-      Number(loc.observedAt) ||
-      Number(rideMeta.driverLocationUpdatedAt) ||
+      timestampToMs(loc?.observedAt) ??
+      timestampToMs(loc?.receivedAt) ??
+      timestampToMs(rideMeta?.driverLocationUpdatedAt) ??
       Date.now();
     arbiter.ingestFirebase(
       {

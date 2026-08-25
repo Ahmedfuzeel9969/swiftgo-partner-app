@@ -8,6 +8,7 @@ import {
   buildRouteMetrics,
   remainingGeometryFromProgress,
 } from "./route-projection.mjs";
+import { GEOMETRY_KIND } from "./geometry-quality.mjs";
 
 /** Route A (driver→pickup): vivid green. Route B (pickup→destination): vivid blue. */
 const STYLE = {
@@ -68,6 +69,32 @@ export function isApproachLegDrawable(approach) {
     return false;
   }
   return legHasDrawableGeometry(approach);
+}
+
+/**
+ * Keep a direct fallback line anchored at the latest raw vehicle position.
+ * The fallback is display-only: it must not snap or alter authoritative GPS.
+ */
+export function remainingFallbackGeometryFromFix(leg, fix) {
+  const geometry = leg?.renderGeometry || leg?.geometry;
+  if (
+    (leg?.fallback !== true &&
+      leg?.geometryKind !== GEOMETRY_KIND.DIRECT_ESTIMATE_FALLBACK) ||
+    !Array.isArray(geometry) ||
+    geometry.length < 2 ||
+    !Number.isFinite(fix?.lat) ||
+    !Number.isFinite(fix?.lng)
+  ) {
+    return null;
+  }
+  const destination = geometry[geometry.length - 1];
+  if (!Number.isFinite(destination?.lat) || !Number.isFinite(destination?.lng)) {
+    return null;
+  }
+  return [
+    { lat: fix.lat, lng: fix.lng },
+    { lat: destination.lat, lng: destination.lng },
+  ];
 }
 
 /**
@@ -376,6 +403,23 @@ export function createTwoLegRouteLayers(opts = {}) {
     }
   }
 
+  /**
+   * Raw GPS stays raw, but a dashed direct fallback must still lose the
+   * already-travelled tail as the vehicle moves.
+   */
+  function setRawVehiclePosition(fix) {
+    if (!lastModel || !fallbackLayer) return;
+    const emphasis = lastModel.emphasis;
+    const leg = emphasis === ROUTE_EMPHASIS.TRIP
+      ? lastModel.trip
+      : emphasis === ROUTE_EMPHASIS.APPROACH
+        ? lastModel.approach
+        : null;
+    const remaining = remainingFallbackGeometryFromFix(leg, fix);
+    const latlngs = toLatLngs(remaining);
+    if (latlngs?.length >= 2) fallbackLayer.setLatLngs(latlngs);
+  }
+
   function fitOnce(model) {
     const map = getMap();
     if (!map || typeof L === "undefined") return;
@@ -406,6 +450,7 @@ export function createTwoLegRouteLayers(opts = {}) {
   return {
     render,
     setProgress,
+    setRawVehiclePosition,
     clear: clearAll,
     destroy,
     markUserInteracted: () => {

@@ -128,7 +128,9 @@ export function createDisplayLocationPipeline(opts = {}) {
    * }} input
    */
   function setActiveRoute(input = {}) {
-    const nextGen = Number(input.generation) || routeGeneration + 1;
+    // generation may be 0 at bootstrap — do not treat 0 as missing.
+    const parsedGen = Number(input.generation);
+    const nextGen = Number.isFinite(parsedGen) ? parsedGen : routeGeneration + 1;
     const nextLeg = input.activeLeg || "none";
     const legChanged = nextLeg !== leg && nextLeg !== "none" && leg !== "none";
     if (nextGen !== routeGeneration || legChanged) {

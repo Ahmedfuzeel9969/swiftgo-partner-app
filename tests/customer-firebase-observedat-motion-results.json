@@ -1,0 +1,42 @@
+{
+  "generatedAt": "2026-08-25T18:42:15.539Z",
+  "pass": 7,
+  "fail": 0,
+  "results": [
+    {
+      "name": "static-uses-timestampToMs-not-Number-observedAt",
+      "status": "PASS",
+      "detail": "ingestFirebaseLocation"
+    },
+    {
+      "name": "active-move-gate-not-idle-200m",
+      "status": "PASS",
+      "detail": "active=10 idle=200"
+    },
+    {
+      "name": "generation-0-not-treated-as-missing",
+      "status": "PASS",
+      "detail": "setActiveRoute"
+    },
+    {
+      "name": "timestampToMs-parses-firestore-shape",
+      "status": "PASS",
+      "detail": "1700000000000"
+    },
+    {
+      "name": "firestore-timestamp-observedAt-allows-next-fix",
+      "status": "PASS",
+      "detail": "paints=2 last={\"lat\":24.871,\"lng\":67.011,\"observedAt\":1700000005000}"
+    },
+    {
+      "name": "controller-ingest-timestamp-then-newer-gps",
+      "status": "PASS",
+      "detail": "paints=2 last={\"lat\":24.861,\"lng\":67.001,\"observedAt\":1700000008000} wallDelta=4110"
+    },
+    {
+      "name": "poisoned-Date.now-observedAt-rejects-real-gps",
+      "status": "PASS",
+      "detail": "paints=1 stale=1"
+    }
+  ]
+}
