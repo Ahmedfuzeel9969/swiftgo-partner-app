@@ -45,7 +45,7 @@ const COUNTER_LABELS = Object.freeze({
   p2pSendFailures: "P2P send failures",
   p2pHealthySessionCount: "P2P verified healthy sessions",
   p2pDegradedOrFallbackTransitions: "P2P degraded/fallback transitions",
-  mirrorAttempts: "Mirror attempts",
+  mirrorAttempts: "سروری کوششیں (دوبارہ چلنا بھی شامل)",
   mirrorAccepted: "Mirror accepted",
   mirrorSkippedInvalid: "Mirror skipped (invalid)",
   mirrorSkippedInactive: "Mirror skipped (inactive)",
@@ -53,14 +53,18 @@ const COUNTER_LABELS = Object.freeze({
   mirrorSkippedDuplicate: "Mirror skipped (duplicate)",
   mirrorSkippedOutOfOrder: "Mirror skipped (out-of-order)",
   mirrorSkippedNoop: "Mirror skipped (noop)",
+  mirrorSkippedPolicy: "سپر ایڈمن کی ترتیب / ابتدائی مہلت پر نقل روکی گئی",
   mirrorFailed: "Mirror failed",
-  firebaseSnapshotsReceived: "Firebase snapshots received",
-  firebaseValidRendered: "Firebase valid rendered",
+  firebaseSnapshotsReceived: "فائر بیس سے منفرد درست مقام وصول",
+  firebaseFixesAccepted: "فائر بیس مقام نقشے کے لیے منتخب",
+  firebaseValidRendered: "فائر بیس کے منفرد مقام نشان تک پہنچے",
   p2pSessionsStarted: "P2P sessions started",
   p2pChannelsOpened: "P2P channels opened",
   p2pHealthySessionCount: "P2P verified healthy sessions",
-  p2pFramesReceived: "P2P frames received",
-  p2pValidRendered: "P2P valid rendered",
+  p2pFramesReceived: "پی ٹو پی مقام وصول",
+  p2pFixesAccepted: "پی ٹو پی مقام نقشے کے لیے منتخب",
+  p2pValidRendered: "پی ٹو پی کے منفرد مقام نشان تک پہنچے",
+  mapFramesPainted: "نشان کی تصویری تبدیلیاں (نئی لوکیشن نہیں)",
   staleRejected: "Stale rejected",
   duplicateRejected: "Map backward-jitter fallbacks",
   rollbackRejected: "Road-projection fallbacks",
@@ -214,6 +218,10 @@ export function buildRideLocationReportViewModel(report, meta = {}) {
   const customerCounters = sections.customer.counters || {};
   const driverLegacy = {};
   const customerLegacy = {};
+  if (sections.customer.measurementVersion !== 2) {
+    customerLegacy.firebaseValidRendered = "فائر بیس کی پرانی تصویری گنتی؛ منفرد مقام نہیں";
+    customerLegacy.p2pValidRendered = "پی ٹو پی کی پرانی تصویری گنتی؛ منفرد مقام نہیں";
+  }
   if (driverCounters.p2pSessionsStarted == null && Number(driverCounters.p2pHealthySessionCount) > 0) {
     driverLegacy.p2pHealthySessionCount =
       "P2P sessions started (legacy field — unverified health)";
@@ -222,8 +230,8 @@ export function buildRideLocationReportViewModel(report, meta = {}) {
     customerLegacy.p2pHealthySessionCount =
       "P2P sessions started (legacy field — unverified health)";
   }
-  const derived = report.derived || computeDerivedMetrics(sections);
-  const health = report.health || classifyReportHealth({ ...sections, derived });
+  const derived = computeDerivedMetrics(sections);
+  const health = classifyReportHealth({ ...sections, lifecycle: report.lifecycle, derived });
   const completeness = report.completeness || computeReportCompleteness(report);
   const lifecycle =
     report.lifecycle && typeof report.lifecycle === "object"
@@ -313,7 +321,8 @@ function renderDerivedSection(derived) {
     ["Mirror/acknowledged writes", formatRatio(ratios.mirrorToVehicleWrite)],
     ["Customer Firebase/Mirror", formatRatio(ratios.customerFirebaseToMirror)],
     ["Customer P2P/Sent", formatRatio(ratios.customerP2pToSent)],
-    ["Rendered/Received", formatRatio(ratios.renderedToReceived)],
+    ["منفرد دکھائے گئے / وصول شدہ مقام", formatRatio(ratios.renderedToReceived)],
+    ["منفرد دکھائے گئے / منتخب مقام", formatRatio(ratios.renderedToAccepted)],
   ]
     .map(
       ([label, value]) => `
@@ -326,6 +335,9 @@ function renderDerivedSection(derived) {
   return `
     <section class="location-report-section">
       <h3>Derived metrics</h3>
+      <p>${derived.measurementVersion === 2
+        ? "وصولی، نقشے کے لیے انتخاب اور نشان کی تصویری تبدیلیاں الگ شمار ہیں۔ کم سروری نقلیں پی ٹو پی کی ترجیح یا مقرر وقفے کی وجہ سے بھی ہوسکتی ہیں۔"
+        : "یہ پرانی گنتی ہے؛ تصویری تبدیلیوں کو منفرد مقام سے ملانے کی شرح معتبر نہیں، اس لیے نہیں دکھائی گئی۔"}</p>
       <table class="location-report-table">
         <tbody>${rows}</tbody>
       </table>
@@ -384,5 +396,6 @@ export function renderRideLocationReportPanelHtml(viewModel) {
     ${renderDerivedSection(viewModel.derived)}
     <p class="location-report-footnote" role="note">
       تشخیصی counters only — coordinates، tokens، یا PII یہاں نہیں دکھائے جاتے۔
+      نامکمل رپورٹ میں کسی حصے کا صفر ہونا اس راستے کی ناکامی کا ثبوت نہیں۔ سرور مکمل طور پر دستیاب نہ ہو تو ناکامی کی گنتی بھی محفوظ نہ ہوسکے گی۔
     </p>`;
 }

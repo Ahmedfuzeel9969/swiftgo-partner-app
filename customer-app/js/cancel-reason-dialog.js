@@ -56,8 +56,11 @@ export function askCancelRideReason(farePreview = null) {
       const isEn = document.documentElement.lang === "en";
       farePreviewEl.hidden = false;
       farePreviewEl.textContent = isEn
-        ? `You will be charged ${formatFarePkr(total)} (base ${formatFarePkr(base)} + ${traveled.toFixed(1)} km traveled).`
-        : `آپ سے ${formatFarePkr(total)} وصول ہوں گے (بیس ${formatFarePkr(base)} + ${traveled.toFixed(1)} km سفر)`;
+        ? `Current estimate ${formatFarePkr(total)} (base ${formatFarePkr(base)} + ${traveled.toFixed(2)} km recorded). Final amount is fixed on cancellation.`
+        : `موجودہ تخمینہ ${formatFarePkr(total)} ہے (ابتدائی کرایہ ${formatFarePkr(base)} اور ${traveled.toFixed(2)} کلومیٹر محفوظ سفر)۔ حتمی حساب منسوخی کے وقت ہوگا۔`;
+      if (farePreview.distanceCoverageIncomplete) farePreviewEl.textContent += isEn
+        ? " Location coverage is incomplete; missing travel has not been invented."
+        : " لوکیشن ریکارڈ نامکمل ہے؛ غائب سفر کا فاصلہ فرض نہیں کیا گیا۔";
     } else {
       farePreviewEl.hidden = true;
       farePreviewEl.textContent = "";

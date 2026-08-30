@@ -3,18 +3,19 @@
  * Usage: node tools/build-hosting.mjs
  *
  * Build order (deterministic):
- *   1. Sync functions vehicle catalog (functions/ only)
+ *   1. Fingerprint all Hosting source inputs
  *   2. Copy every app tree into hosting-dist/
  *   3. Copy static legal / .well-known assets
  *   4. Overlay canonical shared/js modules LAST into each dist js/ folder
- *   5. Stamp hosting-dist/.hosting-source.json with git HEAD
+ *   5. Stamp hosting-dist/.hosting-source.json with source AND artifact hashes
  *
  * Source app trees are never mutated during Hosting packaging.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawnSync, execSync } from "node:child_process";
+import { hostingSourceState, writeHostingStamp } from "./hosting-provenance.mjs";
+import { safeFile } from "./source-integrity.mjs";
 import {
   HOSTING_DIST_JS_TARGETS,
   SHARED_JS_MODULES,
@@ -22,9 +23,16 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const DIST = path.join(ROOT, "hosting-dist");
+// A fixed isolated output lets verification run without replacing an open preview.
+const ISOLATED_TEST = process.argv.includes("--isolated-test");
+const DIST_RELATIVE = ISOLATED_TEST ? "emulator-data/phase-two-hosting-check" : "hosting-dist";
+const DIST = safeFile(ROOT, DIST_RELATIVE);
 
 function rmrf(target) {
+  if (path.resolve(target) !== safeFile(ROOT, DIST_RELATIVE) ||
+      (fs.existsSync(target) && fs.lstatSync(target).isSymbolicLink())) {
+    throw new Error("Refusing to remove an unexpected or linked Hosting build directory");
+  }
   fs.rmSync(target, { recursive: true, force: true });
 }
 
@@ -94,13 +102,8 @@ function stampModuleEntrypoint(htmlRel, modulePath, headSha) {
 }
 
 function main() {
-  const syncCatalog = spawnSync(process.execPath, [path.join(ROOT, "tools", "sync-vehicle-catalog.mjs")], {
-    cwd: ROOT,
-    stdio: "inherit",
-  });
-  if (syncCatalog.status !== 0) {
-    throw new Error("sync-vehicle-catalog failed");
-  }
+  // Hosting does not consume generated Functions files. Never rewrite them here.
+  const sourceBefore = hostingSourceState(ROOT);
 
   rmrf(DIST);
   ensureDir(DIST);
@@ -137,7 +140,7 @@ function main() {
   }
   copySharedCrossAppDependencies();
 
-  console.info("[build-hosting] packaged apps into hosting-dist/");
+  console.info(`[build-hosting] packaged apps into ${DIST_RELATIVE}/`);
   console.info("  /              <- customer-app");
   console.info("  /customer/     <- customer-app");
   console.info("  /partner/      <- driver-app");
@@ -147,27 +150,12 @@ function main() {
   console.info("  /.well-known/  <- assetlinks draft (if present)");
   console.info("  shared/js      <- canonical road modules (also inlined into app js/)");
 
-  let headSha = "unknown";
-  try {
-    headSha = execSync("git rev-parse HEAD", { cwd: ROOT, encoding: "utf8" }).trim();
-  } catch {
-    console.warn("[build-hosting] warning: could not resolve git HEAD for hosting source stamp");
-  }
+  const headSha = sourceBefore.headSha;
   stampModuleEntrypoint("partner/index.html", "js/driver-app.js", headSha);
   stampModuleEntrypoint("admin/index.html", "/admin/js/admin-app.js", headSha);
-  fs.writeFileSync(
-    path.join(DIST, ".hosting-source.json"),
-    JSON.stringify(
-      {
-        headSha,
-        builtAt: new Date().toISOString(),
-        builder: "tools/build-hosting.mjs",
-      },
-      null,
-      2
-    ) + "\n"
-  );
+  const stamp = writeHostingStamp(ROOT, sourceBefore, { isolatedTest: ISOLATED_TEST });
   console.info(`[build-hosting] source stamp HEAD ${headSha}`);
+  console.info(`[build-hosting] source ${stamp.sourceSha256}; artifact ${stamp.artifactSha256}; dirty=${stamp.sourceDirty}`);
 }
 
 const isMain =

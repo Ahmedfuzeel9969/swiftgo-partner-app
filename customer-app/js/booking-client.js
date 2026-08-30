@@ -30,21 +30,20 @@ export async function createCustomerBookingClient({
   originalFare,
   paymentMethod,
 }) {
+  const quote = await call("quoteCustomerBooking", {
+    pickupLocation, dropoffLocation, vehicleType, vehicleTypeKey, promoCode, paymentMethod,
+  });
+  if (!quote?.quoteId || !Number.isFinite(quote.farePkr)) throw new Error("INVALID_SERVER_QUOTE");
+  if (!window.confirm(`تصدیق شدہ کرایہ: ${quote.farePkr} روپے\nکیا اس کرایے پر سواری بک کریں؟`)) {
+    const error = new Error("بکنگ کی تصدیق نہیں کی گئی۔");
+    error.code = "functions/cancelled";
+    throw error;
+  }
   return call("createCustomerBooking", {
     confirmedExtraBooking: Boolean(confirmedExtraBooking),
     dispatchTraceId: String(dispatchTraceId || ""),
-    pickupLocation,
-    dropoffLocation,
-    vehicleType,
-    vehicleTypeKey,
-    distanceKm,
-    timeMins,
-    farePkr,
-    estimatedFare,
-    promoCode,
-    discountAmount,
-    originalFare,
-    paymentMethod,
+    quoteId: quote.quoteId,
+    acceptedFare: quote.farePkr,
   });
 }
 

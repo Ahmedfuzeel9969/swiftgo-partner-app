@@ -224,6 +224,7 @@
 
         <!-- Phase 28.1 / 28.3 — Driver Approvals -->
         <div class="admin-view" id="viewApprovals" data-view-panel="approvals" hidden>
+          <section id="driverVerificationReview" class="table-panel" aria-label="شناختی منظوری"></section>
           <div class="table-panel">
             <div class="table-panel__head">
               <div>
@@ -572,10 +573,43 @@
                 <input type="number" id="customerLocationFallbackSeconds" name="customerLocationFallbackSeconds" min="0" max="300" step="30" value="60" />
                 <p class="finance-field__hint">30–300 سیکنڈ؛ صفر سے مکمل بند۔ صرف چھپے صفحے اور ناکام براہِ راست مقام پر ایک دستاویز پڑھی جائے گی۔</p>
               </label>
+              <fieldset class="finance-field finance-diagnostic-panel">
+                <legend>لائیو لوکیشن ترجیح / Live location priority</legend>
+                <label class="finance-field" for="p2pFallbackAfterSeconds">
+                  <span class="finance-field__label">پی ٹو پی کی ابتدائی مہلت اور خاموشی کی حد، سیکنڈ</span>
+                  <input type="number" id="p2pFallbackAfterSeconds" name="p2pFallbackAfterSeconds" min="5" max="60" step="1" value="12" />
+                  <p class="finance-field__hint">۵–۶۰ سیکنڈ۔ پہلے پی ٹو پی؛ اتنی خاموشی کے بعد فائر بیس متبادل۔ تحریر کا وقفہ نیچے الگ ہے۔</p>
+                </label>
+                <label class="finance-field" for="firebaseFallbackWriteSeconds">
+                  <span class="finance-field__label">فائر بیس متبادل: دونوں طرف تحریر کا کم از کم وقفہ، سیکنڈ</span>
+                  <input type="number" id="firebaseFallbackWriteSeconds" min="2" max="60" step="1" value="4" />
+                  <p class="finance-field__hint">۲–۶۰ سیکنڈ۔ یہ حد ایپس، ڈرائیور کے پس منظر راستے اور سرور پر نافذ ہے۔</p>
+                </label>
+                <label class="finance-field" for="firebaseLocationRenderSeconds">
+                  <span class="finance-field__label">فائر بیس سے نئی جگہ نقشے پر قبول کرنے کا وقفہ، سیکنڈ</span>
+                  <input type="number" id="firebaseLocationRenderSeconds" min="1" max="30" step="1" value="4" />
+                  <p class="finance-field__hint">۱–۳۰ سیکنڈ۔ یہ دکھانے کی حد ہے، فائر بیس کی وصولیوں یا بل کی حد نہیں۔</p>
+                </label>
+                <label class="finance-field" for="firebaseHealthyApproachSeconds">
+                  <span class="finance-field__label">صحت مند پی ٹو پی: ڈرائیور کی آمد کے دوران محفوظ نقل کا وقفہ</span>
+                  <input type="number" id="firebaseHealthyApproachSeconds" min="0" max="300" step="1" value="60" />
+                  <p class="finance-field__hint">صفر سے بند؛ ورنہ ۱۰–۳۰۰ سیکنڈ۔ متبادل تحریر کے کم از کم وقفے سے تیز نہیں ہوگا۔</p>
+                </label>
+                <label class="finance-field" for="firebaseHealthyTripSeconds">
+                  <span class="finance-field__label">صحت مند پی ٹو پی: سفر کے دوران محفوظ نقل کا وقفہ</span>
+                  <input type="number" id="firebaseHealthyTripSeconds" min="0" max="300" step="1" value="30" />
+                  <p class="finance-field__hint">صفر سے بند؛ ورنہ ۱۰–۳۰۰ سیکنڈ۔ کم نقلوں سے مقام پر مبنی تخمینے متاثر ہو سکتے ہیں۔</p>
+                </label>
+                <label class="finance-field finance-field--checkbox" for="firebaseLocationFallbackEnabled">
+                  <input type="checkbox" id="firebaseLocationFallbackEnabled" name="firebaseLocationFallbackEnabled" checked />
+                  <span>فعال سواری کا فائر بیس لوکیشن متبادل اور محفوظ نقلیں فعال رکھیں</span>
+                </label>
+                <p class="admin-danger-warning">بند کرنے سے دونوں طرف فائر بیس لوکیشن، محفوظ نقلیں اور ڈرائیور کا پس منظر مقام رکیں گے؛ پی ٹو پی ناکامی پر نقشہ رک سکتا ہے۔ بکنگ، سواری کی حالت، رابطہ سازی اور الگ تشخیصی ریکارڈ بند نہیں ہوتے۔</p>
+              </fieldset>
               <p class="admin-live-note admin-cost-warning" role="note">
                 <strong>لاگت انتباہ:</strong> چھوٹا وقفہ (مثلاً 4 سیکنڈ) Firebase میں زیادہ لوکیشن writes کرتا ہے اور بل بڑھ سکتا ہے۔
                 بڑا وقفہ یا زیادہ میٹر حد لاگت کم کرتی ہے، مگر آن لائن ڈرائیور کی محفوظ لوکیشن پرانی ہو سکتی ہے۔
-                یہ کنٹرولز صرف <strong>فعال سواری کے بغیر</strong> (idle/waiting) لاگو ہوتے ہیں — سواری کے دوران 4s/30s/60s اور P2P policies بدل نہیں ہوتیں۔
+                Idle وقفہ/فاصلہ controls صرف <strong>فعال سواری کے بغیر</strong> لاگو ہوتے ہیں؛ اوپر والا P2P fallback وقت فعال سواری کے customer map پر بھی لاگو ہوتا ہے۔
               </p>
               <fieldset class="finance-field finance-diagnostic-panel" id="idleDiagnosticSection">
                 <legend>تشخیصی ٹیسٹنگ / Diagnostic testing</legend>
@@ -893,6 +927,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script type="module" src="/admin/js/admin-app.js?v=dispatch_dynamic_1"></script>
+  <script type="module" src="/admin/js/admin-app.js?v=admin_runtime_2"></script>
 </body>
 </html>

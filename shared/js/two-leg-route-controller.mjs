@@ -419,6 +419,11 @@ export function createTwoLegRouteController(opts = {}) {
         }
         emit();
       } catch (err) {
+        // Includes late timeouts: an old request cannot overwrite a new ride.
+        if (gen !== generation || closed) {
+          counters.staleIgnored += 1;
+          return;
+        }
         if (err?.code === "aborted" || err?.name === "AbortError") {
           counters.requestsAborted += 1;
           pushDiag(ROUTE_DIAG.REQUEST_ABORTED, failureDetail(err, err?.diag?.timeoutReason || "aborted", { leg: kind }));
@@ -446,8 +451,8 @@ export function createTwoLegRouteController(opts = {}) {
         scheduleRetry();
         emit();
       } finally {
-        if (kind === "approach") approachInFlight = null;
-        else tripInFlight = null;
+        if (kind === "approach" && approachAbort === ctrl) { approachInFlight = null; approachAbort = null; }
+        if (kind === "trip" && tripAbort === ctrl) { tripInFlight = null; tripAbort = null; }
       }
     })();
 

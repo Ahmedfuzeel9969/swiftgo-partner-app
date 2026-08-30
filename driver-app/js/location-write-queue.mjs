@@ -34,6 +34,7 @@ export function createLocationWriteSerializer(deps) {
   /** @type {LocationWriteJob|null} */
   let pending = null;
   let sessionStartStamped = false;
+  let sessionEpoch = 0;
   let writesStarted = 0;
   let writesCompleted = 0;
 
@@ -51,6 +52,7 @@ export function createLocationWriteSerializer(deps) {
   }
 
   function resetSessionStartGate() {
+    sessionEpoch++;
     sessionStartStamped = false;
   }
 
@@ -94,7 +96,9 @@ export function createLocationWriteSerializer(deps) {
             ...current,
             stampSessionStart: Boolean(current.stampSessionStart) && !sessionStartStamped,
           };
-          await writeFn(toWrite);
+          const epoch = sessionEpoch;
+          const result = await writeFn(toWrite);
+          if (result === false || epoch !== sessionEpoch || isCancelled(current.generation)) continue;
           writesCompleted += 1;
           if (toWrite.stampSessionStart) {
             sessionStartStamped = true;

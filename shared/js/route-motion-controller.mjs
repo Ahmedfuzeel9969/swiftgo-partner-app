@@ -32,7 +32,7 @@ export function createRouteMotionController(opts = {}) {
       ? cancelAnimationFrame.bind(globalThis)
       : (id) => clearTimeout(id));
 
-  let frameId = 0;
+  let frameId = null;
   let generation = 0;
   let fromProgress = 0;
   let toProgress = 0;
@@ -40,6 +40,8 @@ export function createRouteMotionController(opts = {}) {
   let startMs = 0;
   let durationMs = MOTION_MIN_MS;
   let lastHeading = null;
+  let displayedProgress = null;
+  let elapsedMs = 0;
 
   const counters = {
     animationStarts: 0,
@@ -49,9 +51,9 @@ export function createRouteMotionController(opts = {}) {
 
   function cancel(reason = "") {
     void reason;
-    if (frameId) {
+    if (frameId !== null) {
       caf(frameId);
-      frameId = 0;
+      frameId = null;
       counters.animationCancels += 1;
       diag(SNAP_DIAG.ANIM_CANCELLED);
     }
@@ -59,16 +61,17 @@ export function createRouteMotionController(opts = {}) {
   }
 
   function animateTo({ metrics: nextMetrics, progressM, observedGapMs }) {
-    if (!nextMetrics) {
+    if (!nextMetrics || !Number.isFinite(progressM)) {
       cancel("no_metrics");
       return;
     }
     cancel("new_target");
     const gen = generation;
+    // Retarget from the last PAINTED position, never the previous target.
+    // A new route has a different progress domain and must start at its target.
+    fromProgress = metrics === nextMetrics && Number.isFinite(displayedProgress)
+      ? displayedProgress : progressM;
     metrics = nextMetrics;
-    fromProgress = Number.isFinite(toProgress) ? toProgress : progressM;
-    // If first frame, start at target
-    if (!Number.isFinite(fromProgress)) fromProgress = progressM;
     toProgress = progressM;
     const gap = Number(observedGapMs);
     durationMs = Number.isFinite(gap)
@@ -78,6 +81,7 @@ export function createRouteMotionController(opts = {}) {
     if (Number.isFinite(gap) && gap > MOTION_MAX_MS * 1.5) {
       const end = pointAtProgress(metrics, toProgress);
       if (end) {
+        displayedProgress = toProgress;
         lastHeading = end.bearingDeg;
         onFrame({
           lat: end.lat,
@@ -91,14 +95,18 @@ export function createRouteMotionController(opts = {}) {
     }
 
     startMs = nowMs();
+    elapsedMs = 0;
     counters.animationStarts += 1;
 
     const tick = () => {
       if (gen !== generation) return;
-      const t = Math.min(1, (nowMs() - startMs) / durationMs);
+      // Wall clock adjustments must not send a running animation backwards.
+      elapsedMs = Math.max(elapsedMs, nowMs() - startMs, 0);
+      const t = Math.min(1, elapsedMs / durationMs);
       const p = fromProgress + (toProgress - fromProgress) * t;
       const pos = pointAtProgress(metrics, p);
       if (pos) {
+        displayedProgress = p;
         lastHeading = pos.bearingDeg;
         onFrame({
           lat: pos.lat,
@@ -107,10 +115,12 @@ export function createRouteMotionController(opts = {}) {
           progressM: p,
         });
       }
+      // A paint callback can synchronously stop/replace this animation.
+      if (gen !== generation) return;
       if (t < 1) {
         frameId = raf(tick);
       } else {
-        frameId = 0;
+        frameId = null;
         counters.animationCompletions += 1;
       }
     };
@@ -124,6 +134,7 @@ export function createRouteMotionController(opts = {}) {
     fromProgress = progressM;
     const pos = pointAtProgress(metrics, progressM);
     if (pos) {
+      displayedProgress = progressM;
       lastHeading = pos.bearingDeg;
       onFrame({
         lat: pos.lat,
@@ -140,7 +151,8 @@ export function createRouteMotionController(opts = {}) {
     cancel,
     getLastHeading: () => lastHeading,
     getCounters: () => ({ ...counters }),
-    isAnimating: () => Boolean(frameId),
+    isAnimating: () => frameId !== null,
+    getDisplayedProgress: () => displayedProgress,
   };
 }
 

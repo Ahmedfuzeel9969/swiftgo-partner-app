@@ -1,365 +1,198 @@
 /**
- * Capacitor DriverLocation bridge — native foreground GPS for active rides.
- * Safe no-op on plain web hosting.
+ * Native GPS ownership is fenced by a bridge session. Pending credentials,
+ * starts and refreshes cannot resurrect a stopped/reassigned ride.
+ * P2P stays in the existing JS engine; native HTTPS remains the admin-gated fallback.
  */
-
-import { isNativeShell, getNativePlatform } from "./native-shell.js";
-import {
-  credentialCacheMatches,
-  resolveRefreshUrl,
-  DEFAULT_UPLOAD_BASE,
-} from "./background-location-credential-policy.mjs";
-
+import { getNativePlatform, getNativePlugin, newNativeSessionId } from "../../shared/js/native-bridge.mjs";
+import { credentialCacheMatches, resolveUploadUrl, resolveRefreshUrl, normalizeNativeBinding, DEFAULT_UPLOAD_BASE } from "./background-location-credential-policy.mjs";
+import { resolveIceConfiguration } from "./p2p-protocol.mjs";
 export { credentialCacheMatches, resolveRefreshUrl };
+export const resolveRefreshUrlFromUpload = resolveRefreshUrl;
 
-const DEFAULT_UPLOAD_BASE_LOCAL = DEFAULT_UPLOAD_BASE;
-
-function resolveUploadUrl(explicit) {
-  const raw = String(explicit || "").trim();
-  if (raw) return raw;
-  try {
-    if (typeof window !== "undefined" && window.__SWIFTGO_BG_LOCATION_UPLOAD_URL__) {
-      return String(window.__SWIFTGO_BG_LOCATION_UPLOAD_URL__).trim();
-    }
-  } catch {
-    /* ignore */
-  }
-  return `${DEFAULT_UPLOAD_BASE_LOCAL}/ingestBackgroundDriverLocation`;
-}
-
-/** @param {string} uploadUrl @param {string} [explicit] */
-export function resolveRefreshUrlFromUpload(uploadUrl, explicit) {
-  return resolveRefreshUrl(uploadUrl, explicit);
-}
-
-function getPlugin() {
-  if (!isNativeShell()) return null;
-  try {
-    const Cap = window.Capacitor;
-    if (!Cap) return null;
-    if (typeof Cap.Plugins?.DriverLocation !== "undefined") {
-      return Cap.Plugins.DriverLocation;
-    }
-    if (typeof Cap.registerPlugin === "function") {
-      return Cap.registerPlugin("DriverLocation");
-    }
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
-/**
- * @param {{
- *   httpsCallable?: (name: string) => (data: object) => Promise<{ data?: object }>,
- *   onNativeFix?: (fix: object) => void,
- *   onServiceState?: (state: object) => void,
- *   getLastSequence?: () => number,
- *   nowMs?: () => number,
- * }} [opts]
- */
 export function createBackgroundLocationNativeController(opts = {}) {
-  const nowMs = typeof opts.nowMs === "function" ? opts.nowMs : () => Date.now();
-  let started = false;
-  let handle = null;
-  let fixListener = null;
-  let stateListener = null;
-  let aliveTimer = 0;
-  let refreshTimer = 0;
-  let lastCredential = null;
-  let lastBinding = null;
-  let lastNativeDiagnostics = null;
-
-  function clearTimers() {
-    if (aliveTimer) {
-      clearInterval(aliveTimer);
-      aliveTimer = 0;
-    }
-    if (refreshTimer) {
-      clearInterval(refreshTimer);
-      refreshTimer = 0;
-    }
+  const now = opts.nowMs || Date.now;
+  const getPlugin = opts.getPlugin || (() => getNativePlatform() === "android" ? getNativePlugin("DriverLocation") : null);
+  const setTimer = opts.setInterval || setInterval, clearTimer = opts.clearInterval || clearInterval;
+  let epoch = 0, started = false, binding = null, credential = null, p2pCredential = null, diagnostics = null;
+  let listeners = [], timers = [], mutations = Promise.resolve(), pendingStart = false;
+  const serial = fn => {
+    const result = mutations.then(fn);
+    mutations = result.catch(() => {});
+    return result;
+  };
+  const current = id => id === epoch;
+  const cancelled = () => ({ ok: false, reason: "superseded" });
+  function clearTimers() { for (const t of timers) clearTimer(t); timers = []; }
+  async function removeListeners() {
+    const old = listeners; listeners = [];
+    await Promise.all(old.map(l => Promise.resolve().then(() => l?.remove?.()).catch(() => {})));
   }
-
-  async function callIssueCredential(binding) {
-    if (typeof opts.httpsCallable !== "function") {
-      throw new Error("HTTPS_CALLABLE_UNAVAILABLE");
-    }
-    const fn = opts.httpsCallable("issueBackgroundLocationCredential");
-    const res = await fn({
-      rideId: binding.rideId,
-      vehicleId: binding.vehicleId,
-      trackingSessionId: binding.trackingSessionId,
-      assignmentSessionToken: binding.assignmentSessionToken,
+  async function issue(b, id) {
+    if (credentialCacheMatches(credential, b, now())) return credential;
+    if (!opts.httpsCallable) throw new Error("credential_unavailable");
+    const result = await opts.httpsCallable("issueBackgroundLocationCredential")({
+      rideId: b.rideId, vehicleId: b.vehicleId, trackingSessionId: b.trackingSessionId,
+      assignmentSessionToken: b.assignmentSessionToken,
     });
-    return res?.data || res;
+    const data = result?.data || result;
+    const expiresAtMs = Number(data?.expiresAtMs);
+    if (!data?.ok || !data.token || !Number.isFinite(expiresAtMs) ||
+        expiresAtMs <= now() + 5000 || expiresAtMs > now() + 31 * 60_000) {
+      throw new Error("invalid_credential");
+    }
+    const uploadUrl = resolveUploadUrl(data.uploadUrl || (data.uploadPath ? DEFAULT_UPLOAD_BASE + data.uploadPath : ""));
+    const refreshUrl = resolveRefreshUrl(uploadUrl, data.refreshUrl || (data.refreshPath ? DEFAULT_UPLOAD_BASE + data.refreshPath : ""));
+    const value = { ...b, token: data.token, expiresAtMs, uploadUrl, refreshUrl };
+    if (current(id)) credential = value;
+    return value;
   }
-
-  async function ensureCredential(binding) {
-    const now = nowMs();
-    if (credentialCacheMatches(lastCredential, binding, now)) {
-      return lastCredential;
-    }
-    const issued = await callIssueCredential(binding);
-    if (!issued?.ok || !issued?.token) {
-      throw new Error(issued?.reason || "CREDENTIAL_ISSUE_FAILED");
-    }
-    const uploadUrl = resolveUploadUrl(
-      issued.uploadUrl ||
-        (issued.uploadPath ? `${DEFAULT_UPLOAD_BASE_LOCAL}${issued.uploadPath}` : "")
-    );
-    lastCredential = {
-      token: issued.token,
-      expiresAtMs: Number(issued.expiresAtMs) || now + 15 * 60_000,
-      ttlMs: Number(issued.ttlMs) || 15 * 60_000,
-      rideId: binding.rideId,
-      vehicleId: binding.vehicleId,
-      trackingSessionId: binding.trackingSessionId,
-      assignmentSessionToken: binding.assignmentSessionToken,
-      driverUid: binding.driverUid || "",
-      uploadUrl,
-      refreshUrl: resolveRefreshUrl(
-        uploadUrl,
-        issued.refreshPath ? `${DEFAULT_UPLOAD_BASE_LOCAL}${issued.refreshPath}` : ""
-      ),
-    };
-    return lastCredential;
+  async function issueP2p(b, id) {
+    if (p2pCredential?.token && p2pCredential.rideId === b.rideId &&
+        p2pCredential.assignmentSessionToken === b.assignmentSessionToken &&
+        p2pCredential.expiresAtMs > now() + 60_000) return p2pCredential;
+    if (!opts.httpsCallable) throw new Error("p2p_credential_unavailable");
+    const result = await opts.httpsCallable("issueNativeP2pCredential")({
+      role: "driver", rideId: b.rideId, vehicleId: b.vehicleId,
+      assignmentId: b.assignmentSessionToken, trackingSessionId: b.trackingSessionId,
+    });
+    const data = result?.data || result, expiresAtMs = Number(data?.expiresAtMs);
+    const signalUrl = DEFAULT_UPLOAD_BASE + "/nativeRidePeerTransport";
+    if (!data?.ok || !data.token || data.signalPath !== "/nativeRidePeerTransport" ||
+        !Number.isFinite(expiresAtMs) || expiresAtMs <= now() + 5000 || expiresAtMs > now() + 31 * 60_000 ||
+        Number(data.assignmentVersion) < 1) throw new Error("invalid_p2p_credential");
+    const value = { token: data.token, expiresAtMs, signalUrl, rideId: b.rideId,
+      assignmentSessionToken: b.assignmentSessionToken, assignmentVersion: Number(data.assignmentVersion) };
+    if (current(id)) p2pCredential = value;
+    return value;
   }
-
-  async function attachListeners(plugin) {
-    if (fixListener) {
-      try {
-        await fixListener.remove?.();
-      } catch {
-        /* ignore */
-      }
-      fixListener = null;
-    }
-    if (stateListener) {
-      try {
-        await stateListener.remove?.();
-      } catch {
-        /* ignore */
-      }
-      stateListener = null;
-    }
-    if (typeof plugin.addListener === "function") {
-      fixListener = await plugin.addListener("locationFix", (fix) => {
-        try {
-          opts.onNativeFix?.(fix || {});
-        } catch {
-          /* ignore */
-        }
-      });
-      stateListener = await plugin.addListener("serviceState", (state) => {
-        try {
-          const serviceState = String(state?.state || "");
-          if (serviceState === "permission_denied" || serviceState.startsWith("stopped")) {
-            started = false;
-          } else if (serviceState === "started" || serviceState === "restored_sticky") {
-            started = true;
-          }
-          const upload = state?.upload || {};
-          lastNativeDiagnostics = {
-            fixCount: Number(state?.fixCount) || 0,
-            queued: Number(upload.queued) || 0,
-            uploaded: Number(upload.uploaded) || 0,
-            rejected: Number(upload.rejected) || 0,
-            lastReason: String(upload.lastReason || state?.state || ""),
-            hasCredential: Boolean(upload.hasCredential),
-          };
-          opts.onServiceState?.(state || {});
-        } catch {
-          /* ignore */
-        }
-      });
-    }
+  function pulse(plugin, b, id) {
+    if (!current(id) || !started) return;
+    const lastSequence = Number(opts.getLastSequence?.()) || b.lastSequence;
+    Promise.resolve().then(() => plugin.noteWebAlive({ bridgeSessionId: b.bridgeSessionId, lastSequence }))
+      .then(result => {
+        if (current(id) && result?.ok === false) { started = false; clearTimers(); }
+      }).catch(() => { if (current(id)) { started = false; clearTimers(); } });
   }
-
-  function startAlivePulse(plugin) {
-    clearTimers();
-    const pulse = () => {
-      try {
-        const seq =
-          typeof opts.getLastSequence === "function" ? opts.getLastSequence() : 0;
-        void plugin.noteWebAlive?.({ lastSequence: Number(seq) || 0 });
-      } catch {
-        /* ignore */
-      }
-    };
-    pulse();
-    aliveTimer = setInterval(pulse, 5_000);
-    refreshTimer = setInterval(() => {
-      if (!lastBinding || !started) return;
-      void ensureCredential(lastBinding)
-        .then((cred) =>
-          plugin.updateCredential?.({
-            token: cred.token,
-            tokenExpiresAtMs: cred.expiresAtMs,
-            refreshUrl: cred.refreshUrl || resolveRefreshUrl(cred.uploadUrl),
-          })
-        )
-        .catch(() => {});
-    }, 8 * 60_000);
+  async function attach(plugin, b, id) {
+    if (!plugin.addListener) throw new Error("listeners_unavailable");
+    const accepts = event => current(id) && event?.bridgeSessionId === b.bridgeSessionId && event?.rideId === b.rideId;
+    listeners.push(await plugin.addListener("locationFix", fix => {
+      if (!accepts(fix) || !started) return;
+      // Resume sequence ownership above native's last delivered sequence.
+      opts.onNativeFix?.(fix);
+    }));
+    listeners.push(await plugin.addListener("peerLocationFix", fix => {
+      if (!accepts({ ...fix, bridgeSessionId: b.bridgeSessionId, rideId: b.rideId }) || !started) return;
+      opts.onPeerLocationFix?.(fix);
+    }));
+    if (!current(id)) return;
+    listeners.push(await plugin.addListener("serviceState", state => {
+      if (!accepts(state)) return;
+      if (String(state.state).startsWith("stopped")) { started = false; clearTimers(); }
+      const u = state.upload || {};
+      diagnostics = { fixCount: Number(state.fixCount) || 0, queued: Number(u.queued) || 0,
+        uploaded: Number(u.uploaded) || 0, rejected: Number(u.rejected) || 0,
+        lastReason: String(u.lastReason || state.state || "").slice(0, 80), hasCredential: Boolean(u.hasCredential) };
+      opts.onServiceState?.(state);
+    }));
   }
-
-  /**
-   * Start or refresh native foreground tracking for an active ride.
-   * @param {{
-   *   rideId: string,
-   *   vehicleId: string,
-   *   driverUid: string,
-   *   trackingSessionId: string,
-   *   assignmentSessionToken: string,
-   *   rideStatus?: string,
-   *   intervalMs?: number,
-   *   lastSequence?: number,
-   * }} binding
-   */
-  async function start(binding) {
-    if (!isNativeShell() || getNativePlatform() !== "android") {
-      return { ok: false, reason: "not_android_native" };
-    }
+  async function start(input) {
     const plugin = getPlugin();
     if (!plugin?.start) return { ok: false, reason: "plugin_unavailable" };
-
-    const rideId = String(binding?.rideId || "").trim();
-    const vehicleId = String(binding?.vehicleId || "").trim();
-    const trackingSessionId = String(binding?.trackingSessionId || "").trim();
-    if (!rideId || !vehicleId || !trackingSessionId) {
-      return { ok: false, reason: "invalid_binding" };
+    let b;
+    try { b = normalizeNativeBinding(input); }
+    catch { await stop(); return { ok: false, reason: "invalid_binding" }; }
+    if (started && binding && ["rideId", "vehicleId", "driverUid", "trackingSessionId", "assignmentSessionToken", "rideStatus", "intervalMs",
+      "assignmentVersion", "p2pFallbackAfterMs", "firebaseWriteIntervalMs", "firebaseFallbackEnabled"]
+      .every(key => binding[key] === b[key])) {
+      pulse(plugin, binding, epoch);
+      return { ok: true, reused: true };
     }
-
-    lastBinding = {
-      rideId,
-      vehicleId,
-      driverUid: String(binding.driverUid || "").trim(),
-      trackingSessionId,
-      assignmentSessionToken: String(binding.assignmentSessionToken || "").trim(),
-      rideStatus: String(binding.rideStatus || ""),
-      intervalMs: Math.max(2000, Number(binding.intervalMs) || 4000),
-      lastSequence: Math.max(0, Math.floor(Number(binding.lastSequence) || 0)),
-    };
-
-    let cred = null;
-    try {
-      cred = await ensureCredential(lastBinding);
-    } catch (err) {
-      // Still start native GPS for P2P-first while WebView is alive; HTTPS fallback needs credential.
-      console.warn(
-        "[SwiftGo Partner] background credential",
-        String(err?.message || err).slice(0, 80)
-      );
-      cred = {
-        token: "",
-        expiresAtMs: 0,
-        uploadUrl: resolveUploadUrl(""),
-        refreshUrl: resolveRefreshUrl(""),
-      };
+    const id = ++epoch;
+    if (pendingStart) Promise.resolve().then(() => plugin.stop()).catch(() => {});
+    clearTimers(); started = false;
+    b.bridgeSessionId = (opts.newSessionId || newNativeSessionId)();
+    binding = b;
+    let cred, peerCred = null;
+    try { cred = await issue(b, id); }
+    catch {
+      // GPS can still serve JS P2P. A credential-less service may NOT restore after death.
+      cred = { token: "", expiresAtMs: 0, uploadUrl: resolveUploadUrl(), refreshUrl: resolveRefreshUrl() };
     }
-
-    await attachListeners(plugin);
-    const result = await plugin.start({
-      rideId: lastBinding.rideId,
-      vehicleId: lastBinding.vehicleId,
-      driverUid: lastBinding.driverUid,
-      trackingSessionId: lastBinding.trackingSessionId,
-      assignmentSessionToken: lastBinding.assignmentSessionToken,
-      rideStatus: lastBinding.rideStatus,
-      intervalMs: lastBinding.intervalMs,
-      lastSequence: lastBinding.lastSequence,
-      uploadUrl: cred.uploadUrl || "",
-      refreshUrl: cred.refreshUrl || resolveRefreshUrl(cred.uploadUrl || ""),
-      token: cred.token || "",
-      tokenExpiresAtMs: cred.expiresAtMs || 0,
+    try { peerCred = await issueP2p(b, id); } catch { peerCred = null; }
+    if (!current(id)) return cancelled();
+    return serial(async () => {
+      if (!current(id)) return cancelled();
+      await removeListeners();
+      try {
+        await attach(plugin, b, id);
+        if (!current(id)) return cancelled();
+        let result;
+        pendingStart = true;
+        try {
+          const iceServers = resolveIceConfiguration(globalThis).iceServers;
+          result = await plugin.start({ ...b, assignmentVersion: peerCred?.assignmentVersion || b.assignmentVersion,
+            uploadUrl: cred.uploadUrl, refreshUrl: cred.refreshUrl,
+            token: cred.token, tokenExpiresAtMs: cred.expiresAtMs,
+            p2pToken: peerCred?.token || "", p2pTokenExpiresAtMs: peerCred?.expiresAtMs || 0,
+            signalUrl: peerCred?.signalUrl || (DEFAULT_UPLOAD_BASE + "/nativeRidePeerTransport"), iceServers });
+        } finally { pendingStart = false; }
+        if (!current(id)) return cancelled(); // queued stop/new start owns cleanup
+        if (result?.ok !== true || result?.running !== true) throw new Error("native_start_rejected");
+        started = true;
+        opts.onNativeSequence?.(Number(result.lastSequence) || 0);
+        pulse(plugin, b, id);
+        timers.push(setTimer(() => pulse(plugin, b, id), 5000));
+        let refreshing = false;
+        timers.push(setTimer(async () => {
+          if (!current(id) || !started || refreshing) return;
+          refreshing = true;
+          try {
+            const renewed = await issue(b, id);
+            if (current(id) && started) await serial(() => current(id) && plugin.updateCredential({
+              bridgeSessionId: b.bridgeSessionId, token: renewed.token,
+              tokenExpiresAtMs: renewed.expiresAtMs, refreshUrl: renewed.refreshUrl,
+            }));
+          } catch { /* native refresh is separately guarded and bounded by token expiry */ }
+          finally { refreshing = false; }
+        }, 60_000));
+        let peerRefreshing = false;
+        timers.push(setTimer(async () => {
+          if (!current(id) || !started || peerRefreshing) return;
+          peerRefreshing = true;
+          try {
+            const renewed = await issueP2p(b, id);
+            if (current(id) && started) await serial(() => current(id) && plugin.updateP2pCredential?.({
+              bridgeSessionId: b.bridgeSessionId, token: renewed.token, tokenExpiresAtMs: renewed.expiresAtMs,
+            }));
+          } catch { /* native engine also rotates while the WebView is absent */ }
+          finally { peerRefreshing = false; }
+        }, 60_000));
+        return { ok: true, credentialReady: Boolean(cred.token), credentialExpiresAtMs: cred.expiresAtMs };
+      } catch {
+        if (current(id)) { started = false; clearTimers(); await removeListeners(); await plugin.stop().catch(() => {}); }
+        return { ok: false, reason: "native_start_failed" };
+      }
     });
-    if (result?.ok === false || result?.running === false) {
-      started = false;
-      clearTimers();
-      return {
-        ok: false,
-        reason: String(result?.reason || "native_start_rejected").slice(0, 80),
-      };
-    }
-    handle = plugin;
-    started = true;
-    startAlivePulse(plugin);
-    return {
-      ok: true,
-      result,
-      credentialExpiresAtMs: cred.expiresAtMs || 0,
-      credentialReady: Boolean(cred.token),
-    };
   }
-
   async function stop() {
-    clearTimers();
-    started = false;
-    lastBinding = null;
-    lastCredential = null;
-    const plugin = handle || getPlugin();
-    handle = null;
-    try {
-      if (fixListener) await fixListener.remove?.();
-    } catch {
-      /* ignore */
-    }
-    fixListener = null;
-    try {
-      if (stateListener) await stateListener.remove?.();
-    } catch {
-      /* ignore */
-    }
-    stateListener = null;
-    if (!plugin?.stop) return { ok: false, reason: "plugin_unavailable" };
-    try {
-      await plugin.stop();
-      return { ok: true };
-    } catch (err) {
-      return { ok: false, reason: String(err?.message || err).slice(0, 80) };
-    }
-  }
-
-  async function syncForActiveRide(binding) {
-    const status = String(binding?.rideStatus || binding?.status || "");
-    const active = ["accepted", "arrived", "in_progress"].includes(status);
-    if (!active) return stop();
-    return start({
-      ...binding,
-      rideStatus: status,
+    ++epoch; clearTimers(); started = false; binding = null; credential = null; p2pCredential = null; diagnostics = null;
+    // Cancel an OS permission dialog/start immediately; never wait behind that start.
+    const stopping = Promise.resolve().then(() => getPlugin()?.stop?.());
+    stopping.catch(() => {});
+    return serial(async () => {
+      await removeListeners();
+      try { await stopping; return { ok: true }; }
+      catch { return { ok: false, reason: "native_stop_failed" }; }
     });
   }
-
-  function isStarted() {
-    return started;
-  }
-
-  function getLastCredentialMeta() {
-    if (!lastCredential) return null;
-    return {
-      expiresAtMs: lastCredential.expiresAtMs,
-      rideId: lastCredential.rideId,
-      vehicleId: lastCredential.vehicleId,
-      trackingSessionId: lastCredential.trackingSessionId,
-      assignmentSessionToken: lastCredential.assignmentSessionToken,
-      driverUid: lastCredential.driverUid,
-    };
-  }
-
-  function getDiagnostics() {
-    return lastNativeDiagnostics ? { ...lastNativeDiagnostics } : null;
-  }
-
   return {
-    start,
-    stop,
-    syncForActiveRide,
-    isStarted,
-    getLastCredentialMeta,
-    getDiagnostics,
-    isAvailable: () => isNativeShell() && getNativePlatform() === "android" && Boolean(getPlugin()),
-    /** Test helpers */
-    _ensureCredentialForTest: ensureCredential,
-    _getLastCredentialForTest: () => (lastCredential ? { ...lastCredential } : null),
+    start, stop,
+    syncForActiveRide: b => ["accepted", "arrived", "in_progress"].includes(b?.rideStatus || b?.status) ? start(b) : stop(),
+    isStarted: () => started,
+    isAvailable: () => Boolean(getPlugin()),
+    getDiagnostics: () => diagnostics && { ...diagnostics },
+    // Never expose tokens, assignment identifiers or personal identifiers in diagnostics.
+    getLastCredentialMeta: () => credential ? { expiresAtMs: credential.expiresAtMs, ready: credentialCacheMatches(credential, binding, now(), 0) } : null,
   };
 }

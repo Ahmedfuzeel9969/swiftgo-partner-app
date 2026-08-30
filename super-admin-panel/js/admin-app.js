@@ -1,8 +1,10 @@
+import { initPrivacyMaintenance } from "./privacy-maintenance.js";
 import {
   initFleetMapModule,
   showLiveFleetMap,
   stopFleetMap,
 } from "./fleet-map.js";
+import { LOCATION_DELIVERY_FIELDS, normalizeLocationDeliverySettings, locationDeliverySettingsPatch } from "../../shared/js/location-delivery-policy.mjs";
 import {
   AudioService,
   initAudioService,
@@ -30,6 +32,7 @@ import {
   RIDE_LOCATION_REPORT_COLLECTION,
 } from "./ride-location-report-view.mjs";
 import { firebaseConfig } from "./firebase-config.js";
+import { startDriverVerificationReview } from "./driver-verification-review.js";
 import { getFirebase, isFirebaseConfigured } from "./firebase.js?v=dispatch_dynamic_1";
 import {
   GoogleAuthProvider,
@@ -67,13 +70,13 @@ import {
   rejectOwnerAccessClient,
 } from "./admin-owner-applications-client.js?v=owner_apps_1";
 import {
-  bootstrapAdminClaim as bootstrapAdminClaimClient,
   ensureFreshAuthUser,
-  initSuperAdminAccess,
+  approveRechargeRequestClient,
+  getAdminAccessClient,
   saveAdminDispatchSettings,
   saveAdminLocationReportingSettings,
   saveAdminPricingSettings as saveAdminPricingSettingsClient,
-} from "./admin-settings-client.js?v=dispatch_dynamic_1";
+} from "./admin-settings-client.js?v=admin_settings_2";
 import {
   CANONICAL_VEHICLE_IDS,
   DEFAULT_PRICING as CATALOG_DEFAULT_PRICING,
@@ -87,39 +90,17 @@ const SUPER_ADMIN_EMAIL = "fuzail1158@gmail.com";
  * Hard lock: only this Owner email may access /admin/.
  * Drivers / fleet owners / customers are always denied.
  */
-function isAuthorizedAdmin(user) {
-  if (!user) return false;
-  // Phase 2B: custom claim is primary. Email bootstrap remains until disabled in settings/security.
-  if (user.admin === true) return true;
-  try {
-    const token = user.stsTokenManager && user;
-    // Prefer getIdTokenResult when available (async path handled by callers).
-  } catch {
-    /* ignore */
-  }
-  if (user?.reloadUserInfo?.customAttributes) {
-    try {
-      const attrs = JSON.parse(user.reloadUserInfo.customAttributes);
-      if (attrs?.admin === true) return true;
-    } catch {
-      /* ignore */
-    }
-  }
-  const email = (user.email || "").trim().toLowerCase();
-  if (!email || email !== SUPER_ADMIN_EMAIL) return false;
-  if (user.emailVerified === false) return false;
-  return true;
-}
+let verifiedAdminUid = null;
+let unsubscribeAdminAccess = null;
+function isAuthorizedAdmin(user) { return Boolean(user && user.uid === verifiedAdminUid); }
 
 /** Async claim check (token refresh aware). */
 async function isAuthorizedAdminAsync(user) {
-  if (!user) return false;
+  if (!user) { verifiedAdminUid = null; return false; }
   try {
-    const token = await user.getIdTokenResult(true);
-    if (token?.claims?.admin === true) return true;
-  } catch {
-    /* fall through to bootstrap email */
-  }
+    const access = await getAdminAccessClient();
+    verifiedAdminUid = getFirebase().auth?.currentUser?.uid === user.uid && access.authorized === true ? user.uid : null;
+  } catch { verifiedAdminUid = null; }
   return isAuthorizedAdmin(user);
 }
 
@@ -186,6 +167,8 @@ const els = {
   idleLocationMoveMetersInput: document.getElementById("idleLocationMoveMeters"),
   idleLocationMovePreset: document.getElementById("idleLocationMovePreset"),
   customerLocationFallbackSecondsInput: document.getElementById("customerLocationFallbackSeconds"),
+  p2pFallbackAfterSecondsInput: document.getElementById("p2pFallbackAfterSeconds"),
+  firebaseLocationFallbackEnabledInput: document.getElementById("firebaseLocationFallbackEnabled"),
   idleHighMoveWarning: document.getElementById("idleHighMoveWarning"),
   idleMovementTriggerDisabledInput: document.getElementById("idleMovementTriggerDisabled"),
   idleDiagnosticDurationMinutes: document.getElementById("idleDiagnosticDurationMinutes"),
@@ -351,70 +334,12 @@ function showDashboard(user) {
 }
 
 async function ensureAdminWriteAccess(user) {
-  adminCanWriteSettings = null;
+  adminCanWriteSettings = await isAuthorizedAdminAsync(user);
   updateFinanceWriteUi();
-  if (!user) {
-    adminCanWriteSettings = false;
-    updateFinanceWriteUi();
-    return false;
+  if (!adminCanWriteSettings && els.pricingStatusNote) {
+    els.pricingStatusNote.textContent = "اختیار کی سروری تصدیق نہیں ہوئی۔ مجاز منتظم سے رابطہ کریں؛ ای میل اکیلی اجازت نہیں دیتی۔";
   }
-
-  try {
-    const token = await user.getIdTokenResult(true);
-    if (token?.claims?.admin === true) {
-      adminCanWriteSettings = true;
-      updateFinanceWriteUi();
-      return true;
-    }
-  } catch {
-    /* try bootstrap below */
-  }
-
-  if (isAuthorizedAdmin(user)) {
-    try {
-      const { db } = getFirebase();
-      if (db) {
-        const snap = await getDoc(doc(db, "settings", "security"));
-        if (snap.exists() && snap.data()?.adminBootstrapEnabled === true) {
-          adminCanWriteSettings = true;
-          updateFinanceWriteUi();
-          return true;
-        }
-      }
-    } catch {
-      /* continue */
-    }
-  }
-
-  try {
-    await initSuperAdminAccess();
-    await user.getIdToken(true);
-    adminCanWriteSettings = true;
-    showAdminToast("Super Admin access فعال — ترتیبات محفوظ ہوں گی");
-    updateFinanceWriteUi();
-    return true;
-  } catch (error) {
-    console.warn("[SwiftGo Admin] initSuperAdminAccess", error);
-  }
-
-  try {
-    await bootstrapAdminClaimClient();
-    await user.getIdToken(true);
-    adminCanWriteSettings = true;
-    showAdminToast("Admin claim فعال — ترتیبات اب محفوظ ہوں گی");
-    updateFinanceWriteUi();
-    return true;
-  } catch (error) {
-    console.warn("[SwiftGo Admin] bootstrapAdminClaim", error);
-  }
-
-  adminCanWriteSettings = false;
-  updateFinanceWriteUi();
-  if (els.pricingStatusNote) {
-    els.pricingStatusNote.textContent =
-      "محفوظ نہیں ہو سکتا — Firebase Console میں settings/security → adminBootstrapEnabled: true کریں، پھر دوبارہ لاگ اِن کریں۔";
-  }
-  return false;
+  return adminCanWriteSettings;
 }
 
 /**
@@ -438,7 +363,7 @@ async function prepareAdminSaveForWrite(_userHint) {
   }
   currentAdminUser = user;
 
-  if (!isAuthorizedAdmin(user) && !(await isAuthorizedAdminAsync(user))) {
+  if (!(await isAuthorizedAdminAsync(user))) {
     adminCanWriteSettings = false;
     updateFinanceWriteUi();
     const err = new Error("NOT_SUPER_ADMIN");
@@ -446,33 +371,9 @@ async function prepareAdminSaveForWrite(_userHint) {
     throw err;
   }
 
-  // Self-heal: claim + users/{uid}.role = super_admin (Admin SDK via CF).
-  try {
-    await initSuperAdminAccess();
-    await user.getIdToken(true);
-    adminCanWriteSettings = true;
-    updateFinanceWriteUi();
-    return true;
-  } catch (error) {
-    console.warn("[SwiftGo Admin] prepareAdminSaveForWrite init", error?.code, error?.message);
-    // Claim may already exist; saveAdminPricingSettings can still grant access.
-    if (
-      String(error?.code || "").includes("unauthenticated") ||
-      String(error?.message || "").includes("AUTH_REQUIRED")
-    ) {
-      // One more hard refresh, then continue — final save will re-check auth.
-      try {
-        await auth?.currentUser?.getIdToken?.(true);
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-
-  if (adminCanWriteSettings !== true) {
-    await ensureAdminWriteAccess(user);
-  }
-  return adminCanWriteSettings === true || isAuthorizedAdmin(user);
+  adminCanWriteSettings = true;
+  updateFinanceWriteUi();
+  return true;
 }
 
 function adminSaveErrorMessage(error) {
@@ -528,71 +429,9 @@ function adminSaveErrorMessage(error) {
   return `محفوظ نہیں: ${msg || code || "unknown error"}`;
 }
 
-/** Client Firestore write — after token refresh; rules use claim / role / bootstrap. */
-async function savePricingViaFirestore(values) {
-  const { db } = getFirebase();
-  if (!db) {
-    const err = new Error("FIRESTORE_UNAVAILABLE");
-    err.code = "unavailable";
-    throw err;
-  }
-  const user = await ensureFreshAuthUser();
-  currentAdminUser = user;
-  await setDoc(
-    doc(db, "settings", "pricing"),
-    {
-      walletThreshold: Number(values.walletThreshold),
-      baseFare: Number(values.baseFare),
-      perKmRate: Number(values.perKmRate),
-      commissionPercent: Number(values.commissionPercent),
-      vehicles: values.vehicles,
-      updatedAt: serverTimestamp(),
-      updatedBy: user.uid,
-    },
-    { merge: true }
-  );
-}
-
 async function persistPricingSettings(values) {
-  try {
-    await saveAdminPricingSettingsClient(values);
-    return "callable";
-  } catch (callableError) {
-    console.error(
-      "[Financial Settings Error]:",
-      callableError?.code,
-      callableError?.message
-    );
-    try {
-      if (isAuthorizedAdmin(currentAdminUser) || getFirebase().auth?.currentUser) {
-        try {
-          await initSuperAdminAccess();
-          await ensureFreshAuthUser();
-        } catch (initErr) {
-          console.warn("[SwiftGo Admin] init before Firestore fallback", initErr);
-        }
-      }
-      await savePricingViaFirestore(values);
-      console.info("[SwiftGo Admin] pricing saved via Firestore fallback");
-      return "firestore";
-    } catch (firestoreError) {
-      console.error(
-        "[Financial Settings Error]:",
-        firestoreError?.code,
-        firestoreError?.message
-      );
-      // Prefer the more specific permission/auth signal from either path.
-      if (
-        String(firestoreError?.code || "").includes("permission-denied") ||
-        String(callableError?.code || "").includes("permission-denied")
-      ) {
-        const err = new Error("NOT_SUPER_ADMIN");
-        err.code = "permission-denied";
-        throw err;
-      }
-      throw callableError;
-    }
-  }
+  await saveAdminPricingSettingsClient(values);
+  return "callable";
 }
 
 function updateFinanceWriteUi() {
@@ -1297,21 +1136,11 @@ async function approveRechargeRequest(requestId, request, button) {
   }
 
   try {
-    const batch = writeBatch(db);
-    batch.update(doc(db, "rechargeRequests", requestId), {
-      status: "approved",
-      approvedAt: serverTimestamp(),
-    });
-    batch.set(
-      doc(db, "partners", request.driverId),
-      { walletBalance: increment(amount) },
-      { merge: true }
-    );
-    await batch.commit();
+    const approved = await approveRechargeRequestClient(requestId);
 
     pendingRechargeCache = pendingRechargeCache.filter((item) => item.id !== requestId);
     renderRechargeRequestsTable(pendingRechargeCache);
-    showAdminToast(`ریچارج منظور — Rs. ${Math.round(amount).toLocaleString("en-PK")}`);
+    showAdminToast(`ریچارج منظور — ${approved.amount.toLocaleString("ur-PK")} روپے`);
     if (els.rechargeRequestsLiveNote) {
       els.rechargeRequestsLiveNote.textContent = "Request approved · wallet credited";
     }
@@ -2342,6 +2171,22 @@ async function loadDispatchSettings() {
           : 60
       );
     }
+    if (els.p2pFallbackAfterSecondsInput) {
+      const p2pFallbackSec = Math.round(Number(data.p2pFallbackAfterSeconds));
+      els.p2pFallbackAfterSecondsInput.value = String(
+        Number.isInteger(p2pFallbackSec) && p2pFallbackSec >= 5 && p2pFallbackSec <= 60
+          ? p2pFallbackSec
+          : 12
+      );
+    }
+    if (els.firebaseLocationFallbackEnabledInput) {
+      els.firebaseLocationFallbackEnabledInput.checked = normalizeLocationDeliverySettings(data).firebaseLocationFallbackEnabled;
+    }
+    const deliverySettings = normalizeLocationDeliverySettings(data);
+    for (const key of Object.keys(LOCATION_DELIVERY_FIELDS)) {
+      const input = document.getElementById(key);
+      if (input) input.value = String(deliverySettings[key]);
+    }
     syncIdlePresetSelect(
       els.idleLocationMovePreset,
       els.idleLocationMoveMetersInput,
@@ -2431,7 +2276,16 @@ async function saveDispatchSettings(event) {
   }
 
   const diagnosticEnabled = Boolean(els.idleMovementTriggerDisabledInput?.checked);
-  const customerLocationFallbackSeconds = Math.round(Number(els.customerLocationFallbackSecondsInput?.value));
+  const customerLocationFallbackSeconds = Number(els.customerLocationFallbackSecondsInput?.value);
+  const p2pFallbackAfterSeconds = Number(els.p2pFallbackAfterSecondsInput?.value);
+  let deliveryPatch;
+  try {
+    deliveryPatch = locationDeliverySettingsPatch(Object.fromEntries(Object.keys(LOCATION_DELIVERY_FIELDS)
+      .map((key) => [key, document.getElementById(key)?.value === "" ? NaN : Number(document.getElementById(key)?.value)])));
+  } catch {
+    if (els.dispatchStatusNote) els.dispatchStatusNote.textContent = "لوکیشن کے تمام وقفے درج حد کے اندر پورے عدد میں بھریں۔";
+    return;
+  }
   if (
     !Number.isInteger(customerLocationFallbackSeconds) ||
     (customerLocationFallbackSeconds !== 0 &&
@@ -2439,6 +2293,12 @@ async function saveDispatchSettings(event) {
   ) {
     if (els.dispatchStatusNote) {
       els.dispatchStatusNote.textContent = "صارف پس منظر ہنگامی وقفہ صفر یا 30 سے 300 سیکنڈ ہونا چاہیے۔";
+    }
+    return;
+  }
+  if (!Number.isInteger(p2pFallbackAfterSeconds) || p2pFallbackAfterSeconds < 5 || p2pFallbackAfterSeconds > 60) {
+    if (els.dispatchStatusNote) {
+      els.dispatchStatusNote.textContent = "P2P fallback مہلت 5 سے 60 سیکنڈ کے درمیان ہونی چاہیے۔";
     }
     return;
   }
@@ -2507,6 +2367,9 @@ async function saveDispatchSettings(event) {
       idleLocationIntervalMs: idleSeconds * 1000,
       idleLocationMoveMeters: idleMoveMeters,
       customerLocationFallbackSeconds,
+      p2pFallbackAfterSeconds,
+      ...deliveryPatch,
+      firebaseLocationFallbackEnabled: Boolean(els.firebaseLocationFallbackEnabledInput?.checked),
       idleMovementTriggerDisabled: diagnosticEnabled,
     };
     if (diagnosticEnabled) {
@@ -2968,11 +2831,11 @@ async function createPromoCode(event) {
   const value = Number(els.promoValueInput?.value);
   const maxUsesRaw = Number(els.promoMaxUsesInput?.value);
 
-  if (!code || code.length > 32) {
+  if (!/^[A-Z0-9_-]{1,32}$/.test(code)) {
     showAdminToast("Valid promo code required.");
     return;
   }
-  if (!Number.isFinite(value) || value <= 0) {
+  if (!Number.isFinite(value) || value <= 0 || (type === "percent" && value > 100)) {
     showAdminToast("Promo value must be greater than zero.");
     return;
   }
@@ -3059,6 +2922,7 @@ function startLiveData() {
   loadWalletThresholdForAdmin()
     .then(() => refreshDriversUi())
     .catch(() => {});
+  liveUnsubscribers.push(startDriverVerificationReview(getFirebase()));
   loadPricingSettings().catch(() => {});
   loadDispatchSettings().catch(() => {});
   loadLocationReportingSettings().catch(() => {});
@@ -3222,6 +3086,7 @@ function boot() {
   els.pricingForm?.addEventListener("submit", savePricingSettings);
   els.dispatchForm?.addEventListener("submit", saveDispatchSettings);
   els.locationReportingForm?.addEventListener("submit", saveLocationReportingSettings);
+  initPrivacyMaintenance();
   els.locationReportingUploadMode?.addEventListener("change", updateLocationReportingFieldVisibility);
   els.idleReturnSafeDefaultsBtn?.addEventListener("click", returnIdleToSafeDefaults);
   els.idleLocationIntervalPreset?.addEventListener("change", () =>
@@ -3300,6 +3165,9 @@ function boot() {
     setBusy(false);
 
     if (!user) {
+      verifiedAdminUid = null;
+      unsubscribeAdminAccess?.();
+      unsubscribeAdminAccess = null;
       currentAdminUser = null;
       stopLiveData();
       showLogin();
@@ -3307,7 +3175,7 @@ function boot() {
     }
 
     // Hard gate: drivers / fleet owners / any non-Owner account → deny + redirect.
-    if (!isAuthorizedAdmin(user)) {
+    if (!(await isAuthorizedAdminAsync(user))) {
       currentAdminUser = null;
       stopLiveData();
       await denyAndSignOut(firebase.auth);
@@ -3315,6 +3183,17 @@ function boot() {
     }
 
     currentAdminUser = user;
+    unsubscribeAdminAccess?.();
+    const claims = (await user.getIdTokenResult()).claims;
+    unsubscribeAdminAccess = onSnapshot(doc(firebase.db, "admin_registry", user.uid), (snap) => {
+      const entry = snap.data();
+      if (!entry?.admin || entry.role !== "super_admin" || entry.version !== claims.adminVersion) {
+        verifiedAdminUid = null;
+        stopLiveData();
+        showLogin();
+        void denyAndSignOut(firebase.auth);
+      }
+    }, () => { verifiedAdminUid = null; stopLiveData(); showLogin(); });
     showDashboard(user);
     setStatus("");
     startLiveData();

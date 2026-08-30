@@ -5,8 +5,7 @@
 
 import { getMap, getTrafficEnabled } from "./map.js";
 import { t, subscribe } from "./i18n.js";
-
-const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
+import { resolveRouteProvider } from "../../shared/js/road-route-provider.mjs";
 
 const ROUTE_STYLE = {
   casing: { color: "#064e3b", weight: 10, opacity: 0.35, lineCap: "round", lineJoin: "round" },
@@ -153,28 +152,9 @@ function drawRoute(latlngs) {
 }
 
 async function fetchOsrmRoute(pickup, dropoff, signal) {
-  const coords = `${pickup.lng},${pickup.lat};${dropoff.lng},${dropoff.lat}`;
-  const url = `${OSRM_BASE}/${coords}?overview=full&geometries=geojson&alternatives=false&steps=false`;
-  const controller = new AbortController();
-  const onAbort = () => controller.abort();
-  signal?.addEventListener?.("abort", onAbort, { once: true });
-  const timeout = window.setTimeout(() => controller.abort(), BOOKING_ROUTE_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`OSRM_${res.status}`);
-    const data = await res.json();
-    const route = data?.routes?.[0];
-    if (data?.code !== "Ok" || !route?.geometry?.coordinates?.length) {
-      throw new Error("OSRM_NO_ROUTE");
-    }
-    return route;
-  } finally {
-    window.clearTimeout(timeout);
-    signal?.removeEventListener?.("abort", onAbort);
-  }
+  const route = await resolveRouteProvider().route({ origin: pickup, destination: dropoff, signal });
+  return { distance: route.distanceMeters, duration: route.durationSeconds,
+    geometry: { coordinates: route.renderGeometry.map((p) => [p.lng, p.lat]) } };
 }
 
 async function refreshRoute() {
@@ -196,7 +176,7 @@ async function refreshRoute() {
     routeState.source = "osrm";
     drawRoute(latlngs);
   } catch (err) {
-    console.warn("[SwiftGo] OSRM route", err);
+    console.warn("[SwiftGo] route unavailable", err?.code || "unavailable");
     if (seq !== fetchSeq) return;
 
     const km = haversineKm(pickup, dropoff);

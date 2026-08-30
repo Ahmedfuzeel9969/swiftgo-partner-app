@@ -18,7 +18,9 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { safeFile, inventoryHash } from "./source-integrity.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -32,6 +34,14 @@ function argValue(flag) {
 const LIVE_URL = argValue("--url");
 const DIST = path.resolve(ROOT, argValue("--dist") || "hosting-dist");
 const NO_WRITE = args.includes("--no-write");
+const REPORT = argValue("--report");
+const assetInventory = new Map();
+const targetCache = new Map();
+
+function recordAsset(relative, bytes, status, contentType) {
+  assetInventory.set(relative, { path: relative, bytes: bytes.length,
+    sha256: createHash("sha256").update(bytes).digest("hex"), status, contentType });
+}
 
 const results = [];
 function record(name, ok, detail = "") {
@@ -64,11 +74,18 @@ function looksLikeJs(text) {
 }
 
 async function readTarget(relPosix) {
+  if (!targetCache.has(relPosix)) targetCache.set(relPosix, readTargetUncached(relPosix));
+  return targetCache.get(relPosix);
+}
+
+async function readTargetUncached(relPosix) {
   if (LIVE_URL) {
     const base = LIVE_URL.replace(/\/$/, "");
     const url = `${base}/${relPosix.replace(/^\//, "")}`;
-    const res = await fetch(url, { redirect: "follow" });
-    const text = await res.text();
+    const res = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15_000) });
+    const bytes = Buffer.from(await res.arrayBuffer());
+    const text = bytes.toString("utf8");
+    recordAsset(relPosix, bytes, res.status, res.headers.get("content-type") || "");
     return {
       ok: res.ok,
       status: res.status,
@@ -81,7 +98,8 @@ async function readTarget(relPosix) {
   if (!fs.existsSync(abs)) {
     return { ok: false, status: 404, contentType: "", text: "", url: abs };
   }
-  const text = fs.readFileSync(abs, "utf8");
+  const bytes = fs.readFileSync(abs);
+  const text = bytes.toString("utf8");
   const ext = path.extname(abs).toLowerCase();
   const contentType =
     ext === ".html"
@@ -91,6 +109,7 @@ async function readTarget(relPosix) {
         : ext === ".js" || ext === ".mjs"
           ? "text/javascript"
           : "application/octet-stream";
+  recordAsset(relPosix, bytes, 200, contentType);
   return { ok: true, status: 200, contentType, text, url: abs };
 }
 
@@ -420,6 +439,14 @@ async function main() {
     p2pRels: [],
   });
 
+  await checkApp({
+    name: "owner",
+    htmlRel: "owner/index.html",
+    homeMarkers: ['id="ownerDashboard"', 'id="driverGoogleLoginBtn"'],
+    firebaseRel: "owner/js/firebase.js",
+    p2pRels: [],
+  });
+
   // Guard: known hybrid footguns must not be HTML when referenced by live graphs
   for (const rel of [
     "partner/js/phase1-billing-diagnostics.mjs",
@@ -441,7 +468,7 @@ async function main() {
   }
 
   const failed = results.filter((r) => r.status === "FAIL");
-  const outPath = path.join(
+  const outPath = REPORT ? safeFile(ROOT, REPORT) : path.join(
     ROOT,
     "tests",
     LIVE_URL ? "hosting-startup-health-live-results.json" : "hosting-startup-health-results.json"
@@ -457,11 +484,15 @@ async function main() {
           target: LIVE_URL || DIST,
           pass: results.length - failed.length,
           fail: failed.length,
+          inventoryScope: "Sampled public startup assets only; not the entire deployed release or backend",
+          sampledAssetsSha256: inventoryHash([...assetInventory.values()]),
+          assetInventory: [...assetInventory.values()].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0),
           results,
         },
         null,
         2
-      )
+      ),
+      REPORT ? { flag: "wx" } : undefined
     );
   }
 

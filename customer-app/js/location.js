@@ -88,6 +88,32 @@ function placeLocationCue(inputId, lat, lng) {
   setRoutePoint(meta.role, lat, lng);
 }
 
+/** Apply a known place to pickup/drop-off while keeping route state and map in sync. */
+export async function applyLocationPlace(inputId, place, { resolveLabel = false } = {}) {
+  const input = document.getElementById(inputId);
+  if (!input || !place) return false;
+  const lat = Number(place.lat);
+  const lng = Number(place.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+
+  setLocationFieldValue(inputId, place.label || `${lat.toFixed(5)}, ${lng.toFixed(5)}`, {
+    autoExpand: true,
+  });
+  placeLocationCue(inputId, lat, lng);
+  flyToLatLng(lat, lng, 16);
+
+  if (resolveLabel && !place.label) {
+    try {
+      const resolved = await reverseGeocode(lat, lng);
+      setLocationFieldValue(inputId, resolved.label, { autoExpand: true });
+      placeLocationCue(inputId, resolved.lat, resolved.lng);
+    } catch (err) {
+      console.warn("[SwiftGo] quick place reverse geocode", err);
+    }
+  }
+  return true;
+}
+
 async function nominatimGet(path, params) {
   const url = new URL(path, NOMINATIM);
   Object.entries(params).forEach(([key, value]) => {
@@ -350,53 +376,12 @@ async function forwardGeocode(query) {
   }
 }
 
-/** Expand short Maps links via CORS-friendly proxies and scrape coords from HTML/URL. */
+/** Never disclose a pasted location URL to unapproved public CORS proxies.
+ * Full coordinate links still parse locally. Short links need a copied full link,
+ * a plain address, or an explicitly approved first-party resolver (not enabled).
+ */
 async function expandMapsUrlForCoords(url) {
-  const targets = [
-    `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  ];
-
-  for (const endpoint of targets) {
-    try {
-      const res = await fetch(endpoint, { method: "GET" });
-      if (!res.ok) continue;
-      const contentType = res.headers.get("content-type") || "";
-      let blob = "";
-      let finalUrl = url;
-
-      if (contentType.includes("application/json")) {
-        const json = await res.json();
-        blob = String(json?.contents || json?.body || "");
-        finalUrl = json?.status?.url || json?.url || url;
-      } else {
-        blob = await res.text();
-      }
-
-      const fromUrl = parseGoogleMapsCoords(finalUrl, { allowBare: true });
-      if (fromUrl) return fromUrl;
-
-      const fromBody = parseGoogleMapsCoords(blob, { allowBare: false });
-      if (fromBody) return fromBody;
-
-      // Absolute Google redirect URL buried in HTML
-      const hrefMatch = blob.match(
-        /https?:\/\/(?:www\.)?google\.[^"'\\\s]+\/maps[^"'\\\s]*/i
-      );
-      if (hrefMatch) {
-        const fromHref = parseGoogleMapsCoords(hrefMatch[0], { allowBare: true });
-        if (fromHref) return fromHref;
-        const place = extractPlaceQueryFromMapsUrl(hrefMatch[0]);
-        if (place) {
-          const geo = await forwardGeocode(place);
-          if (geo) return geo;
-        }
-      }
-    } catch (err) {
-      console.warn("[SwiftGo] expand maps url", err);
-    }
-  }
-  return null;
+  return parseGoogleMapsCoords(url, { allowBare: true });
 }
 
 /**
@@ -485,6 +470,11 @@ function bindSmartLinkPaste() {
         const ok = await applyCoordsToInput(input, coords);
         if (!ok) setLocationFieldValue(input.id, text.trim(), { autoExpand: false });
       } else {
+        if (isMapsUrl(text.trim()) || /^https?:\/\//i.test(text.trim())) {
+          setLocationFieldValue(input.id, text.trim(), { autoExpand: false });
+          window.alert("رازداری کے لیے مختصر لنک کسی عوامی واسطے کو نہیں بھیجا گیا۔ نقشے سے مکمل مقام والا لنک، پتہ یا نقشے پر نشان منتخب کریں۔");
+          return;
+        }
         // Last resort: still try geocoding the raw paste so a route can form
         const geo = await forwardGeocode(text.trim());
         if (geo) {

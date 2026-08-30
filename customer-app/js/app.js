@@ -18,6 +18,7 @@ import {
   resetSheetForNewRide,
 } from "./sheet.js";
 import { initLocationModule, refreshLocationLabels } from "./location.js";
+import { initQuickPlaces, refreshQuickPlaces } from "./quick-places.js";
 import { initStepUi, refreshStepUiLabels } from "./step-ui.js";
 
 import {
@@ -43,7 +44,7 @@ import {
 import { initRateDetailsModal, openRateDetails } from "./rate-details-modal.js";
 import { getRouteInfo, initRoutingUi } from "./routing.js";
 import { initFareCalculation } from "./fare.js";
-import { initRideFlow, startRideRequest, resumeActiveRideWatch, clearCustomerRideSession } from "./ride-flow.js";
+import { initRideFlow, startRideRequest, resumeActiveRideWatch, clearCustomerRideSession } from "./ride-flow.js?v=live_priority_2";
 import { initDriverTrack } from "./driver-track.js";
 import { applyReducedMotionClass, initKeyboardInset, setOverlayInert } from "./a11y.js";
 import {
@@ -456,6 +457,7 @@ function bindEvents() {
     refreshScreens();
     refreshDashboardLabels();
     refreshLocationLabels();
+    refreshQuickPlaces();
     refreshStepUiLabels();
     refreshUtilityDrawerLabels();
     historyApi?.refreshRideHistory();
@@ -542,6 +544,7 @@ async function boot() {
     ensureMap,
     navigateHome: () => navigate("home"),
   });
+  initQuickPlaces({ onToast: showToast });
   initRoutingUi();
   initStepUi();
   initScreens({ onBookNow: bookNow });

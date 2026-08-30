@@ -5,6 +5,8 @@ export const SHARED_JS_MODULES = [
   "marker-heading.mjs",
   "route-geometry.mjs",
   "road-route-provider.mjs",
+  "route-request-guard.mjs",
+  "map-tile-provider.mjs",
   "two-leg-route-controller.mjs",
   "two-leg-route-layers.mjs",
   "route-projection.mjs",

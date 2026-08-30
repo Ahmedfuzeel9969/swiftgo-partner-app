@@ -4654,6 +4654,45 @@ html[dir="rtl"] .topbar.location-header.is-expanded .step-card {
   font-style: italic;
 }
 
+.quick-places {
+  display: flex;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.quick-places::-webkit-scrollbar { display: none; }
+
+.quick-place {
+  min-height: 36px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(11, 122, 75, 0.18);
+  border-radius: 999px;
+  background: #f3faf6;
+  color: #174b34;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.quick-place:hover,
+.quick-place:focus-visible { background: #e4f5eb; outline-color: #0b7a4b; }
+.quick-place.is-empty { border-style: dashed; color: #60756a; }
+
+.quick-places__hint {
+  margin: 0.4rem 0 0;
+  color: #60756a;
+  font-size: 0.67rem;
+  line-height: 1.35;
+}
+
 .route-search__row,
 .route-search__stop {
   display: flex;

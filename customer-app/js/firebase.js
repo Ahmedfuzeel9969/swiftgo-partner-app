@@ -1,4 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { configureAppCheck } from "/shared/js/app-check.mjs";
 import {
   getAuth,
   connectAuthEmulator,
@@ -69,6 +70,7 @@ let functions = null;
 
 if (isFirebaseConfigured()) {
   app = initializeApp(firebaseConfig);
+  configureAppCheck(app, { emulator: useEmulators });
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);

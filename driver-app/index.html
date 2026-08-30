@@ -93,7 +93,7 @@
       <p class="pin-gate__eyebrow">Vehicle PIN</p>
       <h2 id="pinGateTitle" data-i18n="pinTitle">گاڑی کا PIN درج کریں</h2>
       <p class="pin-gate__copy" data-i18n="pinCopy">
-        مالک سے ملا ہوا 4 ہندسوں کا PIN درج کریں تاکہ گاڑی آپ کے اکاؤنٹ سے منسلک ہو جائے۔
+        مالک کا دیا ہوا بارہ ہندسوں کا تازہ ربط کوڈ درج کریں۔ یہ دس منٹ میں صرف ایک بار استعمال ہوتا ہے۔
       </p>
       <form id="vehiclePinForm" novalidate>
         <input
@@ -102,10 +102,10 @@
           type="text"
           inputmode="numeric"
           autocomplete="one-time-code"
-          maxlength="4"
-          pattern="[0-9]{4}"
-          placeholder="• • • •"
-          aria-label="گاڑی کا 4 ہندسوں کا PIN"
+          maxlength="12"
+          pattern="[0-9]{12}"
+          placeholder="••••••••••••"
+          aria-label="گاڑی کا بارہ ہندسوں کا ربط کوڈ"
           required
         />
         <p class="pin-gate__message" id="vehiclePinMessage" role="status" aria-live="polite"></p>

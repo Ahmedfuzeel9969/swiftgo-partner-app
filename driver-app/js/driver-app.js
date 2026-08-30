@@ -1,7 +1,11 @@
 /** SwiftGo Driver app — map, rides, wallet, PIN linking. No owner/driver mode switching. */
+import { createStreetTileLayer } from "../../shared/js/map-tile-provider.mjs";
 
 import { firebaseConfig } from "./firebase-config.js";
+import { resolveLocationDeliveryPolicy } from "../../shared/js/location-delivery-policy.mjs";
 import { getFirebase, isFirebaseConfigured } from "./firebase.js";
+import { initDriverVerification } from "./driver-verification.js";
+import { resolveSurfaceEntry } from "./auth-surface-routing.mjs";
 import {
   GoogleAuthProvider,
   getRedirectResult,
@@ -40,6 +44,7 @@ import { resolveVehicleKeyFromLabel } from "./pricing-client.js";
 import { initDriverDashboard } from "./driver-dashboard.js";
 import { initDriverHome } from "./DriverHome.js";
 import { subscribePendingRadarRides, normalizeRadarDoc, rideSearchDeadlineMs, readCachedRadarRides } from "./ride-radar-service.js";
+import { createRideRadarFeedHub } from "./ride-radar-feed-hub.mjs";
 import { clearLocalCacheNamespace } from "./local-first-cache.js";
 import { createDriverOfferInbox } from "./driver-offer-inbox.js";
 import { requestRideSettlement } from "./settlement-client.js";
@@ -78,6 +83,7 @@ import {
 } from "./location-checkpoint-policy.mjs";
 import { createViewerPresenceConsumer } from "./viewer-presence-consumer.mjs";
 import { createDriverP2pController } from "./p2p-ride-controller.mjs";
+import { createCustomerLocationMarker } from "./customer-location-marker.mjs";
 import { createRideCommChat } from "./p2p-comm-panel.mjs";
 import { P2P_STATE } from "./p2p-protocol.mjs";
 import { createDriverActiveRouteController } from "./driver-active-route.mjs";
@@ -90,7 +96,6 @@ import {
   cancelAssignedRideByDriverClient,
   recordDispatchDeliveryReceiptClient,
 } from "./ride-radar-actions.js";
-import { hashVehiclePin } from "./pin-hash.js";
 import {
   AudioService,
   initAudioService,
@@ -326,6 +331,8 @@ let gpsWatchdogTimer = 0;
 let gpsRecoveryInFlight = false;
 /** @type {object|null} */
 let lastAcceptedLocationEnvelope = null;
+// GPS acceptance advances even when Firebase writes are deliberately sparse.
+let lastValidatedGpsEnvelope = null;
 const locationDiagCounters = createLocationDiagCounters();
 
 function checkpointDiag(code) {
@@ -339,8 +346,16 @@ function checkpointDiag(code) {
 const checkpointPolicy = createCheckpointPolicyController({
   diag: checkpointDiag,
 });
+checkpointPolicy.configureDeliveryPolicy({ firebaseFallbackEnabled: false });
 
+const customerLocationMarker = createCustomerLocationMarker({ getMap: () => map });
 const driverP2p = createDriverP2pController({
+  onCustomerLocation: (fix) => customerLocationMarker.update(fix),
+  watchCustomerLocation: (rideId, onData, onError, assignmentId) => {
+    const { db } = getFirebase();
+    return onSnapshot(doc(db, "rides", rideId, "customerLocations", assignmentId),
+      (snap) => onData(snap.exists() ? snap.data() : null), onError);
+  },
   onDiag: (code) => {
     try {
       console.info(JSON.stringify({ type: "p2p_diag", reason: String(code || "") }));
@@ -367,7 +382,7 @@ const driverP2p = createDriverP2pController({
         getFieldDiagnostics()?.record("p2p_diag", {
           reason: "driver_p2p_unhealthy",
           plainText:
-            "Driver P2P marked unhealthy. Customer-side silence fallback (30s) is verified on the customer phone.",
+            "P2P delivery is unverified; Firebase follows the current super-admin policy.",
         });
       } else {
         syncDriverRideCommChat();
@@ -379,6 +394,7 @@ const driverP2p = createDriverP2pController({
 });
 
 /** @type {ReturnType<typeof createRideCommChat> | null} */
+driverP2p.configureDeliveryPolicy({ firebaseFallbackEnabled: false });
 let driverRideCommChat = null;
 /** @type {string} */
 let driverRideCommRideId = "";
@@ -466,6 +482,7 @@ const driverLocationReport = createRideLocationReportClient({
   }),
 });
 
+let nativeLocationDeliveryPolicy = { ...resolveLocationDeliveryPolicy(), firebaseFallbackEnabled: false };
 /** Android foreground GPS — P2P-first while WebView alive; HTTPS ingest after swipe-close. */
 const backgroundLocationNative = createBackgroundLocationNativeController({
   httpsCallable: (name) => {
@@ -479,8 +496,12 @@ const backgroundLocationNative = createBackgroundLocationNativeController({
     return (data) => fn(data);
   },
   getLastSequence: () => locationTrackingSequence,
+  onNativeSequence: (sequence) => {
+    locationTrackingSequence = Math.max(locationTrackingSequence, sequence);
+  },
   onNativeFix: (fix) => {
     if (!fix || typeof fix.lat !== "number" || typeof fix.lng !== "number") return;
+    locationTrackingSequence = Math.max(locationTrackingSequence, Number(fix.resumeSequence) || 0);
     lastNativeGpsFixAtMs = Date.now();
     // Feed the same pipeline as browser geolocation so P2P stays first while WebView lives.
     const fakePos = {
@@ -492,13 +513,17 @@ const backgroundLocationNative = createBackgroundLocationNativeController({
         heading: Number.isFinite(Number(fix.headingDeg)) ? Number(fix.headingDeg) : null,
         speed: Number.isFinite(Number(fix.speedMps)) ? Number(fix.speedMps) : null,
       },
-      timestamp: Number(fix.observedAt) || Date.now(),
+      timestamp: fix.observedAt,
     };
     try {
       updateDriverLocation(fakePos);
     } catch (err) {
       console.warn("[SwiftGo Partner] native fix", err);
     }
+  },
+  onPeerLocationFix: (fix) => {
+    if (!fix || typeof fix.lat !== "number" || typeof fix.lng !== "number") return;
+    customerLocationMarker.update({ ...fix, source: "native_p2p" });
   },
   onServiceState: (state) => {
     try {
@@ -534,7 +559,6 @@ function syncBackgroundLocationNativeForActiveRide() {
     void backgroundLocationNative.stop();
     return;
   }
-  const decision = checkpointPolicy.currentDecision?.() || {};
   void backgroundLocationNative.syncForActiveRide({
     rideId: ride.id,
     vehicleId: linkedVehicle.id,
@@ -542,8 +566,13 @@ function syncBackgroundLocationNativeForActiveRide() {
     trackingSessionId: locationTrackingSessionId,
     assignmentSessionToken,
     rideStatus: status,
-    intervalMs: Number(decision.intervalMs) || RESPONSIVE_INTERVAL_MS,
+    // GPS feeds P2P; Firebase's separately administered write cadence must not slow sampling.
+    intervalMs: RESPONSIVE_INTERVAL_MS,
     lastSequence: locationTrackingSequence,
+    assignmentVersion: Number(driverP2p.getState?.()?.assignmentVersion) || 0,
+    p2pFallbackAfterMs: nativeLocationDeliveryPolicy.p2pFallbackAfterMs,
+    firebaseWriteIntervalMs: nativeLocationDeliveryPolicy.firebaseWriteIntervalMs,
+    firebaseFallbackEnabled: nativeLocationDeliveryPolicy.firebaseFallbackEnabled,
   });
 }
 
@@ -603,6 +632,7 @@ if (typeof window !== "undefined") {
       void breadcrumbCollector.onAppResume();
       void driverLocationReport.retryPendingReports();
       recoverStalledLocationWatch("app_visible");
+      syncBackgroundLocationNativeForActiveRide();
       try {
         if (activeExecutionRide?.id) syncDriverP2pForActiveRide();
       } catch {
@@ -697,8 +727,15 @@ function syncCheckpointPresenceForActiveRide() {
     void backgroundLocationNative.stop();
     return;
   }
+  // Assignment is the P2P lifecycle boundary. Do not wait for a later GPS
+  // callback to create the tracking identity and start signaling.
+  if (!locationTrackingSessionId) {
+    beginLocationTrackingSession();
+    return;
+  }
   const result = checkpointPolicy.setActiveRide({
     rideId: ride.id,
+    assignmentId: ride.assignmentSessionToken,
     status,
     active: true,
   });
@@ -745,7 +782,7 @@ const locationWriteSerializer = createLocationWriteSerializer({
   isCancelled: (generation) =>
     generation !== locationTrackingGeneration || !locationTrackingSessionId,
   writeFn: async (job) => {
-    await commitVehicleLocationJob(job);
+    return commitVehicleLocationJob(job);
   },
 });
 
@@ -753,6 +790,7 @@ function beginLocationTrackingSession() {
   locationTrackingSessionId = `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   locationTrackingSequence = 0;
   lastAcceptedLocationEnvelope = null;
+  lastValidatedGpsEnvelope = null;
   locationTrackingSessionStartPending = true;
   locationTrackingGeneration += 1;
   locationWriteSerializer.cancelAll();
@@ -770,6 +808,7 @@ function endLocationTrackingSession() {
   locationTrackingSessionId = "";
   locationTrackingSequence = 0;
   lastAcceptedLocationEnvelope = null;
+  lastValidatedGpsEnvelope = null;
   locationTrackingSessionStartPending = false;
   locationTrackingGeneration += 1;
   locationWriteSerializer.cancelAll();
@@ -848,6 +887,7 @@ let rideRadarUi = null;
 /** @type {ReturnType<typeof createDriverOfferInbox> | null} */
 let driverOfferInbox = null;
 let radarFeedUnsub = () => {};
+const radarFeedHub = createRideRadarFeedHub();
 let availableRadarCount = 0;
 let radarListenerMeta = {
   invitedCandidateCount: 0,
@@ -906,6 +946,7 @@ function syncDriverActiveRouteFromRide(ride) {
 
 function clearDriverActiveRoute() {
   driverActiveRoute?.clear();
+  customerLocationMarker.clear();
 }
 
 const googleProvider = new GoogleAuthProvider();
@@ -1217,11 +1258,6 @@ function markDriverAppSurface() {
   }
 }
 
-/** On /partner/: stay here — do not rewrite role or open Owner app. */
-function stayOnDriverSurface(partner) {
-  return partner || { role: "driver" };
-}
-
 async function activateAuthenticatedDriver(user) {
   const sequence = ++authSequence;
   setLoginBusy(true);
@@ -1236,9 +1272,23 @@ async function activateAuthenticatedDriver(user) {
 
     let partnerSnapshot = await getDoc(doc(db, "partners", user.uid));
     if (isStaleAuthSequence(sequence)) return;
+    let partner = partnerSnapshot.exists() ? partnerSnapshot.data() : {};
+    let entry = resolveSurfaceEntry({
+      surface: "partner",
+      signedIn: true,
+      partnerRole: partner.role,
+      accountStatus: partner.accountStatus,
+      partnerDocExists: partnerSnapshot.exists(),
+    });
+
+    if (entry.outcome === "blocked_overlay") {
+      partnerAccountBlocked = true;
+      showAccountBlockedOverlay();
+      return;
+    }
 
     // First visit only — never overwrite an existing owner/driver role (same Gmail multi-app).
-    if (!partnerSnapshot.exists() || !partnerSnapshot.data().role) {
+    if (entry.outcome === "provision_driver") {
       if (partnerAccountBlocked) {
         showAccountBlockedOverlay();
         return;
@@ -1260,11 +1310,16 @@ async function activateAuthenticatedDriver(user) {
       if (isStaleAuthSequence(sequence)) return;
       partnerSnapshot = await getDoc(doc(db, "partners", user.uid));
       if (isStaleAuthSequence(sequence)) return;
+      partner = partnerSnapshot.exists() ? partnerSnapshot.data() : {};
+      entry = resolveSurfaceEntry({
+        surface: "partner",
+        signedIn: true,
+        partnerRole: partner.role,
+        accountStatus: partner.accountStatus,
+        partnerDocExists: partnerSnapshot.exists(),
+      });
     }
 
-    let partner = stayOnDriverSurface(
-      partnerSnapshot.exists() ? partnerSnapshot.data() : { role: "driver" }
-    );
     console.log(
       "Current User Role:",
       partner.role,
@@ -1272,34 +1327,34 @@ async function activateAuthenticatedDriver(user) {
       partner.status || partner.accountStatus || "unknown"
     );
 
-    if (partner.accountStatus === "blocked") {
+    if (entry.outcome === "blocked_overlay") {
       partnerAccountBlocked = true;
       showAccountBlockedOverlay();
       return;
     }
 
     // Legacy God Mode / mode-switch roles → normalize to driver.
-    if (partner.role === "admin_driver") {
+    if (entry.outcome === "app_shell" && entry.normalizedPartnerRole && entry.normalizedPartnerRole !== partner.role) {
       try {
         await setDoc(
           doc(db, "partners", user.uid),
           {
-            role: "driver",
+            role: entry.normalizedPartnerRole,
             updatedAt: serverTimestamp(),
           },
           { merge: true }
         );
         if (isStaleAuthSequence(sequence)) return;
-        partner = { ...partner, role: "driver" };
+        partner = { ...partner, role: entry.normalizedPartnerRole };
       } catch (stripError) {
         console.warn("[SwiftGo Driver] could not clear admin_driver", stripError);
-        partner = { ...partner, role: "driver" };
+        partner = { ...partner, role: entry.normalizedPartnerRole };
       }
     }
 
     // Driver and Owner surfaces share the same Google account — allow driver flow on /partner/
     // without forcing a role rewrite that would bounce /owner/ away later.
-    if (partner.role === "driver" || partner.role === "owner") {
+    if (entry.outcome === "app_shell") {
       await routeDriver(partner.currentVehicleId || null, sequence, partner);
       recoverEntrySurfaceIfBlank(sequence);
       return;
@@ -1320,7 +1375,7 @@ async function activateAuthenticatedDriver(user) {
 /* ── Phase 29: Super Admin block / unblock enforcement ── */
 
 function isPartnerBlocked(partner) {
-  return partner?.accountStatus === "blocked";
+  return ["blocked", "suspended"].includes(partner?.accountStatus);
 }
 
 function showAccountBlockedOverlay() {
@@ -1951,8 +2006,8 @@ async function verifyVehiclePin(event) {
     setPinMessage("پہلے لاگ اِن کریں");
     return;
   }
-  if (!/^\d{4}$/.test(enteredPin)) {
-    setPinMessage("درست 4 ہندسوں کا PIN درج کریں");
+  if (!/^\d{12}$/.test(enteredPin)) {
+    setPinMessage("مالک کا دیا ہوا بارہ ہندسوں کا تازہ ربط کوڈ درج کریں");
     return;
   }
 
@@ -2000,6 +2055,8 @@ async function verifyVehiclePin(event) {
     let userMsg = "تصدیق مکمل نہیں ہو سکی۔ دوبارہ کوشش کریں۔";
     if (blob.includes("PIN_LOCKED") || blob.includes("resource-exhausted")) {
       userMsg = "زیادہ غلط کوششیں — کچھ دیر بعد دوبارہ کوشش کریں";
+    } else if (blob.includes("DRIVER_APPROVAL_REQUIRED")) {
+      userMsg = "پہلے شناختی دستاویزات جمع کرائیں اور منتظم کی منظوری کا انتظار کریں۔";
     } else if (blob.includes("DRIVER_BLOCKED") || blob.includes("DRIVER_SUSPENDED")) {
       userMsg = "آپ کا اکاؤنٹ بلاک/معطل ہے";
     } else if (blob.includes("VEHICLE_IN_USE")) {
@@ -2417,17 +2474,6 @@ function closeVehicleModal() {
   if (els.vehicleFormMessage) els.vehicleFormMessage.textContent = "";
 }
 
-function generateUniqueVehiclePin() {
-  const usedPins = new Set(ownerVehicles.map((vehicle) => String(vehicle.pin || "")));
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const random = new Uint32Array(1);
-    crypto.getRandomValues(random);
-    const pin = String(1000 + (random[0] % 9000));
-    if (!usedPins.has(pin)) return pin;
-  }
-  throw new Error("PIN_GENERATION_FAILED");
-}
-
 async function submitVehicle(event) {
   event.preventDefault();
   const owner = currentDriver;
@@ -2444,20 +2490,9 @@ async function submitVehicle(event) {
   if (els.vehicleFormMessage) els.vehicleFormMessage.textContent = "";
 
   try {
-    const pin = generateUniqueVehiclePin();
-    const pinHash = await hashVehiclePin(pin);
-    const { db } = getFirebase();
-    await addDoc(collection(db, "vehicles"), {
-      ownerId: owner.uid,
-      model,
-      plate,
-      pinHash,
-      status: "offline",
-      driverId: null,
-      createdAt: serverTimestamp(),
-    });
+    const { data } = await httpsCallable(getFirebase().functions, "createFleetVehicle")({ model, plate });
     closeVehicleModal();
-    setOwnerMessage(`گاڑی شامل ہو گئی۔ ڈرائیور PIN: ${pin} (ایک بار دکھایا گیا)`);
+    setOwnerMessage(`گاڑی شامل ہو گئی۔ ربط کوڈ: ${data.code} — دس منٹ کے لیے ایک بار استعمال کریں۔`);
   } catch (error) {
     console.warn("[SwiftGo Partner] add vehicle", error);
     if (els.vehicleFormMessage) {
@@ -2484,6 +2519,7 @@ function updateRideRadarButtonLabel() {
 function stopRadarBackgroundFeed() {
   radarFeedUnsub();
   radarFeedUnsub = () => {};
+  radarFeedHub.clear();
   availableRadarCount = 0;
   radarFeedPrimed = false;
   lastRadarFeedCount = 0;
@@ -2518,6 +2554,7 @@ function startRadarBackgroundFeed() {
   radarFeedUnsub = subscribePendingRadarRides(
     uid,
     (state) => {
+      radarFeedHub.publish(state);
       radarListenerMeta = {
         invitedCandidateCount: Number(state?.invitedCandidateCount || 0),
         rideFetchErrors: Number(state?.rideFetchErrors || 0),
@@ -2869,10 +2906,7 @@ function ensureDriverMap() {
       zoomControl: true,
       attributionControl: true,
     }).setView(KARACHI, 13);
-    streetsLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap",
-    });
+    streetsLayer = createStreetTileLayer(L);
     satelliteLayer = L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {
@@ -2895,7 +2929,7 @@ function ensureDriverMap() {
   }
 
   paintLastDriverPositionOnMap({ flyTo: true });
-  requestAnimationFrame(() => map?.invalidateSize());
+  requestAnimationFrame(() => { map?.invalidateSize(); customerLocationMarker.draw(); });
 }
 
 function invalidateHomeMapIfActive() {
@@ -2934,7 +2968,7 @@ function updateDriverLocation(position) {
   if (isOnlineReady() && linkedVehicle?.id) {
     const headingDeg = Number.isFinite(heading) ? heading : null;
     const speedMps = Number.isFinite(speed) && speed >= 0 ? speed : null;
-    const observedAt = Number(position.timestamp) || Date.now();
+    const observedAt = position.timestamp;
     syncVehicleLocationToFirestore(latitude, longitude, {
       force: !lastVehicleLocationWrite,
       heading: headingDeg,
@@ -2966,7 +3000,7 @@ function updateDriverLocation(position) {
       accuracyM: Number.isFinite(accuracy) ? accuracy : null,
       headingDeg: Number.isFinite(heading) ? heading : null,
       speedMps: Number.isFinite(speed) && speed >= 0 ? speed : null,
-      observedAt: Number(position.timestamp) || Date.now(),
+      observedAt: position.timestamp,
     });
   } else if (!locationMarker) {
     locationMarker = L.marker(latlng, {
@@ -3016,9 +3050,15 @@ function haversineKm(a, b) {
  * trackingSessionStartedAt is stamped at most once per session (job.stampSessionStart).
  */
 async function commitVehicleLocationJob(job) {
-  if (!linkedVehicle?.id || !currentDriver?.uid) return;
-  if (job.generation !== locationTrackingGeneration || !locationTrackingSessionId) return;
-  if (job.sessionId !== locationTrackingSessionId) return;
+  if (!linkedVehicle?.id || !currentDriver?.uid) return false;
+  if (job.generation !== locationTrackingGeneration || !locationTrackingSessionId) return false;
+  if (job.sessionId !== locationTrackingSessionId) return false;
+
+  // Queued work is not permission: re-check current admin policy and freshness.
+  if (activeExecutionRide?.id && !checkpointPolicy.evaluateWriteGate({
+    nowMs: Date.now(), lastWriteMs: lastVehicleLocationWrite,
+  }).allow) return false;
+  if (Date.now() - job.envelope.observedAt > 30_000) return false;
 
   const { db } = getFirebase();
   const payload = { ...job.payload };
@@ -3031,6 +3071,7 @@ async function commitVehicleLocationJob(job) {
 
   locationDiagCounters.vehicleWritesAttempted += 1;
   await updateDoc(doc(db, "vehicles", linkedVehicle.id), payload);
+  if (job.generation !== locationTrackingGeneration || job.sessionId !== locationTrackingSessionId) return false;
   try {
     getFieldDiagnostics()?.record("publish_firebase", {
       lat: job.envelope?.lat,
@@ -3078,7 +3119,7 @@ async function syncVehicleLocationToFirestore(
   const prevEnv = lastAcceptedLocationEnvelope;
   const previousObservedAt = prevEnv?.observedAt ?? null;
   const previousSequence = prevEnv?.sequence ?? null;
-  const obsIn = observedAt || Date.now();
+  const obsIn = observedAt ?? lastValidatedGpsEnvelope?.observedAt;
 
   function recordPublishBlocked(reason, extra = {}) {
     const distanceMovedM =
@@ -3192,7 +3233,7 @@ async function syncVehicleLocationToFirestore(
     return;
   }
 
-  const gate = evaluateFixAgainstPrevious(lastAcceptedLocationEnvelope, normalized.envelope, {
+  const gate = evaluateFixAgainstPrevious(lastValidatedGpsEnvelope, normalized.envelope, {
     enforceSessionConsistency: true,
     vehicleSessionId: sessionIdAtEnqueue,
     vehicleSessionStartedMs: locationTrackingSessionStartPending
@@ -3225,10 +3266,13 @@ async function syncVehicleLocationToFirestore(
   }
 
   driverLocationReport.noteGpsFix(Date.now());
+  lastValidatedGpsEnvelope = normalized.envelope;
 
   // Phase 3: feed validated GPS to P2P data channel (independent of Firebase write gate).
   if (activeExecutionRide?.id) {
     driverP2p.onLocationFix({
+      sequence: normalized.envelope.sequence,
+      trackingSessionId: normalized.envelope.sessionId,
       lat: normalized.envelope.lat,
       lng: normalized.envelope.lng,
       observedAt: normalized.envelope.observedAt,
@@ -3533,6 +3577,11 @@ async function activateDriverOnlineMode() {
   onlineActivationPromise = (async () => {
     try {
       setConnectingUi(ONLINE_READINESS.LOCATING);
+      const approval = await getDoc(doc(getFirebase().db, "partners", currentDriver.uid));
+      if (approval.data()?.driverApprovalStatus !== "approved" || approval.data()?.accountStatus !== "active") {
+        setDriverOffline("شناختی منظوری کے بعد ہی آن لائن ہوسکتے ہیں۔");
+        return false;
+      }
       setLocationMessage("لوکیشن حاصل ہو رہی ہے…");
       lastVehicleLocationWrite = 0;
       lastLocationGridCell = null;
@@ -3669,29 +3718,12 @@ async function changeLinkedVehicle() {
   closeMobileNavDrawer?.();
   setDriverOffline("");
 
-  const { db } = getFirebase();
   const vehicleId = linkedVehicle?.id || null;
-  const release = {
-    status: "offline",
-    driverId: deleteField(),
-    driverName: deleteField(),
-  };
-  if (linkedVehicle?.activeRideId) {
-    release.activeRideId = deleteField();
-  }
 
   try {
     if (vehicleId) {
-      await updateDoc(doc(db, "vehicles", vehicleId), release);
+      await httpsCallable(getFirebase().functions, "releaseFleetVehicle")({ vehicleId });
     }
-    await setDoc(
-      doc(db, "partners", currentDriver.uid),
-      {
-        currentVehicleId: null,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
   } catch (error) {
     console.warn("[SwiftGo Driver] change vehicle", error);
     window.alert(t("changeVehicleFailed"));
@@ -3823,7 +3855,7 @@ function startLocationRefreshRequestWatch() {
             heading: Number.isFinite(pos.coords.heading) ? pos.coords.heading : null,
             accuracy: pos.coords.accuracy,
             speed: Number.isFinite(pos.coords.speed) && pos.coords.speed >= 0 ? pos.coords.speed : null,
-            observedAt: Number(pos.timestamp) || Date.now(),
+            observedAt: pos.timestamp,
           });
         },
         () => {
@@ -3852,6 +3884,11 @@ function startDispatchIdleSettingsWatch() {
       const data = snap.exists() ? snap.data() || {} : {};
       const normalized = normalizeIdlePublishConfig(data);
       checkpointPolicy.setIdlePublishConfig(normalized);
+      const delivery = resolveLocationDeliveryPolicy(data);
+      nativeLocationDeliveryPolicy = delivery;
+      checkpointPolicy.configureDeliveryPolicy(delivery);
+      driverP2p.configureDeliveryPolicy(delivery);
+      syncBackgroundLocationNativeForActiveRide();
       try {
         window.__SWIFTGO_IDLE_PUBLISH_CONFIG__ = normalized;
       } catch {
@@ -3859,7 +3896,10 @@ function startDispatchIdleSettingsWatch() {
       }
     },
     () => {
-      /* keep module defaults on permission/network errors */
+      nativeLocationDeliveryPolicy = { ...resolveLocationDeliveryPolicy(), firebaseFallbackEnabled: false };
+      checkpointPolicy.configureDeliveryPolicy({ firebaseFallbackEnabled: false });
+      driverP2p.configureDeliveryPolicy({ firebaseFallbackEnabled: false });
+      syncBackgroundLocationNativeForActiveRide();
     }
   );
 }
@@ -4837,12 +4877,12 @@ function boot() {
         await requestAccountDeletionClient({ roleHint: "partner", appId: "partner" });
         if (status) {
           status.textContent =
-            "Deletion requested. Ledger/settlement/audit retained. Signing out…";
+            "حذف کے جائزے کی درخواست درج ہوگئی؛ معلومات ابھی نہیں مٹیں۔ رسائی بند، مالی ریکارڈ برقرار ہیں۔";
         }
         await logoutPartner();
       } catch (err) {
         console.warn("[SwiftGo] deletion", err);
-        if (status) status.textContent = "Deletion request failed. Contact support.";
+        if (status) status.textContent = "درخواست مکمل نہیں ہوئی۔ جاری سواری پہلے مکمل کریں؛ ورنہ مدد سے رابطہ کریں۔";
       }
     });
     subscribeLang(() => {
@@ -4934,6 +4974,7 @@ function boot() {
     getHasActiveRide: () => Boolean(activeExecutionRide?.id),
     getOfferForRide: (rideId) => driverOfferInbox?.getOfferForRide?.(rideId) ?? null,
     getCounterRideIds: () => driverOfferInbox?.rideIdsWithCustomerCounter?.() ?? [],
+    subscribeRadarState: radarFeedHub.subscribe,
     onRideAccepted: handleRadarRideAccepted,
     onToast: driverToast,
   });
@@ -5041,3 +5082,4 @@ function boot() {
 }
 
 boot();
+initDriverVerification(getFirebase());

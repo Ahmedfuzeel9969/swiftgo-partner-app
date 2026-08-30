@@ -14,7 +14,7 @@ export const LEGAL = {
   dataUse: "/legal/data-use.html",
 };
 
-const LOCATION_CONSENT_KEY = "swiftgo_location_consent_v1";
+const LOCATION_CONSENT_KEY = "swiftgo_location_consent_v2";
 
 function call(name, data) {
   const { ready, functions } = getFirebase();

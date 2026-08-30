@@ -4,10 +4,14 @@
 
 import {
   watchRideRequest,
+  watchLiveLocationDeliveryPolicy,
+  publishCustomerRideLocation,
+  issueNativeP2pCredential,
   submitRideRating,
   fetchRideById,
-  fetchCustomerLocationFallbackSeconds,
 } from "./data.js";
+import { resolveLocationDeliveryPolicy } from "../../shared/js/location-delivery-policy.mjs";
+import { createBackgroundLocationProbe } from "../../shared/js/background-location-probe.mjs";
 import { createCustomerBookingClient, cancelCustomerBookingClient, cancelAllSearchingBookingsClient, expireSearchingBookingClient, previewCancellationFareClient } from "./booking-client.js";
 import { CANCELLABLE_RIDE_STATUSES } from "./ride-status.js";
 import {
@@ -49,6 +53,7 @@ import {
 } from "./ride-view-lifecycle.mjs";
 import { createViewerPresenceClient } from "./viewer-presence-client.mjs";
 import { createCustomerP2pController } from "./p2p-ride-controller.mjs";
+import { createRideCommChat } from "./p2p-comm-panel.mjs";
 import { createTwoLegRouteController } from "./two-leg-route-controller.mjs";
 import {
   createTwoLegRouteLayers,
@@ -61,6 +66,7 @@ import { getFirebase } from "./firebase.js";
 import { createRideLocationReportClient } from "./ride-location-report-client.mjs";
 import { createCustomerP2pBackgroundKeepalive } from "./p2p-background-keepalive.mjs";
 import { assignmentVersionFromRide } from "../../shared/js/breadcrumb-schema.mjs";
+import { createCustomerLocationPublisher } from "./customer-location-publisher.mjs";
 
 function customerP2pSyncOpts(ride, isVisible) {
   const opts = { isVisible };
@@ -103,8 +109,13 @@ let ratingSubmitting = false;
 let offerBusy = false;
 let unsubscribeRide = () => {};
 let unsubscribeOffers = () => {};
-let unsubscribeVehicle = () => {};
-let watchedVehicleId = "";
+let unsubscribeLocationPolicy = null;
+const customerLocationPublisher = createCustomerLocationPublisher({
+  onP2pFix: (fix) => customerP2p?.onLocationFix(fix),
+  isP2pHealthy: () => customerP2p?.getState()?.isOutboundLocationHealthy === true,
+  publishFallback: publishCustomerRideLocation,
+  ensurePermission: async () => (await import("./trust.js")).ensureLocationPermissionExplained(),
+});
 let activeOffers = [];
 let selectedOfferId = null;
 let pendingExtraBookingConfirm = false;
@@ -118,6 +129,9 @@ let rideViewLifecycle = null;
 let presenceClient = null;
 /** @type {ReturnType<typeof createCustomerP2pController> | null} */
 let customerP2p = null;
+/** @type {ReturnType<typeof createRideCommChat> | null} */
+let customerRideCommChat = null;
+let customerRideCommRideId = "";
 /** @type {ReturnType<typeof createTwoLegRouteController> | null} */
 let twoLegRoutes = null;
 /** @type {ReturnType<typeof createTwoLegRouteLayers> | null} */
@@ -129,48 +143,71 @@ let customerLocationReport = null;
 let customerLocationReportBindingPromise = Promise.resolve({ ok: false, reason: "not_started" });
 let detachBrowserLifecycle = () => {};
 let detachingFromLifecycle = false;
+
+function destroyCustomerRideCommChat() {
+  customerRideCommChat?.destroy?.();
+  customerRideCommChat = null;
+  customerRideCommRideId = "";
+}
+
+function syncCustomerRideCommChat() {
+  const rideId = String(activeRide?.id || "").trim();
+  const status = String(activeRide?.status || "");
+  if (!rideId || !TRACKABLE_VIEW_STATUSES.has(status) || !customerP2p) {
+    destroyCustomerRideCommChat();
+    return;
+  }
+  const host = typeof document !== "undefined"
+    ? document.getElementById("activeRideContactHost")
+    : null;
+  if (customerRideCommChat && customerRideCommRideId === rideId) {
+    customerRideCommChat.refresh?.();
+    customerRideCommChat.panel?.setContactVisible?.(true);
+    if (host) customerRideCommChat.panel?.mountContactInto?.(host);
+    return;
+  }
+  destroyCustomerRideCommChat();
+  customerRideCommChat = createRideCommChat({
+    role: "customer",
+    rideId,
+    getTransport: () => customerP2p?.createCommTransport?.() || null,
+    getMediaBridge: () => customerP2p?.createMediaBridge?.() || null,
+    getPeerSessionId: () => String(customerP2p?.getState?.()?.peerSessionId || ""),
+    contactHost: host,
+  });
+  customerRideCommRideId = rideId;
+  customerRideCommChat.panel?.setContactVisible?.(true);
+}
 /** Android foreground service keeps the WebView process eligible for active P2P in background. */
-const customerP2pBackgroundKeepalive = createCustomerP2pBackgroundKeepalive();
-let backgroundLocationFallbackTimer = 0;
+const customerP2pBackgroundKeepalive = createCustomerP2pBackgroundKeepalive({
+  issueCredential: issueNativeP2pCredential,
+  getPolicy: () => deliveryPolicy,
+  onPeerLocationFix: (fix) => {
+    const arbiter = customerP2p?.getArbiter?.();
+    if (!arbiter || !fix) return;
+    arbiter.ingestP2p({ ...fix, source: "p2p" }, arbiter.getGeneration());
+  },
+});
+let deliveryPolicy = { ...resolveLocationDeliveryPolicy(), firebaseFallbackEnabled: false };
+let policyWatchGeneration = 0;
+const backgroundProbe = createBackgroundLocationProbe({
+  getTarget: () => activeRide?.id ? { rideId: activeRide.id, key: `${activeRide.id}|${activeRide.assignmentSessionToken}` } : null,
+  shouldRead: () => typeof document !== "undefined" && document.visibilityState === "hidden" &&
+    TRACKABLE_VIEW_STATUSES.has(String(activeRide?.status || "")) && customerP2p?.getArbiter()?.isFirebaseFallbackNeeded() === true,
+  read: (target) => fetchRideById(target.rideId),
+  onData: (ride) => { if (ride) handleRideSnapshot(ride); },
+});
 
 function stopBackgroundLocationFallback() {
-  if (backgroundLocationFallbackTimer) {
-    clearTimeout(backgroundLocationFallbackTimer);
-    backgroundLocationFallbackTimer = 0;
-  }
+  backgroundProbe.stop();
 }
 
 async function startBackgroundLocationFallback() {
   stopBackgroundLocationFallback();
   const rideId = String(activeRide?.id || "").trim();
   if (!rideId || !TRACKABLE_VIEW_STATUSES.has(String(activeRide?.status || ""))) return;
-  let seconds = 60;
-  try {
-    seconds = await fetchCustomerLocationFallbackSeconds();
-  } catch {
-    seconds = 60;
-  }
-  if (seconds === 0) return;
-  const tick = async () => {
-    backgroundLocationFallbackTimer = 0;
-    if (
-      typeof document !== "undefined" &&
-      document.visibilityState === "hidden" &&
-      String(activeRide?.id || "") === rideId
-    ) {
-      const healthy = customerP2p?.getState?.()?.isLocDeliveryHealthy === true;
-      if (!healthy) {
-        try {
-          const latest = await fetchRideById(rideId);
-          if (latest && String(activeRide?.id || "") === rideId) handleRideSnapshot(latest);
-        } catch {
-          /* next bounded probe retries */
-        }
-      }
-      backgroundLocationFallbackTimer = setTimeout(tick, seconds * 1000);
-    }
-  };
-  backgroundLocationFallbackTimer = setTimeout(tick, seconds * 1000);
+  backgroundProbe.configureDeliveryPolicy(deliveryPolicy);
+  backgroundProbe.start();
 }
 
 function ensureCustomerLocationReport() {
@@ -271,9 +308,6 @@ function clearLiveSubscriptions({ preserveP2p = false } = {}) {
   unsubscribeRide = () => {};
   unsubscribeOffers();
   unsubscribeOffers = () => {};
-  unsubscribeVehicle();
-  unsubscribeVehicle = () => {};
-  watchedVehicleId = "";
   stopDriverTrack();
   if (!preserveP2p) {
     void customerP2p?.stop({ closeRemote: false });
@@ -308,6 +342,11 @@ function paintDisplayFrame(pos) {
   }
   setAssignedDriverLocation(pos.lat, pos.lng, rot, {
     observedAt,
+    onPaint: () => {
+      if (typeof document === "undefined" || document.visibilityState !== "hidden") {
+        ensureCustomerLocationReport().noteDisplayFrame(pos);
+      }
+    },
     // Snap frames are already along-route RAF; raw/sparse Firebase needs chord motion.
     skipAnimation: isSnap,
     allowPredict: !isSnap,
@@ -333,7 +372,7 @@ function syncDisplayPipelineFromModel(model) {
   const geometry = leg?.renderGeometry || leg?.geometry;
   const ready =
     leg &&
-    (leg.status === "ready" || leg.status === "fallback") &&
+    (leg.status === "ready" || leg.status === "fallback" || leg.status === "loading") &&
     Array.isArray(geometry) &&
     geometry.length >= 2;
   if (!ready) {
@@ -379,48 +418,42 @@ function ensureTwoLegRoutes() {
         /* ignore */
       }
     },
-    onRerouteNeeded: ({ origin, generation }) => {
+    onRerouteNeeded: ({ origin, generation, requestId }) => {
       const ctrl = twoLegRoutes;
+      const pipeline = displayPipeline;
+      const finish = (success) => pipeline?.noteRerouteResult(success, null, undefined, requestId);
       if (!ctrl) {
-        displayPipeline?.noteRerouteResult(false);
+        finish(false);
         return;
       }
       const provider = resolveRouteProvider();
       if (!provider?.route || provider.id === "disabled") {
-        displayPipeline?.noteRerouteResult(false);
+        finish(false);
         return;
       }
       void (async () => {
+        const requestedRide = activeRide?.id;
         try {
           const result = await ctrl.rerouteFromOrigin(origin);
+          if (ctrl !== twoLegRoutes || requestedRide !== activeRide?.id) { finish(false); return; }
           if (!result?.ok) {
-            displayPipeline?.noteRerouteResult(false);
+            finish(false);
             return;
           }
+          if (result.generation !== ctrl.getModel()?.rideGeneration) { finish(false); return; }
           if (generation != null && Number(generation) > Number(result.generation || 0)) {
-            displayPipeline?.noteRerouteResult(false);
+            finish(false);
             return;
           }
           const model = ctrl.getModel();
           const activeLeg = model.emphasis === "trip" ? model.trip : model.approach;
           if (activeLeg?.snapEligible === true && activeLeg.fallback !== true) {
-            syncDisplayPipelineFromModel(model);
-            displayPipeline?.noteRerouteResult(
-              true,
-              {
-                geometry: activeLeg.renderGeometry || activeLeg.geometry,
-                geometryKind: activeLeg.geometryKind,
-                snapEligible: true,
-                providerKind: activeLeg.providerKind || activeLeg.provider,
-                generatedAt: activeLeg.generatedAt,
-              },
-              result.generation
-            );
+            finish(true);
           } else {
-            displayPipeline?.noteRerouteResult(false);
+            finish(false);
           }
         } catch {
-          displayPipeline?.noteRerouteResult(false);
+          finish(false);
         }
       })();
     },
@@ -508,6 +541,19 @@ function ensureRideViewLifecycle() {
   });
 
   customerP2p = createCustomerP2pController({
+    onChannelOpen: () => syncCustomerRideCommChat(),
+    onRideBinding: (ride) => {
+      if (!ride) destroyCustomerRideCommChat();
+      void customerLocationPublisher.syncForRide(ride);
+      if (ride) {
+        void refreshDeliveryPolicy();
+      } else if (!ride && unsubscribeLocationPolicy) {
+        policyWatchGeneration++;
+        unsubscribeLocationPolicy();
+        unsubscribeLocationPolicy = null;
+        applyDeliveryPolicy({ ...resolveLocationDeliveryPolicy(), firebaseFallbackEnabled: false });
+      }
+    },
     onDiag: (code) => {
       try {
         console.info(JSON.stringify({ type: "p2p_diag", reason: String(code || "") }));
@@ -515,8 +561,12 @@ function ensureRideViewLifecycle() {
         /* ignore */
       }
     },
+    onP2pFixReceived: () => ensureCustomerLocationReport().noteP2pReceive(),
+    onFirebaseFixReceived: () => ensureCustomerLocationReport().noteFirebaseReceive(),
     onRenderFix: (fix) => renderFromArbiterFix(fix),
   });
+  applyDeliveryPolicy(deliveryPolicy);
+  void refreshDeliveryPolicy();
 
   rideViewLifecycle = createRideViewLifecycle({
     diag: (code) => viewerDiag(code),
@@ -574,7 +624,6 @@ function ensureRideViewLifecycle() {
         },
         (err) => console.warn("[SwiftGo] offers watch", err)
       );
-      syncVehicleWatch(activeRide);
     },
     unsubscribeLive: () => {
       detachingFromLifecycle = true;
@@ -640,6 +689,7 @@ export function clearCustomerRideSession() {
   activeOffers = [];
   selectedOfferId = null;
   clearLiveSubscriptions();
+  destroyCustomerRideCommChat();
   clearTwoLegRoutes();
   void customerP2p?.stop({ closeRemote: true });
   activeRide = null;
@@ -704,6 +754,11 @@ function mountActiveRideUi(ride, rideId) {
   document.body.classList.add("has-active-ride");
   persistActiveRideId(rideId);
   bindRideView(rideId);
+  void refreshDeliveryPolicy().then(() => {
+    if (activeRide?.id === rideId && TRACKABLE_VIEW_STATUSES.has(activeRide.status)) {
+      customerP2p?.syncForRide(activeRide, customerP2pSyncOpts(activeRide, true));
+    }
+  });
 
   if (status === "searching_driver") {
     showSearchingState();
@@ -977,23 +1032,26 @@ function paintActiveRideDetails(ride) {
   syncActiveRideDrawer(source);
 }
 
-function syncVehicleWatch(ride) {
-  const vehicleId = String(ride?.vehicleId || "").trim();
-  const trackable = ["accepted", "arrived", "in_progress"].includes(String(ride?.status || ""));
+// Vehicle documents are not a second location authority: use the validated ride mirror.
 
-  if (!vehicleId || !trackable) {
-    watchedVehicleId = "";
-    unsubscribeVehicle();
-    unsubscribeVehicle = () => {};
-    return;
+function refreshDeliveryPolicy() {
+  if (!unsubscribeLocationPolicy) {
+    const gen = ++policyWatchGeneration;
+    unsubscribeLocationPolicy = watchLiveLocationDeliveryPolicy((policy) => {
+      if (gen === policyWatchGeneration) applyDeliveryPolicy(policy);
+    });
   }
+  return Promise.resolve(deliveryPolicy);
+}
 
-  // Phase 1: ride.driverLocation (CF mirror) is authoritative for the customer map.
-  // Do not override tracking from a parallel vehicle listener (avoids dual write/read paths).
-  if (vehicleId === watchedVehicleId) return;
-  watchedVehicleId = vehicleId;
-  unsubscribeVehicle();
-  unsubscribeVehicle = () => {};
+function applyDeliveryPolicy(policy) {
+  deliveryPolicy = policy;
+  customerP2p?.configureDeliveryPolicy(policy);
+  customerLocationPublisher.configureDeliveryPolicy(policy);
+  backgroundProbe.configureDeliveryPolicy(policy);
+  if (activeRide?.id && TRACKABLE_VIEW_STATUSES.has(String(activeRide.status || ""))) {
+    void customerP2pBackgroundKeepalive.syncForRide(activeRide, policy);
+  }
 }
 
 function attachRideWatch(rideId) {
@@ -1171,6 +1229,7 @@ function showActiveRideState(status = "accepted") {
   const visible =
     typeof document === "undefined" || document.visibilityState !== "hidden";
   customerP2p?.syncForRide(activeRide, customerP2pSyncOpts(activeRide, visible));
+  syncCustomerRideCommChat();
   void customerP2pBackgroundKeepalive.syncForRide(activeRide);
   syncTwoLegForRide(activeRide, { isVisible: visible });
   if (!customerP2p && activeRide) updateDriverTrack(activeRide);
@@ -1184,6 +1243,7 @@ function showActiveRideState(status = "accepted") {
 
 function showInvoicePanel(ride) {
   stopDriverTrack();
+  destroyCustomerRideCommChat();
   void customerP2p?.stop({ closeRemote: true });
   void customerP2pBackgroundKeepalive.stop();
   clearTwoLegRoutes();
@@ -1241,6 +1301,7 @@ function clearMapRouteState() {
 function resetToVehicleSelection(messageKey) {
   stopRideWatch();
   stopDriverTrack();
+  destroyCustomerRideCommChat();
   void customerP2p?.stop({ closeRemote: true });
   void customerP2pBackgroundKeepalive.stop();
   clearTwoLegRoutes();
@@ -1294,7 +1355,6 @@ function handleRideSnapshot(rawRide) {
   }
   if (typeof window !== "undefined") window.__SWIFTGO_ACTIVE_RIDE__ = activeRide;
   document.body.classList.toggle("has-active-ride", Boolean(activeRide));
-  syncVehicleWatch(activeRide);
 
   // Snapshot terminal counters before P2P, route, and map teardown. The report
   // client persists the payload synchronously, then uploads it best-effort.
@@ -1306,11 +1366,10 @@ function handleRideSnapshot(rawRide) {
     const visible =
       typeof document === "undefined" || document.visibilityState !== "hidden";
     customerP2p?.syncForRide(ride, customerP2pSyncOpts(ride, visible));
+    syncCustomerRideCommChat();
     void customerP2pBackgroundKeepalive.syncForRide(ride);
     syncTwoLegForRide(ride, { isVisible: visible });
-    if (ride?.driverLocation) {
-      customerP2p?.ingestFirebaseLocation(ride.driverLocation, ride);
-    } else if (!customerP2p) {
+    if (!customerP2p) {
       updateDriverTrack(ride);
     }
     const firstActive =
@@ -1558,8 +1617,8 @@ export async function startRideRequest(state) {
     const ride = {
       id: rideId,
       status: "searching_driver",
-      farePkr: estimatedFare,
-      estimatedFare,
+      farePkr: created.farePkr,
+      estimatedFare: created.estimatedFare,
       vehicleTypeKey: vehicleKey,
       promoCode: state.promoCode || "",
       paymentMethod: getPaymentMethod(),

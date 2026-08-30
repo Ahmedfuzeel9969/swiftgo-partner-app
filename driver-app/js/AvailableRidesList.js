@@ -6,7 +6,6 @@ import {
   enrichRadarList,
   readCachedRadarRides,
   rideSearchDeadlineMs,
-  subscribePendingRadarRides,
 } from "./ride-radar-service.js";
 import { computeOfferDeadlineMs } from "./driver-offer-inbox.js";
 import { openRateDetails } from "./rate-details-modal.js";
@@ -23,7 +22,7 @@ function formatOfferCountdown(remainingMs) {
 
 /**
  * @param {HTMLElement | null} root
- * @param {{ getDriverUid: () => string|null, getDriverPosition: () => {lat:number,lng:number}|null, getHasActiveRide?: () => boolean, getCounterRideIds?: () => string[], getOfferForRide?: (rideId: string) => object|null, onSelectRide: (ride: object) => void, onBack: () => void }} opts
+ * @param {{ getDriverUid: () => string|null, getDriverPosition: () => {lat:number,lng:number}|null, getHasActiveRide?: () => boolean, getCounterRideIds?: () => string[], getOfferForRide?: (rideId: string) => object|null, subscribeRadarState?: (listener: (state: object) => void) => () => void, onSelectRide: (ride: object) => void, onBack: () => void }} opts
  */
 export function initAvailableRidesList(root, opts) {
   if (!root) return { show: () => {}, hide: () => {}, destroy: () => {} };
@@ -217,15 +216,9 @@ export function initAvailableRidesList(root, opts) {
     if (subscribed || getHasActiveRide()) return;
     const uid = getDriverUid();
     if (!uid) return;
+    if (typeof opts.subscribeRadarState !== "function") return;
     subscribed = true;
-    unsub = subscribePendingRadarRides(
-      uid,
-      (state) => {
-        render(state);
-      },
-      getDriverPosition,
-      getHasActiveRide
-    );
+    unsub = opts.subscribeRadarState((state) => render(state));
   }
 
   function stopSubscription() {

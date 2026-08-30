@@ -129,6 +129,7 @@ export function createOffRouteDetector(opts = {}) {
     canReroute,
     beginReroute,
     completeReroute,
+    cancelReroute: () => { inFlight = false; resetCandidate(); },
     isInFlight: () => inFlight,
     getCounters: () => ({ ...counters }),
     OFF_ROUTE_DISTANCE_M,

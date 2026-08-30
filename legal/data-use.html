@@ -29,6 +29,10 @@
 
     <h2>Location</h2>
     <p>We ask for location permission so the map can show your position, set pickup points, match nearby drivers using geo cells / distance rings, and help navigation during an active trip. You can deny permission; some features will fall back to a default map center and may be less accurate.</p>
+    <p>Your live position is distinct from the agreed pickup point. During an assigned ride the authorized customer and driver can exchange current location. Peer-to-peer is preferred; Firebase fallback remains controlled by the super administrator. Map, route and address providers receive the inputs needed to supply those separate services. A default map center is not sent as your actual GPS position.</p>
+    <h2>Deletion requests and expiry</h2>
+    <p>Submitting a deletion request is not immediate erasure. The operator reviews remaining obligations and the approved treatment of each data category. The interface must not show a completed deletion while only access is blocked. Temporary-record cleanup is separately opt-in; expiry metadata is not a guarantee of instantaneous physical deletion.</p>
+    <p>The owner-approved policy sets ordinary personal-data cleanup at 30 days after closure; approved identity at one calendar year after closure; rejected or withdrawn identity at 90 days after decision; and financial evidence at a minimum of ten financial years after the relevant year end, followed by review. The financial calendar currently assumes a Pakistan 30 June year end pending incorporation details. Legal holds and unresolved obligations take priority. Profile cleanup, identity cleanup and provider-backup verification are separate completion states; no blanket erasure or registration claim is made.</p>
 
     <h2>KYC and documents</h2>
     <p>Driver applications may collect name, CNIC, license, vehicle details, and a selfie or document photos. These are used to verify partners before they go online. Documents are stored in private storage paths and are not meant for public browsing.</p>

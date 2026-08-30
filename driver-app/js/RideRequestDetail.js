@@ -3,6 +3,7 @@
  */
 
 import { fetchRideRoute } from "./ride-radar-routing.js";
+import { createStreetTileLayer } from "../../shared/js/map-tile-provider.mjs";
 import { submitDriverOffer, acceptRideWithBid, acceptCustomerInitialFare, declineRideCandidateClient, withdrawRideOfferClient } from "./ride-radar-actions.js";
 import { isRideSearchExpired, rideSearchDeadlineMs } from "./ride-radar-service.js";
 import {
@@ -247,10 +248,7 @@ export function initRideRequestDetail(root, opts) {
   function ensureMap() {
     if (map || typeof L === "undefined" || !mapEl) return;
     map = L.map(mapEl, { zoomControl: false, attributionControl: true }).setView([24.8607, 67.0011], 12);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap",
-    }).addTo(map);
+    createStreetTileLayer(L).addTo(map);
     L.control.zoom({ position: "bottomright" }).addTo(map);
     layerGroup = L.layerGroup().addTo(map);
   }

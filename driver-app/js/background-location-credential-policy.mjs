@@ -1,38 +1,36 @@
-/**
- * Pure credential cache / URL helpers for native background location.
- * No Capacitor or window dependencies — safe for Node tests.
- */
-
-const DEFAULT_UPLOAD_BASE = "https://us-central1-swiftgo-ride-app.cloudfunctions.net";
-
-/** @param {string} uploadUrl @param {string} [explicit] */
+/** Pure validation shared by the native bridge and its tests. */
+export const DEFAULT_UPLOAD_BASE = "https://us-central1-swiftgo-ride-app.cloudfunctions.net";
+export function resolveUploadUrl(explicit) {
+  const expected = DEFAULT_UPLOAD_BASE + "/ingestBackgroundDriverLocation";
+  if (!explicit) return expected;
+  if (String(explicit) !== expected) throw new Error("UNTRUSTED_NATIVE_ENDPOINT");
+  return expected;
+}
 export function resolveRefreshUrl(uploadUrl, explicit) {
-  const raw = String(explicit || "").trim();
-  if (raw) return raw;
-  const upload = String(uploadUrl || `${DEFAULT_UPLOAD_BASE}/ingestBackgroundDriverLocation`).trim();
-  if (upload.includes("ingestBackgroundDriverLocation")) {
-    return upload.replace(
-      "ingestBackgroundDriverLocation",
-      "refreshBackgroundDriverLocationCredential"
-    );
-  }
-  return `${DEFAULT_UPLOAD_BASE}/refreshBackgroundDriverLocationCredential`;
+  resolveUploadUrl(uploadUrl);
+  const expected = DEFAULT_UPLOAD_BASE + "/refreshBackgroundDriverLocationCredential";
+  if (explicit && String(explicit) !== expected) throw new Error("UNTRUSTED_NATIVE_ENDPOINT");
+  return expected;
 }
-
-/**
- * @param {object|null|undefined} cached
- * @param {object} binding
- * @param {number} now
- * @param {number} [skewMs]
- */
 export function credentialCacheMatches(cached, binding, now, skewMs = 60_000) {
-  if (!cached?.token || Number(cached.expiresAtMs) <= now + skewMs) return false;
-  if (cached.rideId !== binding.rideId) return false;
-  if (cached.trackingSessionId !== binding.trackingSessionId) return false;
-  if (cached.vehicleId !== binding.vehicleId) return false;
-  if (cached.assignmentSessionToken !== binding.assignmentSessionToken) return false;
-  if (binding.driverUid && cached.driverUid !== binding.driverUid) return false;
-  return true;
+  if (!cached?.token || !Number.isFinite(Number(cached.expiresAtMs)) ||
+      Number(cached.expiresAtMs) <= now + skewMs) return false;
+  return ["rideId", "vehicleId", "trackingSessionId", "assignmentSessionToken", "driverUid"]
+    .every(key => Boolean(binding?.[key]) && cached[key] === binding[key]);
 }
-
-export { DEFAULT_UPLOAD_BASE };
+export function normalizeNativeBinding(binding) {
+  const b = {};
+  for (const key of ["rideId", "vehicleId", "trackingSessionId", "assignmentSessionToken", "driverUid"]) {
+    b[key] = String(binding?.[key] || "").trim();
+    if (!b[key] || b[key].length > 256) throw new Error("INVALID_BINDING");
+  }
+  b.rideStatus = String(binding.rideStatus || binding.status || "");
+  if (!["accepted", "arrived", "in_progress"].includes(b.rideStatus)) throw new Error("INACTIVE_RIDE");
+  b.intervalMs = Math.min(60_000, Math.max(2000, Number(binding.intervalMs) || 4000));
+  b.lastSequence = Math.max(0, Math.min(2147483646, Math.floor(Number(binding.lastSequence) || 0)));
+  b.assignmentVersion = Math.max(0, Math.floor(Number(binding.assignmentVersion) || 0));
+  b.p2pFallbackAfterMs = Math.min(60_000, Math.max(5_000, Number(binding.p2pFallbackAfterMs) || 12_000));
+  b.firebaseWriteIntervalMs = Math.min(60_000, Math.max(2_000, Number(binding.firebaseWriteIntervalMs) || 4_000));
+  b.firebaseFallbackEnabled = binding.firebaseFallbackEnabled === true;
+  return b;
+}

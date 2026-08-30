@@ -1,10 +1,10 @@
 /**
- * Phase 2 — adaptive Firebase location checkpoint policy (driver).
+ * Active-ride Firebase write policy (remediation phase four).
  *
- * Presence lease only selects cadence; it is never authorization.
- * Phase 3: sparse Firebase (~60s approach / ~30s trip) only when P2P is positively
- * proven healthy (hysteresis). Any unproven/unhealthy P2P uses responsive ~4s,
- * regardless of viewer lease (VISIBLE / UNKNOWN / EXPIRED).
+ * First allow the configured P2P grace. Fresh acknowledged P2P uses admin-defined
+ * optional sparse checkpoints; after failure use the admin minimum write interval.
+ * Presence is diagnostic, not authorization. Force/movement/status cannot bypass
+ * active-ride limits or the kill switch. Idle dispatch keeps its separate policy.
  *
  * Settlement / distance accuracy note (mandatory Phase 2 documentation):
  * - Completed ride settlement uses fare fields, not GPS traveledDistanceKm.
@@ -16,9 +16,9 @@
  *
  * Idle online (waiting): interval/move via idle-publish-config (branch defaults
  * 5 min / 200 m). Strict integers; expired diagnostic fails closed to defaults.
- * Active-ride visible + P2P down: responsive ~4s (move OR interval OR zone/status).
- * Background active-ride: hard interval rate-limit; after interval, write even
- * if stationary (recovery heartbeat). Never fully stop during execution.
+ * A fresh stationary fix may publish after its interval; a stale coordinate is
+ * never restamped. Fixed exported constants below remain for legacy consumers;
+ * active decisions use shared/location-delivery-policy, not those constants.
  */
 
 import {
@@ -31,6 +31,7 @@ import {
   resolveIdleIntervalMsForPolicy,
   resolveIdleMoveMetersForPolicy,
 } from "./idle-publish-config.mjs";
+import { normalizeRuntimeDeliveryPolicy, resolveLocationDeliveryPolicy } from "../../shared/js/location-delivery-policy.mjs";
 
 export {
   IDLE_PUBLISH_BOUNDS,
@@ -174,34 +175,40 @@ export function resolveCheckpointPolicy(input = {}) {
   }
 
   const status = String(input.rideStatus || "");
+  const delivery = normalizeRuntimeDeliveryPolicy(input.deliveryPolicy);
+  if (!delivery.firebaseFallbackEnabled || input.inP2pFirstWindow) {
+    return { policy: "P2P_ONLY", intervalMs: 0, hardInterval: true, blocked: true,
+      reason: delivery.firebaseFallbackEnabled ? "p2p_first_grace" : "firebase_disabled", diag: CHECKPOINT_DIAG.POLICY_P2P_SPARSE };
+  }
   const isTrip = TRIP_STATUSES.includes(status);
-  const isApproach = APPROACH_STATUSES.includes(status);
   const p2pHealthy = Boolean(input.p2pHealthy);
 
-  // Sparse Firebase only when P2P is positively proven healthy (hysteresis upstream).
+  // Sparse Firebase only when P2P is positively proven healthy (fresh location ACK).
   // Intentionally ignores viewer lease — do not adopt main's lease-first background path.
   if (p2pHealthy) {
     if (isTrip) {
       return {
         policy: CHECKPOINT_POLICY.P2P_SPARSE_TRIP,
-        intervalMs: BACKGROUND_TRIP_INTERVAL_MS,
+        intervalMs: Math.max(delivery.firebaseWriteIntervalMs, delivery.firebaseHealthyTripMs),
+        blocked: delivery.firebaseHealthyTripMs === 0, reason: "healthy_checkpoint_disabled",
         hardInterval: true,
         diag: CHECKPOINT_DIAG.POLICY_P2P_SPARSE,
       };
     }
     return {
       policy: CHECKPOINT_POLICY.P2P_SPARSE_APPROACH,
-      intervalMs: BACKGROUND_APPROACH_INTERVAL_MS,
+      intervalMs: Math.max(delivery.firebaseWriteIntervalMs, delivery.firebaseHealthyApproachMs),
+      blocked: delivery.firebaseHealthyApproachMs === 0, reason: "healthy_checkpoint_disabled",
       hardInterval: true,
       diag: CHECKPOINT_DIAG.POLICY_P2P_SPARSE,
     };
   }
 
-  // P2P not proven healthy: responsive ~4s regardless of viewer lease.
+  // P2P not proven healthy: current admin interval, regardless of viewer lease.
   return {
     policy: CHECKPOINT_POLICY.RESPONSIVE_FIREBASE,
-    intervalMs: RESPONSIVE_INTERVAL_MS,
-    hardInterval: false,
+    intervalMs: delivery.firebaseWriteIntervalMs,
+    hardInterval: true,
     diag: CHECKPOINT_DIAG.POLICY_RESPONSIVE,
   };
 }
@@ -227,6 +234,13 @@ export function shouldAllowCheckpointWrite(input = {}) {
   const lastWriteMs = Number(input.lastWriteMs) || 0;
   const intervalMs = Math.max(0, Number(input.intervalMs) || 0);
   const age = nowMs - lastWriteMs;
+
+  // Active-ride admin limits are ceilings even on force/status/movement paths.
+  if (input.blocked) return { allow: false, reason: input.blockedReason || "firebase_disabled" };
+  if (input.enforceAdminInterval) {
+    return !lastWriteMs || age >= intervalMs
+      ? { allow: true, reason: "interval_elapsed" } : { allow: false, reason: "interval" };
+  }
 
   if (input.force) {
     return { allow: true, reason: "force" };
@@ -287,6 +301,9 @@ export function createCheckpointPolicyController(opts = {}) {
   let idleLocationIntervalMs = IDLE_LOCATION_INTERVAL_MS;
   let idleLocationMoveMeters = MIN_LOCATION_MOVE_M;
   let idleMovementTriggerDisabled = false;
+  let deliveryPolicy = resolveLocationDeliveryPolicy();
+  let activeStartedAt = 0;
+  let assignmentId = "";
 
   const counters = {
     rawGpsFixes: 0,
@@ -316,28 +333,17 @@ export function createCheckpointPolicyController(opts = {}) {
 
   function currentDecision() {
     const now = nowMs();
-    if (p2pRawHealthy) {
-      p2pUnhealthySince = null;
-      if (p2pHealthySince == null) p2pHealthySince = now;
-      if (now - p2pHealthySince >= P2P_SPARSE_ENTER_HYSTERESIS_MS) {
-        p2pEffectiveHealthy = true;
-      }
-    } else {
-      p2pHealthySince = null;
-      if (p2pUnhealthySince == null) p2pUnhealthySince = now;
-      if (
-        !p2pEffectiveHealthy ||
-        now - p2pUnhealthySince >= P2P_SPARSE_EXIT_HYSTERESIS_MS
-      ) {
-        p2pEffectiveHealthy = false;
-      }
-    }
+    // The shared peer already proves fresh acknowledged delivery and expires it.
+    // A second 5s/3s hysteresis here used to delay fallback and ignore admin timing.
+    p2pEffectiveHealthy = p2pRawHealthy;
     return resolveCheckpointPolicy({
       hasActiveRide,
       rideStatus,
       viewerLease,
       p2pHealthy: p2pEffectiveHealthy,
       idleIntervalMs: idleLocationIntervalMs,
+      deliveryPolicy,
+      inP2pFirstWindow: now - activeStartedAt < deliveryPolicy.p2pFirstGraceMs,
     });
   }
 
@@ -385,7 +391,7 @@ export function createCheckpointPolicyController(opts = {}) {
     return next;
   }
 
-  function setActiveRide({ rideId: id = "", status = "", active = false } = {}) {
+  function setActiveRide({ rideId: id = "", status = "", active = false, assignmentId: assignment = "" } = {}) {
     const nextId = String(id || "").trim();
     const wasActive = hasActiveRide;
     const prevStatus = rideStatus;
@@ -393,6 +399,7 @@ export function createCheckpointPolicyController(opts = {}) {
       if (hasActiveRide || rideId) bumpGeneration();
       hasActiveRide = false;
       rideId = "";
+      assignmentId = "";
       rideStatus = "";
       viewerLease = VIEWER_LEASE.NONE;
       p2pRawHealthy = false;
@@ -402,9 +409,11 @@ export function createCheckpointPolicyController(opts = {}) {
       emitPolicyIfChanged();
       return { generation, decision: currentDecision(), statusChanged: false };
     }
-    if (nextId !== rideId) {
+    if (nextId !== rideId || assignment !== assignmentId) {
       bumpGeneration();
+      activeStartedAt = nowMs();
       rideId = nextId;
+      assignmentId = assignment;
       hasActiveRide = true;
       rideStatus = String(status || "");
       viewerLease = VIEWER_LEASE.UNKNOWN;
@@ -505,6 +514,8 @@ export function createCheckpointPolicyController(opts = {}) {
       force,
       intervalMs: decision.intervalMs,
       hardInterval: decision.hardInterval,
+      enforceAdminInterval: hasActiveRide,
+      blocked: decision.blocked, blockedReason: decision.reason,
       nowMs: gateInput.nowMs ?? nowMs(),
     });
     if (!result.allow && result.reason === "interval") {
@@ -546,6 +557,7 @@ export function createCheckpointPolicyController(opts = {}) {
     setActiveRide,
     setViewerLease,
     setP2pHealthy,
+    configureDeliveryPolicy: (policy) => { deliveryPolicy = normalizeRuntimeDeliveryPolicy(policy, deliveryPolicy); return emitPolicyIfChanged(); },
     setIdlePublishConfig,
     getIdlePublishConfig,
     getIdleMoveMeters,

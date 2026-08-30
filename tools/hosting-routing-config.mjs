@@ -25,8 +25,8 @@ export const ROUTING_PROBE_PATHS = [
 export const MAX_REDIRECT_CHAIN = 5;
 
 /**
- * Files that define or generate Firebase Hosting deployment configuration.
- * Uncommitted changes to any of these must block production Hosting deploy.
+ * All files consumed by the Hosting build, not only deployment configuration.
+ * Dirty app/shared/static inputs must also block production Hosting deploy.
  */
 export const HOSTING_DEPLOY_SOURCE_PATHS = [
   "firebase.json",
@@ -37,6 +37,18 @@ export const HOSTING_DEPLOY_SOURCE_PATHS = [
   "tools/hosting-routing-config.mjs",
   "tools/sync-shared-js-wrappers.mjs",
   "tools/sync-vehicle-catalog.mjs",
+  "tools/source-integrity.mjs",
+  "tools/hosting-provenance.mjs",
+  "tools/hosting-startup-health.mjs",
+  "package.json",
+  "package-lock.json",
+  "customer-app",
+  "driver-app",
+  "owner-app",
+  "super-admin-panel",
+  "shared",
+  "legal",
+  "hosting-static",
 ];
 
 /**

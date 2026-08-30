@@ -35,7 +35,7 @@ import {
 } from "./auth-surface-routing.mjs";
 import { requestOwnerAccessClient } from "./owner-onboarding-client.js";
 import { requestRideSettlement } from "./settlement-client.js";
-import { hashVehiclePin } from "./pin-hash.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
 import { applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
 import { initI18n, t } from "./i18n.js";
@@ -949,8 +949,8 @@ async function verifyVehiclePin(event) {
     setPinMessage("پہلے لاگ اِن کریں");
     return;
   }
-  if (!/^\d{4}$/.test(enteredPin)) {
-    setPinMessage("درست 4 ہندسوں کا PIN درج کریں");
+  if (!/^\d{12}$/.test(enteredPin)) {
+    setPinMessage("بارہ ہندسوں کا تازہ ربط کوڈ درج کریں");
     return;
   }
 
@@ -1268,44 +1268,15 @@ function startOwnerRidesListener() {
 
 function getVehicleDisplayPin(vehicle) {
   if (!vehicle?.id) return "";
-  return String(ownerPinByVehicleId.get(vehicle.id) || vehicle.pin || "").trim();
+  const entry = ownerPinByVehicleId.get(vehicle.id);
+  return entry?.expiresAtMs > Date.now() && !vehicle.driverId ? entry.code : "";
 }
 
 async function refreshOwnerPins(vehicles) {
-  const list = Array.isArray(vehicles) ? vehicles : [];
-  if (!list.length) {
-    ownerPinByVehicleId = new Map();
-    return;
+  const visible = new Set((vehicles || []).filter((v) => !v.driverId).map((v) => v.id));
+  for (const [id, entry] of ownerPinByVehicleId) {
+    if (!visible.has(id) || entry.expiresAtMs <= Date.now()) ownerPinByVehicleId.delete(id);
   }
-  const { db } = getFirebase();
-  const entries = await Promise.all(
-    list.map(async (vehicle) => {
-      try {
-        const pinSnap = await getDoc(doc(db, "vehicle_pins", vehicle.id));
-        if (pinSnap.exists() && pinSnap.data()?.pin) {
-          return [vehicle.id, String(pinSnap.data().pin)];
-        }
-      } catch (error) {
-        console.warn("[SwiftGo Owner] vehicle pin read", vehicle.id, error);
-      }
-      return [vehicle.id, vehicle.pin ? String(vehicle.pin) : ""];
-    })
-  );
-  ownerPinByVehicleId = new Map(entries.filter(([, pin]) => Boolean(pin)));
-}
-
-async function saveOwnerVehiclePin(vehicleId, ownerId, pin) {
-  const { db } = getFirebase();
-  await setDoc(
-    doc(db, "vehicle_pins", vehicleId),
-    {
-      ownerId,
-      pin: String(pin),
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
-  ownerPinByVehicleId.set(vehicleId, String(pin));
 }
 
 async function regenerateVehiclePin(vehicle) {
@@ -1315,16 +1286,13 @@ async function regenerateVehiclePin(vehicle) {
   );
   if (!confirmed) return;
   try {
-    const pin = generateUniqueVehiclePin();
-    const pinHash = await hashVehiclePin(pin);
-    const { db } = getFirebase();
-    await updateDoc(doc(db, "vehicles", vehicle.id), { pinHash, pin });
-    await saveOwnerVehiclePin(vehicle.id, currentDriver.uid, pin);
+    const { data } = await httpsCallable(getFirebase().functions, "rotateVehicleLinkCode")({ vehicleId: vehicle.id });
+    ownerPinByVehicleId.set(vehicle.id, data);
     renderOwnerVehicles();
-    setOwnerMessage(`نیا PIN: ${pin}`);
+    setOwnerMessage(`نیا ربط کوڈ: ${data.code} — دس منٹ میں ایک بار استعمال کریں۔ صفحہ بند ہونے کے بعد دوبارہ نہیں دکھے گا۔`);
   } catch (error) {
     console.warn("[SwiftGo Owner] regenerate pin", error);
-    setOwnerMessage("نیا PIN نہیں بن سکا۔ دوبارہ کوشش کریں۔");
+    setOwnerMessage("نیا کوڈ نہیں بن سکا۔ جاری سواری ختم کریں اور پہلے منسلک ڈرائیور کو الگ کریں۔");
   }
 }
 
@@ -1336,30 +1304,13 @@ async function revokeVehicleDriver(vehicle) {
   );
   if (!confirmed) return;
 
-  const { db } = getFirebase();
-  const release = {
-    status: "offline",
-    driverId: deleteField(),
-    driverName: deleteField(),
-  };
-  if (vehicle.activeRideId) {
-    release.activeRideId = deleteField();
-  }
-
   try {
-    await updateDoc(doc(db, "vehicles", vehicle.id), release);
-    try {
-      await updateDoc(doc(db, "partners", vehicle.driverId), {
-        currentVehicleId: null,
-        updatedAt: serverTimestamp(),
-      });
-    } catch (partnerError) {
-      console.warn("[SwiftGo Owner] clear driver currentVehicleId", partnerError);
-    }
+    await httpsCallable(getFirebase().functions, "releaseFleetVehicle")({ vehicleId: vehicle.id });
+    ownerPinByVehicleId.delete(vehicle.id);
     setOwnerMessage("ڈرائیور کا لنک ختم ہو گیا۔");
   } catch (error) {
     console.warn("[SwiftGo Owner] revoke driver", error);
-    setOwnerMessage("ڈرائیور ختم نہیں ہو سکا۔ دوبارہ کوشش کریں۔");
+    setOwnerMessage("ڈرائیور الگ نہیں ہو سکا۔ جاری سواری کے دوران گاڑی کی حوالگی منع ہے۔");
   }
 }
 
@@ -1521,20 +1472,6 @@ function closeVehicleModal() {
   if (els.vehicleFormMessage) els.vehicleFormMessage.textContent = "";
 }
 
-function generateUniqueVehiclePin() {
-  const usedPins = new Set([
-    ...ownerVehicles.map((vehicle) => String(vehicle.pin || "")),
-    ...ownerPinByVehicleId.values(),
-  ].filter(Boolean));
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const random = new Uint32Array(1);
-    crypto.getRandomValues(random);
-    const pin = String(1000 + (random[0] % 9000));
-    if (!usedPins.has(pin)) return pin;
-  }
-  throw new Error("PIN_GENERATION_FAILED");
-}
-
 async function submitVehicle(event) {
   event.preventDefault();
   const owner = currentDriver;
@@ -1551,22 +1488,11 @@ async function submitVehicle(event) {
   if (els.vehicleFormMessage) els.vehicleFormMessage.textContent = "";
 
   try {
-    const pin = generateUniqueVehiclePin();
-    const pinHash = await hashVehiclePin(pin);
-    const { db } = getFirebase();
-    const vehicleRef = await addDoc(collection(db, "vehicles"), {
-      ownerId: owner.uid,
-      model,
-      plate,
-      pin,
-      pinHash,
-      status: "offline",
-      driverId: null,
-      createdAt: serverTimestamp(),
-    });
-    await saveOwnerVehiclePin(vehicleRef.id, owner.uid, pin);
+    const { data } = await httpsCallable(getFirebase().functions, "createFleetVehicle")({ model, plate });
+    ownerPinByVehicleId.set(data.vehicleId, data);
     closeVehicleModal();
-    setOwnerMessage(`گاڑی شامل ہو گئی۔ ڈرائیور PIN: ${pin} (فہرست میں ہمیشہ دکھے گا)`);
+    renderOwnerVehicles();
+    setOwnerMessage(`گاڑی شامل ہو گئی۔ ربط کوڈ: ${data.code} — دس منٹ میں ایک بار استعمال کریں۔ یہ مستقل محفوظ نہیں ہوتا۔`);
   } catch (error) {
     console.warn("[SwiftGo Partner] add vehicle", error);
     if (els.vehicleFormMessage) {
@@ -2218,12 +2144,12 @@ function boot() {
       await requestAccountDeletionClient({ roleHint: "owner", appId: "owner" });
       if (status) {
         status.textContent =
-          "Deletion requested. Ledger/settlement/audit retained. Signing out…";
+          "حذف کے جائزے کی درخواست درج ہوگئی؛ معلومات ابھی نہیں مٹیں۔ رسائی بند، مالی ریکارڈ برقرار ہیں۔";
       }
       await logoutPartner();
     } catch (err) {
       console.warn("[SwiftGo Owner] deletion", err);
-      if (status) status.textContent = "Deletion request failed. Contact support.";
+      if (status) status.textContent = "درخواست مکمل نہیں ہوئی۔ جاری سواری یا انتظامی ذمہ داری پہلے مکمل کریں؛ ورنہ مدد سے رابطہ کریں۔";
     }
   });
   const devNote = document.getElementById("partnerDevModeNote");

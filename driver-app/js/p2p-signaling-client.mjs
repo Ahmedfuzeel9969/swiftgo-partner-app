@@ -21,6 +21,14 @@ export function closeRidePeerSessionClient(payload) {
   return call("closeRidePeerSession", payload);
 }
 
+export function renewRidePeerSessionClient(payload) {
+  return call("renewRidePeerSession", payload);
+}
+
+export function getRidePeerOfferRevisionClient(payload) {
+  return call("getRidePeerOfferRevision", payload);
+}
+
 export function watchRidePeerSession(rideId, onData, onError = () => {}) {
   const { ready, db, auth } = getFirebase();
   if (!ready || !auth?.currentUser || !rideId) {

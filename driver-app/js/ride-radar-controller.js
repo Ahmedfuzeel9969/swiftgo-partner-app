@@ -21,6 +21,7 @@ import { initRideRequestDetail } from "./RideRequestDetail.js";
  *   getHasActiveRide?: () => boolean,
  *   getOfferForRide?: (rideId: string) => object | null,
  *   getCounterRideIds?: () => string[],
+ *   subscribeRadarState?: (listener: (state: object) => void) => () => void,
  * }} config
  */
 export function initRideRadarFlow(config) {
@@ -37,6 +38,7 @@ export function initRideRadarFlow(config) {
     getHasActiveRide: config.getHasActiveRide,
     getCounterRideIds: config.getCounterRideIds,
     getOfferForRide: config.getOfferForRide,
+    subscribeRadarState: config.subscribeRadarState,
     onSelectRide: (ride) => {
       listUi.hide({ keepSubscription: true });
       detailUi.show(ride);

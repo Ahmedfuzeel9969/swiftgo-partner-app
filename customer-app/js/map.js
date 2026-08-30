@@ -1,4 +1,5 @@
 /** Leaflet map: location cues, radius zones, live drivers (Phase 7 + 12.4) */
+import { createStreetTileLayer } from "../../shared/js/map-tile-provider.mjs";
 
 import {
   ANIM_MIN_MS,
@@ -373,6 +374,7 @@ export function followAssignedDriverIfEnabled(lat, lng) {
 export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) {
   if (!map || typeof L === "undefined") return;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  const painted = () => { try { opts.onPaint?.(); } catch { /* diagnostics cannot break motion */ } };
 
   const observedAt = Number(opts.observedAt) || Date.now();
   const allowPredict = opts.allowPredict !== false;
@@ -390,6 +392,7 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) 
       zIndexOffset: 1200,
     }).addTo(map);
     emitAssignedDriverPos(lat, lng);
+    painted();
     return;
   }
 
@@ -401,8 +404,10 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) 
   const samePlace =
     Math.abs(rendered.lat - to.lat) < 1e-7 && Math.abs(rendered.lng - to.lng) < 1e-7;
   if (samePlace) {
+    cancelAssignedDriverAnimation();
     maybeRefreshAssignedIcon(rotationDeg);
     assignedDriverPrevAccepted = { lat, lng, observedAt };
+    painted();
     return;
   }
 
@@ -414,6 +419,7 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) 
     maybeRefreshAssignedIcon(rotationDeg);
     assignedDriverMarker.setLatLng([lat, lng]);
     emitAssignedDriverPos(lat, lng);
+    painted();
     return;
   }
 
@@ -438,6 +444,7 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) 
     assignedDriverTargetMeta = { lat, lng, observedAt };
     assignedDriverMarker.setLatLng([lat, lng]);
     emitAssignedDriverPos(lat, lng);
+    painted();
     return;
   }
 
@@ -453,6 +460,7 @@ export function setAssignedDriverLocation(lat, lng, rotationDeg = 0, opts = {}) 
     assignedDriverPos = cur;
     assignedDriverMarker.setLatLng([cur.lat, cur.lng]);
     emitAssignedDriverPos(cur.lat, cur.lng);
+    painted();
     if (t < 1) {
       assignedDriverAnimFrame = requestAnimationFrame(tick);
     } else {
@@ -648,10 +656,7 @@ export function initMap(containerId = "map") {
     attributionControl: true,
   }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-  streetsLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-  });
+  streetsLayer = createStreetTileLayer(L);
 
   // Esri World Imagery — satellite/aerial view (Maps-style)
   satelliteLayer = L.tileLayer(

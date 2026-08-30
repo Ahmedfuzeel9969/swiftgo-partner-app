@@ -9,7 +9,7 @@ import { getFirebase } from "./firebase.js?v=dispatch_dynamic_1";
 function wrapCallableError(name, error) {
   const code = String(error?.code || "unknown");
   const message = String(error?.message || "FAILED");
-  console.error("[Financial Settings Error]:", code, message, { callable: name, error });
+  console.error("[Admin Settings Error]:", code, { callable: name });
   const wrapped = new Error(message);
   wrapped.code = code;
   wrapped.cause = error;
@@ -86,4 +86,12 @@ export function initSuperAdminAccess() {
 /** Ops health + today's dispatch delivery SLO aggregates. */
 export function getOpsHealthSummaryClient() {
   return callAdmin("getOpsHealthSummary", {});
+}
+
+export function approveRechargeRequestClient(requestId) {
+  return callAdmin("approveRechargeRequest", { requestId });
+}
+
+export function getAdminAccessClient() {
+  return callAdmin("getAdminAccess");
 }

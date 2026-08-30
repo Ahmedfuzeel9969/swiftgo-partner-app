@@ -59,6 +59,7 @@ export function createDisplayLocationPipeline(opts = {}) {
         }
       }
       onDisplay({
+        ...targetFix,
         ...pos,
         headingDeg: heading.headingDeg,
         headingSource: heading.reason,
@@ -80,6 +81,10 @@ export function createDisplayLocationPipeline(opts = {}) {
   let lastAccuracyM = null;
   let closed = false;
   let awaitFreshAfterRouteChange = false;
+  let targetFix = null;
+  let routeGeometry = null;
+  let highestExternalGeneration = -1;
+  let rerouteRequestId = 0, pendingRerouteId = null;
 
   const counters = {
     rawFixes: 0,
@@ -106,7 +111,6 @@ export function createDisplayLocationPipeline(opts = {}) {
     if (heading.headingDeg != null) lastHeading = heading.headingDeg;
     onRaw({
       ...fix,
-      source: "display_raw",
       headingDeg: heading.headingDeg,
       headingSource: heading.reason,
       displayMode: "raw",
@@ -128,10 +132,17 @@ export function createDisplayLocationPipeline(opts = {}) {
    * }} input
    */
   function setActiveRoute(input = {}) {
+    if (closed) return { ok: false, reason: "closed" };
+    if (Number.isFinite(input.generation)) {
+      if (input.generation < highestExternalGeneration) return { ok: false, reason: "stale_generation" };
+      highestExternalGeneration = input.generation;
+    }
     const nextGen = Number(input.generation) || routeGeneration + 1;
     const nextLeg = input.activeLeg || "none";
     const legChanged = nextLeg !== leg && nextLeg !== "none" && leg !== "none";
-    if (nextGen !== routeGeneration || legChanged) {
+    if (legChanged) { pendingRerouteId = null; offRoute.cancelReroute(); }
+    const geometryChanged = input.geometry !== routeGeometry;
+    if (nextGen !== routeGeneration || legChanged || geometryChanged) {
       counters.generationResets += 1;
       diag(SNAP_DIAG.GENERATION_CHANGED);
       progress.reset(nextGen);
@@ -165,14 +176,18 @@ export function createDisplayLocationPipeline(opts = {}) {
       }
       metrics = null;
       snapMeta = null;
+      routeGeometry = null;
+      motion.cancel("unusable_route");
       diag(SNAP_DIAG.RAW);
       return { ok: false, reason: "not_snap_eligible", meta };
     }
 
-    metrics = buildRouteMetrics(input.geometry);
+    if (geometryChanged || !metrics) metrics = buildRouteMetrics(input.geometry);
+    routeGeometry = input.geometry;
     snapMeta = { ...meta, snapEligible: true };
     if (!metrics) {
       snapMeta = null;
+      motion.cancel("invalid_metrics");
       diag(SNAP_DIAG.RAW);
       return { ok: false, reason: "invalid_metrics" };
     }
@@ -182,22 +197,30 @@ export function createDisplayLocationPipeline(opts = {}) {
   function clearRoute() {
     routeGeneration += 1;
     metrics = null;
+    routeGeometry = null;
     snapMeta = null;
     leg = "none";
     previousProj = null;
     awaitFreshAfterRouteChange = false;
     progress.reset(routeGeneration);
     offRoute.resetCandidate();
+    offRoute.cancelReroute(); pendingRerouteId = null;
     motion.cancel("clear");
     lastHeading = null;
+    lastFixAt = 0;
+    targetFix = null;
   }
 
   function ingestValidatedFix(fix) {
-    if (closed || !fix) return { mode: "ignore" };
+    if (closed || !fix || !Number.isFinite(fix.lat) || !Number.isFinite(fix.lng) ||
+        Math.abs(fix.lat) > 90 || Math.abs(fix.lng) > 180 ||
+        !Number.isSafeInteger(fix.observedAt) || fix.observedAt <= 0 ||
+        (lastFixAt && fix.observedAt <= lastFixAt)) return { mode: "ignore" };
+    targetFix = { ...fix };
     counters.rawFixes += 1;
     lastSpeedMps = Number.isFinite(fix.speedMps) ? fix.speedMps : null;
     lastAccuracyM = Number.isFinite(fix.accuracyM) ? fix.accuracyM : null;
-    const observedAt = Number(fix.observedAt) || nowMs();
+    const observedAt = fix.observedAt;
     const gap = lastFixAt ? observedAt - lastFixAt : null;
     lastFixAt = observedAt;
 
@@ -242,11 +265,6 @@ export function createDisplayLocationPipeline(opts = {}) {
       };
       counters.acceptedProjections += 1;
       if (projected.diag) diag(projected.diag);
-      try {
-        opts.onRouteProgress?.(prog.progressM, leg);
-      } catch {
-        /* ignore */
-      }
       motion.setImmediate(metrics, prog.progressM);
       return {
         mode: "snap",
@@ -273,13 +291,7 @@ export function createDisplayLocationPipeline(opts = {}) {
     counters.acceptedProjections += 1;
     if (projected.diag) diag(projected.diag);
 
-    // Trim remaining route line immediately (Google Maps-style), then animate marker.
-    try {
-      opts.onRouteProgress?.(prog.progressM, leg);
-    } catch {
-      /* ignore */
-    }
-
+    // The motion callback trims at the displayed progress, not a future target.
     motion.animateTo({
       metrics,
       progressM: prog.progressM,
@@ -302,7 +314,9 @@ export function createDisplayLocationPipeline(opts = {}) {
       offRoute.completeReroute(false);
       return;
     }
+    pendingRerouteId = ++rerouteRequestId;
     opts.onRerouteNeeded?.({
+      requestId: pendingRerouteId,
       leg,
       origin: { lat: fix.lat, lng: fix.lng },
       destination,
@@ -310,7 +324,9 @@ export function createDisplayLocationPipeline(opts = {}) {
     });
   }
 
-  function noteRerouteResult(success, routePayload, newGeneration) {
+  function noteRerouteResult(success, routePayload, newGeneration, requestId) {
+    if (closed || (requestId != null && requestId !== pendingRerouteId)) return { ok: false, reason: "stale_reroute" };
+    pendingRerouteId = null;
     offRoute.completeReroute(Boolean(success));
     if (!success) {
       // Keep last verified geometry if still snap-eligible; otherwise raw.
@@ -320,6 +336,7 @@ export function createDisplayLocationPipeline(opts = {}) {
       }
       return;
     }
+    if (!routePayload) return { ok: true }; // Controller already installed the verified model.
     const geometry = routePayload?.geometry || routePayload;
     const meta = {
       geometry,

@@ -48,8 +48,8 @@ export const PARTNER_NORMALIZE_ROLES = Object.freeze({
  *   4. driver, missing role, invalid role, customer-only → login denied (NO client role writes)
  *
  * Admin (/admin/):
- *   1. admin custom claim
- *   2. else verified bootstrap super-admin email
+ *   1. super_admin claim AND current server-verified versioned registry
+ *   2. email/bootstrap identity never grants UI access
  *   3. users/{uid}.role is server-side audit only — not a client gate
  *   4. unauthorized → signOut + at most one redirect to /partner/
  */
@@ -177,14 +177,8 @@ export function resolveAdminAccess(input) {
   if (!input.signedIn) {
     return { authorized: false, reason: "signed_out", denyRedirect: null };
   }
-  if (input.adminClaim === true) {
-    return { authorized: true, reason: "admin_claim", denyRedirect: null };
-  }
-  const email = String(input.email || "")
-    .trim()
-    .toLowerCase();
-  if (email === SUPER_ADMIN_BOOTSTRAP_EMAIL && input.emailVerified !== false) {
-    return { authorized: true, reason: "bootstrap_email", denyRedirect: null };
+  if (input.adminClaim === true && input.adminRole === "super_admin" && input.registryVerified === true) {
+    return { authorized: true, reason: "verified_super_admin", denyRedirect: null };
   }
   return {
     authorized: false,
@@ -269,6 +263,8 @@ export function resolveClaimDocumentDisagreement(input) {
     return resolveAdminAccess({
       signedIn: true,
       adminClaim,
+      adminRole: input.adminRole,
+      registryVerified: input.registryVerified,
       email: input.email,
       emailVerified: input.emailVerified,
     });

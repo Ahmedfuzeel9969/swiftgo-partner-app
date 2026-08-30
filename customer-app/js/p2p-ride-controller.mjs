@@ -6,11 +6,24 @@ import { P2P_STATE, P2P_EXECUTION_STATUSES } from "./p2p-protocol.mjs";
 import { createP2pPeerSession } from "./p2p-peer-session.mjs";
 import { createLiveLocationSourceArbiter } from "./live-location-source-arbiter.mjs";
 import { getFieldDiagnostics } from "./field-diagnostics.mjs";
+import { validateRideLocationFix } from "../../shared/js/ride-location-contract.mjs";
+import { createPeerSessionLease, timestampMs } from "../../shared/js/p2p-session-lease.mjs";
+import { normalizeRuntimeDeliveryPolicy, resolveLocationDeliveryPolicy } from "../../shared/js/location-delivery-policy.mjs";
 
 /** Lazy — app wrapper pulls Firebase https imports unsuitable for Node tests. */
-async function defaultEnsureIceConfiguration() {
+async function defaultEnsureIceConfiguration(context) {
   const mod = await import("./p2p-ice-bootstrap.mjs");
-  return mod.ensureP2pIceConfiguration();
+  return mod.ensureP2pIceConfiguration(context);
+}
+
+function offerFingerprint(sdp) {
+  const text = String(sdp || "");
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `of_${hash.toString(16).padStart(8, "0")}_${text.length}`;
 }
 
 function answerIdentity(rideId, docData, fallbackVersion = 0) {
@@ -20,7 +33,8 @@ function answerIdentity(rideId, docData, fallbackVersion = 0) {
   const av =
     Number(docData?.assignmentVersion) ||
     Math.max(1, Math.floor(Number(fallbackVersion) || 0));
-  return `${rid}|${sid}|${tid}|${av}`;
+  const offerId = String(docData?.offerFingerprint || offerFingerprint(docData?.offer || ""));
+  return `${rid}|${sid}|${tid}|${av}|${offerId}`;
 }
 
 const ANSWER_MEMORY_PREFIX = "swiftgo_p2p_answered_v1:";
@@ -50,7 +64,18 @@ export function createCustomerP2pController(opts = {}) {
   const diag = opts.onDiag || (() => {});
   const answerMemory = opts.answerMemory === undefined ? defaultAnswerMemory() : opts.answerMemory;
   const nowMs = typeof opts.nowMs === "function" ? opts.nowMs : () => Date.now();
+  const setT = opts.setTimeoutFn || setTimeout, clearT = opts.clearTimeoutFn || clearTimeout;
+  let currentRide = null;
+  let lastFirebaseKey = "";
   const arbiter = createLiveLocationSourceArbiter({
+    nowMs,
+    setTimeoutFn: opts.setTimeoutFn, clearTimeoutFn: opts.clearTimeoutFn,
+    validateFix: (fix, previous) => validateRideLocationFix(fix, {
+      nowMs: nowMs(), previous, rideId: currentRide?.id,
+      assignmentVersion: expectedAssignmentVersion, assignmentId: currentRide?.assignmentSessionToken,
+      role: "driver",
+    }),
+    p2pFirstGraceMs: opts.p2pFirstGraceMs ?? 12_000,
     onDiag: diag,
     onRender: (fix, meta) => opts.onRenderFix?.(fix, meta),
   });
@@ -61,6 +86,7 @@ export function createCustomerP2pController(opts = {}) {
   let boundSessionId = "";
   let closed = false;
   let answering = false;
+  let activeAnswerKey = "";
   /** UI/map visibility only — must not tear down P2P when the screen is hidden. */
   let uiVisible = true;
   let watching = false;
@@ -75,9 +101,14 @@ export function createCustomerP2pController(opts = {}) {
   let signalingMod = null;
   let watchRetryTimer = null;
   let watchRetryAttempt = 0;
+  let deliveryPolicy = resolveLocationDeliveryPolicy();
+  let fallbackAfterMs = deliveryPolicy.p2pFallbackAfterMs;
   /** @type {object | null} */
   let queuedAnswerDoc = null;
   const MAX_WATCH_RETRIES = 8;
+  const lease = createPeerSessionLease({ nowMs, setTimeoutFn: setT, clearTimeoutFn: clearT,
+    onExpired: () => { session?.suspend?.(); arbiter.noteP2pUnhealthy(); requestFreshDriverOffer("session_expired"); },
+  });
 
   function answerMemoryKey(rid) {
     return `${ANSWER_MEMORY_PREFIX}${String(rid || "").trim()}`;
@@ -158,7 +189,7 @@ export function createCustomerP2pController(opts = {}) {
 
   function clearWatchRetry() {
     if (watchRetryTimer) {
-      clearTimeout(watchRetryTimer);
+      clearT(watchRetryTimer);
       watchRetryTimer = null;
     }
     watchRetryAttempt = 0;
@@ -197,6 +228,7 @@ export function createCustomerP2pController(opts = {}) {
   }
 
   function destroySession() {
+    lease.stop();
     const s = session;
     session = null;
     boundSessionId = "";
@@ -217,12 +249,19 @@ export function createCustomerP2pController(opts = {}) {
     }
   }
 
-  async function closeSignaling(forRideId = rideId) {
+  async function closeSignaling(forRideId = rideId, expected = pendingOfferDoc) {
     const id = String(forRideId || "").trim();
     if (!id) return;
+    const closingSessionId = String(expected?.sessionId || boundSessionId || "");
+    const closingFingerprint = String(expected?.offerFingerprint || offerFingerprint(expected?.offer || lastOfferSdp || ""));
+    if (!closingSessionId) return;
     try {
       const sig = await signaling();
-      await sig.closeRidePeerSessionClient?.({ rideId: id });
+      await sig.closeRidePeerSessionClient?.({
+        rideId: id,
+        peerSessionId: closingSessionId,
+        offerFingerprint: closingFingerprint,
+      });
     } catch {
       /* ignore */
     }
@@ -235,7 +274,7 @@ export function createCustomerP2pController(opts = {}) {
     arbiter.noteP2pUnhealthy();
     // Closing the trusted signaling document tells the driver controller to
     // rotate its offer. Re-answering the same SDP cannot revive a dead PC.
-    void closeSignaling(rideId);
+    void closeSignaling(rideId, pendingOfferDoc);
   }
 
   function isOfferCurrent(docData, forRideId = rideId) {
@@ -246,6 +285,8 @@ export function createCustomerP2pController(opts = {}) {
     const offer = String(docData?.offer || "");
     if (!sid || !offer) return false;
     if (String(docData.state || "") === "closed") return false;
+    if (docData.expiresAt != null && timestampMs(docData.expiresAt) <= nowMs()) return false;
+    if (currentRide?.assignmentSessionToken && docData.assignmentId !== currentRide.assignmentSessionToken) return false;
     const docAv = Number(docData.assignmentVersion) || 0;
     if (expectedAssignmentVersion > 0 && docAv > 0 && docAv !== expectedAssignmentVersion) {
       return false;
@@ -282,13 +323,14 @@ export function createCustomerP2pController(opts = {}) {
 
   function scheduleWatchRetry(rid, gen) {
     if (closed || !watching || rideId !== rid || gen !== watchGeneration) return;
-    if (watchRetryAttempt >= MAX_WATCH_RETRIES) return;
+    const cooldown = watchRetryAttempt >= MAX_WATCH_RETRIES;
     if (watchRetryTimer) return;
-    const delayMs = Math.min(30_000, 1_000 * 2 ** watchRetryAttempt);
+    const delayMs = cooldown ? 120000 : Math.min(30_000, 1_000 * 2 ** watchRetryAttempt);
     watchRetryAttempt += 1;
     ctrlCounters.watchRetries += 1;
-    watchRetryTimer = setTimeout(() => {
+    watchRetryTimer = setT(() => {
       watchRetryTimer = null;
+      if (cooldown) watchRetryAttempt = 0;
       if (!closed && watching && rideId === rid && gen === watchGeneration) {
         attachWatch(rid);
       }
@@ -331,7 +373,7 @@ export function createCustomerP2pController(opts = {}) {
     queuedAnswerDoc = docData;
     pendingOfferDoc = docData;
 
-    if (answering && prevKey && prevKey !== newKey) {
+    if (answering && (prevKey || activeAnswerKey) !== newKey) {
       answerGeneration += 1;
     }
 
@@ -354,6 +396,7 @@ export function createCustomerP2pController(opts = {}) {
           expectedAssignmentVersion
         );
         if (currentOfferKey && currentOfferKey === answeredOfferKey) continue;
+        activeAnswerKey = currentOfferKey;
 
         answerGeneration += 1;
         const gen = answerGeneration;
@@ -370,13 +413,18 @@ export function createCustomerP2pController(opts = {}) {
 
         const localSession = createP2pPeerSession({
           role: "customer",
+          rideId: capturedRideId,
+          assignmentId: currentRide?.assignmentSessionToken,
+          nowMs,
+          setTimeoutFn: setT, clearTimeoutFn: clearT,
+          fallbackAfterMs,
           RTCPeerConnection: opts.RTCPeerConnection,
           ensureIceConfiguration: opts.ensureIceConfiguration || defaultEnsureIceConfiguration,
           onDiag: diag,
           onChannelOpen: () => opts.onChannelOpen?.(),
           onState: (st) => {
             if (localSession !== session) return;
-            if (st === P2P_STATE.FIREBASE_FALLBACK || st === P2P_STATE.P2P_DEGRADED) {
+            if (st === P2P_STATE.FIREBASE_FALLBACK) {
               arbiter.noteP2pUnhealthy();
             }
           },
@@ -385,7 +433,7 @@ export function createCustomerP2pController(opts = {}) {
             requestFreshDriverOffer("customer_transport_stalled");
           },
           onLocationFix: (fix) => {
-            if (localSession !== session) return;
+            if (localSession !== session) return false;
             const fixAv = Math.floor(Number(fix?.assignmentVersion) || 0);
             if (
               expectedAssignmentVersion > 0 &&
@@ -393,7 +441,7 @@ export function createCustomerP2pController(opts = {}) {
               fixAv !== expectedAssignmentVersion
             ) {
               ctrlCounters.staleAssignmentFixes += 1;
-              return;
+              return false;
             }
             try {
               getFieldDiagnostics()?.record("p2p_receive", {
@@ -406,7 +454,8 @@ export function createCustomerP2pController(opts = {}) {
             } catch {
               /* ignore */
             }
-            arbiter.ingestP2p(fix, arbiter.getGeneration());
+            opts.onP2pFixReceived?.(fix);
+            return arbiter.ingestP2p(fix, arbiter.getGeneration());
           },
           onLocalDescription: async (kind, sdp, meta) => {
             if (kind !== "answer") return;
@@ -419,14 +468,17 @@ export function createCustomerP2pController(opts = {}) {
               rideId: capturedRideId,
               answerSdp: sdp,
               peerSessionId: meta.peerSessionId,
+              offerFingerprint: String(
+                docData.offerFingerprint || offerFingerprint(docData.offer || "")
+              ),
             });
-            answeredOfferKey = currentOfferKey;
-            rememberAnsweredOffer(currentOfferKey);
-            reconnectRequestedKey = "";
             if (!isAnswerStillValid(gen, capturedRideId, docData) || localSession !== session) {
               ctrlCounters.staleAborts += 1;
               return;
             }
+            answeredOfferKey = currentOfferKey;
+            rememberAnsweredOffer(currentOfferKey);
+            reconnectRequestedKey = "";
             session?.noteAnswerUploaded?.(sdp);
           },
         });
@@ -447,13 +499,17 @@ export function createCustomerP2pController(opts = {}) {
           continue;
         }
 
-        pendingOfferDoc = null;
+        // Keep the exact server fingerprint for later reconnect/close requests.
+        pendingOfferDoc = docData;
+        lease.observe(currentOfferKey, docData.expiresAt);
       }
     } catch {
       ctrlCounters.answerFailures += 1;
       destroySession();
+      requestFreshDriverOffer("answer_failed");
     } finally {
       answering = false;
+      activeAnswerKey = "";
       if (queuedAnswerDoc && !closed) {
         void runAnswerLoop();
       }
@@ -478,6 +534,10 @@ export function createCustomerP2pController(opts = {}) {
         return;
       }
       watchRetryAttempt = 0;
+      if (boundSessionId && docData.sessionId === boundSessionId &&
+          answerIdentity(rideId, docData, expectedAssignmentVersion) === answeredOfferKey) {
+        lease.observe(answeredOfferKey, docData.expiresAt);
+      }
       const docAv = Math.floor(Number(docData.assignmentVersion) || 0);
       if (session) {
         destroySessionIfAssignmentMismatch(docAv);
@@ -526,6 +586,7 @@ export function createCustomerP2pController(opts = {}) {
       pendingOfferDoc = null;
       answeredOfferKey = "";
       reconnectRequestedKey = "";
+      arbiter.reset();
       destroySession();
     }
 
@@ -533,37 +594,25 @@ export function createCustomerP2pController(opts = {}) {
     rideId = rid;
     answeredOfferKey = restoreAnsweredOffer(rid);
     arbiter.reset({ clearCounters: true });
+    lastFirebaseKey = "";
+    arbiter.beginP2pFirstWindow();
     attachWatch(rid);
   }
 
   function ingestFirebaseLocation(loc, rideMeta = {}) {
-    const lat = Number(loc?.lat);
-    const lng = Number(loc?.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-    const observedAt =
-      Number(loc.observedAt) ||
-      Number(rideMeta.driverLocationUpdatedAt) ||
-      Date.now();
-    arbiter.ingestFirebase(
-      {
-        lat,
-        lng,
-        observedAt,
-        sequence: Number(loc.sequence) || 0,
-        trackingSessionId: String(
-          loc.trackingSessionId ||
-            loc.sessionId ||
-            rideMeta.driverTrackingSessionId ||
-            rideMeta.trackingSessionId ||
-            ""
-        ),
-        assignmentVersion: Number(rideMeta.assignmentVersion) || 0,
-        accuracyM: loc.accuracyM ?? loc.accuracy ?? null,
-        headingDeg: loc.headingDeg ?? loc.heading ?? null,
-        speedMps: loc.speedMps ?? loc.speed ?? null,
-      },
-      arbiter.getGeneration()
-    );
+    if (!rideId || rideMeta.id !== rideId || !currentRide) return false;
+    const checked = validateRideLocationFix(loc, {
+      nowMs: nowMs(), rideId, assignmentVersion: expectedAssignmentVersion,
+      assignmentId: currentRide.assignmentSessionToken, role: "driver",
+      trackingSessionId: rideMeta.driverTrackingSessionId,
+    });
+    if (!checked.ok) { diag(checked.reason); return false; }
+    const normalizedFix = checked.fix;
+    const key = `${normalizedFix.trackingSessionId}|${normalizedFix.sequence}|${normalizedFix.observedAt}`;
+    if (key === lastFirebaseKey) return false;
+    lastFirebaseKey = key;
+    opts.onFirebaseFixReceived?.(normalizedFix);
+    return arbiter.ingestFirebase(normalizedFix, arbiter.getGeneration());
   }
 
   function setVisible(next) {
@@ -582,19 +631,23 @@ export function createCustomerP2pController(opts = {}) {
     const rid = String(ride?.id || "").trim();
     const nextAv = Math.max(0, Math.floor(Number(rideAssignmentVersion) || 0));
     const rideChanged = Boolean(rid && rideId && rid !== rideId);
+    const assignmentChanged = currentRide?.assignmentSessionToken !== ride?.assignmentSessionToken;
 
     // Invalidate before bind/visibility so stale answer/watch cannot race the new ride.
-    if (rideChanged) {
+    if (rideChanged || assignmentChanged) {
       invalidateAnswerState();
       invalidateWatch();
       pendingOfferDoc = null;
+      arbiter.reset();
       destroySession();
+      lastFirebaseKey = "";
     } else if (nextAv > 0 && nextAv !== expectedAssignmentVersion) {
       invalidateAnswerState();
       destroySessionIfAssignmentMismatch(nextAv);
     }
 
     expectedAssignmentVersion = nextAv;
+    currentRide = ride;
 
     if (!rid || !P2P_EXECUTION_STATUSES.includes(status)) {
       setVisible(isVisible);
@@ -606,6 +659,7 @@ export function createCustomerP2pController(opts = {}) {
     // Branch keeps P2P alive while hidden; setVisible must not tear down the session.
     bindRide(rid);
     setVisible(isVisible);
+    opts.onRideBinding?.(ride);
 
     if (ride?.driverLocation) {
       ingestFirebaseLocation(ride.driverLocation, ride);
@@ -614,16 +668,21 @@ export function createCustomerP2pController(opts = {}) {
 
   async function stop({ closeRemote = true } = {}) {
     const closingRideId = rideId;
+    const expected = { sessionId: boundSessionId, offer: lastOfferSdp };
     invalidateAnswerState();
     invalidateWatch();
-    if (closeRemote) await closeSignaling(closingRideId);
+    opts.onRideBinding?.(null);
+    currentRide = null;
+    arbiter.reset();
     destroySession();
     pendingOfferDoc = null;
     expectedAssignmentVersion = 0;
     answeredOfferKey = "";
     reconnectRequestedKey = "";
     rideId = "";
-    arbiter.reset();
+    lastFirebaseKey = "";
+    // Remote cleanup cannot tear down a newer ride after this await.
+    if (closeRemote && expected.sessionId) await closeSignaling(closingRideId, expected);
   }
 
   function destroy() {
@@ -634,12 +693,21 @@ export function createCustomerP2pController(opts = {}) {
     arbiter.destroy();
   }
 
+  function configureDeliveryPolicy(policy = {}) {
+    deliveryPolicy = normalizeRuntimeDeliveryPolicy(policy, deliveryPolicy);
+    arbiter.configureDeliveryPolicy(deliveryPolicy);
+    fallbackAfterMs = deliveryPolicy.p2pFallbackAfterMs;
+    session?.configureHealthPolicy?.({ fallbackAfterMs });
+  }
+
   return {
     bindRide,
     syncForRide,
     setVisible,
     isUiVisible,
     ingestFirebaseLocation,
+    onLocationFix: (fix) => session?.enqueueLocationFix?.(fix),
+    configureDeliveryPolicy,
     stop,
     destroy,
     getArbiter: () => arbiter,

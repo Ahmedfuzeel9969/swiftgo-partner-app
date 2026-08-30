@@ -6,7 +6,7 @@
 
 import { buildLocationReportingConfigSnapshot } from "./location-reporting-config.mjs";
 
-export const RIDE_LOCATION_REPORT_SCHEMA_VERSION = 1;
+export const RIDE_LOCATION_REPORT_SCHEMA_VERSION = 2;
 
 export const REPORT_DOC_STATUS = Object.freeze(["open", "partial", "final"]);
 
@@ -71,17 +71,21 @@ export const SERVER_COUNTER_KEYS = Object.freeze([
   "mirrorSkippedDuplicate",
   "mirrorSkippedOutOfOrder",
   "mirrorSkippedNoop",
+  "mirrorSkippedPolicy",
   "mirrorFailed",
 ]);
 
 export const CUSTOMER_COUNTER_KEYS = Object.freeze([
   "firebaseSnapshotsReceived",
   "firebaseValidRendered",
+  "firebaseFixesAccepted",
   "p2pSessionsStarted",
   "p2pChannelsOpened",
   "p2pHealthySessionCount",
   "p2pFramesReceived",
   "p2pValidRendered",
+  "p2pFixesAccepted",
+  "mapFramesPainted",
   "staleRejected",
   "duplicateRejected",
   "rollbackRejected",
@@ -289,8 +293,8 @@ export function computeDerivedMetrics(sections = {}) {
     driverCounters.gpsFixesReceived
   );
   const avgFirebaseWriteIntervalMs = averageIntervalMs(
-    driver.firstFixAtMs,
-    driver.lastFixAtMs,
+    driver.firstVehicleWriteAtMs,
+    driver.lastVehicleWriteAtMs,
     driverCounters.vehicleWritesAcknowledged
   );
   const avgMirrorIntervalMs = averageIntervalMs(
@@ -299,13 +303,13 @@ export function computeDerivedMetrics(sections = {}) {
     server.counters?.mirrorAccepted
   );
   const avgCustomerFirebaseReceiveIntervalMs = averageIntervalMs(
-    customer.firstFirebaseReceiveAtMs ?? customer.firstRenderedAtMs,
-    customer.lastFirebaseReceiveAtMs ?? customer.lastRenderedAtMs,
+    customer.firstFirebaseReceiveAtMs,
+    customer.lastFirebaseReceiveAtMs,
     customerCounters.firebaseSnapshotsReceived
   );
   const avgP2pReceiveIntervalMs = averageIntervalMs(
-    customer.firstP2pReceiveAtMs ?? customer.firstRenderedAtMs,
-    customer.lastP2pReceiveAtMs ?? customer.lastRenderedAtMs,
+    customer.firstP2pReceiveAtMs,
+    customer.lastP2pReceiveAtMs,
     customerCounters.p2pFramesReceived
   );
   const firebaseRenderedCount = customerCounters.firebaseValidRendered || 0;
@@ -313,6 +317,7 @@ export function computeDerivedMetrics(sections = {}) {
   const renderedCount = firebaseRenderedCount + p2pRenderedCount;
   const receivedCount =
     (customerCounters.firebaseSnapshotsReceived || 0) + (customerCounters.p2pFramesReceived || 0);
+  const measuredPaints = customer.measurementVersion === 2;
   const avgFirebaseRenderIntervalMs = averageIntervalMs(
     customer.firstFirebaseRenderedAtMs ?? customer.firstRenderedAtMs,
     customer.lastFirebaseRenderedAtMs ?? customer.lastRenderedAtMs,
@@ -324,9 +329,9 @@ export function computeDerivedMetrics(sections = {}) {
     p2pRenderedCount
   );
   const avgMapRefreshIntervalMs = averageIntervalMs(
-    customer.firstRenderedAtMs,
-    customer.lastRenderedAtMs,
-    renderedCount
+    customer.firstMapFrameAtMs,
+    customer.lastMapFrameAtMs,
+    customerCounters.mapFramesPainted
   );
 
   return {
@@ -338,6 +343,7 @@ export function computeDerivedMetrics(sections = {}) {
     avgFirebaseRenderIntervalMs,
     avgP2pRenderIntervalMs,
     avgMapRefreshIntervalMs,
+    measurementVersion: customer.measurementVersion || 1,
     deliveryRatios: {
       mirrorToGps: safeRatio(server.counters?.mirrorAccepted, driverCounters.gpsFixesReceived),
       mirrorToVehicleWrite: safeRatio(
@@ -349,7 +355,11 @@ export function computeDerivedMetrics(sections = {}) {
         server.counters?.mirrorAccepted
       ),
       customerP2pToSent: safeRatio(customerCounters.p2pFramesReceived, driverCounters.p2pFramesSent),
-      renderedToReceived: safeRatio(renderedCount, receivedCount),
+      // Never reinterpret legacy animation counts as unique fixes.
+      renderedToReceived: measuredPaints ? safeRatio(renderedCount, receivedCount) : null,
+      renderedToAccepted: measuredPaints ? safeRatio(renderedCount,
+        (customerCounters.firebaseFixesAccepted || 0) + (customerCounters.p2pFixesAccepted || 0)) : null,
+      mirrorFailuresToAttempts: safeRatio(server.counters?.mirrorFailed, server.counters?.mirrorAttempts),
     },
   };
 }
@@ -419,7 +429,9 @@ export function classifyReportHealth(input = {}) {
   const customerRendered =
     (customer.counters?.firebaseValidRendered || 0) + (customer.counters?.p2pValidRendered || 0);
 
-  if (driverCount === 0 && mirrorCount === 0 && customerRendered === 0) {
+  if (driverCount === 0 && mirrorCount === 0 && customerRendered === 0 &&
+      !(server.counters?.mirrorAttempts > 0) && !(customer.counters?.p2pFixesAccepted > 0) &&
+      !(customer.counters?.firebaseFixesAccepted > 0)) {
     return { status: "insufficient_data", reasons: ["no_location_events"] };
   }
 
@@ -441,9 +453,10 @@ export function classifyReportHealth(input = {}) {
 
   const gaps = [
     ["driver_longest_gap_ms", driver.longestGapMs],
-    ["server_longest_gap_ms", server.longestGapMs],
     ["customer_longest_gap_ms", customer.longestGapMs],
   ];
+  // Sparse mirrors are expected while P2P is primary. A server gap alone is
+  // not proof of a delivery outage; show it as a metric, not a red diagnosis.
   for (const [label, gapMs] of gaps) {
     if (gapMs == null) continue;
     if (gapMs >= HEALTH_CRITICAL_GAP_MS) reasons.push(`${label}>=${HEALTH_CRITICAL_GAP_MS}`);
@@ -454,22 +467,21 @@ export function classifyReportHealth(input = {}) {
   // GPS-to-mirror is deliberately low when Super Admin selects a cost-saving
   // Firebase cadence. Health is the server acknowledging intended writes, not
   // mirroring every raw GPS sample.
-  const mirrorToVehicleWrite =
-    ratios.mirrorToVehicleWrite ??
-    safeRatio(mirrorCount, driver.counters?.vehicleWritesAcknowledged);
-  if (mirrorToVehicleWrite != null && mirrorToVehicleWrite < 0.8) {
-    reasons.push("mirror_to_vehicle_write_ratio_low");
-  }
-  if (ratios.renderedToReceived != null && ratios.renderedToReceived < 0.5) {
-    reasons.push("rendered_to_received_ratio_low");
-  }
+  if ((server.counters?.mirrorFailed || 0) > 0) reasons.push("mirror_failures_recorded");
+  if (customer.measurementVersion !== 2 && customerRendered > 0) reasons.push("legacy_render_counts_not_comparable");
+  const accepted = (customer.counters?.firebaseFixesAccepted || 0) + (customer.counters?.p2pFixesAccepted || 0);
+  if (customer.measurementVersion === 2 && accepted >= 2 && customerRendered === 0 &&
+      (customer.visibleDurationMs || 0) >= 1000) reasons.push("accepted_but_no_visible_map_paint");
+  // Deliberate throttling/coalescing/hidden maps reduce these ratios. Do not
+  // manufacture a critical outage from incomparable producer/consumer counts.
+  void ratios;
 
   const hasCritical = reasons.some(
     (r) =>
       r.includes(String(HEALTH_CRITICAL_GAP_MS)) ||
       r.includes("_low") ||
       r === "driver_valid_fix_count_zero" ||
-      r === "driver_fix_count_too_low_for_lifecycle"
+      r === "driver_fix_count_too_low_for_lifecycle" || r === "accepted_but_no_visible_map_paint"
   );
   const hasWarning = reasons.some((r) => r.includes(String(HEALTH_WARNING_GAP_MS)));
 
@@ -505,6 +517,9 @@ export function validateDriverSubmitSection(raw = {}) {
     ok: true,
     section: {
       counters: counterResult.counters,
+      measurementVersion: raw.measurementVersion === 2 ? 2 : 1,
+      firstVehicleWriteAtMs: parseOptionalTimestampMs(raw.firstVehicleWriteAtMs),
+      lastVehicleWriteAtMs: parseOptionalTimestampMs(raw.lastVehicleWriteAtMs),
       firstFixAtMs: parseOptionalTimestampMs(raw.firstFixAtMs),
       lastFixAtMs: parseOptionalTimestampMs(raw.lastFixAtMs),
       longestGapMs: parseOptionalGapMs(raw.longestGapMs),
@@ -537,6 +552,9 @@ export function validateCustomerSubmitSection(raw = {}) {
     ok: true,
     section: {
       counters: counterResult.counters,
+      measurementVersion: raw.measurementVersion === 2 ? 2 : 1,
+      firstMapFrameAtMs: parseOptionalTimestampMs(raw.firstMapFrameAtMs),
+      lastMapFrameAtMs: parseOptionalTimestampMs(raw.lastMapFrameAtMs),
       firstRenderedAtMs: parseOptionalTimestampMs(raw.firstRenderedAtMs),
       lastRenderedAtMs: parseOptionalTimestampMs(raw.lastRenderedAtMs),
       firstFirebaseReceiveAtMs: parseOptionalTimestampMs(raw.firstFirebaseReceiveAtMs),
@@ -621,6 +639,14 @@ export function mergeSubmitSections(existing = {}, incoming = {}) {
 
   return {
     counters: mergedCounters,
+    // Mixed historical submissions remain explicitly legacy, not relabelled.
+    measurementVersion: (existing.submitSequence || existing.lastAcceptedSequence || 0) > 0
+      ? Math.min(existing.measurementVersion || 1, incoming.measurementVersion || 1)
+      : incoming.measurementVersion || 1,
+    firstVehicleWriteAtMs: pickMin(existing.firstVehicleWriteAtMs, incoming.firstVehicleWriteAtMs),
+    lastVehicleWriteAtMs: pickMax(existing.lastVehicleWriteAtMs, incoming.lastVehicleWriteAtMs),
+    firstMapFrameAtMs: pickMin(existing.firstMapFrameAtMs, incoming.firstMapFrameAtMs),
+    lastMapFrameAtMs: pickMax(existing.lastMapFrameAtMs, incoming.lastMapFrameAtMs),
     firstFixAtMs: pickMin(existing.firstFixAtMs, incoming.firstFixAtMs),
     lastFixAtMs: pickMax(existing.lastFixAtMs, incoming.lastFixAtMs),
     firstRenderedAtMs: pickMin(existing.firstRenderedAtMs, incoming.firstRenderedAtMs),

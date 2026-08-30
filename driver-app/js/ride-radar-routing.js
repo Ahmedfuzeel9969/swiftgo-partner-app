@@ -3,9 +3,7 @@
  * Preview/dev only; not traffic-aware; not a production SLA.
  */
 
-import { createOsrmPreviewProvider } from "./road-route-provider.mjs";
-
-const previewProvider = createOsrmPreviewProvider();
+import { resolveRouteProvider } from "./road-route-provider.mjs";
 
 /**
  * @param {{ lat: number, lng: number }} pickup
@@ -15,7 +13,7 @@ const previewProvider = createOsrmPreviewProvider();
 export async function fetchRideRoute(pickup, dropoff) {
   if (pickup?.lat == null || dropoff?.lat == null) return null;
   try {
-    const route = await previewProvider.route({
+    const route = await resolveRouteProvider().route({
       origin: { lat: Number(pickup.lat), lng: Number(pickup.lng) },
       destination: { lat: Number(dropoff.lat), lng: Number(dropoff.lng) },
       mode: "driving",

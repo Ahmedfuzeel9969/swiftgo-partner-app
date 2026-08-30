@@ -198,6 +198,18 @@
                 </div>
               </div>
             </div>
+            <div class="quick-places" id="quickPlaces" aria-label="Quick places" data-i18n-aria="quickPlacesAria">
+              <button type="button" class="quick-place" data-quick-place="current">
+                <span aria-hidden="true">⌖</span><span data-i18n="useCurrentLocation">Current location</span>
+              </button>
+              <button type="button" class="quick-place" data-quick-place="home">
+                <span aria-hidden="true">⌂</span><span data-quick-place-label="home" data-i18n="savedHome">Home</span>
+              </button>
+              <button type="button" class="quick-place" data-quick-place="work">
+                <span aria-hidden="true">▣</span><span data-quick-place-label="work" data-i18n="savedWork">Work</span>
+              </button>
+            </div>
+            <p class="quick-places__hint" data-i18n="quickPlacesHint">Tap Home or Work to use it. Hold to save the location currently entered.</p>
             <!-- Kept for sheet.js stop helpers; not shown in Phase 45.3 UI -->
             <div class="route-search__stops" id="extraStops" hidden aria-hidden="true"></div>
             <button type="button" id="addStopBtn" hidden aria-hidden="true" tabindex="-1" aria-label="Add stop"></button>
@@ -604,7 +616,7 @@
                   </svg>
                 </span>
                 <span class="vehicle-card__name" data-i18n="vehBike">Bike</span>
-                <span class="vehicle-card__eta">2 min</span>
+                <span class="vehicle-card__eta">2 min · 1 seat</span>
                 <span class="vehicle-card__price">Rs. 142</span>
               </button>
 
@@ -621,7 +633,7 @@
                   </svg>
                 </span>
                 <span class="vehicle-card__name" data-i18n="vehGo">Go</span>
-                <span class="vehicle-card__eta">4 min</span>
+                <span class="vehicle-card__eta">4 min · 4 seats</span>
                 <span class="vehicle-card__price">Rs. 220</span>
               </button>
 
@@ -638,7 +650,7 @@
                   </svg>
                 </span>
                 <span class="vehicle-card__name" data-i18n="vehGoPlus">Go Plus</span>
-                <span class="vehicle-card__eta">5 min</span>
+                <span class="vehicle-card__eta">5 min · 4 seats</span>
                 <span class="vehicle-card__price">Rs. 340</span>
               </button>
 
@@ -655,7 +667,7 @@
                   </svg>
                 </span>
                 <span class="vehicle-card__name" data-i18n="vehBusiness">Business</span>
-                <span class="vehicle-card__eta">6 min</span>
+                <span class="vehicle-card__eta">6 min · 4 seats</span>
                 <span class="vehicle-card__price">Rs. 520</span>
               </button>
 
@@ -1203,6 +1215,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script type="module" src="js/app.js?v=customer_map_fix_4"></script>
+  <script type="module" src="js/app.js?v=customer_live_priority_6"></script>
 </body>
 </html>

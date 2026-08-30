@@ -55,7 +55,13 @@ export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}, nativeDiag =
     vehicleWritesAttempted: attempted + nativeUploaded + nativeRejected,
     vehicleWritesAcknowledged: committed + nativeUploaded,
     vehicleWritesFailed: Math.max(0, attempted - committed),
-    p2pSessionsStarted: Number(p2p.sessionsStarted) || 0,
+    // A startup attempt is diagnostically meaningful even when WebRTC is
+    // unavailable before a Peer instance can be created. Reporting the larger
+    // value prevents a false "P2P never started" conclusion.
+    p2pSessionsStarted: Math.max(
+      Number(p2p.sessionsStarted) || 0,
+      Number(p2p.startAttempts) || 0
+    ),
     p2pChannelsOpened: Number(p2p.channelsOpened) || 0,
     p2pFramesAttempted: Number(p2p.fixesAttempted) || p2pSent + p2pSendFailures,
     p2pFramesSent: p2pSent,
@@ -72,15 +78,19 @@ export function mapDriverRuntimeCounters(checkpoint = {}, p2p = {}, nativeDiag =
  * @param {Record<string, unknown>} display display-location-pipeline counters (rejections only)
  */
 export function mapCustomerRuntimeCounters(p2p = {}, display = {}) {
-  const p2pReceived = Number(p2p.p2pAccepted) || Number(p2p.fixesReceived) || 0;
+  const p2pReceived = Number(p2p.p2pReceived) || Number(p2p.fixesReceived) || 0;
   return {
-    firebaseSnapshotsReceived: Number(p2p.firebaseAccepted) || 0,
-    firebaseValidRendered: Number(p2p.firebaseRendered) || 0,
-    p2pSessionsStarted: Number(p2p.sessionsStarted) || 0,
+    firebaseSnapshotsReceived: Number(p2p.firebaseReceived) || 0,
+    firebaseFixesAccepted: Number(p2p.firebaseAccepted) || 0,
+    p2pSessionsStarted: Math.max(
+      Number(p2p.sessionsStarted) || 0,
+      Number(p2p.answerAttempts) || 0
+    ),
     p2pChannelsOpened: Number(p2p.channelsOpened) || 0,
     p2pHealthySessionCount: Number(p2p.healthySessions) || (p2pReceived > 0 ? 1 : 0),
     p2pFramesReceived: p2pReceived,
-    p2pValidRendered: Number(p2p.p2pRendered) || 0,
+    p2pFixesAccepted: Number(p2p.p2pAccepted) || 0,
+    // Paint counts come ONLY from the actual map callback, never the arbiter.
     staleRejected: Number(p2p.staleRejected) || 0,
     duplicateRejected: Number(display.backwardJitterRejects) || 0,
     rollbackRejected: Number(display.rejectedProjections) || 0,
@@ -101,12 +111,14 @@ function applyConfigToCounters(role, counters, config) {
     if (!shouldCollectFirebaseMetrics(config)) {
       out.firebaseSnapshotsReceived = 0;
       out.firebaseValidRendered = 0;
+      out.firebaseFixesAccepted = 0;
       out.sourceSwitchP2pToFirebase = 0;
       out.sourceSwitchFirebaseToP2p = 0;
     }
     if (!shouldCollectP2pMetrics(config)) {
       out.p2pFramesReceived = 0;
       out.p2pValidRendered = 0;
+      out.p2pFixesAccepted = 0;
       out.sourceSwitchP2pToFirebase = 0;
       out.sourceSwitchFirebaseToP2p = 0;
     }
@@ -148,6 +160,9 @@ export function createRideLocationReportClient(opts) {
   let boundRideId = "";
   let flushInFlight = false;
   let configRefreshPromise = null;
+  let bindingGeneration = 0;
+  let requestedPaintBinding = null, boundPaintToken = "";
+  let pendingPaints = [];
 
   async function ensureConfig() {
     if (!configRefreshPromise) {
@@ -173,23 +188,34 @@ export function createRideLocationReportClient(opts) {
   const callSubmit = opts.callSubmit || defaultCallSubmit;
 
   async function bindForRide({ rideId, assignmentSessionToken }) {
-    await ensureConfig();
-    const config = readCachedLocationReportingConfig(storage, nowMs());
-    if (!roleMetricsEnabled(role, config)) {
-      boundRideId = "";
-      return { ok: false, reason: "reporting_disabled" };
-    }
-
+    const gen = ++bindingGeneration;
     const id = String(rideId || "").trim();
     const token = String(assignmentSessionToken || "").trim();
+    if (requestedPaintBinding?.id !== id || requestedPaintBinding?.token !== token) pendingPaints = [];
+    requestedPaintBinding = { id, token };
     if (!id || !token) {
       boundRideId = "";
       return { ok: false, reason: "missing_binding" };
     }
     const hash = await hashAssignmentSessionTokenAsync(token);
+    if (gen !== bindingGeneration) return { ok: false, reason: "stale_binding" };
     if (!hash) return { ok: false, reason: "invalid_token" };
     const result = store.bind({ rideId: id, assignmentSessionTokenHash: hash });
-    if (result.ok) boundRideId = id;
+    if (result.ok) {
+      boundRideId = id; boundPaintToken = token;
+      for (const { fix, atMs } of pendingPaints) store.recordDisplayFrame(fix, atMs);
+      pendingPaints = [];
+    }
+    // Bind durable local counters before the Firestore config round-trip. A
+    // slow/offline config read must not lose the customer's first P2P frames.
+    await ensureConfig();
+    if (gen !== bindingGeneration) return { ok: false, reason: "stale_binding" };
+    const config = readCachedLocationReportingConfig(storage, nowMs());
+    if (!roleMetricsEnabled(role, config)) {
+      boundRideId = "";
+      store.clearBindingOnly();
+      return { ok: false, reason: "reporting_disabled" };
+    }
     return result;
   }
 
@@ -226,7 +252,7 @@ export function createRideLocationReportClient(opts) {
   function noteVehicleWriteAcknowledged(atMs = nowMs()) {
     if (!store.isBound()) return;
     store.incrementCounter("vehicleWritesAcknowledged", 1);
-    store.recordEventAtMs(atMs);
+    store.recordVehicleWriteAtMs(atMs);
   }
 
   function noteVehicleWriteFailed() {
@@ -240,7 +266,6 @@ export function createRideLocationReportClient(opts) {
     }
     store.incrementCounter("firebaseSnapshotsReceived", 1);
     store.recordFirebaseReceiveAtMs(atMs);
-    store.recordEventAtMs(atMs);
   }
 
   function noteP2pReceive(atMs = nowMs()) {
@@ -249,7 +274,22 @@ export function createRideLocationReportClient(opts) {
     }
     store.incrementCounter("p2pFramesReceived", 1);
     store.recordP2pReceiveAtMs(atMs);
-    store.recordEventAtMs(atMs);
+  }
+
+  function noteDisplayFrame(fix, atMs = nowMs()) {
+    const config = readCachedLocationReportingConfig(storage, nowMs());
+    if (!roleMetricsEnabled(role, config)) return false;
+    if (fix?.source === "p2p" && !shouldCollectP2pMetrics(config)) return false;
+    if (fix?.source === "firebase" && !shouldCollectFirebaseMetrics(config)) return false;
+    const target = requestedPaintBinding;
+    if (target && ((fix?.rideId && fix.rideId !== target.id) || (fix?.assignmentId && fix.assignmentId !== target.token))) return false;
+    if (target?.id && (boundRideId !== target.id || boundPaintToken !== target.token)) {
+      // SHA-256 binding is async. Preserve bounded first paints while it resolves,
+      // without retaining coordinates or allowing an old ride into a new report.
+      if (pendingPaints.length < 120) pendingPaints.push({ fix: { source: fix?.source, observedAt: fix?.observedAt, rideId: fix?.rideId }, atMs });
+      return false;
+    }
+    return store.recordDisplayFrame(fix, atMs);
   }
 
   function noteFirebaseRendered(atMs = nowMs()) {
@@ -352,8 +392,10 @@ export function createRideLocationReportClient(opts) {
 
       if (result?.ok && !result?.skipped) {
         removePendingReport(storage, { ...binding, role });
-        store.clear();
-        boundRideId = "";
+        const current = store.getBinding();
+        if (current?.rideId === binding.rideId && current?.assignmentSessionTokenHash === binding.assignmentSessionTokenHash) {
+          store.clear(); boundRideId = "";
+        }
       }
       return { ok: true, result };
     } catch (error) {
@@ -404,11 +446,14 @@ export function createRideLocationReportClient(opts) {
   }
 
   async function clearBinding({ flushFirst = true } = {}) {
+    const gen = ++bindingGeneration;
+    requestedPaintBinding = null; pendingPaints = []; boundPaintToken = "";
     if (flushFirst && store.isBound()) {
       await flushFinal({ finalSubmit: true, timeoutMs: RIDE_LOCATION_REPORT_FINAL_FLUSH_TIMEOUT_MS });
     } else if (store.isBound() && (store.snapshotSection()?.submitSequence || 0) >= 1) {
       enqueueCurrentSection(true);
     }
+    if (gen !== bindingGeneration) return;
     boundRideId = "";
     if (store.isBound()) {
       /* keep localStorage counters until server ack via pending retry */
@@ -424,6 +469,7 @@ export function createRideLocationReportClient(opts) {
     noteVehicleWriteAcknowledged,
     noteVehicleWriteFailed,
     noteFirebaseReceive,
+    noteDisplayFrame,
     noteP2pReceive,
     noteFirebaseRendered,
     noteP2pRendered,

@@ -3,17 +3,13 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  collection,
-  query,
-  where,
-  orderBy,
   onSnapshot,
-  addDoc,
-  increment,
   serverTimestamp,
   deleteField,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { resolveLocationDeliveryPolicy } from "../../shared/js/location-delivery-policy.mjs";
 import { getFirebase, isFirebaseConfigured } from "./firebase.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
 import {
   CANONICAL_VEHICLE_IDS,
   DEFAULT_PRICING as CATALOG_DEFAULT_PRICING,
@@ -25,7 +21,7 @@ import {
 
 /**
  * users/{uid}: { displayName, email, walletBalance, createdAt, updatedAt }
- * bookings/{id}: { userId, status, service, pickup, destination, fare, createdAt }
+ * rides/{id}: canonical booking and live-ride record (created by trusted callables).
  */
 
 export async function ensureUserProfile(user, extra = {}) {
@@ -71,79 +67,6 @@ export function watchUserProfile(uid, onData) {
       onData(null);
     }
   );
-}
-
-export function watchBookings(uid, onData) {
-  if (!isFirebaseConfigured() || !uid) {
-    onData([]);
-    return () => {};
-  }
-
-  const { db } = getFirebase();
-  let unsub = () => {};
-
-  const emit = (snap) => {
-    const rows = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-    onData(rows);
-  };
-
-  const qOrdered = query(
-    collection(db, "bookings"),
-    where("userId", "==", uid),
-    orderBy("createdAt", "desc")
-  );
-
-  unsub = onSnapshot(
-    qOrdered,
-    (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-    () => {
-      unsub();
-      const qSimple = query(collection(db, "bookings"), where("userId", "==", uid));
-      unsub = onSnapshot(
-        qSimple,
-        emit,
-        (err) => {
-          console.warn("[SwiftGo] bookings watch", err);
-          onData([]);
-        }
-      );
-    }
-  );
-
-  return () => unsub();
-}
-
-export async function createBooking({
-  service,
-  pickup,
-  destination,
-  status = "scheduled",
-  fare = 0,
-  paymentMethod = "cash",
-  promoCode = "",
-}) {
-  const { ready, db, auth } = getFirebase();
-  const user = auth?.currentUser;
-  if (!ready || !user) {
-    throw new Error("NOT_SIGNED_IN");
-  }
-
-  const payload = {
-    userId: user.uid,
-    service: service || "ride",
-    pickup: pickup || "",
-    destination: destination || "",
-    status,
-    fare: Number.isFinite(fare) && fare >= 0 ? fare : 0,
-    paymentMethod,
-    promoCode,
-    createdAt: serverTimestamp(),
-  };
-
-  const ref = await addDoc(collection(db, "bookings"), payload);
-  return { id: ref.id, ...payload };
 }
 
 /**
@@ -199,22 +122,9 @@ export async function validatePromoCode(rawCode) {
   }
 }
 
-/** Phase 42 — increment promo usage after a ride is booked with a code. */
+/** Compatibility no-op: usage is consumed atomically by the booking server. */
 export async function recordPromoUse(code) {
-  const normalized = String(code || "")
-    .trim()
-    .toUpperCase();
-  if (!normalized || !isFirebaseConfigured()) return;
-
-  try {
-    const { db, auth } = getFirebase();
-    if (!auth?.currentUser) return;
-    await updateDoc(doc(db, "promoCodes", normalized), {
-      usedCount: increment(1),
-    });
-  } catch (err) {
-    console.warn("[SwiftGo] promo use count", err);
-  }
+  void code;
 }
 
 /** Phase 42 / Phase 2A — customer rates a completed ride via trusted CF (aggregates server-only). */
@@ -290,18 +200,42 @@ export async function fetchCustomerLocationFallbackSeconds() {
   return raw;
 }
 
-/** Live assigned vehicle GPS — allowed when vehicle is on customer's active ride. */
-export function watchAssignedVehicle(vehicleId, onData, onError = () => {}) {
-  const { ready, db, auth } = getFirebase();
-  if (!ready || !auth?.currentUser || !vehicleId) {
-    onError(new Error("NOT_SIGNED_IN"));
-    return () => {};
+/** Super-Admin controlled P2P-first → Firebase fallback policy. */
+function liveDeliveryPolicy(data = {}) {
+  return resolveLocationDeliveryPolicy(data);
+}
+
+export function watchLiveLocationDeliveryPolicy(onData) {
+  const { db, auth } = getFirebase();
+  if (!db || !auth?.currentUser) { onData(liveDeliveryPolicy({ firebaseLocationFallbackEnabled: false })); return () => {}; }
+  return onSnapshot(doc(db, "settings", "dispatch"),
+    (snap) => onData(liveDeliveryPolicy(snap.exists() ? snap.data() : {})),
+    () => onData(liveDeliveryPolicy({ firebaseLocationFallbackEnabled: false })));
+}
+
+export async function publishCustomerRideLocation(input) {
+  const { ready, auth, functions } = getFirebase();
+  if (!ready || !auth?.currentUser || !functions) throw new Error("NOT_SIGNED_IN");
+  return (await httpsCallable(functions, "publishCustomerRideLocation", { timeout: 10_000 })(input)).data;
+}
+
+export async function issueNativeP2pCredential(input) {
+  const { ready, auth, functions } = getFirebase();
+  if (!ready || !auth?.currentUser || !functions) throw new Error("NOT_SIGNED_IN");
+  return (await httpsCallable(functions, "issueNativeP2pCredential", { timeout: 10_000 })(input)).data;
+}
+
+export async function fetchLiveLocationDeliveryPolicy() {
+  const defaults = liveDeliveryPolicy({ firebaseLocationFallbackEnabled: false });
+  if (!isFirebaseConfigured()) return defaults;
+  try {
+    const { db, auth } = getFirebase();
+    if (!auth?.currentUser) return defaults;
+    const snap = await getDoc(doc(db, "settings", "dispatch"));
+    return liveDeliveryPolicy(snap.exists() ? snap.data() : {});
+  } catch {
+    return defaults;
   }
-  return onSnapshot(
-    doc(db, "vehicles", vehicleId),
-    (snap) => onData(snap.exists() ? { id: snap.id, ...snap.data() } : null),
-    onError
-  );
 }
 
 /** Phase 17.1 — subscribe to one ride document and stream status changes. */

@@ -84,6 +84,7 @@ function createEmptyState(role) {
   const isDriver = role === "driver";
   return {
     schemaVersion: RIDE_LOCATION_LOCAL_COUNTER_STORE_VERSION,
+    measurementVersion: 2,
     role,
     rideId: "",
     assignmentSessionTokenHash: "",
@@ -91,6 +92,11 @@ function createEmptyState(role) {
     counters: isDriver ? createEmptyDriverCounters() : createEmptyCustomerCounters(),
     firstFixAtMs: null,
     lastFixAtMs: null,
+    firstVehicleWriteAtMs: null,
+    lastVehicleWriteAtMs: null,
+    firstMapFrameAtMs: null,
+    lastMapFrameAtMs: null,
+    lastDisplayedObservedAt: null,
     firstRenderedAtMs: null,
     lastRenderedAtMs: null,
     firstFirebaseReceiveAtMs: null,
@@ -169,6 +175,7 @@ export function createRideLocationLocalCounterStore(options) {
     return {
       ...empty,
       ...parsed,
+      measurementVersion: parsed.measurementVersion === 2 ? 2 : 1,
       counters: { ...empty.counters, ...(parsed.counters || {}) },
     };
   }
@@ -301,9 +308,39 @@ export function createRideLocationLocalCounterStore(options) {
       const gap = eventMs - state.lastEventAtMs;
       if (state.longestGapMs == null || gap > state.longestGapMs) state.longestGapMs = gap;
     }
-    state.lastEventAtMs = eventMs;
+    state.lastEventAtMs = Math.max(state.lastEventAtMs || 0, eventMs);
     persist();
     return { ok: true };
+  }
+
+  function recordVehicleWriteAtMs(atMs) {
+    if (role !== "driver" || !isBound() || !Number.isSafeInteger(atMs) || atMs <= 0) return;
+    state.firstVehicleWriteAtMs = Math.min(state.firstVehicleWriteAtMs ?? atMs, atMs);
+    state.lastVehicleWriteAtMs = Math.max(state.lastVehicleWriteAtMs ?? atMs, atMs);
+    persist();
+  }
+
+  // Called only after a visible marker paint, not on transport receipt or RAF
+  // scheduling. Unique fixes and animation frames have separate denominators.
+  function recordDisplayFrame(fix, atMs) {
+    if (role !== "customer" || !isBound() || !["p2p", "firebase"].includes(fix?.source) ||
+        (fix.rideId && fix.rideId !== state.rideId) ||
+        !Number.isSafeInteger(fix.observedAt) || fix.observedAt <= 0 ||
+        !Number.isSafeInteger(atMs) || atMs <= 0) return false;
+    state.counters.mapFramesPainted++;
+    state.firstMapFrameAtMs = Math.min(state.firstMapFrameAtMs ?? atMs, atMs);
+    state.lastMapFrameAtMs = Math.max(state.lastMapFrameAtMs ?? atMs, atMs);
+    const unique = fix.observedAt > (state.lastDisplayedObservedAt || 0);
+    if (unique) {
+      state.lastDisplayedObservedAt = fix.observedAt;
+      state.counters[fix.source === "p2p" ? "p2pValidRendered" : "firebaseValidRendered"]++;
+      if (fix.source === "p2p") recordP2pRenderedAtMs(atMs);
+      else recordFirebaseRenderedAtMs(atMs);
+      recordEventAtMs(atMs);
+    } else if (atMs - state.updatedAtMs >= 1000) persist();
+    // At most one persistence per second for animation-only frames. Final
+    // flush/bump also persists in-memory frames; never 60 localStorage writes/s.
+    return unique;
   }
 
   function addVisibleDurationMs(ms) {
@@ -340,6 +377,9 @@ export function createRideLocationLocalCounterStore(options) {
     if (role === "driver") {
       return {
         counters: { ...state.counters },
+        measurementVersion: state.measurementVersion,
+        firstVehicleWriteAtMs: state.firstVehicleWriteAtMs,
+        lastVehicleWriteAtMs: state.lastVehicleWriteAtMs,
         firstFixAtMs: state.firstFixAtMs,
         lastFixAtMs: state.lastFixAtMs,
         longestGapMs: state.longestGapMs,
@@ -348,6 +388,9 @@ export function createRideLocationLocalCounterStore(options) {
     }
     return {
       counters: { ...state.counters },
+      measurementVersion: state.measurementVersion,
+      firstMapFrameAtMs: state.firstMapFrameAtMs,
+      lastMapFrameAtMs: state.lastMapFrameAtMs,
       firstRenderedAtMs: state.firstRenderedAtMs,
       lastRenderedAtMs: state.lastRenderedAtMs,
       firstFirebaseReceiveAtMs: state.firstFirebaseReceiveAtMs,
@@ -416,6 +459,8 @@ export function createRideLocationLocalCounterStore(options) {
     isBound,
     incrementCounter,
     recordEventAtMs,
+    recordVehicleWriteAtMs,
+    recordDisplayFrame,
     recordFirebaseReceiveAtMs,
     recordP2pReceiveAtMs,
     recordFirebaseRenderedAtMs,

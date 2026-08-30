@@ -7,6 +7,20 @@
     "test": "tests"
   },
   "scripts": {
+    "check:quality": "node tools/quality-gate.mjs",
+    "test:remediation-phase-eight": "node --test tests/remediation-phase-eight.test.mjs",
+    "test:remediation-phase-six": "node --test tests/remediation-phase-six.test.mjs tests/approved-retention.test.mjs tests/cleanup-review.test.mjs",
+    "test:remediation-phase-six:server": "firebase emulators:exec --non-interactive --only firestore,auth,storage,functions --project demo-remediation-phase6 --config firebase.remediation-phase-six.json \"node --test --test-concurrency=1 tests/remediation-phase-six-emulator.test.mjs\"",
+    "test:remediation-phase-five": "node --test tests/remediation-phase-five.test.mjs tests/cleanup-review.test.mjs",
+    "test:remediation-phase-five:server": "firebase emulators:exec --non-interactive --only firestore,auth --project demo-remediation-phase5 --config firebase.remediation-phase-five.json \"node tools/run-phase-five-server-checks.mjs\"",
+    "test:remediation-phase-four": "node --test tests/remediation-phase-four.test.mjs tests/cleanup-review.test.mjs",
+    "test:remediation-phase-four:server": "firebase emulators:exec --non-interactive --only auth,firestore,functions --project demo-remediation-phase4 --config firebase.remediation-phase-four.json \"node --test --test-concurrency=1 tests/remediation-phase-four-emulator.test.mjs\"",
+    "test:remediation-phase-three": "node --test tests/remediation-phase-three.test.mjs tests/remediation-phase-three-turn.test.mjs",
+    "test:remediation-phase-three:server": "firebase emulators:exec --non-interactive --only auth,firestore,functions --project demo-remediation-phase3 --config firebase.remediation-phase-three.json \"node --test --test-concurrency=1 tests/remediation-phase-three-emulator.test.mjs\"",
+    "test:remediation-phase-two": "node --test tests/remediation-phase-two.test.mjs tests/remediation-phase-two-peer.test.mjs",
+    "test:remediation-phase-two:server": "firebase emulators:exec --non-interactive --only auth,firestore,functions --project demo-remediation-phase2 --config firebase.remediation-phase-two.json \"node --test --test-concurrency=1 tests/remediation-phase-two-emulator.test.mjs\"",
+    "preview:local": "npm exec --yes --package node@22 -- node tools/local-preview.mjs start",
+    "test:local-preview": "node --test tests/local-preview-safety.test.mjs tests/app-check-policy.test.mjs",
     "test": "npm run test:phase2c",
     "test:phase1": "firebase emulators:exec --only firestore,storage --project demo-swiftgo-phase1 \"node tests/phase1-emulator-contract.mjs\"",
     "test:phase2a": "firebase emulators:exec --only firestore,storage --project demo-swiftgo-phase1 \"node tests/phase2a-run-all.mjs\"",
@@ -27,11 +41,19 @@
     "test:phase4h": "node tests/phase4h-pilot-readiness.mjs",
     "mobile:sync": "node tools/phase4g-sync-mobile.mjs",
     "mobile:harden": "node tools/phase4g-apply-android-hardening.mjs",
-    "android:sync": "npm run build:hosting && node tools/phase4g-sync-mobile.mjs",
+    "android:sync": "node tools/phase4g-sync-mobile.mjs",
+    "mobile:verify": "node tools/mobile-verify.mjs prepare",
+    "test:remediation-phase-seven": "node --test tests/remediation-phase-seven.test.mjs tests/remediation-phase-seven-native-p2p.test.mjs",
     "android:aab:customer": "npm run android:sync && cd mobile/customer && npx cap sync android && cd android && gradlew.bat bundleRelease",
     "android:aab:partner": "npm run android:sync && cd mobile/partner && npx cap sync android && cd android && gradlew.bat bundleRelease",
     "android:aab:owner": "npm run android:sync && cd mobile/owner && npx cap sync android && cd android && gradlew.bat bundleRelease",
     "build:hosting": "node tools/build-hosting.mjs",
+    "sync:vehicle-catalog": "node tools/sync-vehicle-catalog.mjs",
+    "baseline:capture": "node tools/remediation-baseline.mjs capture",
+    "baseline:verify": "node tools/remediation-baseline.mjs verify",
+    "baseline:restore": "node tools/remediation-baseline.mjs restore",
+    "test:phase-zero": "node --test tests/phase-zero-integrity.test.mjs",
+    "test:remediation-phase-one": "firebase emulators:exec --only auth,firestore,storage --project demo-remediation-phase1 --config firebase.remediation.json \"node --test --test-concurrency=1 tests/remediation-phase-one.test.mjs tests/remediation-storage.test.mjs\"",
     "test:hosting-startup-health": "node tools/build-hosting.mjs && node tools/hosting-startup-health.mjs",
     "test:hosting-startup-health:live": "node tools/hosting-startup-health.mjs --url https://swiftgo-ride-app.web.app",
     "test:audit": "node tests/audit.test.mjs",
@@ -59,9 +81,9 @@
     "test:stage8-tranche4-owner-admin": "node tests/stage8-tranche4-owner-admin-hosting.mjs",
     "test:road-routing": "node tests/road-routing.mjs",
     "test:road-snapping": "node tests/road-snapping.mjs",
-    "test:breadcrumb-telemetry-rules": "firebase emulators:exec --only firestore --project demo-swiftgo-phase1 \"node tests/breadcrumb-telemetry-rules.mjs\"",
-    "test:breadcrumb-batching": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/breadcrumb-batching.mjs\"",
-    "test:breadcrumb-hardening": "firebase emulators:exec --only auth,firestore,functions --project demo-swiftgo-phase1 \"node tests/breadcrumb-hardening.mjs\""
+    "test:breadcrumb-telemetry-rules": "firebase emulators:exec --non-interactive --only firestore,auth --project demo-remediation-phase5 --config firebase.remediation-phase-five.json \"node tests/breadcrumb-telemetry-rules.mjs\"",
+    "test:breadcrumb-batching": "firebase emulators:exec --non-interactive --only firestore,auth --project demo-remediation-phase5 --config firebase.remediation-phase-five.json \"node tests/breadcrumb-batching.mjs\"",
+    "test:breadcrumb-hardening": "firebase emulators:exec --non-interactive --only firestore,auth --project demo-remediation-phase5 --config firebase.remediation-phase-five.json \"node tests/breadcrumb-hardening.mjs\""
   },
   "keywords": [],
   "author": "",
@@ -72,9 +94,14 @@
     "react-apexcharts": "^2.1.1"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^3.0.4",
-    "@playwright/test": "^1.49.1",
-    "firebase": "^10.14.1",
-    "firebase-admin": "^12.7.0"
+    "@firebase/rules-unit-testing": "5.0.2",
+    "@playwright/test": "1.62.1",
+    "firebase": "12.18.0",
+    "firebase-admin": "14.3.0",
+    "firebase-tools": "15.28.2"
+  },
+  "overrides": {
+    "uuid": "11.1.1",
+    "@google-cloud/pubsub": "6.0.1"
   }
 }

@@ -13,6 +13,7 @@ import {
   buildDirectFallback,
   validateRouteResult,
 } from "./route-geometry.mjs";
+import { createRouteRequestGuard } from "./route-request-guard.mjs";
 
 export const ROUTE_PROVIDER_KIND = Object.freeze({
   MOCK: "mock",
@@ -54,7 +55,8 @@ function assertCoords(req) {
     typeof o?.lat !== "number" ||
     typeof o?.lng !== "number" ||
     typeof d?.lat !== "number" ||
-    typeof d?.lng !== "number"
+    typeof d?.lng !== "number" || ![o.lat, o.lng, d.lat, d.lng].every(Number.isFinite) ||
+    Math.abs(o.lat) > 90 || Math.abs(d.lat) > 90 || Math.abs(o.lng) > 180 || Math.abs(d.lng) > 180
   ) {
     const err = new Error("INVALID_COORDS");
     err.code = "invalid_argument";
@@ -159,21 +161,17 @@ export function createFixtureRouteProvider(fixtures = {}) {
  * @param {object} fields
  */
 export function attachRouteProviderDiag(err, fields = {}) {
-  const snippet =
-    fields.responseBodySnippet == null
-      ? null
-      : String(fields.responseBodySnippet).slice(0, 500);
   err.diag = {
     providerKind: fields.providerKind || ROUTE_PROVIDER_KIND.OSRM_PREVIEW,
-    requestUrl: fields.requestUrl ?? null,
+    requestUrl: null, // Route URLs contain precise customer/driver coordinates.
     httpStatus: fields.httpStatus ?? null,
-    responseBodySnippet: snippet,
+    responseBodySnippet: null,
     timeoutMs: fields.timeoutMs ?? null,
     timeoutReason: fields.timeoutReason ?? null,
     networkError: fields.networkError === true,
     corsOrNetworkLikely: fields.corsOrNetworkLikely === true,
     errorCode: err.code || fields.errorCode || null,
-    errorMessage: String(err.message || fields.errorMessage || "").slice(0, 200),
+    errorMessage: String(err.code || fields.errorCode || "route_unavailable").slice(0, 80),
     fallbackTrigger: fields.fallbackTrigger || null,
   };
   return err;
@@ -188,8 +186,9 @@ export function createOsrmPreviewProvider(opts = {}) {
     String(opts.baseUrl || "https://router.project-osrm.org/route/v1/driving").replace(/\/$/, "");
   const timeoutMs = opts.timeoutMs ?? ROUTE_REQUEST_TIMEOUT_MS;
   const fetchFn = opts.fetchFn || (typeof fetch !== "undefined" ? fetch.bind(globalThis) : null);
+  const guard = createRouteRequestGuard(opts);
 
-  return {
+  const provider = {
     id: ROUTE_PROVIDER_KIND.OSRM_PREVIEW,
     previewOnly: true,
     label:
@@ -241,6 +240,10 @@ export function createOsrmPreviewProvider(opts = {}) {
           }
           const err = new Error(`OSRM_${res.status}`);
           err.code = "unavailable";
+          if (res.status === 429 || res.status === 503) {
+            const retry = res.headers?.get?.("retry-after");
+            err.retryAfterMs = /^\d+$/.test(retry || "") ? Number(retry) * 1000 : Math.max(0, Date.parse(retry) - Date.now()) || 60_000;
+          }
           attachRouteProviderDiag(err, {
             requestUrl: url,
             httpStatus: res.status,
@@ -329,6 +332,8 @@ export function createOsrmPreviewProvider(opts = {}) {
       }
     },
   };
+  return { ...provider, route: (req) => guard.run((signal) => provider.route({ ...req, signal }), { signal: req?.signal }),
+    getRequestBudget: guard.getState };
 }
 
 /**
@@ -338,6 +343,7 @@ export function createOsrmPreviewProvider(opts = {}) {
  * Hosted apps should call installDefaultOsrmPreviewRouteProvider() at startup
  * (same public OSRM already used for booking). Unset global stays disabled for tests.
  */
+const providerCache = new WeakMap();
 export function resolveRouteProvider(globalObj = typeof globalThis !== "undefined" ? globalThis : {}) {
   const cfg = globalObj?.__SWIFTGO_ROUTE_PROVIDER__ || {};
   const kind = String(cfg.kind || ROUTE_PROVIDER_KIND.DISABLED);
@@ -345,7 +351,13 @@ export function resolveRouteProvider(globalObj = typeof globalThis !== "undefine
   if (kind === ROUTE_PROVIDER_KIND.FIXTURE) return createFixtureRouteProvider(cfg.fixtures || {});
   if (kind === ROUTE_PROVIDER_KIND.OSRM_PREVIEW) {
     // Explicit opt-in only — never silently enable public OSRM from an empty global.
-    if (cfg.enabled === true) return createOsrmPreviewProvider(cfg);
+    if (cfg.enabled === true) {
+      const signature = JSON.stringify([cfg.kind, cfg.enabled, cfg.baseUrl, cfg.timeoutMs]);
+      const cached = providerCache.get(globalObj);
+      if (cached?.signature === signature) return cached.provider;
+      const provider = createOsrmPreviewProvider(cfg); providerCache.set(globalObj, { signature, provider });
+      return provider;
+    }
   }
   return {
     id: ROUTE_PROVIDER_KIND.DISABLED,

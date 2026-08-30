@@ -9,11 +9,16 @@
 
 import { P2P_STATE, P2P_EXECUTION_STATUSES } from "./p2p-protocol.mjs";
 import { createP2pPeerSession } from "./p2p-peer-session.mjs";
+import { createLiveLocationSourceArbiter } from "../../shared/js/live-location-source-arbiter.mjs";
+import { rideLocationAssignmentVersion, validateRideLocationFix } from "../../shared/js/ride-location-contract.mjs";
+import { createPeerSessionLease } from "../../shared/js/p2p-session-lease.mjs";
+import { createFallbackLocationWatch } from "../../shared/js/fallback-location-watch.mjs";
+import { normalizeRuntimeDeliveryPolicy, resolveLocationDeliveryPolicy } from "../../shared/js/location-delivery-policy.mjs";
 
 /** Lazy — app wrapper pulls Firebase https imports unsuitable for Node tests. */
-async function defaultEnsureIceConfiguration() {
+async function defaultEnsureIceConfiguration(context) {
   const mod = await import("./p2p-ice-bootstrap.mjs");
-  return mod.ensureP2pIceConfiguration();
+  return mod.ensureP2pIceConfiguration(context);
 }
 
 function assignmentKey(rideId, trackingSessionId, assignmentVersion) {
@@ -56,6 +61,27 @@ function serverOfferAssignmentVersion(av) {
  */
 export function createDriverP2pController(opts = {}) {
   const diag = opts.onDiag || (() => {});
+  const nowMs = opts.nowMs || Date.now;
+  const setT = opts.setTimeoutFn || setTimeout, clearT = opts.clearTimeoutFn || clearTimeout;
+  let currentRide = null;
+  let deliveryPolicy = resolveLocationDeliveryPolicy();
+  const customerWatch = createFallbackLocationWatch({
+    setTimeoutFn: setT, clearTimeoutFn: clearT,
+    subscribe: (target, next, error) => opts.watchCustomerLocation?.(target.rideId, next, error, target.assignmentId),
+    onData: (data) => { if (currentRide && data?.location) customerArbiter.ingestFirebase(data.location, customerArbiter.getGeneration()); },
+    onError: () => diag("customer_firebase_listen_failed"),
+  });
+  const customerArbiter = createLiveLocationSourceArbiter({
+    nowMs, p2pFirstGraceMs: 12_000,
+    onFallbackDemand: (needed) => customerWatch.setNeeded(needed),
+    setTimeoutFn: opts.setTimeoutFn, clearTimeoutFn: opts.clearTimeoutFn,
+    validateFix: (fix, previous) => validateRideLocationFix(fix, {
+      nowMs: nowMs(), previous, rideId: currentRide?.id,
+      assignmentVersion: currentRide ? rideLocationAssignmentVersion(currentRide) : 0,
+      assignmentId: currentRide?.assignmentSessionToken, role: "customer",
+    }),
+    onRender: (fix) => { if (currentRide) opts.onCustomerLocation?.(fix); },
+  });
   let session = null;
   let unwatch = () => {};
   let rideId = "";
@@ -69,13 +95,28 @@ export function createDriverP2pController(opts = {}) {
   let answeredSessionId = "";
   let lastAcceptedAnswer = "";
   let lastPublishedOffer = "";
+  let lastPublishedOfferFingerprint = "";
   let signalingMod = null;
   let watchRetryTimer = null;
   let watchRetryAttempt = 0;
+  let startRetryTimer = null;
+  let startRetryAttempt = 0;
+  let fallbackAfterMs = deliveryPolicy.p2pFallbackAfterMs;
   let startupGeneration = 0;
   /** @type {{ rideId: string, trackingSessionId: string, assignmentVersion: number, vehicleId?: string } | null} */
   let pendingTarget = null;
   const MAX_WATCH_RETRIES = 8;
+  const MAX_START_RETRIES = 8;
+  const lease = createPeerSessionLease({ nowMs, setTimeoutFn: setT, clearTimeoutFn: clearT,
+    renew: async () => {
+      const target = session, sid = target?.getState?.().peerSessionId;
+      const payload = { rideId, peerSessionId: sid, offerFingerprint: lastPublishedOfferFingerprint, assignmentId: currentRide?.assignmentSessionToken };
+      const sig = await signaling();
+      if (target !== session) return null;
+      return sig.renewRidePeerSessionClient?.(payload);
+    },
+    onExpired: () => { session?.suspend?.(); notifyHealth(); triggerReconnect(); },
+  });
 
   const ctrlCounters = {
     startAttempts: 0,
@@ -117,10 +158,35 @@ export function createDriverP2pController(opts = {}) {
 
   function clearWatchRetry() {
     if (watchRetryTimer) {
-      clearTimeout(watchRetryTimer);
+      clearT(watchRetryTimer);
       watchRetryTimer = null;
     }
     watchRetryAttempt = 0;
+  }
+
+  function clearStartRetry({ resetAttempt = true } = {}) {
+    if (startRetryTimer) {
+      clearT(startRetryTimer);
+      startRetryTimer = null;
+    }
+    if (resetAttempt) startRetryAttempt = 0;
+  }
+
+  function scheduleStartRetry(target) {
+    if (closed || !target?.rideId || !target?.trackingSessionId) return;
+    if (startRetryTimer) return;
+    const captured = { ...target };
+    const retryGeneration = startupGeneration;
+    const cooldown = startRetryAttempt >= MAX_START_RETRIES;
+    const delayMs = cooldown ? 120000 : Math.min(30_000, 1_000 * 2 ** startRetryAttempt);
+    startRetryAttempt += 1;
+    ctrlCounters.startRetries = (Number(ctrlCounters.startRetries) || 0) + 1;
+    startRetryTimer = setT(() => {
+      startRetryTimer = null;
+      if (closed || retryGeneration !== startupGeneration) return;
+      if (cooldown) startRetryAttempt = 0;
+      requestStart(captured);
+    }, delayMs);
   }
 
   function currentAssignmentKey() {
@@ -183,6 +249,7 @@ export function createDriverP2pController(opts = {}) {
       answeredSessionId = "";
       lastAcceptedAnswer = "";
       lastPublishedOffer = "";
+      lastPublishedOfferFingerprint = "";
     }
   }
 
@@ -195,6 +262,8 @@ export function createDriverP2pController(opts = {}) {
       return {
         createRidePeerOfferClient: opts.createRidePeerOfferClient,
         closeRidePeerSessionClient: opts.closeRidePeerSessionClient,
+        renewRidePeerSessionClient: opts.renewRidePeerSessionClient,
+        getRidePeerOfferRevisionClient: opts.getRidePeerOfferRevisionClient,
         watchRidePeerSession: opts.watchRidePeerSession,
       };
     }
@@ -205,7 +274,7 @@ export function createDriverP2pController(opts = {}) {
   }
 
   function isHealthy() {
-    return session?.getState?.()?.isLocDeliveryHealthy === true;
+    return session?.getState?.()?.isOutboundLocationHealthy === true;
   }
 
   function notifyHealth() {
@@ -213,6 +282,7 @@ export function createDriverP2pController(opts = {}) {
   }
 
   function destroySession() {
+    lease.stop();
     clearWatchRetry();
     unwatch();
     unwatch = () => {};
@@ -221,6 +291,7 @@ export function createDriverP2pController(opts = {}) {
     answeredSessionId = "";
     lastAcceptedAnswer = "";
     lastPublishedOffer = "";
+    lastPublishedOfferFingerprint = "";
     if (s) {
       void s.close({ reason: "destroy" });
       archiveSessionCounters(s);
@@ -230,10 +301,16 @@ export function createDriverP2pController(opts = {}) {
 
   async function closeSignaling() {
     const id = rideId;
-    if (!id) return;
+    const closingSessionId = String(session?.getState?.()?.peerSessionId || "");
+    const closingFingerprint = lastPublishedOfferFingerprint;
+    if (!id || !closingSessionId) return;
     try {
       const sig = await signaling();
-      await sig.closeRidePeerSessionClient?.({ rideId: id });
+      await sig.closeRidePeerSessionClient?.({
+        rideId: id,
+        peerSessionId: closingSessionId,
+        offerFingerprint: closingFingerprint,
+      });
     } catch {
       /* ignore */
     }
@@ -246,13 +323,14 @@ export function createDriverP2pController(opts = {}) {
 
   function scheduleWatchRetry(rid, gen, attemptKey) {
     if (closed || rideId !== rid || !isStartCurrent(gen, attemptKey)) return;
-    if (watchRetryAttempt >= MAX_WATCH_RETRIES) return;
+    const cooldown = watchRetryAttempt >= MAX_WATCH_RETRIES;
     if (watchRetryTimer) return;
-    const delayMs = Math.min(30_000, 1_000 * 2 ** watchRetryAttempt);
+    const delayMs = cooldown ? 120000 : Math.min(30_000, 1_000 * 2 ** watchRetryAttempt);
     watchRetryAttempt += 1;
     ctrlCounters.watchRetries += 1;
-    watchRetryTimer = setTimeout(() => {
+    watchRetryTimer = setT(() => {
       watchRetryTimer = null;
+      if (cooldown) watchRetryAttempt = 0;
       if (!closed && rideId === rid && isStartCurrent(gen, attemptKey)) {
         void attachAnswerWatch(rid, gen, attemptKey);
       }
@@ -261,7 +339,7 @@ export function createDriverP2pController(opts = {}) {
 
   async function attachAnswerWatch(rid, gen, attemptKey) {
     if (watchRetryTimer) {
-      clearTimeout(watchRetryTimer);
+      clearT(watchRetryTimer);
       watchRetryTimer = null;
     }
     unwatch();
@@ -282,17 +360,29 @@ export function createDriverP2pController(opts = {}) {
         return;
       }
       const answer = String(docData.answer || "");
+      if (sid === session.getState().peerSessionId && docData.offerFingerprint === lastPublishedOfferFingerprint) {
+        lease.observe(`${sid}|${lastPublishedOfferFingerprint}`, docData.expiresAt);
+      }
       if (!answer || !sid) return;
       if (sid !== session.getState().peerSessionId) return;
+      const answeredFingerprint = String(docData.answeredOfferFingerprint || "");
+      if (
+        lastPublishedOfferFingerprint &&
+        (answeredFingerprint || lastPublishedOfferFingerprint.startsWith("sha256_")) &&
+        answeredFingerprint !== lastPublishedOfferFingerprint
+      ) return;
       if (answeredSessionId === sid && answer === lastAcceptedAnswer) return;
-      answeredSessionId = sid;
-      lastAcceptedAnswer = answer;
       const nextAv = Math.floor(Number(docData.assignmentVersion) || 0);
       if (nextAv >= 1) {
         applyAuthoritativeAssignmentVersion(nextAv);
       }
       session.noteAnswerDownloaded?.(answer);
-      void session.acceptRemoteAnswer(answer);
+      const answerSession = session, answerGeneration = answerSession.getState().generation;
+      void answerSession.acceptRemoteAnswer(answer, answerGeneration).then((accepted) => {
+        if (session !== answerSession || answerSession.getState().generation !== answerGeneration) return;
+        if (accepted) { answeredSessionId = sid; lastAcceptedAnswer = answer; }
+        else triggerReconnect();
+      });
     };
     const onError = () => {
       if (!isStartCurrent(gen, attemptKey) || localSession !== session) return;
@@ -313,8 +403,10 @@ export function createDriverP2pController(opts = {}) {
     answeredSessionId = "";
     const av = normalizeAssignmentVersion(assignmentVersion, syncedAssignmentVersion);
     if (av < 1) return;
+    const reconnectSession = session;
     session.scheduleReconnect(() => {
-      void session.startAsDriver({
+      if (reconnectSession !== session) return null;
+      return reconnectSession.startAsDriver({
         trackingSessionId,
         assignmentVersion: av,
         reconnect: true,
@@ -363,6 +455,7 @@ export function createDriverP2pController(opts = {}) {
       rideId: rid,
       trackingSessionId: tid,
       assignmentVersion: av,
+      assignmentId: target?.assignmentId || "",
       vehicleId: String(target?.vehicleId || ""),
     };
 
@@ -382,9 +475,11 @@ export function createDriverP2pController(opts = {}) {
   async function runStartLoop() {
     if (starting || closed) return;
     starting = true;
+    let failedTarget = null;
     try {
       while (pendingTarget && !closed) {
         const target = pendingTarget;
+        failedTarget = target;
         pendingTarget = null;
 
         startupGeneration += 1;
@@ -406,12 +501,19 @@ export function createDriverP2pController(opts = {}) {
 
         const localSession = createP2pPeerSession({
           role: "driver",
+          rideId: target.rideId,
+          assignmentId: target.assignmentId,
+          nowMs,
+          setTimeoutFn: setT, clearTimeoutFn: clearT,
+          fallbackAfterMs,
           RTCPeerConnection: opts.RTCPeerConnection,
           ensureIceConfiguration: opts.ensureIceConfiguration || defaultEnsureIceConfiguration,
           onDiag: diag,
           onState: () => {
             if (localSession === session) notifyHealth();
           },
+          onLocationFix: (fix) => Boolean(localSession === session && currentRide &&
+            customerArbiter.ingestP2p(fix, customerArbiter.getGeneration())),
           onAck: () => {
             if (localSession === session) notifyHealth();
           },
@@ -421,25 +523,36 @@ export function createDriverP2pController(opts = {}) {
           onChannelOpen: () => opts.onChannelOpen?.(),
           onLocalDescription: async (kind, sdp, meta) => {
             if (kind !== "offer") return;
-            if (!isStartCurrent(gen, attemptKey) || localSession !== session) return;
+            const current = () => isStartCurrent(gen, attemptKey) && localSession === session && localSession.getState().generation === meta.generation;
+            if (!current()) return;
             lastPublishedOffer = String(sdp || "");
+            lastPublishedOfferFingerprint = "";
+            lease.stop();
             answeredSessionId = "";
             try {
+              const revision = await sig.getRidePeerOfferRevisionClient?.({ rideId: target.rideId, assignmentId: target.assignmentId });
+              if (!current()) return;
               const offerPayload = {
                 rideId: target.rideId,
+                assignmentId: target.assignmentId,
                 offerSdp: sdp,
                 peerSessionId: meta.peerSessionId,
                 trackingSessionId: meta.trackingSessionId,
                 vehicleId: target.vehicleId || undefined,
+                ...(revision || {}),
               };
               const offerAv = serverOfferAssignmentVersion(target.assignmentVersion);
               if (offerAv != null) offerPayload.assignmentVersion = offerAv;
               const res = await sig.createRidePeerOfferClient?.(offerPayload);
-              if (!isStartCurrent(gen, attemptKey) || localSession !== session) return;
+              if (!current()) return;
               const nextAv = Math.floor(Number(res?.assignmentVersion) || 0);
               if (nextAv >= 1) {
                 applyAuthoritativeAssignmentVersion(nextAv);
               }
+              if (res?.offerFingerprint) {
+                lastPublishedOfferFingerprint = String(res.offerFingerprint);
+              }
+              lease.observe(`${meta.peerSessionId}|${lastPublishedOfferFingerprint}`, res?.expiresAtMs);
               session?.noteOfferUploaded?.(sdp);
             } catch {
               ctrlCounters.offerPublishFailures += 1;
@@ -472,11 +585,15 @@ export function createDriverP2pController(opts = {}) {
         }
 
         notifyHealth();
+        failedTarget = null;
+        clearStartRetry();
       }
-    } catch {
+    } catch (error) {
       ctrlCounters.startFailures += 1;
+      ctrlCounters.lastStartFailure = String(error?.message || error || "P2P_START_FAILED").slice(0, 80);
       destroySession();
       opts.onHealthyChange?.(false);
+      scheduleStartRetry(failedTarget);
     } finally {
       starting = false;
       if (pendingTarget && !closed) {
@@ -490,12 +607,14 @@ export function createDriverP2pController(opts = {}) {
     trackingSessionId: nextTracking,
     vehicleId: nextVehicleId = "",
     assignmentVersion: nextAv = 0,
+    assignmentId: nextAssignmentId = "",
   } = {}) {
     requestStart({
       rideId: nextRideId,
       trackingSessionId: nextTracking,
       vehicleId: nextVehicleId,
       assignmentVersion: nextAv,
+      assignmentId: nextAssignmentId,
     });
   }
 
@@ -511,15 +630,21 @@ export function createDriverP2pController(opts = {}) {
   }
 
   async function stop({ closeRemote = true } = {}) {
+    const remoteClose = closeRemote ? closeSignaling() : null;
     invalidateInFlight();
     clearWatchRetry();
-    if (closeRemote) await closeSignaling();
+    clearStartRetry();
+    currentRide = null;
+    customerWatch.stop();
+    customerArbiter.reset();
+    opts.onCustomerLocation?.(null);
     destroySession();
     rideId = "";
     trackingSessionId = "";
     assignmentVersion = 0;
     syncedAssignmentVersion = 0;
     vehicleId = "";
+    await remoteClose;
   }
 
   function syncForRide({ ride, trackingSessionId: tid, assignmentVersion: rideAssignmentVersion = 0 }) {
@@ -530,12 +655,23 @@ export function createDriverP2pController(opts = {}) {
       void stop({ closeRemote: true });
       return;
     }
+    if (currentRide?.id !== rid || currentRide?.assignmentSessionToken !== ride.assignmentSessionToken) {
+      invalidateInFlight();
+      destroySession();
+      customerArbiter.reset();
+      opts.onCustomerLocation?.(null);
+      currentRide = ride;
+      customerWatch.setBinding({ key: `${rid}|${ride.assignmentSessionToken}`, rideId: rid, assignmentId: ride.assignmentSessionToken });
+      customerArbiter.beginP2pFirstWindow();
+    }
+    currentRide = ride;
     // Active execution rides keep P2P up regardless of customer viewer presence.
     requestStart({
       rideId: rid,
       trackingSessionId: tid,
       vehicleId: ride?.vehicleId,
-      assignmentVersion: rideAssignmentVersion,
+      assignmentVersion: rideAssignmentVersion || rideLocationAssignmentVersion(ride),
+      assignmentId: ride.assignmentSessionToken || "",
     });
   }
 
@@ -543,6 +679,7 @@ export function createDriverP2pController(opts = {}) {
     closed = true;
     invalidateInFlight();
     void stop({ closeRemote: true });
+    customerArbiter.destroy();
   }
 
   function createCommTransport() {
@@ -551,6 +688,14 @@ export function createDriverP2pController(opts = {}) {
 
   function createMediaBridge() {
     return session?.createMediaBridge?.() || null;
+  }
+
+  function configureDeliveryPolicy(policy = {}) {
+    deliveryPolicy = normalizeRuntimeDeliveryPolicy(policy, deliveryPolicy);
+    customerArbiter.configureDeliveryPolicy(deliveryPolicy);
+    fallbackAfterMs = deliveryPolicy.p2pFallbackAfterMs;
+    session?.configureHealthPolicy?.({ fallbackAfterMs });
+    notifyHealth();
   }
 
   return {
@@ -563,6 +708,7 @@ export function createDriverP2pController(opts = {}) {
     isHealthy,
     createCommTransport,
     createMediaBridge,
+    configureDeliveryPolicy,
     getCounters: () => ({
       ...allSessionCounters(),
       ...ctrlCounters,
@@ -576,6 +722,7 @@ export function createDriverP2pController(opts = {}) {
     _getPendingTarget: () => (pendingTarget ? { ...pendingTarget } : null),
     _getRideId: () => rideId,
     _getSessionForTest: () => session,
+    _getCustomerLocationWatchState: () => customerWatch.getState(),
     _getControllerAssignmentVersion: () => assignmentVersion,
     _getSyncedAssignmentVersion: () => syncedAssignmentVersion,
     _getCurrentAssignmentKey: () => currentAssignmentKey(),
