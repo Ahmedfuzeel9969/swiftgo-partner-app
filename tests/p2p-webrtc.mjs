@@ -80,6 +80,7 @@ const {
   publishRidePeerAnswer,
   closeRidePeerSession,
   assignmentVersionFromRide,
+  offerFingerprint,
   P2P_SESSION_TTL_MS,
 } = require(path.join(ROOT, "functions", "ride-peer-session.js"));
 
@@ -512,6 +513,7 @@ async function healthAndPeerTests() {
       trackingSessionId: drvIds.trackingSessionId,
       assignmentVersion: drvIds.assignmentVersion,
       seq: 1,
+      ackKind: "loc",
       observedAt: drvTimers.nowMs(),
       role: "customer",
     }),
@@ -809,7 +811,7 @@ function checkpointP2pPolicyTests() {
 
 function memoryDb() {
   const docs = new Map();
-  return {
+  const db = {
     collection(name) {
       return {
         doc(id) {
@@ -835,6 +837,12 @@ function memoryDb() {
     },
     _docs: docs,
   };
+  db.runTransaction = async (worker) =>
+    worker({
+      get: (ref) => ref.get(),
+      set: (ref, data, options) => ref.set(data, options),
+    });
+  return db;
 }
 
 async function signalingAuthTests() {
@@ -871,6 +879,7 @@ async function signalingAuthTests() {
       sess.customerId === customerId &&
       sess.sessionId &&
       sess.offer &&
+      sess.offerFingerprint === offerFingerprint(sess.offer) &&
       !("lat" in sess) &&
       sess.expiresAt
       ? "PASS"
@@ -885,6 +894,26 @@ async function signalingAuthTests() {
   });
   record("02-assigned-customer-answer", answer.ok ? "PASS" : "FAIL");
 
+  const firstOfferFingerprint = sess.offerFingerprint;
+  const restartedOffer = await createRidePeerOffer(db, {
+    driverUid: driverId,
+    rideId,
+    offerSdp: "v=0\r\nice-restart-offer\r\n",
+    trackingSessionId: "trk_1",
+    peerSessionId: sess.sessionId,
+    vehicleId,
+  });
+  const restartedSession = (await db.collection("ridePeerSessions").doc(rideId).get()).data();
+  record(
+    "02b-ice-restart-offer-has-new-identity",
+    restartedOffer.offerFingerprint &&
+      restartedOffer.offerFingerprint !== firstOfferFingerprint &&
+      restartedSession.answer == null &&
+      restartedSession.answeredOfferFingerprint == null
+      ? "PASS"
+      : "FAIL"
+  );
+
   async function expectDeny(fn, name) {
     try {
       await fn();
@@ -893,6 +922,43 @@ async function signalingAuthTests() {
       record(name, "PASS", err.message || String(err.code || ""));
     }
   }
+
+  await expectDeny(
+    () =>
+      publishRidePeerAnswer(db, {
+        customerUid: customerId,
+        rideId,
+        answerSdp: "v=0\r\nstale-restart-answer\r\n",
+        peerSessionId: sess.sessionId,
+        offerFingerprint: firstOfferFingerprint,
+      }),
+    "02c-stale-ice-restart-answer-rejected"
+  );
+
+  const staleClose = await closeRidePeerSession(db, {
+    uid: customerId,
+    rideId,
+    peerSessionId: sess.sessionId,
+    offerFingerprint: firstOfferFingerprint,
+  });
+  const afterStaleClose = (await db.collection("ridePeerSessions").doc(rideId).get()).data();
+  record(
+    "02d-stale-close-cannot-close-new-offer",
+    staleClose.skipped === true && afterStaleClose.state === "offer_ready" ? "PASS" : "FAIL"
+  );
+
+  await publishRidePeerAnswer(db, {
+    customerUid: customerId,
+    rideId,
+    answerSdp: "v=0\r\nfresh-restart-answer\r\n",
+    peerSessionId: sess.sessionId,
+    offerFingerprint: restartedOffer.offerFingerprint,
+  });
+  const afterFreshAnswer = (await db.collection("ridePeerSessions").doc(rideId).get()).data();
+  record(
+    "02e-answer-bound-to-exact-offer",
+    afterFreshAnswer.answeredOfferFingerprint === restartedOffer.offerFingerprint ? "PASS" : "FAIL"
+  );
 
   await expectDeny(
     () =>

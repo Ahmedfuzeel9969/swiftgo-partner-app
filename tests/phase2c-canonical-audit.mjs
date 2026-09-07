@@ -19,6 +19,10 @@ function walk(dir, out = []) {
       ent.name === "node_modules" ||
       ent.name === "hosting-dist" ||
       ent.name === ".git" ||
+      ent.name === ".release-baselines" ||
+      ent.name === ".dependency-trials" ||
+      ent.name === "cleanup-review" ||
+      ent.name === "emulator-data" ||
       ent.name === "www" ||
       ent.name === "build" ||
       ent.name === ".gradle"
@@ -134,16 +138,19 @@ record(
   "Not a violation; Rules require isSuperAdmin"
 );
 
-// Canonical booking create uses rides
+// Canonical booking creation goes through the trusted callable. Direct client
+// writes are deliberately denied, so data.js must not recreate the old path.
 const customerCreate = read("customer-app/js/data.js");
+const customerBookingClient = read("customer-app/js/booking-client.js");
+const trustedBookingCallable =
+  customerBookingClient.includes('call("createCustomerBooking"') &&
+  customerCreate.includes("USE_CREATE_CUSTOMER_BOOKING_CF") &&
+  !customerCreate.includes('collection(db, "ride_requests")');
 record(
   "A06-customer-creates-rides",
-  "createRideRequest writes rides collection",
-  customerCreate.includes('collection(db, "rides")') ? "rides" : "missing",
-  customerCreate.includes('collection(db, "rides")') &&
-    !customerCreate.includes('collection(db, "ride_requests")')
-    ? "PASS"
-    : "FAIL"
+  "trusted createCustomerBooking callable creates canonical rides",
+  trustedBookingCallable ? "trusted callable" : "missing",
+  trustedBookingCallable ? "PASS" : "FAIL"
 );
 
 const rules = read("firestore.rules");
@@ -162,11 +169,14 @@ record(
 
 record(
   "A08-rules-claim-admin-primary",
-  "isClaimAdmin used in isSuperAdmin",
-  rules.includes("isClaimAdmin()") && rules.includes("adminBootstrapEnabled")
-    ? "claim+bootstrap flag"
+  "isSuperAdmin validates versioned claims against admin_registry",
+  rules.includes("admin_registry") && rules.includes("adminVersion") && rules.includes("adminRole")
+    ? "versioned registry"
     : "missing",
-  rules.includes("function isClaimAdmin") && rules.includes("adminBootstrapEnabled")
+  rules.includes("function isSuperAdmin") &&
+    rules.includes("admin_registry") &&
+    rules.includes("adminVersion") &&
+    rules.includes("adminRole")
     ? "PASS"
     : "FAIL"
 );

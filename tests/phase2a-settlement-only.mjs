@@ -9,6 +9,11 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 
@@ -22,8 +27,8 @@ function record(name, status, detail) {
 }
 
 const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
-const app = admin.initializeApp({ projectId: PROJECT });
-const db = admin.firestore(app);
+const app = adminAppSdk.initializeApp({ projectId: PROJECT });
+const db = adminFirestoreSdk.getFirestore(app);
 const { settleRide } = require(path.join(ROOT, "functions", "settlement.js"));
 
 const rideBase = {
@@ -36,7 +41,7 @@ const rideBase = {
   timeMins: 15,
   farePkr: 350,
   estimatedFare: 350,
-  createdAt: admin.firestore.Timestamp.now(),
+  createdAt: adminFirestoreSdk.Timestamp.now(),
 };
 
 async function main() {

@@ -3,6 +3,7 @@
  * Diagnostic only — never touches fare, settlement, wallet, dispatch, or ride status.
  */
 "use strict";
+const { reportRetentionDeadline, reportRetentionWindowClosed } = require("./retention-timestamps");
 
 const crypto = require("crypto");
 const { FieldValue, Timestamp } = require("firebase-admin/firestore");
@@ -22,6 +23,7 @@ const {
   buildAcceptedMirrorAggregatePatch,
   serverSectionFromRideAggregate,
   hasRideServerMirrorAggregate,
+  mirrorOutcomeCounter,
 } = require("./server-mirror-aggregate.js");
 const {
   RIDE_LOCATION_REPORT_SCHEMA_VERSION,
@@ -246,6 +248,7 @@ function filterSectionCountersForConfig(section, role, config) {
     if (normalized.collectFirebaseMetrics === false) {
       counters.firebaseSnapshotsReceived = 0;
       counters.firebaseValidRendered = 0;
+      counters.firebaseFixesAccepted = 0;
       counters.sourceSwitchP2pToFirebase = 0;
       counters.sourceSwitchFirebaseToP2p = 0;
     }
@@ -259,32 +262,7 @@ function filterSectionCountersForConfig(section, role, config) {
 }
 
 function mapMirrorReasonToCounter(reason, mirrored) {
-  if (mirrored) return "mirrorAccepted";
-  const r = String(reason || "");
-  if (r === LOCATION_DIAG.MIRRORED) return "mirrorAccepted";
-  if (r === LOCATION_DIAG.NOOP_UNCHANGED) return "mirrorSkippedNoop";
-  if (r === LOCATION_DIAG.DUPLICATE) return "mirrorSkippedDuplicate";
-  if (r === LOCATION_DIAG.OUT_OF_ORDER) return "mirrorSkippedOutOfOrder";
-  if (r === LOCATION_DIAG.SESSION_MISMATCH || r === LOCATION_DIAG.RETIRED_SESSION) {
-    return "mirrorSkippedSessionMismatch";
-  }
-  if (
-    r === "terminal_or_inactive" ||
-    r === "no_active_ride" ||
-    r === "ride_missing" ||
-    r === "vehicle_mismatch"
-  ) {
-    return "mirrorSkippedInactive";
-  }
-  if (
-    r === LOCATION_DIAG.INVALID ||
-    r === LOCATION_DIAG.POOR_ACCURACY ||
-    r === LOCATION_DIAG.IMPOSSIBLE_JUMP
-  ) {
-    return "mirrorSkippedInvalid";
-  }
-  if (r === "ride_location_mirror_txn_failed" || r.includes("txn")) return "mirrorFailed";
-  return "mirrorSkippedInvalid";
+  return mirrorOutcomeCounter(reason, mirrored);
 }
 
 /**
@@ -338,9 +316,7 @@ function applyServerMirrorOutcomeToReport(report, outcome, ride, config) {
   base.updatedAt = FieldValue.serverTimestamp();
 
   const retentionDays = config.retentionDays || 30;
-  if (!base.expiresAt) {
-    base.expiresAt = Timestamp.fromMillis(Date.now() + retentionDays * 24 * 60 * 60 * 1000);
-  }
+  base.expiresAt = reportRetentionDeadline(ride, base, retentionDays, Date.now());
 
   if (base.status === "final" && !base.finalizedAt) {
     base.finalizedAt = FieldValue.serverTimestamp();
@@ -400,6 +376,8 @@ async function submitRideLocationReportSection(db, input) {
     const serverTokenHash = hashAssignmentSessionTokenSync(String(ride.assignmentSessionToken || "").trim());
     if (!serverTokenHash) throw err("failed-precondition", "ASSIGNMENT_TOKEN_MISSING");
     if (serverTokenHash !== tokenHash) throw err("failed-precondition", "STALE_ASSIGNMENT");
+    if (reportRetentionWindowClosed(ride, config.retentionDays || 30, Date.now()))
+      return { ok: true, skipped: true, reason: "RETENTION_WINDOW_CLOSED" };
 
     if (role === "driver") {
       if (String(ride.driverId || "") !== callerUid) throw err("permission-denied", "NOT_RIDE_DRIVER");
@@ -431,6 +409,7 @@ async function submitRideLocationReportSection(db, input) {
       report.configSnapshot = configSnapshot;
       report.retentionPolicy = REPORT_RETENTION_POLICY;
       report.updatedAt = FieldValue.serverTimestamp();
+      report.expiresAt = reportRetentionDeadline(ride, report, config.retentionDays || 30, Date.now());
       if (reportSnap.exists) tx.update(reportRef, report);
       else if (hasClientSection(report, "driver") || hasClientSection(report, "customer") || hasServerSection(report)) {
         tx.set(reportRef, report);
@@ -456,9 +435,7 @@ async function submitRideLocationReportSection(db, input) {
     report.updatedAt = FieldValue.serverTimestamp();
 
     const retentionDays = config.retentionDays || 30;
-    if (!report.expiresAt) {
-      report.expiresAt = Timestamp.fromMillis(Date.now() + retentionDays * 24 * 60 * 60 * 1000);
-    }
+    report.expiresAt = reportRetentionDeadline(ride, report, retentionDays, Date.now());
 
     const terminal = TERMINAL_RIDE_STATUSES.includes(String(ride.status || ""));
     const shouldFinalize = terminal && requiredSectionsAcknowledged(report, config);

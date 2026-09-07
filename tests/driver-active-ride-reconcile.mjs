@@ -19,6 +19,11 @@ import {
 } from "../driver-app/js/active-ride-reconcile.mjs";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 const OUT = path.join(ROOT, "tests", "driver-active-ride-reconcile-results.json");
@@ -197,12 +202,12 @@ async function emulatorChecks() {
   const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
   let app;
   try {
-    app = admin.app();
+    app = adminAppSdk.getApp();
   } catch {
-    app = admin.initializeApp({ projectId: PROJECT });
+    app = adminAppSdk.initializeApp({ projectId: PROJECT });
   }
-  const db = admin.firestore(app);
-  const FieldValue = admin.firestore.FieldValue;
+  const db = adminFirestoreSdk.getFirestore(app);
+  const FieldValue = adminFirestoreSdk.FieldValue;
   const { settleRide } = require(path.join(ROOT, "functions", "settlement.js"));
 
   const driverUid = "reconcile-driver";
@@ -242,7 +247,7 @@ async function emulatorChecks() {
     activeRideId: rideOrphanId,
     location: { lat: 24.86, lng: 67.0 },
     geoCell: "g_6900_18611",
-    locationUpdatedAt: admin.firestore.Timestamp.now(),
+    locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
   });
 
   const rideBase = {
@@ -459,7 +464,7 @@ async function emulatorChecks() {
     idempotencyKey: healLedgerId,
     trustedCreator: "completeRideSettlement",
     status: "posted",
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
   await db.doc(`vehicles/${vehicleId}`).set({
     driverId: driverUid,

@@ -34,7 +34,7 @@ async function refreshRideViewerPresence(db, input) {
     err.code = "unauthenticated";
     throw err;
   }
-  if (!rideId || rideId.length > 128) {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(rideId)) {
     const err = new Error("INVALID_RIDE_ID");
     err.code = "invalid-argument";
     throw err;
@@ -46,7 +46,8 @@ async function refreshRideViewerPresence(db, input) {
   }
 
   const rideRef = db.collection("rides").doc(rideId);
-  const rideSnap = await rideRef.get();
+  return db.runTransaction(async (tx) => {
+  const rideSnap = await tx.get(rideRef);
   if (!rideSnap.exists) {
     const err = new Error("RIDE_NOT_FOUND");
     err.code = "not-found";
@@ -74,7 +75,7 @@ async function refreshRideViewerPresence(db, input) {
   const ref = db.collection("rideViewerPresence").doc(docId);
 
   // Server-derived timestamps only — ignore any client-supplied lastSeenAt/expiresAt.
-  await ref.set(
+  tx.set(ref,
     {
       rideId,
       customerId: customerUid,
@@ -95,6 +96,7 @@ async function refreshRideViewerPresence(db, input) {
     leaseTtlMs: PRESENCE_LEASE_TTL_MS,
     expiresAtMs: now + PRESENCE_LEASE_TTL_MS,
   };
+  });
 }
 
 module.exports = {

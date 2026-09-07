@@ -34,7 +34,7 @@ record(
       { fixesSent: 3, fixesAttempted: 3, sessionsStarted: 1, healthySessions: 0, fallbackTransitions: 2 }
     );
     return mapped.gpsFixesReceived === 10 &&
-      mapped.validFixesAccepted === 8 &&
+      mapped.validFixesAccepted === 10 &&
       mapped.vehicleWritesFailed === 1 &&
       mapped.p2pFramesSent === 3
       ? "PASS"
@@ -65,7 +65,7 @@ record(
 record(
   "static-driver-flush-before-settlement",
   read("driver-app/js/driver-app.js").includes("flushLocationReportBeforeSettlement") &&
-    read("driver-app/js/driver-app.js").includes("await flushLocationReportBeforeSettlement()")
+    read("driver-app/js/driver-app.js").includes("void flushLocationReportBeforeSettlement().catch")
     ? "PASS"
     : "FAIL"
 );

@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync as defaultSpawnSync } from "node:child_process";
+import { breadcrumbResultPath } from "./helpers/breadcrumb-test-safety.mjs";
 
 export const BREADCRUMB_TELEMETRY_RULES_RESULTS = "breadcrumb-telemetry-rules-results.json";
 export const EXPECTED_ISOLATED_RULES = Object.freeze([
@@ -71,26 +72,11 @@ export function validateIsolatedRulesResults(parsed, opts) {
 export function runIsolatedBreadcrumbTelemetryRules(opts) {
   const root = opts.root;
   const spawnSyncFn = opts.spawnSyncFn || defaultSpawnSync;
-  const resultsPath = path.join(
-    root,
-    "tests",
-    opts.resultsFileName || BREADCRUMB_TELEMETRY_RULES_RESULTS
-  );
+  const resultsPath = breadcrumbResultPath(opts.resultsFileName || BREADCRUMB_TELEMETRY_RULES_RESULTS);
   const scriptPath = path.join(root, "tests", "breadcrumb-telemetry-rules.mjs");
   const childArgs = opts.childArgs || [scriptPath];
 
-  try {
-    if (fs.existsSync(resultsPath)) fs.unlinkSync(resultsPath);
-  } catch (e) {
-    return {
-      ok: false,
-      status: "FAIL",
-      reason: `could_not_delete_stale_results:${String(e.message || e).slice(0, 80)}`,
-      resultsPath,
-      child: null,
-      parsed: null,
-    };
-  }
+  // Preserve historical artifacts; freshness and child exit status are checked.
 
   const startedAtMs = Date.now();
   const child = spawnSyncFn(process.execPath, childArgs, {
@@ -153,7 +139,7 @@ export function runIsolatedBreadcrumbTelemetryRules(opts) {
     };
   }
 
-  const validated = validateIsolatedRulesResults(parsed, { startedAtMs });
+  const validated = validateIsolatedRulesResults(parsed, { startedAtMs, maxSkewMs: 0 });
   if (!validated.ok) {
     const stale = String(validated.reason || "").startsWith("stale_");
     return {

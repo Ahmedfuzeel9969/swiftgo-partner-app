@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-08-06T18:18:40.107Z",
+  "generatedAt": "2026-09-07T09:24:41.096Z",
   "results": [
     {
-      "name": "S01-claim-admin-can-write-settings",
+      "name": "S01-sensitive-pricing-client-write-denied",
       "status": "PASS",
-      "detail": "ok",
+      "detail": "trusted server path required",
       "suite": "phase2b"
     },
     {
@@ -22,7 +22,7 @@
     {
       "name": "S04-bootstrap-email-while-enabled",
       "status": "PASS",
-      "detail": "ok",
+      "detail": "email-only authority denied",
       "suite": "phase2b"
     },
     {
@@ -82,7 +82,7 @@
     {
       "name": "S14-blocked-cannot-bargain",
       "status": "PASS",
-      "detail": "DRIVER_BLOCKED",
+      "detail": "DRIVER_APPROVAL_REQUIRED",
       "suite": "phase2b"
     },
     {
@@ -106,25 +106,25 @@
     {
       "name": "S18-pin-lockout-after-max",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1786041219780}",
+      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1788773980692}",
       "suite": "phase2b"
     },
     {
       "name": "S19-pin-link-while-locked",
       "status": "PASS",
-      "detail": "PIN_LOCKED",
+      "detail": "wrong 12-digit code denied",
       "suite": "phase2b"
     },
     {
       "name": "S20-pin-link-success-no-pin-echo",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"vehicleId\":\"pin-v\",\"plate\":\"PIN1\",\"ownerId\":\"owner-2b\",\"status\":\"online\"}",
+      "detail": "{\"ok\":true,\"vehicleId\":\"nB30OoLQAl4ykJu8mZy0\",\"plate\":\"PIN1\",\"ownerId\":\"owner-2b\",\"status\":\"offline\",\"idempotent\":false}",
       "suite": "phase2b"
     },
     {
       "name": "S21-plaintext-pin-owner-display-ok",
       "status": "PASS",
-      "detail": "pinHash=true pin=none",
+      "detail": "legacyPin=none codeConsumed=true",
       "suite": "phase2b"
     },
     {

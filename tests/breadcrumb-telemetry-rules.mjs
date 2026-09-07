@@ -17,15 +17,13 @@ import { doc, getDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = path.join(ROOT, "tests", "breadcrumb-telemetry-rules-results.json");
-const PROJECT = "demo-swiftgo-phase1";
+import { BREADCRUMB_TEST_PROJECT, requireBreadcrumbEmulators, breadcrumbResultPath } from "./helpers/breadcrumb-test-safety.mjs";
+requireBreadcrumbEmulators();
+const OUT = breadcrumbResultPath("breadcrumb-telemetry-rules-results.json");
+const PROJECT = BREADCRUMB_TEST_PROJECT;
 const TELEMETRY_COLLECTION = "rideBreadcrumbTelemetry";
 const rulesText = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
 
-process.env.FIRESTORE_EMULATOR_HOST ||= "127.0.0.1:8080";
-process.env.FIREBASE_AUTH_EMULATOR_HOST ||= "127.0.0.1:9099";
-process.env.GCLOUD_PROJECT ||= PROJECT;
-process.env.GOOGLE_CLOUD_PROJECT ||= PROJECT;
 
 const results = [];
 function record(name, status, detail = "", category = "rules") {
@@ -75,7 +73,7 @@ async function main() {
   try {
     testEnv = await initializeTestEnvironment({
       projectId: PROJECT,
-      firestore: { rules: rulesText, host: "127.0.0.1", port: 8080 },
+      firestore: { rules: rulesText, host: "127.0.0.1", port: 8190 },
     });
   } catch (e) {
     record("rules-client-read-denied", "BLOCKED", String(e.message || e).slice(0, 160));
@@ -85,11 +83,14 @@ async function main() {
     return;
   }
 
-  const admin = require(
-    require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] })
+  const adminApp = require(
+    require.resolve("firebase-admin/app", { paths: [path.join(ROOT, "functions"), ROOT] })
   );
-  if (!admin.apps.length) admin.initializeApp({ projectId: PROJECT });
-  const adminDb = admin.firestore();
+  const adminFirestore = require(
+    require.resolve("firebase-admin/firestore", { paths: [path.join(ROOT, "functions"), ROOT] })
+  );
+  if (!adminApp.getApps().length) adminApp.initializeApp({ projectId: PROJECT });
+  const adminDb = adminFirestore.getFirestore();
 
   try {
     await testEnv.clearFirestore();

@@ -50,11 +50,10 @@ check(
 
 if (process.env.FIRESTORE_EMULATOR_HOST) {
   const functionRequire = createRequire(path.join(root, "functions", "package.json"));
-  const admin = functionRequire("firebase-admin");
-  const app = admin.apps.length
-    ? admin.app()
-    : admin.initializeApp({ projectId: "demo-swiftgo-phase1" });
-  const db = admin.firestore(app);
+  const adminApp = functionRequire("firebase-admin/app");
+  const adminFirestore = functionRequire("firebase-admin/firestore");
+  const app = adminApp.getApps()[0] || adminApp.initializeApp({ projectId: "demo-swiftgo-phase1" });
+  const db = adminFirestore.getFirestore(app);
   const rideId = "latency-rating-regression";
   const customerUid = "customer-latency-rating";
   const driverUid = "driver-latency-rating";

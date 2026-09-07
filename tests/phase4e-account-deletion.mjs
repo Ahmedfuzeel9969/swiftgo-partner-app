@@ -17,6 +17,11 @@ import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc } from "firebase/firestore";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 const RESULTS = path.join(ROOT, "tests", "phase4e-account-deletion-results.json");
@@ -35,12 +40,12 @@ function record(name, expected, actual, status, extra = {}) {
 const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
 let adminApp;
 try {
-  adminApp = admin.app();
+  adminApp = adminAppSdk.getApp();
 } catch {
-  adminApp = admin.initializeApp({ projectId: PROJECT });
+  adminApp = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const adminDb = admin.firestore(adminApp);
-const adminAuth = admin.auth(adminApp);
+const adminDb = adminFirestoreSdk.getFirestore(adminApp);
+const adminAuth = adminAuthSdk.getAuth(adminApp);
 
 async function main() {
   const email = `phase4e-del-${Date.now()}@example.com`;
@@ -75,12 +80,12 @@ async function main() {
       uid,
       amount: 100,
       type: "test_seed",
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: adminFirestoreSdk.FieldValue.serverTimestamp(),
     });
     await adminDb.collection("audit_logs").doc(`keep-audit-${uid}`).set({
       type: "seed",
       uid,
-      at: admin.firestore.FieldValue.serverTimestamp(),
+      at: adminFirestoreSdk.FieldValue.serverTimestamp(),
     });
 
     const fn = httpsCallable(functions, "requestAccountDeletion");

@@ -248,12 +248,12 @@ async function waitFor(pred, ms = 500) {
 
 // Peer media bridge export + UI markers
 {
-  const peer = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8");
+  const peer = fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8");
   record(
     "peer_session_has_media_bridge",
     peer.includes("createMediaBridge") && peer.includes("ensureLocalAudio") ? "PASS" : "FAIL"
   );
-  const custPeer = fs.readFileSync(path.join(ROOT, "customer-app/js/p2p-peer-session.mjs"), "utf8");
+  const custPeer = fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8");
   record(
     "customer_peer_media_bridge_synced",
     custPeer.includes("createMediaBridge") ? "PASS" : "FAIL"

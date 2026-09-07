@@ -232,7 +232,7 @@ async function cancelAssignedRideByDriver(db, { rideId, driverUid, cancelReason,
  * Claim-based Super Admin cancellation for eligible non-terminal rides.
  * Started rides (in_progress) are not silently cancelled — requires separate business decision.
  */
-async function cancelRideByAdmin(db, { rideId, adminUid, reason }) {
+async function cancelRideByAdmin(db, { rideId, adminUid, adminAuth, reason }) {
   if (!rideId || !adminUid) throw err("invalid-argument", "MISSING_FIELDS");
   const reasonText = String(reason || "").trim().slice(0, 300);
   if (!reasonText) throw err("invalid-argument", "REASON_REQUIRED");
@@ -240,6 +240,7 @@ async function cancelRideByAdmin(db, { rideId, adminUid, reason }) {
   const rideRef = db.collection("rides").doc(rideId);
 
   const outcome = await db.runTransaction(async (tx) => {
+    await require("./admin-claims").assertAdminInTransaction(tx, db, adminAuth);
     const rideSnap = await tx.get(rideRef);
     if (!rideSnap.exists) throw err("not-found", "RIDE_NOT_FOUND");
     const ride = rideSnap.data() || {};

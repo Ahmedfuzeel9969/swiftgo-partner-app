@@ -8,6 +8,11 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 
@@ -23,24 +28,45 @@ function record(name, status, detail) {
 const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
 let app;
 try {
-  app = admin.app();
+  app = adminAppSdk.getApp();
 } catch {
-  app = admin.initializeApp({ projectId: PROJECT });
+  app = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const db = admin.firestore(app);
+const db = adminFirestoreSdk.getFirestore(app);
 
 const {
   validateCandidateDriverLimit,
   selectCandidatesProgressive,
 } = require(path.join(ROOT, "functions", "matching.js"));
 const {
-  createCustomerBooking,
+  createCustomerBooking: createCustomerBookingTrusted,
   evaluateCustomerBookingGate,
   matchRideCandidates,
   submitRideOffer,
   finalizeAssignmentFromOffer,
   counterRideOffer,
 } = require(path.join(ROOT, "functions", "bargaining.js"));
+const { quoteCustomerBooking } = require(path.join(ROOT, "functions", "booking-pricing.js"));
+
+async function createCustomerBooking(database, options) {
+  if (options.ridePayload?.quoteId) {
+    return createCustomerBookingTrusted(database, options);
+  }
+  const input = options.ridePayload || {};
+  const quote = await quoteCustomerBooking(database, options.customerUid, input, {
+    routeProvider: async () => ({
+      distanceKm: Number(input.distanceKm || 1),
+      timeMins: Number(input.timeMins || 1),
+    }),
+  });
+  return createCustomerBookingTrusted(database, {
+    ...options,
+    ridePayload: {
+      quoteId: quote.quoteId,
+      acceptedFare: quote.farePkr,
+    },
+  });
+}
 
 function kmOffset(lat, lng, dKmNorth, dKmEast) {
   return {
@@ -55,6 +81,7 @@ async function seedPartner(id, extra = {}) {
   await db.doc(`partners/${id}`).set({
     role: "driver",
     accountStatus: "active",
+    driverApprovalStatus: "approved",
     walletBalance: 0,
     totalEarnings: 0,
     ...extra,
@@ -142,7 +169,7 @@ async function main() {
     distanceKm: 3,
     timeMins: 10,
     farePkr: 200,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
   const matched = await matchRideCandidates(db, {
     rideId: "match-ride",
@@ -346,7 +373,7 @@ async function main() {
     distanceKm: 3,
     timeMins: 10,
     farePkr: 250,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
   await matchRideCandidates(db, {
     rideId: "barg-ride",
@@ -414,7 +441,7 @@ async function main() {
     distanceKm: 3,
     timeMins: 10,
     farePkr: 250,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
   await seedPartner("race-d1");
   await seedPartner("race-d2");
@@ -482,7 +509,7 @@ async function main() {
     distanceKm: 2,
     timeMins: 8,
     farePkr: 180,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
   await matchRideCandidates(db, {
     rideId: "second-ride",
@@ -537,7 +564,7 @@ async function main() {
       distanceKm: 1,
       timeMins: 5,
       farePkr: 100,
-      createdAt: admin.firestore.Timestamp.now(),
+      createdAt: adminFirestoreSdk.Timestamp.now(),
     });
     await db.doc(`ride_candidates/${rid}_limit-d`).set({
       rideId: rid,
@@ -566,7 +593,7 @@ async function main() {
     distanceKm: 1,
     timeMins: 5,
     farePkr: 100,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
   await db.doc("ride_candidates/lim-ride-11_limit-d").set({
     rideId: "lim-ride-11",

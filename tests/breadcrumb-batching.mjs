@@ -30,16 +30,13 @@ import { createBreadcrumbQueue } from "../driver-app/js/breadcrumb-queue.mjs";
 import { createBreadcrumbCollector } from "../driver-app/js/breadcrumb-collector.mjs";
 import { createBreadcrumbUploader } from "../driver-app/js/breadcrumb-uploader.mjs";
 import { runIsolatedBreadcrumbTelemetryRules } from "./breadcrumb-isolated-rules-runner.mjs";
+import { BREADCRUMB_TEST_PROJECT, requireBreadcrumbEmulators, breadcrumbResultPath } from "./helpers/breadcrumb-test-safety.mjs";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = path.join(ROOT, "tests", "breadcrumb-batching-results.json");
-const PROJECT = "demo-swiftgo-phase1";
-
-process.env.FIRESTORE_EMULATOR_HOST ||= "127.0.0.1:8080";
-process.env.FIREBASE_AUTH_EMULATOR_HOST ||= "127.0.0.1:9099";
-process.env.GCLOUD_PROJECT ||= PROJECT;
-process.env.GOOGLE_CLOUD_PROJECT ||= PROJECT;
+requireBreadcrumbEmulators();
+const OUT = breadcrumbResultPath("breadcrumb-batching-results.json");
+const PROJECT = BREADCRUMB_TEST_PROJECT;
 
 const results = [];
 
@@ -58,7 +55,8 @@ const {
   TELEMETRY_COLLECTION,
 } = require(path.join(ROOT, "functions", "breadcrumb-batch.js"));
 
-const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
+const adminApp = require(require.resolve("firebase-admin/app", { paths: [path.join(ROOT, "functions"), ROOT] }));
+const adminFirestore = require(require.resolve("firebase-admin/firestore", { paths: [path.join(ROOT, "functions"), ROOT] }));
 
 function createFakeTimers() {
   const queue = [];
@@ -608,6 +606,7 @@ async function seedRideWorld(db, {
     vehicleId,
     userId: "customer_bc_1",
     status,
+    tripStartedAt: new Date(Date.now() - 120000),
     traveledDistanceKm,
     estimatedFare: 500,
     assignmentSessionToken,
@@ -1065,7 +1064,7 @@ async function distanceIsolationTests(db) {
   const schema = read("shared/js/breadcrumb-schema.mjs");
   record(
     "69-snapped-display-ignored",
-    schema.includes("display_snap") && schema.includes("display_or_animation_rejected")
+    schema.includes('startsWith("display")') && schema.includes("display_or_animation_rejected")
       ? "PASS"
       : "FAIL",
     "",
@@ -1119,9 +1118,10 @@ async function distanceIsolationTests(db) {
     "static"
   );
   record(
-    "74-partial-cancel-unchanged",
-    !read("functions/partial-fare.js").includes("denseChord") &&
-      !read("functions/bargaining.js").includes("denseChord")
+    "74-partial-cancel-uses-server-validated-distance-with-existing-formula",
+    read("functions/partial-fare.js").includes("baseFare + traveledKm * perKmRate") &&
+      read("functions/partial-fare.js").includes("Math.min(cancellationFare, cap)") &&
+      read("functions/bargaining.js").includes("resolveCancellationDistance")
       ? "PASS"
       : "FAIL",
     "",
@@ -1139,7 +1139,7 @@ async function distanceIsolationTests(db) {
     !batchFn.includes("driverEarnings") &&
       !batchFn.includes("walletBalance") &&
       !batchFn.includes("collection(\"wallets\")") &&
-      batchFn.includes("never write traveledDistanceKm")
+      !batchFn.includes("tx.update(rideRef") && batchFn.includes("tx.set(telemetryRef")
       ? "PASS"
       : "FAIL",
     "",
@@ -1197,7 +1197,7 @@ async function integrationPerfTests() {
   record(
     "82-firebase-fallback-coexists",
     driverApp.indexOf("breadcrumbCollector.ingestRawFix") <
-      driverApp.indexOf("checkpointPolicy.evaluateWriteGate")
+      driverApp.indexOf("checkpointPolicy.evaluateWriteGate", driverApp.indexOf("breadcrumbCollector.ingestRawFix"))
       ? "PASS"
       : "FAIL",
     "breadcrumb independent of write gate",
@@ -1364,8 +1364,8 @@ async function main() {
     record("rules-uncaught", "FAIL", String(err?.message || err).slice(0, 200), "rules");
   }
 
-  if (!admin.apps.length) admin.initializeApp({ projectId: PROJECT });
-  const db = admin.firestore();
+  if (!adminApp.getApps().length) adminApp.initializeApp({ projectId: PROJECT });
+  const db = adminFirestore.getFirestore();
 
   for (const [label, fn] of [
     ["emulator-auth", () => emulatorAuthSchemaTests(db)],

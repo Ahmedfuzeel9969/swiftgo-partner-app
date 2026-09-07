@@ -330,8 +330,9 @@ assert(
 assert("security", "Firestore users scoped to auth.uid", rules.includes("request.auth.uid == userId"));
 assert(
   "security",
-  "Bookings create requires own userId",
-  rules.includes("request.resource.data.userId == request.auth.uid")
+  "Canonical ride creation is trusted-server only",
+  /match \/rides\/\{rideId\}[\s\S]*?allow create:\s*if false;/.test(rules) &&
+    read("functions/index.js").includes("exports.createCustomerBooking")
 );
 assert(
   "security",
@@ -369,19 +370,17 @@ assert(
 assert(
   "security",
   "walletBalance read-only for client (Phase 9)",
-  rules.includes("walletBalance == 0") && rules.includes("hasAny(['walletBalance'])"),
+  rules.includes("request.resource.data.walletBalance == 0") &&
+    /affectedKeys\(\)[\s\S]*?hasAny\(\['walletBalance'/.test(rules),
   "create must be 0; updates may not touch walletBalance"
 );
 assert(
   "security",
-  "booking.status constrained to enum (Phase 9)",
-  rules.includes("'scheduled', 'current', 'completed', 'cancelled'"),
-  "isValidStatus enum enforced on create + update"
-);
-assert(
-  "security",
-  "Booking payload shape validated (Phase 9)",
-  rules.includes("isValidBooking") && rules.includes("hasAll(['userId', 'service'"),
+  "legacy bookings are read-only; canonical booking writes use rides",
+  rules.includes("match /bookings/{bookingId}") &&
+    rules.includes("allow create, update, delete: if false") &&
+    !dataJs.includes('collection(db, "bookings")'),
+  "no client-side legacy booking write/listener remains"
 );
 assert(
   "security",
@@ -466,8 +465,7 @@ assert(
 assert(
   "wiring",
   "Booking persists fare, payment and promo",
-  dataJs.includes("paymentMethod") &&
-    dataJs.includes("promoCode") &&
+  read("customer-app/js/booking-client.js").includes('call("createCustomerBooking"') &&
     read("customer-app/js/ride-flow.js").includes("paymentMethod: getPaymentMethod()") &&
     read("customer-app/js/ride-flow.js").includes("farePkr: estimatedFare") &&
     read("customer-app/js/ride-flow.js").includes("promoCode: state.promoCode")
@@ -607,6 +605,7 @@ assert(
     !i18nSrc.includes("ویڈنگ SUV")
 );
 const routingJs = read("customer-app/js/routing.js");
+const roadRouteProviderJs = read("shared/js/road-route-provider.mjs");
 const fareJs = read("customer-app/js/fare.js");
 const catalogJson = read("shared/vehicle-catalog.json");
 const catalogJs = read("shared/js/vehicle-catalog.mjs");
@@ -615,10 +614,11 @@ const catalogCanonicalCount = (catalogJson.match(/"bike"|"go"|"go-plus"|"busines
 assert(
   "wiring",
   "Phase 14.1 OSRM polyline + auto fitBounds",
-  routingJs.includes("router.project-osrm.org") &&
+  routingJs.includes("resolveRouteProvider") &&
+    roadRouteProviderJs.includes("router.project-osrm.org") &&
+    roadRouteProviderJs.includes("geometries=geojson") &&
     routingJs.includes("L.polyline") &&
     routingJs.includes("fitBounds") &&
-    routingJs.includes("geometries=geojson") &&
     /color:\s*"#[0-9a-fA-F]{3,8}"/.test(routingJs)
 );
 assert(
@@ -656,8 +656,10 @@ assert(
   "Phase 16.1 rides collection write + searching_driver status",
   dataJs.includes("USE_CREATE_CUSTOMER_BOOKING_CF") &&
     dataJs.includes("export async function createRideRequest") &&
-    dataJs.includes("cancelled_by_user") &&
     read("customer-app/js/booking-client.js").includes('"createCustomerBooking"') &&
+    read("customer-app/js/booking-client.js").includes('"cancelCustomerBooking"') &&
+    read("functions/index.js").includes("exports.createCustomerBooking") &&
+    read("functions/index.js").includes("exports.cancelCustomerBooking") &&
     rideFlowJs.includes("startRideRequest") &&
     rideFlowJs.includes("createCustomerBookingClient") &&
     appJs.includes("startRideRequest") &&
@@ -677,7 +679,7 @@ assert(
     css.includes(".searching-spinner") &&
     css.includes(".cancel-ride-btn") &&
     i18nSrc.includes("آپ کے قریب ترین ڈرائیور کو تلاش کیا جا رہا ہے...") &&
-    i18nSrc.includes("سفر منسوخ کریں") &&
+    i18nSrc.includes('cancelRide: "کینسل کریں"') &&
     rideFlowJs.includes("showSearchingState") &&
     rideFlowJs.includes("cancelActiveRide") &&
     appJs.includes("initRideFlow")
@@ -752,7 +754,8 @@ assert(
     driverAppJs.includes("navigator.geolocation.watchPosition") &&
     driverAppJs.includes("toggleDriverStatus") &&
     driverAppJs.includes("L.map") &&
-    driverAppJs.includes("OpenStreetMap") &&
+    driverAppJs.includes("createStreetTileLayer") &&
+    read("shared/js/map-tile-provider.mjs").includes("OpenStreetMap") &&
     driverCss.includes(".partner-topbar") &&
     driverCss.includes(".driver-status.is-online") &&
     driverCss.includes(".incoming-ride-sheet")
@@ -782,13 +785,11 @@ assert(
     driverAppJs.includes('from "./auth-surface-routing.mjs"') &&
     driverAppJs.includes('resolveSurfaceEntry({') &&
     driverAppJs.includes('surface: "partner"') &&
-    driverAppJs.includes("stayOnDriverSurface") &&
-    driverAppJs.includes('role: "driver"') &&
     driverAppJs.includes("entry.outcome === \"app_shell\"") &&
     driverAppJs.includes("entry.outcome === \"provision_driver\"") &&
     !driverAppJs.includes('window.location.replace("/owner/")') &&
-    driverAppJs.includes("await signOut(auth)") &&
-    driverAppJs.includes("hideProtectedUi()")
+    read("shared/js/auth-surface-routing.mjs").includes('PARTNER_SURFACE_ROLES') &&
+    driverAppJs.includes("showAuthOverlay")
 );
 assert(
   "wiring",

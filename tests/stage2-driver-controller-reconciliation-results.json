@@ -1,8 +1,8 @@
 {
   "stage": 2,
   "area": "driver-controller-reconciliation",
-  "generatedAt": "2026-08-20T12:01:08.931Z",
-  "pass": 12,
+  "generatedAt": "2026-08-27T10:35:47.112Z",
+  "pass": 13,
   "fail": 0,
   "results": [
     {
@@ -64,6 +64,11 @@
       "name": "server-assignmentVersion-synced-after-offer",
       "status": "PASS",
       "detail": "sessionAv=880088"
+    },
+    {
+      "name": "driver-applies-only-answer-for-current-offer",
+      "status": "PASS",
+      "detail": "staleApplied=false remote=v=0\r\no=- current-answer\r\n"
     }
   ]
 }

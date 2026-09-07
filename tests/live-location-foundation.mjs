@@ -47,6 +47,11 @@ import {
 } from "../customer-app/js/live-location-render.mjs";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "tests", "live-location-foundation-results.json");
 const PROJECT = "demo-swiftgo-phase1";
@@ -1230,13 +1235,13 @@ async function emulatorTests() {
   }));
   let app;
   try {
-    app = admin.app();
+    app = adminAppSdk.getApp();
   } catch {
-    app = admin.initializeApp({ projectId: PROJECT });
+    app = adminAppSdk.initializeApp({ projectId: PROJECT });
   }
-  const db = admin.firestore(app);
-  const Ts = admin.firestore.Timestamp;
-  const AdminFieldValue = admin.firestore.FieldValue;
+  const db = adminFirestoreSdk.getFirestore(app);
+  const Ts = adminFirestoreSdk.Timestamp;
+  const AdminFieldValue = adminFirestoreSdk.FieldValue;
 
   /** Align vehicles.locationUpdatedAt with fix observedAt (trust-anchor recency model). */
   function withTrustedVehicleLoc(vehicleBase, location) {
@@ -1712,12 +1717,12 @@ async function rulesTests() {
   }));
   let adminApp;
   try {
-    adminApp = admin.app();
+    adminApp = adminAppSdk.getApp();
   } catch {
-    adminApp = admin.initializeApp({ projectId: PROJECT });
+    adminApp = adminAppSdk.initializeApp({ projectId: PROJECT });
   }
-  const adminDb = admin.firestore(adminApp);
-  const AdminTs = admin.firestore.Timestamp;
+  const adminDb = adminFirestoreSdk.getFirestore(adminApp);
+  const AdminTs = adminFirestoreSdk.Timestamp;
 
   await testEnv.clearFirestore();
 

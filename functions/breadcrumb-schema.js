@@ -23,6 +23,7 @@ const BREADCRUMB_MAX_FUTURE_SKEW_MS = 30_000;
 const BREADCRUMB_MAX_ACCURACY_M = 100;
 const BREADCRUMB_MIN_SEGMENT_M = 3;
 const BREADCRUMB_MAX_SPEED_MPS = 55;
+const BREADCRUMB_MAX_CONTINUOUS_GAP_MS = 15_000;
 const BREADCRUMB_RETRY_BASE_MS = 5_000;
 const BREADCRUMB_RETRY_MAX_MS = 120_000;
 const BREADCRUMB_FINAL_FLUSH_TIMEOUT_MS = 4_000;
@@ -112,18 +113,19 @@ function validateBreadcrumbPoint(raw, { nowMs = Date.now(), previous = null } = 
   if (!raw || typeof raw !== "object") {
     return { ok: false, reason: "invalid_point" };
   }
-  if (raw.source === "display_snap" || raw.displayMode === "snap" || raw.source === "animation") {
+  if (String(raw.source || "").startsWith("display") || raw.displayMode != null ||
+      ["animation", "prediction"].includes(raw.source)) {
     return { ok: false, reason: "display_or_animation_rejected" };
   }
   if (!isValidLatLng(raw.lat, raw.lng)) {
     return { ok: false, reason: "invalid_coords" };
   }
-  const sequence = Math.floor(Number(raw.sequence));
-  if (!Number.isFinite(sequence) || sequence < 1) {
+  const sequence = raw.sequence;
+  if (!Number.isSafeInteger(sequence) || sequence < 1) {
     return { ok: false, reason: "invalid_sequence" };
   }
-  const observedAt = Number(raw.observedAt);
-  if (!Number.isFinite(observedAt) || observedAt <= 0) {
+  const observedAt = raw.observedAt;
+  if (!Number.isSafeInteger(observedAt) || observedAt <= 0) {
     return { ok: false, reason: "invalid_observedAt" };
   }
   if (observedAt < nowMs - BREADCRUMB_MAX_POINT_AGE_MS) {
@@ -133,13 +135,13 @@ function validateBreadcrumbPoint(raw, { nowMs = Date.now(), previous = null } = 
     return { ok: false, reason: "future_observedAt" };
   }
   const accuracyM =
-    raw.accuracyM == null ? null : Number(raw.accuracyM);
+    raw.accuracyM == null ? null : raw.accuracyM;
   if (accuracyM != null && (!Number.isFinite(accuracyM) || accuracyM < 0 || accuracyM > BREADCRUMB_MAX_ACCURACY_M)) {
     return { ok: false, reason: "accuracy_out_of_range" };
   }
   if (previous) {
     if (sequence <= previous.sequence) return { ok: false, reason: "sequence_not_increasing" };
-    if (observedAt < previous.observedAt) return { ok: false, reason: "timestamp_not_monotonic" };
+    if (observedAt <= previous.observedAt) return { ok: false, reason: "timestamp_not_monotonic" };
   }
   const speedMps = raw.speedMps == null ? null : Number(raw.speedMps);
   const headingDeg = raw.headingDeg == null ? null : Number(raw.headingDeg);
@@ -166,7 +168,7 @@ function validateBreadcrumbBatch(batch, { nowMs = Date.now() } = {}) {
   if (!batch || typeof batch !== "object") {
     return { ok: false, reason: "invalid_batch" };
   }
-  const protocolVersion = Math.floor(Number(batch.protocolVersion));
+  const protocolVersion = batch.protocolVersion;
   if (protocolVersion !== BREADCRUMB_PROTOCOL_VERSION) {
     return { ok: false, reason: "unsupported_protocol" };
   }
@@ -175,8 +177,8 @@ function validateBreadcrumbBatch(batch, { nowMs = Date.now() } = {}) {
   const driverId = String(batch.rideBinding?.driverId || batch.driverId || "").trim();
   const trackingSessionId = String(batch.trackingSessionId || "").trim();
   const assignmentSessionToken = String(batch.assignmentSessionToken || "").trim();
-  const assignmentVersion = Math.floor(Number(batch.assignmentVersion) || 0);
-  const batchSequence = Math.floor(Number(batch.batchSequence) || 0);
+  const assignmentVersion = batch.assignmentVersion;
+  const batchSequence = batch.batchSequence;
   if (!rideId || rideId.length > 128) return { ok: false, reason: "invalid_ride" };
   if (!vehicleId || vehicleId.length > 128) return { ok: false, reason: "invalid_vehicle" };
   if (!driverId || driverId.length > 128) return { ok: false, reason: "invalid_driver" };
@@ -189,8 +191,8 @@ function validateBreadcrumbBatch(batch, { nowMs = Date.now() } = {}) {
   if (!isValidAssignmentSessionToken(assignmentSessionToken)) {
     return { ok: false, reason: "invalid_assignment_session_token" };
   }
-  if (assignmentVersion < 1) return { ok: false, reason: "invalid_assignment_version" };
-  if (batchSequence < 1) return { ok: false, reason: "invalid_batch_sequence" };
+  if (!Number.isSafeInteger(assignmentVersion) || assignmentVersion < 1) return { ok: false, reason: "invalid_assignment_version" };
+  if (!Number.isSafeInteger(batchSequence) || batchSequence < 1) return { ok: false, reason: "invalid_batch_sequence" };
 
   const pointsIn = Array.isArray(batch.points) ? batch.points : null;
   if (!pointsIn || !pointsIn.length) return { ok: false, reason: "empty_points" };
@@ -254,45 +256,43 @@ function validateBreadcrumbBatch(batch, { nowMs = Date.now() } = {}) {
  */
 function accumulateDenseChordMeters(points, {
   previousAnchor = null,
+  distanceAnchor = previousAnchor,
   gapBefore = false,
   minSegmentM = BREADCRUMB_MIN_SEGMENT_M,
   maxSpeedMps = BREADCRUMB_MAX_SPEED_MPS,
+  maxGapMs = BREADCRUMB_MAX_CONTINUOUS_GAP_MS,
 } = {}) {
   let distanceM = 0;
   let accepted = 0;
   let rejected = 0;
-  let anchor = gapBefore ? null : previousAnchor;
-  let lastAccepted = previousAnchor;
+  let gaps = 0;
+  let cursor = gapBefore ? null : previousAnchor;
+  let anchor = gapBefore ? null : distanceAnchor;
+  let lastAccepted = cursor;
 
   for (const p of points) {
-    if (!anchor) {
-      anchor = p;
+    if (!cursor) {
+      cursor = anchor = p;
       lastAccepted = p;
       accepted += 1;
       continue;
     }
-    const dist = haversineMeters(anchor, p);
-    const dt = Math.max(0, (Number(p.observedAt) || 0) - (Number(anchor.observedAt) || 0)) / 1000;
-    if (!Number.isFinite(dist)) {
+    const step = haversineMeters(cursor, p), dt = p.observedAt - cursor.observedAt;
+    if (!Number.isFinite(step) || dt <= 0 || (dt <= maxGapMs && step / (dt / 1000) > maxSpeedMps)) {
       rejected += 1;
+      gaps++;
+      // An impossible point is never an anchor for a later billable segment.
+      cursor = anchor = null;
       continue;
     }
-    if (dist < minSegmentM) {
-      // Stationary jitter — keep time advancing via lastAccepted but no distance.
-      lastAccepted = p;
-      accepted += 1;
-      continue;
-    }
-    const speed = dt > 0 ? dist / dt : Infinity;
-    if (speed > maxSpeedMps) {
-      rejected += 1;
-      // Do not bridge — reset anchor after impossible jump.
+    if (dt > maxGapMs) {
+      gaps++;
       anchor = p;
-      lastAccepted = p;
-      continue;
+    } else {
+      const dist = haversineMeters(anchor || cursor, p);
+      if (dist >= minSegmentM) { distanceM += dist; anchor = p; }
     }
-    distanceM += dist;
-    anchor = p;
+    cursor = p;
     lastAccepted = p;
     accepted += 1;
   }
@@ -302,6 +302,8 @@ function accumulateDenseChordMeters(points, {
     acceptedPointCount: accepted,
     rejectedPointCount: rejected,
     lastAccepted,
+    distanceAnchor: anchor,
+    gapCount: gaps,
   };
 }
 
@@ -354,6 +356,7 @@ module.exports = {
   BREADCRUMB_MAX_ACCURACY_M,
   BREADCRUMB_MIN_SEGMENT_M,
   BREADCRUMB_MAX_SPEED_MPS,
+  BREADCRUMB_MAX_CONTINUOUS_GAP_MS,
   BREADCRUMB_RETRY_BASE_MS,
   BREADCRUMB_RETRY_MAX_MS,
   BREADCRUMB_FINAL_FLUSH_TIMEOUT_MS,

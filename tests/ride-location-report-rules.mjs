@@ -78,9 +78,10 @@ async function main() {
     return;
   }
 
-  const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
-  if (!admin.apps.length) admin.initializeApp({ projectId: PROJECT });
-  const adminDb = admin.firestore();
+  const adminApp = require(require.resolve("firebase-admin/app", { paths: [path.join(ROOT, "functions"), ROOT] }));
+  const adminFirestore = require(require.resolve("firebase-admin/firestore", { paths: [path.join(ROOT, "functions"), ROOT] }));
+  if (!adminApp.getApps().length) adminApp.initializeApp({ projectId: PROJECT });
+  const adminDb = adminFirestore.getFirestore();
 
   try {
     await testEnv.clearFirestore();

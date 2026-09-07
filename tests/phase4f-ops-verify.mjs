@@ -15,6 +15,11 @@ import {
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 const RESULTS = path.join(ROOT, "tests", "phase4f-ops-results.json");
@@ -33,11 +38,11 @@ function record(name, expected, actual, status, extra = {}) {
 const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
 let adminApp;
 try {
-  adminApp = admin.app();
+  adminApp = adminAppSdk.getApp();
 } catch {
-  adminApp = admin.initializeApp({ projectId: PROJECT });
+  adminApp = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const adminDb = admin.firestore(adminApp);
+const adminDb = adminFirestoreSdk.getFirestore(adminApp);
 const { BOOTSTRAP_ADMIN_EMAIL } = require(path.join(ROOT, "functions", "admin-claims.js"));
 
 async function main() {
@@ -62,13 +67,13 @@ async function main() {
     driverId: "d-ok",
     geoCell: "24.86_67.00",
     location: { lat: 24.86, lng: 67.0 },
-    locationUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    locationUpdatedAt: adminFirestoreSdk.FieldValue.serverTimestamp(),
   });
   await adminDb.collection("vehicles").doc("cov-miss").set({
     status: "online",
     driverId: "d-miss",
     location: { lat: 24.87, lng: 67.01 },
-    locationUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    locationUpdatedAt: adminFirestoreSdk.FieldValue.serverTimestamp(),
   });
 
   const password = "Phase4f-Ops-1!";
@@ -89,7 +94,7 @@ async function main() {
     } catch {
       adminUser = await signInWithEmailAndPassword(auth, BOOTSTRAP_ADMIN_EMAIL, password);
     }
-    await admin.auth().updateUser(adminUser.user.uid, { emailVerified: true });
+    await adminAuthSdk.getAuth().updateUser(adminUser.user.uid, { emailVerified: true });
     // refresh token after verify
     await signInWithEmailAndPassword(auth, BOOTSTRAP_ADMIN_EMAIL, password);
     await httpsCallable(functions, "bootstrapAdminClaim")({});

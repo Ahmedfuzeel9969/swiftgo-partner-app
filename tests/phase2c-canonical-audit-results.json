@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T18:18:48.776Z",
+  "generatedAt": "2026-09-07T09:25:03.384Z",
   "results": [
     {
       "name": "A01-no-client-plaintext-pin-query",
@@ -36,16 +36,16 @@
     {
       "name": "A05-admin-recharge-wallet-path-documented",
       "expected": "Super Admin recharge may increment partners wallet (allowed)",
-      "actual": "present (admin-only)",
+      "actual": "absent",
       "status": "PASS",
       "detail": "Not a violation; Rules require isSuperAdmin",
       "suite": "phase2c-audit"
     },
     {
       "name": "A06-customer-creates-rides",
-      "expected": "createRideRequest writes rides collection",
-      "actual": "missing",
-      "status": "FAIL",
+      "expected": "trusted createCustomerBooking callable creates canonical rides",
+      "actual": "trusted callable",
+      "status": "PASS",
       "detail": "",
       "suite": "phase2c-audit"
     },
@@ -59,8 +59,8 @@
     },
     {
       "name": "A08-rules-claim-admin-primary",
-      "expected": "isClaimAdmin used in isSuperAdmin",
-      "actual": "claim+bootstrap flag",
+      "expected": "isSuperAdmin validates versioned claims against admin_registry",
+      "actual": "versioned registry",
       "status": "PASS",
       "detail": "",
       "suite": "phase2c-audit"
@@ -98,8 +98,8 @@
       "suite": "phase2c-audit"
     }
   ],
-  "passed": 11,
-  "failed": 1,
+  "passed": 12,
+  "failed": 0,
   "blocked": 0,
   "total": 12
 }

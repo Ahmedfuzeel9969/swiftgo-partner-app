@@ -7,7 +7,9 @@
 "use strict";
 
 const crypto = require("crypto");
+const { requireApprovedDriver, driverApproved } = require("./security-policy");
 const { FieldValue } = require("firebase-admin/firestore");
+const { resolveLocationDeliveryPolicy } = require("./location-delivery-policy");
 const {
   LOCATION_DIAG,
   evaluateFixAgainstPrevious,
@@ -202,22 +204,23 @@ function resolveViewerLeaseFromPresence(presenceData, nowMs) {
 
 /**
  * Server-authoritative cadence when native path is active (P2P assumed unavailable).
- * Active rides always use responsive ~4s — presence lease does not slow fallback.
+ * Active rides use the current shared admin write interval; presence cannot slow fallback.
  */
-function resolveBackgroundUploadIntervalMs({ rideStatus, viewerLease }) {
+function resolveBackgroundUploadIntervalMs({ rideStatus, viewerLease, settings = {} }) {
   void viewerLease;
+  const delivery = resolveLocationDeliveryPolicy(settings);
   const status = String(rideStatus || "");
   if (TRIP_STATUSES.includes(status) || APPROACH_STATUSES.includes(status)) {
     return {
-      intervalMs: RESPONSIVE_INTERVAL_MS,
+      intervalMs: delivery.firebaseWriteIntervalMs,
       policy: "RESPONSIVE_FIREBASE",
-      hardInterval: false,
+      hardInterval: true,
     };
   }
   return {
-    intervalMs: RESPONSIVE_INTERVAL_MS,
+    intervalMs: delivery.firebaseWriteIntervalMs,
     policy: "RESPONSIVE_FIREBASE",
-    hardInterval: false,
+    hardInterval: true,
   };
 }
 
@@ -277,10 +280,12 @@ async function issueBackgroundLocationCredential(db, input = {}) {
     throw err;
   }
 
-  const [rideSnap, vehicleSnap] = await Promise.all([
+  const [rideSnap, vehicleSnap, partnerSnap] = await Promise.all([
     db.collection("rides").doc(rideId).get(),
     db.collection("vehicles").doc(vehicleId).get(),
+    db.collection("partners").doc(driverUid).get(),
   ]);
+  requireApprovedDriver(partnerSnap.data());
   if (!rideSnap.exists) {
     const err = new Error("RIDE_NOT_FOUND");
     err.code = "not-found";
@@ -308,12 +313,8 @@ async function issueBackgroundLocationCredential(db, input = {}) {
     err.code = "permission-denied";
     throw err;
   }
-  if (String(vehicle.currentDriverId || vehicle.driverId || "") === driverUid) {
-    /* ok */
-  } else if (String(vehicle.linkedDriverId || "") === driverUid) {
-    /* ok alternate field */
-  } else {
-    // Soft check — assignment on ride is authoritative; vehicle link may lag.
+  if (vehicle.driverId !== driverUid) {
+    const err = new Error("VEHICLE_NOT_LINKED"); err.code = "permission-denied"; throw err;
   }
   const assignmentSessionToken = String(
     input.assignmentSessionToken || ride.assignmentSessionToken || ""
@@ -466,15 +467,27 @@ async function ingestBackgroundDriverLocation(db, input = {}) {
     }
 
     // Native HTTPS ingest does not read rideViewerPresence. Authorization uses the
-    // HMAC credential + ride/vehicle binding above; cadence uses responsive 4s policy
-    // regardless of viewer lease (client checkpoint policy owns lease semantics).
+    // HMAC credential + ride/vehicle binding above; cadence uses current admin settings.
     const viewerLease = "UNKNOWN";
+    const settingsSnap = await tx.get(db.doc("settings/dispatch"));
+    const settings = settingsSnap.exists ? settingsSnap.data() : {};
+    const delivery = resolveLocationDeliveryPolicy(settings);
+    if (!delivery.firebaseFallbackEnabled) return { ok: true, accepted: false, reason: "FIREBASE_DISABLED" };
+    const assignedMs = timestampToMs(ride.assignedAt);
+    if (assignedMs && nowMs - assignedMs < delivery.p2pFirstGraceMs) {
+      return { ok: true, accepted: false, reason: "P2P_FIRST_GRACE" };
+    }
 
     const vehicleSnap = await tx.get(vehicleRef);
     if (!vehicleSnap.exists) {
       return { ok: false, accepted: false, reason: "VEHICLE_NOT_FOUND" };
     }
     const vehicle = vehicleSnap.data() || {};
+    const driverSnap = await tx.get(db.doc(`partners/${claims.driverUid}`));
+    await require("./account-deletion-workflow").assertAccountAccessInTransaction(tx, db, claims.driverUid);
+    if (!driverApproved(driverSnap.data()) || vehicle.driverId !== claims.driverUid) {
+      return { ok: false, accepted: false, reason: "DRIVER_NOT_AUTHORIZED" };
+    }
     const vehicleSessionId = claims.trackingSessionId;
     const prevLoc = vehicle.location || null;
     const previous =
@@ -507,6 +520,7 @@ async function ingestBackgroundDriverLocation(db, input = {}) {
     const cadence = resolveBackgroundUploadIntervalMs({
       rideStatus: ride.status,
       viewerLease,
+      settings,
     });
     const lastWriteMs = timestampToMs(vehicle.locationUpdatedAt) || 0;
     let movedEnough = true;
@@ -522,7 +536,8 @@ async function ingestBackgroundDriverLocation(db, input = {}) {
       movedEnough = meters >= 25;
     }
     const writeGate = shouldAllowCadenceWrite({
-      force: Boolean(input.force),
+      // A handset-provided force flag cannot bypass the super-admin write budget.
+      force: false,
       nowMs,
       lastWriteMs,
       intervalMs: cadence.intervalMs,

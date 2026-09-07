@@ -8,6 +8,11 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 
@@ -26,12 +31,12 @@ const admin = require(
 );
 let app;
 try {
-  app = admin.app();
+  app = adminAppSdk.getApp();
 } catch {
-  app = admin.initializeApp({ projectId: PROJECT });
+  app = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const db = admin.firestore(app);
-const { Timestamp, FieldValue } = admin.firestore;
+const db = adminFirestoreSdk.getFirestore(app);
+const { Timestamp, FieldValue } = adminFirestoreSdk;
 
 const {
   createCustomerBooking,

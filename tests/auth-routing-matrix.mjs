@@ -26,6 +26,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const RESULTS_PATH = path.join(ROOT, "tests", "auth-routing-matrix-results.json");
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const USE_EMULATOR = process.argv.includes("--emulator");
 
 process.env.FIRESTORE_EMULATOR_HOST ||= "127.0.0.1:8080";
@@ -243,12 +248,12 @@ async function runEmulatorScenarios() {
   const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
   let app;
   try {
-    app = admin.app();
+    app = adminAppSdk.getApp();
   } catch {
-    app = admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
+    app = adminAppSdk.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
   }
-  const auth = admin.auth(app);
-  const db = admin.firestore(app);
+  const auth = adminAuthSdk.getAuth(app);
+  const db = adminFirestoreSdk.getFirestore(app);
 
   async function makeUser(uid, email, claims = {}) {
     try {

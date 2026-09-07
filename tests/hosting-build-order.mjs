@@ -13,8 +13,7 @@ import {
   SHARED_JS_MODULES,
 } from "../tools/hosting-build-config.mjs";
 import {
-  WRAPPER_APP_JS_DIRS,
-  WRAPPER_MODULE_NAMES,
+  listWrapperTargets,
 } from "../tools/sync-shared-js-wrappers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -62,9 +61,7 @@ function git(args) {
 }
 
 function wrapperWatchPaths() {
-  return WRAPPER_APP_JS_DIRS.flatMap((dir) =>
-    WRAPPER_MODULE_NAMES.map((name) => `${dir}/${name}`)
-  );
+  return listWrapperTargets().map(({ app, name }) => `${app}/${name}`);
 }
 
 function wrapperDiffSnapshot() {
@@ -187,11 +184,11 @@ function verifyBuiltAdminCanonicalModules() {
     "canonical export present in built admin bundle"
   );
 
-  const staleSource = read("super-admin-panel/js/location-reporting-config.mjs");
+  const sourceWrapper = read("super-admin-panel/js/location-reporting-config.mjs");
   record(
-    "regression-stale-admin-source-lacks-export",
-    !staleSource.includes("LOCATION_REPORTING_UPLOAD_MODES_IMPLEMENTED"),
-    "proves overlay fixes stale super-admin-panel copy"
+    "admin-source-uses-canonical-wrapper",
+    sourceWrapper.includes('export * from "../../shared/js/location-reporting-config.mjs"'),
+    "stale super-admin implementation removed"
   );
 }
 

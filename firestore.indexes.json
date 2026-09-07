@@ -1,5 +1,30 @@
 {
   "indexes": [
+    {
+      "collectionGroup": "offers",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "driverId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
+    },
+    { "collectionGroup": "bookings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "userId", "order": "ASCENDING" }, { "fieldPath": "status", "order": "ASCENDING" }] },
+    { "collectionGroup": "rides", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "userId", "order": "ASCENDING" }, { "fieldPath": "legalHold", "order": "ASCENDING" }] },
+    { "collectionGroup": "rides", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "driverId", "order": "ASCENDING" }, { "fieldPath": "legalHold", "order": "ASCENDING" }] },
+    { "collectionGroup": "rides", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "ownerId", "order": "ASCENDING" }, { "fieldPath": "legalHold", "order": "ASCENDING" }] },
+    { "collectionGroup": "ledger_transactions", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "customerId", "order": "ASCENDING" }, { "fieldPath": "legalHold", "order": "ASCENDING" }] },
+    { "collectionGroup": "ledger_transactions", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "driverId", "order": "ASCENDING" }, { "fieldPath": "legalHold", "order": "ASCENDING" }] },
+    { "collectionGroup": "ledger_transactions", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "ownerId", "order": "ASCENDING" }, { "fieldPath": "legalHold", "order": "ASCENDING" }] },
+    { "collectionGroup": "rechargeRequests", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "driverId", "order": "ASCENDING" }, { "fieldPath": "legalHold", "order": "ASCENDING" }] },
+    {
+      "collectionGroup": "rides", "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "ownerId", "order": "ASCENDING" }, { "fieldPath": "status", "order": "ASCENDING" }]
+    },
+    {
+      "collectionGroup": "ride_offers", "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "offerExpiresAt", "order": "ASCENDING" }]
+    },
       {
       "collectionGroup": "rides",
       "queryScope": "COLLECTION",
@@ -214,5 +239,12 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    { "collectionGroup": "customerLocations", "fieldPath": "expiresAt", "indexes": [
+      { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }, { "order": "ASCENDING", "queryScope": "COLLECTION" }
+    ] },
+    { "collectionGroup": "peerCredentialIssues", "fieldPath": "expiresAt", "indexes": [
+      { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }, { "order": "ASCENDING", "queryScope": "COLLECTION" }
+    ] }
+  ]
 }

@@ -319,7 +319,7 @@ async function gap05_oldSessionLocOnNewRide() {
 }
 
 function gap06_ackTrust() {
-  const src = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8");
+  const src = fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8");
   const hasSentSeq = src.includes("sentSequences");
   record(
     "06",
@@ -398,9 +398,9 @@ async function gap08_cadenceBurst() {
     `sent=${sent.length} fixesSent=${session.getCounters().fixesSent} intervalMs=${P2P_SEND_INTERVAL_MS}`
   );
   const hasReturn = /lastValidFixAt[\s\S]{0,120}return/.test(
-    fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8").slice(
-      fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8").indexOf("function flushPendingLoc"),
-      fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8").indexOf("function flushPendingLoc") + 400
+    fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8").slice(
+      fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8").indexOf("function flushPendingLoc"),
+      fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8").indexOf("function flushPendingLoc") + 400
     )
   );
   record(
@@ -440,7 +440,7 @@ async function gap09_sendFailureLoss() {
 }
 
 function gap10_channelOpenTimeout() {
-  const d34 = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8");
+  const d34 = fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8");
   const main = execSync("git show origin/main:driver-app/js/p2p-peer-session.mjs", {
     cwd: ROOT,
     encoding: "utf8",

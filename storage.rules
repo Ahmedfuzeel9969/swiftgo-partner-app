@@ -2,35 +2,47 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null && (
+        !firestore.exists(/databases/(default)/documents/account_deletion_requests/$(request.auth.uid))
+        || (firestore.get(/databases/(default)/documents/account_deletion_requests/$(request.auth.uid)).data.get('accessBlocked', false) != true
+          && !(firestore.get(/databases/(default)/documents/account_deletion_requests/$(request.auth.uid)).data.get('status', '')
+            in ['pending', 'pending_review', 'reviewed', 'erasure_in_progress', 'completed'])));
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Phase 4F: claim admin may review KYC; bootstrap email is NOT mirrored here
-    // (Storage cannot read Firestore settings). Claim transition must complete first.
-    function isClaimAdmin() {
+    function isSuperAdmin() {
       return isSignedIn()
-        && request.auth.token.keys().hasAll(['admin'])
-        && request.auth.token.admin == true;
+        && request.auth.token.get('admin', false) == true
+        && request.auth.token.get('adminRole', '') == 'super_admin'
+        && request.auth.token.get('adminVersion', null) is int
+        && firestore.get(/databases/(default)/documents/admin_registry/$(request.auth.uid)).data.admin == true
+        && firestore.get(/databases/(default)/documents/admin_registry/$(request.auth.uid)).data.role == 'super_admin'
+        && firestore.get(/databases/(default)/documents/admin_registry/$(request.auth.uid)).data.version == request.auth.token.adminVersion;
     }
 
     function isImageUnder5mb() {
-      return request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+      return request.resource.size > 0 && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+    function uploadTicketAllows(userId, fileName) {
+      let ticket = firestore.get(/databases/(default)/documents/driver_upload_tickets/$(userId)).data;
+      return ticket.used == false && ticket.expiresAt > request.time
+        && fileName in [ticket.ticketId + '_cnicFront', ticket.ticketId + '_cnicBack', ticket.ticketId + '_license', ticket.ticketId + '_selfie'];
     }
 
     // Driver onboarding / KYC: driver_applications/{uid}/{file}
-    // - subject (owner): read / create / update / delete own images
-    // - claim admin: read only (review)
+    // - subject: authenticated reads and four ticketed, create-only uploads
+    // - versioned super admin: authenticated reads only (review)
     // - everyone else: deny
     // - list: not granted (no prefix listing for unrelated users)
     match /driver_applications/{userId}/{fileName} {
-      allow read: if isOwner(userId) || isClaimAdmin();
-      allow create, update: if isOwner(userId) && isImageUnder5mb();
-      allow delete: if isOwner(userId);
+      allow get: if isOwner(userId) || isSuperAdmin();
+      allow list: if false;
+      allow create: if resource == null && isOwner(userId) && isImageUnder5mb() && uploadTicketAllows(userId, fileName);
+      allow update, delete: if false; // Submitted evidence cannot be swapped or removed.
     }
 
     // Deny all other paths (including list/get/write)

@@ -14,6 +14,11 @@ import {
 import { doc, updateDoc, Timestamp, serverTimestamp } from "firebase/firestore";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 const rules = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
@@ -26,12 +31,12 @@ if (!process.env.FIRESTORE_EMULATOR_HOST) {
 const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
 let adminApp;
 try {
-  adminApp = admin.app();
+  adminApp = adminAppSdk.getApp();
 } catch {
-  adminApp = admin.initializeApp({ projectId: PROJECT });
+  adminApp = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const adminDb = admin.firestore(adminApp);
-const AdminTimestamp = admin.firestore.Timestamp;
+const adminDb = adminFirestoreSdk.getFirestore(adminApp);
+const AdminTimestamp = adminFirestoreSdk.Timestamp;
 
 const { locationGeoFields, MATCH_GRID_DEG } = require(path.join(ROOT, "functions", "geo-cells.js"));
 

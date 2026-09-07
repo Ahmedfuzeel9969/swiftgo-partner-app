@@ -3,222 +3,122 @@ package com.swiftgo.partner;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-
+import android.os.Handler;
+import android.os.Looper;
 import androidx.core.content.ContextCompat;
-
-import com.getcapacitor.JSObject;
-import com.getcapacitor.Plugin;
-import com.getcapacitor.PluginCall;
-import com.getcapacitor.PluginMethod;
-import com.getcapacitor.annotation.CapacitorPlugin;
-import com.getcapacitor.annotation.Permission;
-import com.getcapacitor.annotation.PermissionCallback;
-
+import com.getcapacitor.*;
+import com.getcapacitor.annotation.*;
+import java.util.concurrent.atomic.AtomicLong;
 import org.json.JSONObject;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
-/**
- * Capacitor bridge for DriverLocationForegroundService.
- */
-@CapacitorPlugin(
-    name = "DriverLocation",
-    permissions = {
-      @Permission(
-          alias = "location",
-          strings = {
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION
-          })
-    })
+/** Only start may create a service. Stop/heartbeat/refresh never launch one. */
+@CapacitorPlugin(name = "DriverLocation", permissions = {
+  @Permission(alias = "location", strings = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION })
+})
 public class DriverLocationPlugin extends Plugin {
-  private static DriverLocationPlugin instance;
-  private static final AtomicInteger listenerCount = new AtomicInteger(0);
-
-  @Override
-  public void load() {
-    instance = this;
+  private static volatile DriverLocationPlugin instance;
+  private static final AtomicLong startRevision = new AtomicLong();
+  private final Handler main = new Handler(Looper.getMainLooper());
+  private volatile PluginCall pendingStart;
+  private void cancelPending() {
+    PluginCall previous = pendingStart;
+    pendingStart = null;
+    if (previous != null) previous.reject("START_CANCELLED");
   }
-
-  static boolean hasLocationListeners() {
-    return listenerCount.get() > 0 && instance != null;
-  }
-
-  static void emitLocationFix(JSONObject fix) {
+  @Override public void load() { instance = this; }
+  static boolean isCurrentStart(long id) { return id == startRevision.get(); }
+  static boolean hasLocationListeners() { return instance != null && instance.hasListeners("locationFix"); }
+  static boolean hasPeerLocationListeners() { return instance != null && instance.hasListeners("peerLocationFix"); }
+  static void emitLocationFix(JSONObject value) { emit("locationFix", value); }
+  static void emitPeerLocationFix(JSONObject value) { emit("peerLocationFix", value); }
+  static void emitServiceState(JSONObject value) { emit("serviceState", value); }
+  private static void emit(String name, JSONObject value) {
     DriverLocationPlugin plugin = instance;
-    if (plugin == null || fix == null) return;
-    try {
-      JSObject data = new JSObject(fix.toString());
-      plugin.notifyListeners("locationFix", data, true);
-    } catch (Exception ignored) {
+    if (plugin == null || value == null) return;
+    try { plugin.notifyListeners(name, new JSObject(value.toString()), false); } catch (Exception ignored) {}
+  }
+  @PluginMethod public void start(PluginCall call) {
+    long id = startRevision.incrementAndGet();
+    cancelPending();
+    pendingStart = call;
+    call.getData().put("_requestId", id);
+    if (!BackgroundLocationUploader.validBinding(call.getData())) { call.reject("INVALID_BINDING"); return; }
+    if (!hasFineLocation()) { requestPermissionForAlias("location", call, "locationPermsCallback"); return; }
+    startService(call);
+  }
+  @PermissionCallback private void locationPermsCallback(PluginCall call) {
+    if (!hasFineLocation()) { call.reject("LOCATION_PERMISSION_DENIED"); return; }
+    startService(call);
+  }
+  private void startService(PluginCall call) {
+    long id = call.getLong("_requestId", -1L);
+    main.post(() -> {
+      if (!isCurrentStart(id)) return; // stop/new start already rejected the pending call
+      try {
+        Intent intent = new Intent(getContext(), DriverLocationForegroundService.class).setAction(DriverLocationForegroundService.ACTION_START);
+        intent.putExtra("binding", call.getData().toString()).putExtra("requestId", id);
+        ContextCompat.startForegroundService(getContext(), intent);
+        awaitRunning(call, id, 50);
+      } catch (RuntimeException e) { call.reject("FOREGROUND_START_DENIED"); }
+    });
+  }
+  private void awaitRunning(PluginCall call, long id, int attempts) {
+    if (!isCurrentStart(id)) return;
+    DriverLocationForegroundService service = DriverLocationForegroundService.getInstance();
+    if (service != null && service.matches(call.getString("bridgeSessionId", ""))) {
+      JSObject result = new JSObject().put("ok", true).put("running", true).put("lastSequence", service.lastSequence());
+      if (pendingStart == call) pendingStart = null;
+      call.resolve(result); return;
     }
-  }
-
-  static void emitServiceState(JSONObject state) {
-    DriverLocationPlugin plugin = instance;
-    if (plugin == null || state == null) return;
-    try {
-      JSObject data = new JSObject(state.toString());
-      plugin.notifyListeners("serviceState", data, true);
-    } catch (Exception ignored) {
+    if (attempts <= 0) {
+      if (service != null) service.stopSafely("start_timeout");
+      call.reject("NATIVE_START_TIMEOUT"); return;
     }
+    main.postDelayed(() -> awaitRunning(call, id, attempts - 1), 100);
   }
-
-  @PluginMethod
-  public void start(PluginCall call) {
-    if (!hasFineLocation()) {
-      requestPermissionForAlias("location", call, "locationPermsCallback");
-      return;
-    }
-    startServiceFromCall(call);
+  @PluginMethod public void stop(PluginCall call) {
+    startRevision.incrementAndGet(); // also fences permission-dialog / already queued start intents
+    cancelPending();
+    main.post(() -> {
+      DriverLocationForegroundService service = DriverLocationForegroundService.getInstance();
+      if (service != null) service.stopSafely("explicit_stop");
+      else new SecureLocationStore(getContext()).clear();
+      call.resolve(new JSObject().put("ok", true).put("running", false));
+    });
   }
-
-  @PermissionCallback
-  private void locationPermsCallback(PluginCall call) {
-    if (!hasFineLocation()) {
-      call.reject("LOCATION_PERMISSION_DENIED");
-      return;
-    }
-    startServiceFromCall(call);
+  @PluginMethod public void noteWebAlive(PluginCall call) {
+    main.post(() -> {
+      DriverLocationForegroundService service = DriverLocationForegroundService.getInstance();
+      boolean ok = service != null && service.noteWebAlive(call.getString("bridgeSessionId", ""), call.getInt("lastSequence", 0));
+      call.resolve(new JSObject().put("ok", ok));
+    });
   }
-
-  private void startServiceFromCall(PluginCall call) {
-    String rideId = call.getString("rideId", "");
-    String vehicleId = call.getString("vehicleId", "");
-    String driverUid = call.getString("driverUid", "");
-    String trackingSessionId = call.getString("trackingSessionId", "");
-    String uploadUrl = call.getString("uploadUrl", "");
-    String token = call.getString("token", "");
-    if (rideId.isEmpty() || vehicleId.isEmpty() || trackingSessionId.isEmpty()) {
-      call.reject("INVALID_START_ARGS");
-      return;
-    }
-    Intent intent = new Intent(getContext(), DriverLocationForegroundService.class);
-    intent.setAction(DriverLocationForegroundService.ACTION_START);
-    intent.putExtra(DriverLocationForegroundService.EXTRA_RIDE_ID, rideId);
-    intent.putExtra(DriverLocationForegroundService.EXTRA_VEHICLE_ID, vehicleId);
-    intent.putExtra(DriverLocationForegroundService.EXTRA_DRIVER_UID, driverUid);
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_TRACKING_SESSION_ID, trackingSessionId);
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_ASSIGNMENT_TOKEN,
-        call.getString("assignmentSessionToken", ""));
-    intent.putExtra(DriverLocationForegroundService.EXTRA_UPLOAD_URL, uploadUrl);
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_REFRESH_URL, call.getString("refreshUrl", ""));
-    intent.putExtra(DriverLocationForegroundService.EXTRA_TOKEN, token);
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_TOKEN_EXPIRES_AT,
-        call.getLong("tokenExpiresAtMs", 0L));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_RIDE_STATUS, call.getString("rideStatus", ""));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_INTERVAL_MS, call.getLong("intervalMs", 4000L));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_LAST_SEQUENCE, call.getInt("lastSequence", 0));
-
-    ContextCompat.startForegroundService(getContext(), intent);
-    if (listenerCount.get() < 1) listenerCount.set(1);
-    JSObject ret = new JSObject();
-    ret.put("ok", true);
-    ret.put("running", true);
-    call.resolve(ret);
+  @PluginMethod public void updateCredential(PluginCall call) {
+    main.post(() -> {
+      DriverLocationForegroundService service = DriverLocationForegroundService.getInstance();
+      boolean ok = service != null && service.updateCredential(call.getString("bridgeSessionId", ""),
+        call.getString("token", ""), call.getLong("tokenExpiresAtMs", 0L));
+      call.resolve(new JSObject().put("ok", ok));
+    });
   }
-
-  @PluginMethod
-  public void stop(PluginCall call) {
-    Intent intent = new Intent(getContext(), DriverLocationForegroundService.class);
-    intent.setAction(DriverLocationForegroundService.ACTION_STOP);
-    getContext().startService(intent);
-    listenerCount.set(0);
-    JSObject ret = new JSObject();
-    ret.put("ok", true);
-    ret.put("running", false);
-    call.resolve(ret);
+  @PluginMethod public void updateP2pCredential(PluginCall call) {
+    main.post(() -> {
+      DriverLocationForegroundService service = DriverLocationForegroundService.getInstance();
+      boolean ok = service != null && service.updateP2pCredential(call.getString("bridgeSessionId", ""),
+        call.getString("token", ""), call.getLong("tokenExpiresAtMs", 0L));
+      call.resolve(new JSObject().put("ok", ok));
+    });
   }
-
-  @PluginMethod
-  public void updateCredential(PluginCall call) {
-    Intent intent = new Intent(getContext(), DriverLocationForegroundService.class);
-    intent.setAction(DriverLocationForegroundService.ACTION_UPDATE_CREDENTIAL);
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_TOKEN, call.getString("token", ""));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_TOKEN_EXPIRES_AT,
-        call.getLong("tokenExpiresAtMs", 0L));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_REFRESH_URL, call.getString("refreshUrl", ""));
-    getContext().startService(intent);
-    JSObject ret = new JSObject();
-    ret.put("ok", true);
-    call.resolve(ret);
+  @PluginMethod public void getState(PluginCall call) {
+    call.resolve(new JSObject().put("running", DriverLocationForegroundService.isRunning())
+      .put("native", true).put("hasListeners", hasLocationListeners()));
   }
-
-  @PluginMethod
-  public void noteWebAlive(PluginCall call) {
-    Intent intent = new Intent(getContext(), DriverLocationForegroundService.class);
-    intent.setAction(DriverLocationForegroundService.ACTION_WEB_ALIVE);
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_LAST_SEQUENCE, call.getInt("lastSequence", -1));
-    getContext().startService(intent);
-    if (listenerCount.get() <= 0) listenerCount.set(1);
-    JSObject ret = new JSObject();
-    ret.put("ok", true);
-    call.resolve(ret);
-  }
-
-  @PluginMethod
-  public void updateSession(PluginCall call) {
-    Intent intent = new Intent(getContext(), DriverLocationForegroundService.class);
-    intent.setAction(DriverLocationForegroundService.ACTION_UPDATE_SESSION);
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_RIDE_STATUS, call.getString("rideStatus", ""));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_INTERVAL_MS, call.getLong("intervalMs", 4000L));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_LAST_SEQUENCE, call.getInt("lastSequence", 0));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_UPLOAD_URL, call.getString("uploadUrl", ""));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_REFRESH_URL, call.getString("refreshUrl", ""));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_TOKEN, call.getString("token", ""));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_TOKEN_EXPIRES_AT,
-        call.getLong("tokenExpiresAtMs", 0L));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_TRACKING_SESSION_ID,
-        call.getString("trackingSessionId", ""));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_RIDE_ID, call.getString("rideId", ""));
-    intent.putExtra(
-        DriverLocationForegroundService.EXTRA_VEHICLE_ID, call.getString("vehicleId", ""));
-    getContext().startService(intent);
-    JSObject ret = new JSObject();
-    ret.put("ok", true);
-    call.resolve(ret);
-  }
-
-  @PluginMethod
-  public void getState(PluginCall call) {
-    JSObject ret = new JSObject();
-    ret.put("running", DriverLocationForegroundService.isRunning());
-    ret.put("native", true);
-    ret.put("hasListeners", hasLocationListeners());
-    call.resolve(ret);
-  }
-
   private boolean hasFineLocation() {
-    return ContextCompat.checkSelfPermission(
-            getContext(), Manifest.permission.ACCESS_FINE_LOCATION)
-        == PackageManager.PERMISSION_GRANTED;
+    return ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
   }
-
-  @Override
-  protected void handleOnDestroy() {
-    // Do not stop the foreground service — it must survive activity destroy.
-    instance = null;
-    listenerCount.set(0);
+  @Override protected void handleOnDestroy() {
+    startRevision.incrementAndGet();
+    if (instance == this) instance = null;
     super.handleOnDestroy();
   }
 }

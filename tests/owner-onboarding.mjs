@@ -20,6 +20,11 @@ const ROOT = path.resolve(__dirname, "..");
 const RULES = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
 const OUT = path.join(ROOT, "tests", "owner-onboarding-results.json");
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const PROJECT = "demo-swiftgo-owner-onboard";
 
 const {
@@ -62,7 +67,17 @@ async function initSuperAdmin(db, uid = "super-1", email = "super@example.com") 
     email,
     displayName: "Super Admin",
   });
-  return auth(uid, email, { admin: true });
+  await db.doc(`admin_registry/${uid}`).set({
+    uid,
+    admin: true,
+    role: "super_admin",
+    version: 1,
+  });
+  return auth(uid, email, {
+    admin: true,
+    adminRole: "super_admin",
+    adminVersion: 1,
+  });
 }
 
 async function initOrdinaryAdmin(db, uid = "ord-admin-1") {
@@ -70,12 +85,35 @@ async function initOrdinaryAdmin(db, uid = "ord-admin-1") {
     email: "ord-admin@example.com",
     displayName: "Ordinary Admin",
   });
-  return auth(uid, "ord-admin@example.com", { admin: true });
+  await db.doc(`admin_registry/${uid}`).set({
+    uid,
+    admin: true,
+    role: "admin",
+    version: 1,
+  });
+  return auth(uid, "ord-admin@example.com", {
+    admin: true,
+    adminRole: "admin",
+    adminVersion: 1,
+  });
 }
 
 async function initBootstrapSuperAdmin(db, uid = "bootstrap-super") {
-  await db.collection("settings").doc("security").set({ adminBootstrapEnabled: true });
-  return auth(uid, BOOTSTRAP_ADMIN_EMAIL, { admin: false });
+  await ensureSuperAdminUserDocForUid(db, uid, {
+    email: BOOTSTRAP_ADMIN_EMAIL,
+    displayName: "Provisioned Bootstrap Super Admin",
+  });
+  await db.doc(`admin_registry/${uid}`).set({
+    uid,
+    admin: true,
+    role: "super_admin",
+    version: 1,
+  });
+  return auth(uid, BOOTSTRAP_ADMIN_EMAIL, {
+    admin: true,
+    adminRole: "super_admin",
+    adminVersion: 1,
+  });
 }
 
 function runStaticProofs() {
@@ -138,12 +176,12 @@ async function runCallableProofs() {
   }));
   let app;
   try {
-    app = admin.app();
+    app = adminAppSdk.getApp();
   } catch {
-    app = admin.initializeApp({ projectId: PROJECT });
+    app = adminAppSdk.initializeApp({ projectId: PROJECT });
   }
-  const db = admin.firestore(app);
-  const authAdmin = admin.auth(app);
+  const db = adminFirestoreSdk.getFirestore(app);
+  const authAdmin = adminAuthSdk.getAuth(app);
 
   const superAuth = await initSuperAdmin(db);
   await ensureAuthUser(authAdmin, "super-1", "super@example.com", "Super Admin");
@@ -331,7 +369,7 @@ async function runCallableProofs() {
     "claim/document mismatch cannot approve"
   );
 
-  // Bootstrap super-admin may approve when bootstrap enabled
+  // A bootstrap identity may approve only after trusted registry provisioning.
   await ensureAuthUser(authAdmin, "bootstrap-super", BOOTSTRAP_ADMIN_EMAIL, "Bootstrap Super");
   const bootstrapAuth = await initBootstrapSuperAdmin(db, "bootstrap-super");
   await ensureAuthUser(authAdmin, "bootstrap-target", "bootstrap-target@example.com", "Bootstrap Target");
@@ -342,7 +380,7 @@ async function runCallableProofs() {
   record(
     "callable-bootstrap-super-admin-approves",
     bootstrapGrant.status === "granted",
-    "approved bootstrap owner may approve"
+    "registry-provisioned bootstrap super admin may approve"
   );
 
   // Non-admin cannot approve

@@ -27,6 +27,11 @@ import {
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 const OUT = path.join(ROOT, "tests", "dispatch-booking-radar-results.json");
@@ -44,13 +49,13 @@ const { submitRideOffer, acceptCustomerInitialFareAsDriver } = require(path.join
 
 let adminApp;
 try {
-  adminApp = admin.app();
+  adminApp = adminAppSdk.getApp();
 } catch {
-  adminApp = admin.initializeApp({ projectId: PROJECT });
+  adminApp = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const db = admin.firestore(adminApp);
-const FieldValue = admin.firestore.FieldValue;
-const Timestamp = admin.firestore.Timestamp;
+const db = adminFirestoreSdk.getFirestore(adminApp);
+const FieldValue = adminFirestoreSdk.FieldValue;
+const Timestamp = adminFirestoreSdk.Timestamp;
 
 const pickup = { lat: 24.8607, lng: 67.0011, address: "Test Pickup" };
 const dropoff = { lat: 24.87, lng: 67.01, address: "Test Dropoff" };
@@ -71,10 +76,10 @@ function kmOffset(lat, lng, km, bearingRad = 0) {
 
 async function ensureUser(email, password, uid) {
   try {
-    return await admin.auth().createUser({ uid, email, password, emailVerified: true });
+    return await adminAuthSdk.getAuth().createUser({ uid, email, password, emailVerified: true });
   } catch (e) {
     if (e.code === "auth/uid-already-exists" || e.code === "auth/email-already-exists") {
-      return admin.auth().getUser(uid).catch(() => admin.auth().getUserByEmail(email));
+      return adminAuthSdk.getAuth().getUser(uid).catch(() => adminAuthSdk.getAuth().getUserByEmail(email));
     }
     throw e;
   }

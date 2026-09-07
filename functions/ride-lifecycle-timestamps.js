@@ -6,6 +6,7 @@
 "use strict";
 
 const { FieldValue } = require("firebase-admin/firestore");
+const { TERMINAL } = require("./retention-timestamps");
 
 function hasTimestamp(value) {
   if (value == null) return false;
@@ -44,6 +45,10 @@ function buildLifecycleTimestampPatch(before = {}, after = {}) {
   const patch = {};
   if (plan.driverArrivedAt) patch.driverArrivedAt = FieldValue.serverTimestamp();
   if (plan.tripStartedAt) patch.tripStartedAt = FieldValue.serverTimestamp();
+  if (before.status !== after.status && TERMINAL.has(after.status) && !hasTimestamp(after.closedAt)) {
+    patch.closedAt = FieldValue.serverTimestamp();
+    patch.liveLocationRetireAt = new Date(Date.now() + 60 * 60000);
+  }
   return Object.keys(patch).length > 0 ? patch : null;
 }
 
@@ -55,10 +60,14 @@ function buildLifecycleTimestampPatch(before = {}, after = {}) {
  * @param {Record<string, unknown>} after
  */
 async function applyRideLifecycleTimestampStamp(db, rideId, before = {}, after = {}) {
-  const patch = buildLifecycleTimestampPatch(before, after);
-  if (!patch) return { stamped: false, fields: [] };
-  await db.collection("rides").doc(rideId).update(patch);
-  return { stamped: true, fields: Object.keys(patch) };
+  if (!buildLifecycleTimestampPatch(before, after)) return { stamped: false, fields: [] };
+  return db.runTransaction(async (tx) => {
+    const ref = db.collection("rides").doc(rideId), current = await tx.get(ref);
+    if (!current.exists || current.data().status !== after.status) return { stamped: false, fields: [] };
+    const patch = buildLifecycleTimestampPatch(before, current.data());
+    if (!patch) return { stamped: false, fields: [] };
+    tx.update(ref, patch); return { stamped: true, fields: Object.keys(patch) };
+  });
 }
 
 module.exports = {

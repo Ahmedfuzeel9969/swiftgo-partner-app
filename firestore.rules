@@ -4,60 +4,34 @@ service cloud.firestore {
 
     // ── Helpers ──
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null && (
+        !exists(/databases/$(database)/documents/account_deletion_requests/$(request.auth.uid))
+        || (get(/databases/$(database)/documents/account_deletion_requests/$(request.auth.uid)).data.get('accessBlocked', false) != true
+          && !(get(/databases/$(database)/documents/account_deletion_requests/$(request.auth.uid)).data.get('status', '')
+            in ['pending', 'pending_review', 'reviewed', 'erasure_in_progress', 'completed'])));
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Super Admin: custom claim `admin: true` is the primary path (Phase 2B).
-    // Email bootstrap is OFF unless settings/security.adminBootstrapEnabled == true.
-    function isClaimAdmin() {
-      return isSignedIn()
-        && 'admin' in request.auth.token
-        && request.auth.token.admin == true;
-    }
-
-    function isBootstrapAdminEmail() {
-      return isSignedIn()
-        && 'email' in request.auth.token
-        && 'email_verified' in request.auth.token
-        && request.auth.token.email == 'fuzail1158@gmail.com'
-        && request.auth.token.email_verified == true;
-    }
-
-    function isAdminBootstrapEnabled() {
-      return exists(/databases/$(database)/documents/settings/security)
-        && get(/databases/$(database)/documents/settings/security)
-             .data.get('adminBootstrapEnabled', false) == true;
-    }
-
-    // Doc role set only by Admin SDK (initSuperAdminAccess). Clients cannot forge it.
-    function isDocSuperAdmin() {
-      return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid))
-             .data.get('role', '') == 'super_admin';
-    }
-
+    // Revocation takes effect against already-issued tokens. Email/profile is not authority.
     function isSuperAdmin() {
-      return isClaimAdmin()
-        || isDocSuperAdmin()
-        || (isAdminBootstrapEnabled() && isBootstrapAdminEmail());
-    }
-
-    function partnerAccountStatus(uid) {
-      return get(/databases/$(database)/documents/partners/$(uid))
-        .data.get('accountStatus', 'active');
+      return isSignedIn()
+        && request.auth.token.get('admin', false) == true
+        && request.auth.token.get('adminRole', '') == 'super_admin'
+        && request.auth.token.get('adminVersion', null) is int
+        && exists(/databases/$(database)/documents/admin_registry/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_registry/$(request.auth.uid)).data.admin == true
+        && get(/databases/$(database)/documents/admin_registry/$(request.auth.uid)).data.role == 'super_admin'
+        && get(/databases/$(database)/documents/admin_registry/$(request.auth.uid)).data.version == request.auth.token.adminVersion;
     }
 
     function partnerIsActiveDriver(uid) {
-      return !exists(/databases/$(database)/documents/partners/$(uid))
-        || (
-          partnerAccountStatus(uid) != 'blocked'
-          && partnerAccountStatus(uid) != 'suspended'
-        );
+      return exists(/databases/$(database)/documents/partners/$(uid))
+        && get(/databases/$(database)/documents/partners/$(uid)).data.get('accountStatus', '') == 'active'
+        && get(/databases/$(database)/documents/partners/$(uid)).data.get('role', '') in ['driver', 'owner']
+        && get(/databases/$(database)/documents/partners/$(uid)).data.get('driverApprovalStatus', '') == 'approved';
     }
 
     // Explicit allowlist for ordinary partner self-updates (Phase 2A — no denylist-only).
@@ -67,7 +41,7 @@ service cloud.firestore {
       return request.auth.uid == partnerId
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly([
-               'currentVehicleId', 'name', 'displayName', 'email', 'updatedAt', 'role'
+               'name', 'displayName', 'email', 'updatedAt', 'role'
              ])
         && (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])
@@ -84,7 +58,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly([
                'displayName', 'name', 'phone', 'photoUrl',
-               'currentVehicleId', 'updatedAt'
+               'updatedAt'
              ]);
     }
 
@@ -139,6 +113,7 @@ service cloud.firestore {
         && resource.data.get('driverId', '') == request.auth.uid
         && request.resource.data.driverId == request.auth.uid
         && request.resource.data.ownerId == resource.data.ownerId
+        && resource.data.get('activeRideId', null) == null
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'driverId', 'status', 'driverName', 'location', 'locationUpdatedAt',
           'locationGridCell', 'geoCell', 'hotspotId', 'activeRideId',
@@ -166,24 +141,6 @@ service cloud.firestore {
         && vehicleTrackingSessionFieldsOk();
     }
 
-    // Allowed booking lifecycle states (audit: enum was unconstrained).
-    function isValidStatus(status) {
-      return status in ['scheduled', 'current', 'completed', 'cancelled'];
-    }
-
-    // Booking payload shape shared by create + update.
-    // Note: .size() on a non-string or >= on a non-number raises an
-    // evaluation error, which Firestore treats as a deny — so these
-    // checks also enforce field types.
-    function isValidBooking(data) {
-      return data.keys().hasAll(['userId', 'service', 'pickup', 'destination', 'status', 'fare'])
-        && data['service'].size() > 0 && data['service'].size() <= 40
-        && data.pickup.size() <= 300
-        && data.destination.size() <= 500
-        && isValidStatus(data.status)
-        && data.fare >= 0;
-    }
-
     function isValidDriverApplication(data) {
       return data.keys().hasAll([
           'userId', 'fullName', 'cnic', 'licenseNumber', 'vehicleType',
@@ -207,11 +164,13 @@ service cloud.firestore {
       return data.keys().hasAll([
           'driverId', 'driverName', 'method', 'amount', 'tid', 'status', 'createdAt'
         ])
+        && data.keys().hasOnly(['driverId', 'driverName', 'method', 'amount', 'tid', 'status', 'createdAt'])
         && data.driverId == request.auth.uid
         && data.driverName.size() > 0 && data.driverName.size() <= 120
         && data.method in ['jazzcash', 'easypaisa']
-        && data.amount > 0 && data.amount <= 500000
-        && data.tid.size() > 0 && data.tid.size() <= 80
+        && data.amount is int && data.amount > 0 && data.amount <= 500000
+        && data.tid.matches('^[A-Za-z0-9-]{1,80}$')
+        && data.createdAt == request.time
         && data.status == 'pending';
     }
 
@@ -224,6 +183,7 @@ service cloud.firestore {
 
       // Clients may seed a profile, but never assign super_admin / privileged roles.
       allow create: if isOwner(userId)
+        && !request.resource.data.keys().hasAny(['legalHold', 'personalDataErased', 'retentionPolicyVersion', 'deletionRequested', 'deletionRequestedAt'])
         && request.resource.data.walletBalance == 0
         && request.resource.data.keys().hasAll(['displayName', 'email', 'walletBalance'])
         && (
@@ -234,27 +194,17 @@ service cloud.firestore {
       // role + walletBalance are Admin-SDK / trusted-server only.
       allow update: if isOwner(userId)
         && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['walletBalance', 'role']);
+             .hasAny(['walletBalance', 'role', 'legalHold', 'personalDataErased', 'retentionPolicyVersion', 'deletionRequested', 'deletionRequestedAt']);
 
       allow delete: if false;
     }
 
-    // ── bookings/{id} ──
+    // ── bookings/{id} ── legacy archive; canonical booking records are rides/.
     match /bookings/{bookingId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid
-        && isValidBooking(request.resource.data);
-
-      // Owner may update, but cannot reassign the booking to another user
-      // and the new payload must still pass shape + status-enum validation.
-      allow update: if isSignedIn()
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == resource.data.userId
-        && isValidBooking(request.resource.data);
-
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, list: if isSignedIn() && (
+        isSuperAdmin() || resource.data.userId == request.auth.uid
+      );
+      allow create, update, delete: if false;
     }
 
     // ── rides/{id} ── (Phase 16: live ride requests)
@@ -358,6 +308,42 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Customer moving GPS: private to current participants, only during an
+    // active assignment. Never written directly by either browser.
+    match /rides/{rideId}/customerLocations/{assignmentId} {
+      allow get: if isSignedIn()
+        && exists(/databases/$(database)/documents/rides/$(rideId))
+        && get(/databases/$(database)/documents/rides/$(rideId)).data.status in ['accepted', 'arrived', 'in_progress']
+        && get(/databases/$(database)/documents/rides/$(rideId)).data.assignmentSessionToken == assignmentId
+        && (get(/databases/$(database)/documents/rides/$(rideId)).data.userId == request.auth.uid
+          || get(/databases/$(database)/documents/rides/$(rideId)).data.driverId == request.auth.uid);
+      allow list, create, update, delete: if false;
+    }
+
+    // Active-ride live-location budget is enforced on the server, not just in UI.
+    // Idle dispatch/ONLINE_READY remains governed by its separate policy.
+    function activeRideLocationBudgetFor(rideId) {
+      let config = exists(/databases/$(database)/documents/settings/dispatch)
+        ? get(/databases/$(database)/documents/settings/dispatch).data : {};
+      let raw = config.get('firebaseFallbackWriteSeconds', 4);
+      let interval = raw is int && raw >= 2 && raw <= 60 ? raw : 4;
+      let rawGrace = config.get('p2pFallbackAfterSeconds', 12);
+      let grace = rawGrace is int && rawGrace >= 5 && rawGrace <= 60 ? rawGrace : 12;
+      let ride = get(/databases/$(database)/documents/rides/$(rideId)).data;
+      let assignedAt = ride.get('assignedAt', null);
+      let previous = resource.data.get('locationUpdatedAt', null);
+      return config.get('firebaseLocationFallbackEnabled', true) == true
+        && ride.driverId == request.auth.uid
+        && ride.status in ['accepted', 'arrived', 'in_progress']
+        && (!(assignedAt is timestamp) || request.time >= assignedAt + duration.value(grace, 's'))
+        && (!(previous is timestamp) || request.time >= previous + duration.value(interval, 's'));
+    }
+
+    function activeRideLocationBudgetOk() {
+      let rideId = resource.data.get('activeRideId', null);
+      return rideId == null || (rideId is string && rideId.size() > 0 && activeRideLocationBudgetFor(rideId));
+    }
+
     // Phase 2A: private offers — driver↔customer only; never another driver's offer.
     match /ride_offers/{offerId} {
       allow get: if isSignedIn() && (
@@ -418,26 +404,29 @@ service cloud.firestore {
     // Phase 3 P2P signaling — Admin/CF writes only; get for current assigned peers.
     // Doc id: {rideId}. SDP readable only by participants; list denied.
     match /ridePeerSessions/{rideId} {
+      function currentPeerRide() {
+        return get(/databases/$(database)/documents/rides/$(rideId)).data;
+      }
       allow get: if isSignedIn() && (
         isSuperAdmin()
         || (
-          resource.data.customerId == request.auth.uid
-          || resource.data.driverId == request.auth.uid
-        )
-        && exists(/databases/$(database)/documents/rides/$(rideId))
-        && get(/databases/$(database)/documents/rides/$(rideId)).data.status
-             in ['accepted', 'arrived', 'in_progress']
-        && (
-          get(/databases/$(database)/documents/rides/$(rideId)).data.userId == request.auth.uid
-          || get(/databases/$(database)/documents/rides/$(rideId)).data.driverId == request.auth.uid
+          exists(/databases/$(database)/documents/rides/$(rideId))
+          && currentPeerRide().status in ['accepted', 'arrived', 'in_progress']
+          && (currentPeerRide().userId == request.auth.uid || currentPeerRide().driverId == request.auth.uid)
+          // A listener may attach before the driver creates the first offer.
+          && (!exists(/databases/$(database)/documents/ridePeerSessions/$(rideId)) || (
+            resource.data.customerId == currentPeerRide().userId
+            && resource.data.driverId == currentPeerRide().driverId
+            && resource.data.vehicleId == currentPeerRide().vehicleId
+            && resource.data.assignmentId == currentPeerRide().assignmentSessionToken
+          ))
         )
       );
       allow list: if false;
       allow create, update, delete: if false;
     }
 
-    // Phase 6 — shadow breadcrumb telemetry. Admin/CF only; no client reads/writes.
-    // Dense chord distance is diagnostic only (never fare/settlement input).
+    // Server-validated distance telemetry; no direct client reads/writes.
     match /rideBreadcrumbTelemetry/{rideId} {
       allow get, list: if false;
       allow create, update, delete: if false;
@@ -466,31 +455,17 @@ service cloud.firestore {
         isSuperAdmin() || request.auth.uid == driverId
       );
 
-      allow create: if isSignedIn()
-        && request.auth.uid == driverId
-        && !request.resource.data.keys().hasAny([
-          'walletBalance', 'totalEarnings', 'commissionPercent', 'role',
-          'accountStatus', 'approvalStatus', 'suspended', 'verified',
-          'admin', 'isAdmin'
-        ]);
+      allow create: if isOwner(driverId)
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'name', 'phone', 'email', 'photoUrl', 'createdAt', 'updatedAt']);
 
       allow update: if isSignedIn() && isDriverProfileSafeUpdate(driverId);
-
-      allow update: if isSuperAdmin();
 
       allow delete: if false;
     }
 
     // ── vehicles/{id} ── Phase 2B: privacy + blocked-driver online gate + no public PIN query
     match /vehicles/{vehicleId} {
-      allow create: if isSignedIn()
-        && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.keys().hasAll(['ownerId', 'plate'])
-        // Prefer pinHash; legacy plaintext pin allowed only for owner-created docs during migration.
-        && (
-          ('pinHash' in request.resource.data && request.resource.data.pinHash is string)
-          || ('pin' in request.resource.data && request.resource.data.pin is string)
-        );
+      allow create: if false; // Trusted createFleetVehicle only.
 
       // Not world-readable: owner, assigned driver, active-ride customer, or Super Admin.
       allow get: if isSignedIn() && (
@@ -498,8 +473,10 @@ service cloud.firestore {
         || resource.data.ownerId == request.auth.uid
         || resource.data.driverId == request.auth.uid
         || (
-          resource.data.activeRideId is string
+          !resource.data.keys().hasAny(['pin', 'pinHash'])
+          && resource.data.activeRideId is string
           && exists(/databases/$(database)/documents/rides/$(resource.data.activeRideId))
+          && get(/databases/$(database)/documents/rides/$(resource.data.activeRideId)).data.status in ['accepted', 'arrived', 'in_progress']
           && get(/databases/$(database)/documents/rides/$(resource.data.activeRideId)).data.userId
                == request.auth.uid
         )
@@ -514,28 +491,12 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && resource.data.ownerId == request.auth.uid
         && request.resource.data.ownerId == resource.data.ownerId
-        && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['walletBalance', 'earnings', 'commissionPercent']);
+        && resource.data.get('activeRideId', null) == null
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['model', 'plate', 'updatedAt']);
 
       // Driver ONLINE_READY — combined location + geo + online status in one write.
       allow update: if isDriverVehicleOnlineReadyUpdate();
-
-      // Driver claim / go online — blocked/suspended partners denied (T07 / P1-013).
-      allow update: if isSignedIn()
-        && partnerIsActiveDriver(request.auth.uid)
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['driverId', 'status', 'driverName'])
-        && request.resource.data.driverId == request.auth.uid
-        && request.resource.data.status == 'online'
-        && (resource.data.status != 'online' || resource.data.driverId == request.auth.uid);
-
-      allow update: if isSignedIn()
-        && partnerIsActiveDriver(request.auth.uid)
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['activeRideId', 'status'])
-        && resource.data.driverId == request.auth.uid
-        && request.resource.data.driverId == resource.data.driverId
-        && request.resource.data.status in ['online', 'in_ride'];
 
       allow update: if isSignedIn()
         && partnerIsActiveDriver(request.auth.uid)
@@ -553,31 +514,19 @@ service cloud.firestore {
         && request.resource.data.location.lng >= -180
         && request.resource.data.location.lng <= 180
         && request.resource.data.status in ['online', 'in_ride']
+        && (resource.data.get('activeRideId', null) == null || request.resource.data.status == 'in_ride')
+        && activeRideLocationBudgetOk()
         && vehicleLocationUpdatedAtOk()
         && vehicleTrackingSessionFieldsOk();
 
       allow update: if isSignedIn()
         && resource.data.driverId == request.auth.uid
+        && resource.data.get('activeRideId', null) == null
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         && request.resource.data.status == 'offline';
 
-      // Driver switch/release vehicle: go offline and clear assignment.
-      allow update: if isSignedIn()
-        && resource.data.driverId == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['driverId', 'driverName', 'status', 'activeRideId'])
-        && request.resource.data.status == 'offline'
-        && !('driverId' in request.resource.data);
-
-      allow update: if isSuperAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly([
-               'driverId', 'driverName', 'previousDriverId',
-               'previousDriverName', 'status'
-             ]);
-
-      allow delete: if isSignedIn()
-        && resource.data.ownerId == request.auth.uid;
+      // Assignment/release/deletion are never client writes, even for an admin.
+      allow delete: if false;
     }
 
     // PIN attempt counters — self-read only; writes via Admin SDK / CF.
@@ -588,7 +537,8 @@ service cloud.firestore {
 
     // Admin registry metadata — Super Admin read; writes Admin SDK only.
     match /admin_registry/{uid} {
-      allow read: if isSuperAdmin();
+      allow get: if isOwner(uid) || isSuperAdmin();
+      allow list: if isSuperAdmin();
       allow create, update, delete: if false;
     }
 
@@ -603,6 +553,9 @@ service cloud.firestore {
       // Financial aggregates must start at zero if present.
       allow create: if isSignedIn()
         && request.auth.uid == partnerId
+        && request.resource.data.keys().hasOnly(['uid', 'role', 'accountStatus', 'driverApprovalStatus', 'name', 'displayName', 'email', 'phone', 'photoUrl', 'currentVehicleId', 'walletBalance', 'totalEarnings', 'totalRidesCompleted', 'createdAt', 'updatedAt'])
+        && request.resource.data.get('driverApprovalStatus', 'pending') == 'pending'
+        && request.resource.data.get('currentVehicleId', null) == null
         && (
           !request.resource.data.keys().hasAny(['accountStatus'])
           || request.resource.data.accountStatus == 'active'
@@ -627,28 +580,10 @@ service cloud.firestore {
       // Self-update: explicit safe-field allowlist only (P1-001 / P1-003).
       allow update: if isSignedIn() && isPartnerSelfSafeUpdate(partnerId);
 
-      // Fleet owner may clear a driver's currentVehicleId when releasing their vehicle.
-      allow update: if isSignedIn()
-        && resource.data.currentVehicleId is string
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['currentVehicleId', 'updatedAt'])
-        && request.resource.data.currentVehicleId == null
-        && exists(/databases/$(database)/documents/vehicles/$(resource.data.currentVehicleId))
-        && get(/databases/$(database)/documents/vehicles/$(resource.data.currentVehicleId)).data.ownerId
-             == request.auth.uid;
-
       allow update: if isSuperAdmin()
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['accountStatus'])
         && request.resource.data.accountStatus in ['active', 'blocked', 'suspended'];
-
-      // Phase 43: Super Admin God Mode — full partner write for drive takeover / restore.
-      allow update: if isSuperAdmin();
-
-      // Phase 37: Super Admin may credit driver wallet on recharge approval.
-      allow update: if isSuperAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['walletBalance'])
-        && request.resource.data.walletBalance >= resource.data.walletBalance;
 
       // Phase 42 / Phase 2A (2026-07-29): partner rating aggregates are Admin SDK / CF only.
       // Client increments were forgeable (any signed-in user). Ride doc rating remains client-OK.
@@ -681,33 +616,27 @@ service cloud.firestore {
 
     // ── vehicle_pins/{vehicleId} ── Owner-only permanent PIN display (survives pin-link strip).
     match /vehicle_pins/{vehicleId} {
-      allow get, list: if isSignedIn()
-        && resource.data.ownerId == request.auth.uid;
-
-      allow create: if isSignedIn()
-        && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.pin is string
-        && request.resource.data.pin.size() >= 4
-        && request.resource.data.pin.size() <= 8
-        && exists(/databases/$(database)/documents/vehicles/$(vehicleId))
-        && get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.ownerId
-             == request.auth.uid;
-
-      allow update: if isSignedIn()
-        && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['pin', 'updatedAt'])
-        && request.resource.data.pin is string
-        && request.resource.data.pin.size() >= 4
-        && request.resource.data.pin.size() <= 8;
-
-      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow read, write: if false;
     }
 
     // ── account_deletion_requests/{uid} ── Phase 4E (Admin SDK writes; owner may read own)
     match /account_deletion_requests/{userId} {
-      allow read: if isOwner(userId) || isSuperAdmin();
+      // A still-valid old token may inspect its own request but cannot access app data.
+      allow get: if (request.auth != null && request.auth.uid == userId) || isSuperAdmin();
+      allow list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /retention_events/{eventId} {
+      allow get, list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+    match /retention_runs/{runId} {
+      allow get, list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+    match /identity_erasure_jobs/{jobId} {
+      allow get, list: if isSuperAdmin();
       allow create, update, delete: if false;
     }
 
@@ -715,12 +644,6 @@ service cloud.firestore {
     match /support_reports/{reportId} {
       allow read: if isSuperAdmin()
         || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow create, update, delete: if false;
-    }
-
-    // Per-ride location delivery reports — Admin read only; writes via Cloud Functions.
-    match /rideLocationReports/{rideId} {
-      allow get, list: if isSuperAdmin();
       allow create, update, delete: if false;
     }
 
@@ -734,18 +657,14 @@ service cloud.firestore {
     // Phase 30: dynamic pricing (settings/pricing). Signed-in apps may read;
     // write: claim admin OR users/{uid}.role == super_admin OR bootstrap email.
     match /settings/{document} {
-      allow read: if request.auth != null;
-      allow write: if isSuperAdmin();
+      allow read: if isSignedIn() && (document != 'dataRetention' || isSuperAdmin());
+      allow write: if isSuperAdmin() && !(document in ['pricing', 'security', 'dataRetention']);
     }
 
     // ── driver_applications/{id} ──
     match /driver_applications/{appId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-
-      allow create: if isSignedIn()
-        && isValidDriverApplication(request.resource.data);
-
-      allow update, delete: if false;
+      allow read: if isSuperAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create, update, delete: if false;
     }
 
     // ── owner_applications/{uid} ── (Task 3B: fleet-owner approval queue; Admin SDK writes only)
@@ -770,11 +689,7 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && isValidRechargeRequest(request.resource.data);
 
-      allow update: if isSuperAdmin()
-        && resource.data.status == 'pending'
-        && request.resource.data.status == 'approved'
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status', 'approvedAt']);
+      allow update: if false; // Approval credits wallet and ledger in one server transaction.
 
       allow delete: if false;
     }
@@ -791,19 +706,15 @@ service cloud.firestore {
         && request.resource.data.type in ['percent', 'fixed']
         && request.resource.data.value > 0
         && request.resource.data.active is bool
-        && (!('usedCount' in request.resource.data) || request.resource.data.usedCount >= 0)
+        && request.resource.data.get('usedCount', 0) == 0
+        && (request.resource.data.type != 'percent' || request.resource.data.value <= 100)
         && (!('maxUses' in request.resource.data) || request.resource.data.maxUses >= 0);
 
       allow update: if isSuperAdmin()
-        || (
-          isSignedIn()
-          && resource.data.active == true
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedCount'])
-          && request.resource.data.usedCount == resource.data.get('usedCount', 0) + 1
-          && (!('maxUses' in resource.data)
-              || resource.data.maxUses <= 0
-              || request.resource.data.usedCount <= resource.data.maxUses)
-        );
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'value', 'type', 'maxUses', 'expiresAt', 'updatedAt'])
+        && request.resource.data.type in ['percent', 'fixed']
+        && request.resource.data.value > 0
+        && (request.resource.data.type != 'percent' || request.resource.data.value <= 100);
 
       allow delete: if isSuperAdmin();
     }

@@ -14,6 +14,11 @@ import { createRequire } from "node:module";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 
 const results = [];
 function record(name, status, detail = "") {
@@ -109,12 +114,12 @@ async function emulatorChecks() {
 
   let app;
   try {
-    app = admin.app();
+    app = adminAppSdk.getApp();
   } catch {
-    app = admin.initializeApp({ projectId: "demo-swiftgo-phase1" });
+    app = adminAppSdk.initializeApp({ projectId: "demo-swiftgo-phase1" });
   }
-  const db = admin.firestore(app);
-  const { FieldValue, Timestamp } = admin.firestore;
+  const db = adminFirestoreSdk.getFirestore(app);
+  const { FieldValue, Timestamp } = adminFirestoreSdk;
   const { matchRideCandidates } = require(join(root, "functions/bargaining.js"));
   const { gridCellId } = require(join(root, "functions/geo-cells.js"));
 

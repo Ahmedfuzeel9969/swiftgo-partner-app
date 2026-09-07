@@ -72,6 +72,8 @@ async function main() {
     email: "fuzail1158@gmail.com",
     email_verified: true,
     admin: true,
+    adminRole: "super_admin",
+    adminVersion: 1,
   });
   const adminDbClient = adminCtx.firestore();
   const customerDb = testEnv.authenticatedContext("customer-a").firestore();
@@ -92,6 +94,7 @@ async function main() {
     await setDoc(doc(db, "partners", "driver-1"), {
       role: "driver",
       accountStatus: "active",
+      driverApprovalStatus: "approved",
       walletBalance: 0,
       totalEarnings: 0,
       totalRidesCompleted: 0,
@@ -99,10 +102,17 @@ async function main() {
     await setDoc(doc(db, "partners", "driver-2"), {
       role: "driver",
       accountStatus: "active",
+      driverApprovalStatus: "approved",
       walletBalance: 0,
       totalEarnings: 0,
     });
     await setDoc(doc(db, "partners", "owner-1"), { role: "owner", accountStatus: "active" });
+    await setDoc(doc(db, "admin_registry", "admin-uid"), {
+      uid: "admin-uid",
+      admin: true,
+      role: "super_admin",
+      version: 1,
+    });
     await setDoc(doc(db, "settings", "pricing"), {
       commissionPercent: 10,
       vehicles: { go: { commissionPercent: 10 } },
@@ -430,12 +440,20 @@ async function main() {
     const storageHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST || "127.0.0.1:9199";
     const [shost, sport] = storageHost.split(":");
     const storageEnv = await initializeTestEnvironment({
-      projectId: `${PROJECT}-storage`,
+      projectId: PROJECT,
       storage: { rules: storageRules, host: shost, port: Number(sport) || 9199 },
     });
     const ownerStorage = storageEnv.authenticatedContext("kyc-owner").storage();
     const otherStorage = storageEnv.authenticatedContext("kyc-other").storage();
-    const pathOwner = "driver_applications/kyc-owner/cnic-front.jpg";
+    const uploadTicketId = "phase2a-kyc-ticket";
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "driver_upload_tickets", "kyc-owner"), {
+        ticketId: uploadTicketId,
+        used: false,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+    });
+    const pathOwner = `driver_applications/kyc-owner/${uploadTicketId}_cnicFront`;
     const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
     await assertSucceeds(
       uploadBytes(storageRef(ownerStorage, pathOwner), bytes, { contentType: "image/jpeg" })
@@ -586,15 +604,19 @@ async function main() {
     record("F13-ordinary-owner-no-settlement", "FAIL", e.message, "partners");
   }
 
-  // F25 partner safe profile update still works (before claim race — avoids SDK edge cases)
+  // F25 profile fields remain self-service; vehicle linking stays server-only.
   try {
     await assertSucceeds(
       updateDoc(doc(driver1Db, "partners", "driver-1"), {
-        currentVehicleId: "veh-1",
         displayName: "Driver One",
       })
     );
-    record("F25-partner-safe-profile-update", "PASS", "allowlist update ok", "partners");
+    await assertFails(
+      updateDoc(doc(driver1Db, "partners", "driver-1"), {
+        currentVehicleId: "veh-1",
+      })
+    );
+    record("F25-partner-safe-profile-update", "PASS", "profile allowed; vehicle link denied", "partners");
   } catch (e) {
     record("F25-partner-safe-profile-update", "FAIL", e.message, "partners");
   }

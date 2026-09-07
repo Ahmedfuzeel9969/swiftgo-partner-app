@@ -268,6 +268,9 @@ function main() {
   );
 
   void paintObserved;
+  arb.destroy();
+  pipe.destroy();
+  snapPipe.destroy();
 
   const summary = {
     suite: "customer-marker-motion-continuity",

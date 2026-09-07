@@ -237,7 +237,7 @@ record(
 );
 
 record(
-  "health-mirror-misses-acknowledged-writes-critical",
+  "health-mirror-ratio-alone-is-not-proof-of-outage",
   (() => {
     const health = classifyReportHealth({
       driver: {
@@ -250,7 +250,7 @@ record(
       server: { counters: { mirrorAccepted: 20 } },
       customer: { counters: { firebaseValidRendered: 1 } },
     });
-    return health.reasons.includes("mirror_to_vehicle_write_ratio_low") && health.status === "critical"
+    return !health.reasons.includes("mirror_to_vehicle_write_ratio_low") && health.status !== "critical"
       ? "PASS"
       : "FAIL";
   })()

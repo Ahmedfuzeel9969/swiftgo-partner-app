@@ -1,542 +1,312 @@
 package com.swiftgo.partner;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.Network;
-import android.net.NetworkCapabilities;
-import android.net.NetworkRequest;
 import android.os.Handler;
 import android.os.Looper;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStreamReader;
+import android.os.SystemClock;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.RejectedExecutionException;
+import org.json.JSONObject;
 
 /**
- * Persistent queue + HTTPS upload for background location when WebView is dead.
+ * Encrypted, assignment-bound latest-fix spool. A single worker owns I/O.
+ * Network calls never hold the state lock; generation fences reject late replies.
+ * This is ONLY the Firebase fallback, not a native P2P implementation.
  */
 final class BackgroundLocationUploader {
-  private static final String PREFS = "swiftgo_bg_location";
-  private static final String QUEUE_FILE = "bg_location_queue.json";
-  private static final int MAX_QUEUE = 40;
-  private static final long BASE_RETRY_MS = 2_000L;
-  private static final long MAX_RETRY_MS = 60_000L;
-  private static final long QUEUE_RETRY_INTERVAL_MS = 15_000L;
-  /** Renew while token still valid — before WebView JS refresh may be dead. */
-  private static final long RENEW_BEFORE_MS = 3 * 60_000L;
-
-  private final Context appContext;
-  private final ExecutorService executor = Executors.newSingleThreadExecutor();
-  private final AtomicBoolean flushing = new AtomicBoolean(false);
-  private final Handler mainHandler = new Handler(Looper.getMainLooper());
-  private ConnectivityManager.NetworkCallback networkCallback;
-  private Runnable queueRetryRunnable;
-
-  private volatile String uploadUrl = "";
-  private volatile String refreshUrl = "";
-  private volatile String token = "";
-  private volatile long tokenExpiresAtMs = 0L;
-  private volatile int lastSequence = 0;
-  private volatile long lastUploadAtMs = 0L;
-  private volatile int uploadedCount = 0;
-  private volatile int rejectedCount = 0;
-  private volatile int queuedCount = 0;
-  private volatile String lastReason = "";
-
-  interface PermanentBindingInvalidListener {
-    void onPermanentBindingInvalid(String reason);
-  }
-
-  private volatile PermanentBindingInvalidListener bindingInvalidListener;
+  interface Ready { void done(boolean ok, JSONObject state); }
+  interface PermanentBindingInvalidListener { void onPermanentBindingInvalid(String reason); }
+  private final Object lock = new Object();
+  private final Context context;
+  private final SecureLocationStore store;
+  private final ExecutorService worker = Executors.newSingleThreadExecutor();
+  private final Handler main = new Handler(Looper.getMainLooper());
+  private final ConnectivityManager connectivity;
+  private ConnectivityManager.NetworkCallback network;
+  private JSONObject state;
+  private long generation, heartbeatElapsed, retryAtElapsed;
+  private int failures, uploaded, rejected;
+  private boolean closed;
+  private String lastReason = "";
+  private volatile HttpURLConnection connection;
+  private PermanentBindingInvalidListener invalidListener;
+  private final Runnable tick = new Runnable() {
+    public void run() { requestFlush(); synchronized (lock) { if (!closed) main.postDelayed(this, 15_000); } }
+  };
 
   BackgroundLocationUploader(Context context) {
-    this.appContext = context.getApplicationContext();
-    loadPrefs();
-    registerNetworkCallback();
-    scheduleQueueRetry();
-  }
-
-  void setPermanentBindingInvalidListener(PermanentBindingInvalidListener listener) {
-    this.bindingInvalidListener = listener;
-  }
-
-  private void registerNetworkCallback() {
+    this.context = context.getApplicationContext();
+    store = new SecureLocationStore(this.context);
+    connectivity = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
     try {
-      ConnectivityManager cm =
-          (ConnectivityManager) appContext.getSystemService(Context.CONNECTIVITY_SERVICE);
-      if (cm == null) return;
-      networkCallback =
-          new ConnectivityManager.NetworkCallback() {
-            @Override
-            public void onAvailable(Network network) {
-              requestFlush();
-            }
-
-            @Override
-            public void onCapabilitiesChanged(Network network, NetworkCapabilities caps) {
-              if (caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-                requestFlush();
-              }
-            }
-          };
-      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-        cm.registerDefaultNetworkCallback(networkCallback);
-      } else {
-        NetworkRequest request =
-            new NetworkRequest.Builder()
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build();
-        cm.registerNetworkCallback(request, networkCallback);
-      }
-    } catch (Exception ignored) {
-      networkCallback = null;
+      network = new ConnectivityManager.NetworkCallback() {
+        public void onAvailable(Network n) { requestFlush(); }
+      };
+      if (connectivity != null) connectivity.registerDefaultNetworkCallback(network);
+    } catch (RuntimeException e) { network = null; }
+    main.postDelayed(tick, 15_000);
+  }
+  void setPermanentBindingInvalidListener(PermanentBindingInvalidListener l) { invalidListener = l; }
+  private long epoch() { synchronized (lock) { return generation; } }
+  private boolean current(long g) { return !closed && g == generation; }
+  private void submit(long g, Runnable work) {
+    try { worker.execute(() -> { synchronized (lock) { if (!current(g)) return; } work.run(); }); }
+    catch (RejectedExecutionException ignored) { /* closed service, never restart it */ }
+  }
+  static boolean validBinding(JSONObject s) {
+    if (s == null || !NativeLocationPolicy.active(s.optString("rideStatus"))) return false;
+    for (String key : new String[]{"rideId", "vehicleId", "driverUid", "trackingSessionId", "assignmentSessionToken", "bridgeSessionId"}) {
+      String value = s.optString(key);
+      if (value.isEmpty() || value.length() > 256) return false;
     }
+    return NativeLocationPolicy.endpoint(s.optString("uploadUrl"), false)
+      && NativeLocationPolicy.endpoint(s.optString("refreshUrl"), true);
   }
-
-  private void scheduleQueueRetry() {
-    if (queueRetryRunnable != null) return;
-    queueRetryRunnable =
-        new Runnable() {
-          @Override
-          public void run() {
-            executor.execute(
-                () -> {
-                  tryRenewCredentialLocked();
-                  if (queuedCount > 0) flushLocked();
-                });
-            mainHandler.postDelayed(this, QUEUE_RETRY_INTERVAL_MS);
-          }
-        };
-    mainHandler.postDelayed(queueRetryRunnable, QUEUE_RETRY_INTERVAL_MS);
-  }
-
-  void configure(String uploadUrl, String refreshUrl, String token, long tokenExpiresAtMs, int lastSequence) {
-    this.uploadUrl = uploadUrl != null ? uploadUrl.trim() : "";
-    this.refreshUrl = deriveRefreshUrl(this.uploadUrl, refreshUrl);
-    this.token = token != null ? token.trim() : "";
-    this.tokenExpiresAtMs = tokenExpiresAtMs;
-    if (lastSequence > this.lastSequence) this.lastSequence = lastSequence;
-    savePrefs();
-  }
-
-  void updateRefreshUrl(String refreshUrl) {
-    if (refreshUrl != null && !refreshUrl.trim().isEmpty()) {
-      this.refreshUrl = refreshUrl.trim();
-      savePrefs();
+  private static boolean sameAssignment(JSONObject a, JSONObject b) {
+    if (a == null || b == null) return false;
+    for (String key : new String[]{"rideId", "vehicleId", "driverUid", "trackingSessionId", "assignmentSessionToken"}) {
+      if (!a.optString(key).equals(b.optString(key))) return false;
     }
+    return true;
   }
-
-  void updateCredential(String token, long tokenExpiresAtMs) {
-    if (token != null && !token.trim().isEmpty()) {
-      this.token = token.trim();
-      this.tokenExpiresAtMs = tokenExpiresAtMs;
-      savePrefs();
-    }
-  }
-
-  void updateLastSequence(int sequence) {
-    if (sequence > lastSequence) {
-      lastSequence = sequence;
-      savePrefs();
-    }
-  }
-
-  int nextSequence() {
-    lastSequence += 1;
-    savePrefs();
-    return lastSequence;
-  }
-
-  int getLastSequence() {
-    return lastSequence;
-  }
-
-  boolean hasPersistedUploadConfig() {
-    return uploadUrl != null && !uploadUrl.isEmpty();
-  }
-
-  boolean hasValidCredential(long nowMs) {
-    return token != null
-        && !token.isEmpty()
-        && uploadUrl != null
-        && !uploadUrl.isEmpty()
-        && tokenExpiresAtMs > nowMs + 5_000L;
-  }
-
-  JSONObject getDiagnostics() {
-    JSONObject o = new JSONObject();
-    try {
-      o.put("queued", queuedCount);
-      o.put("uploaded", uploadedCount);
-      o.put("rejected", rejectedCount);
-      o.put("lastSequence", lastSequence);
-      o.put("lastUploadAtMs", lastUploadAtMs);
-      o.put("lastReason", lastReason);
-      o.put("hasCredential", hasValidCredential(System.currentTimeMillis()));
-      o.put("tokenExpiresAtMs", tokenExpiresAtMs);
-    } catch (Exception ignored) {
-    }
-    return o;
-  }
-
-  void enqueueFix(JSONObject fix, boolean force) {
-    executor.execute(
-        () -> {
-          try {
-            JSONArray queue = readQueue();
-            // Coalesce: keep only latest pending fix plus force markers.
-            JSONObject item = new JSONObject();
-            item.put("fix", fix);
-            item.put("force", force);
-            item.put("enqueuedAt", System.currentTimeMillis());
-            // Drop older pending items — latest fix wins for live tracking.
-            JSONArray next = new JSONArray();
-            next.put(item);
-            // Preserve a small backlog of older items only if force recovery.
-            for (int i = 0; i < queue.length() && next.length() < MAX_QUEUE; i++) {
-              JSONObject prev = queue.optJSONObject(i);
-              if (prev == null) continue;
-              if (prev.optBoolean("force", false) && next.length() < 4) {
-                next.put(prev);
-              }
-            }
-            writeQueue(next);
-            queuedCount = next.length();
-            flushLocked();
-          } catch (Exception e) {
-            lastReason = "enqueue_error";
-          }
-        });
-  }
-
-  void requestFlush() {
-    executor.execute(this::flushLocked);
-  }
-
-  void clearQueue() {
-    executor.execute(
-        () -> {
-          writeQueue(new JSONArray());
-          queuedCount = 0;
-        });
-  }
-
-  void clearCredentialState() {
-    token = "";
-    tokenExpiresAtMs = 0L;
-    savePrefs();
-  }
-
-  private void flushLocked() {
-    if (!flushing.compareAndSet(false, true)) return;
-    try {
-      tryRenewCredentialLocked();
-      long now = System.currentTimeMillis();
-      if (!hasValidCredential(now)) {
-        lastReason = "credential_missing_or_expired";
-        return;
-      }
-      JSONArray queue = readQueue();
-      if (queue.length() == 0) {
-        queuedCount = 0;
-        return;
-      }
-      List<JSONObject> remaining = new ArrayList<>();
-      long backoff = BASE_RETRY_MS;
-      for (int i = 0; i < queue.length(); i++) {
-        JSONObject item = queue.optJSONObject(i);
-        if (item == null) continue;
-        JSONObject fix = item.optJSONObject("fix");
-        boolean force = item.optBoolean("force", false);
-        if (fix == null) continue;
-        UploadResult result = postFix(fix, force);
-        if (result.accepted || "CADENCE_SKIP".equals(result.reason) || isDuplicate(result.reason)) {
-          if (result.accepted) uploadedCount += 1;
-          else rejectedCount += 1;
-          lastReason = result.reason;
-          lastUploadAtMs = System.currentTimeMillis();
-          backoff = BASE_RETRY_MS;
-          continue;
-        }
-        if (isPermanentBindingInvalid(result.reason)) {
-          lastReason = result.reason;
-          writeQueue(new JSONArray());
-          queuedCount = 0;
-          notifyPermanentBindingInvalid(result.reason);
-          break;
-        }
-        if (isRecoverableAuthFailure(result.reason)) {
-          lastReason = result.reason;
-          remaining.add(item);
-          // Stop — need credential refresh from web when possible.
-          for (int j = i + 1; j < queue.length(); j++) {
-            JSONObject rest = queue.optJSONObject(j);
-            if (rest != null) remaining.add(rest);
-          }
-          break;
-        }
-        // Transient — keep and retry later with backoff.
-        lastReason = result.reason.isEmpty() ? "upload_failed" : result.reason;
-        remaining.add(item);
-        for (int j = i + 1; j < queue.length(); j++) {
-          JSONObject rest = queue.optJSONObject(j);
-          if (rest != null) remaining.add(rest);
-        }
+  void configure(JSONObject input, Ready ready) {
+    final long g;
+    synchronized (lock) { g = ++generation; heartbeatElapsed = 0; }
+    disconnect();
+    submit(g, () -> {
+      synchronized (lock) {
+        if (!current(g)) return;
         try {
-          Thread.sleep(Math.min(MAX_RETRY_MS, backoff));
-        } catch (InterruptedException ignored) {
-          Thread.currentThread().interrupt();
+          SecureLocationStore.discardLegacy(context);
+          JSONObject next = new JSONObject(input.toString());
+          if (!validBinding(next)) throw new IllegalStateException("INVALID_BINDING");
+          // Preserve the sequence high-water across WebView restart for the SAME assignment only.
+          JSONObject previous = state;
+          if (previous == null) {
+            try { previous = store.read(); } catch (Exception ignored) { store.clear(); }
+          }
+          int seq = sameAssignment(previous, next) ? previous.optInt("lastSequence") : 0;
+          next.put("lastSequence", Math.max(seq, Math.max(0, next.optInt("lastSequence"))));
+          next.remove("pending"); // a new live WebView owns delivery, no replay of previous spool
+          next.put("schema", 2);
+          state = next;
+          failures = 0; retryAtElapsed = 0;
+          persist();
+          main.post(() -> { synchronized (lock) { if (current(g)) ready.done(true, copy(state)); } });
+        } catch (Exception e) { invalidate(g, "secure_state_failed"); readyLater(ready, false, g); }
+      }
+    });
+  }
+  void restore(Ready ready) {
+    final long g = epoch();
+    submit(g, () -> {
+      synchronized (lock) {
+        if (!current(g)) return;
+        try {
+          SecureLocationStore.discardLegacy(context);
+          state = store.read();
+          if (!validBinding(state) || state.optInt("schema") != 2 ||
+              !hasCredential(System.currentTimeMillis())) throw new IllegalStateException("RESTORE_DENIED");
+          if (!freshPending()) state.remove("pending");
+          persist();
+          readyLater(ready, true, g);
+        } catch (Exception e) { invalidate(g, "restore_requires_foreground"); readyLater(ready, false, g); }
+      }
+    });
+  }
+  private void readyLater(Ready ready, boolean ok, long g) {
+    JSONObject snapshot = copy(state);
+    main.post(() -> { synchronized (lock) { if (current(g)) ready.done(ok, snapshot); } });
+  }
+  boolean matches(String session) { synchronized (lock) { return !closed && state != null && !session.isEmpty() && session.equals(state.optString("bridgeSessionId")); } }
+  int getLastSequence() { synchronized (lock) { return state == null ? 0 : state.optInt("lastSequence"); } }
+  void noteWebAlive(String session, int sequence) {
+    synchronized (lock) {
+      if (!matches(session)) return;
+      heartbeatElapsed = SystemClock.elapsedRealtime();
+    }
+    long g = epoch();
+    submit(g, () -> {
+      synchronized (lock) {
+        if (!current(g) || !matches(session)) return;
+        try {
+          state.put("lastSequence", Math.max(state.optInt("lastSequence"), Math.max(0, sequence)));
+          state.remove("pending");
+          persist();
+        } catch (Exception e) { invalidate(g, "secure_state_failed"); }
+      }
+    });
+  }
+  void updateCredential(String session, String token, long expiry) {
+    long g = epoch();
+    submit(g, () -> {
+      synchronized (lock) {
+        if (!current(g) || !matches(session) || token.isEmpty() ||
+            !NativeLocationPolicy.credential(expiry, System.currentTimeMillis())) return;
+        try { state.put("token", token).put("tokenExpiresAtMs", expiry); persist(); }
+        catch (Exception e) { invalidate(g, "secure_state_failed"); }
+      }
+    });
+  }
+  void updateP2pCredential(String token, long expiry) {
+    long g = epoch();
+    submit(g, () -> {
+      synchronized (lock) {
+        if (!current(g) || state == null || token == null || token.isEmpty() ||
+            !NativeLocationPolicy.credential(expiry, System.currentTimeMillis())) return;
+        try { state.put("p2pToken", token).put("p2pTokenExpiresAtMs", expiry); persist(); }
+        catch (Exception e) { invalidate(g, "secure_state_failed"); }
+      }
+    });
+  }
+  void enqueueFix(JSONObject fix, boolean ignoredForce) {
+    final long g = epoch();
+    final JSONObject immutable = copy(fix);
+    submit(g, () -> {
+      synchronized (lock) {
+        if (!current(g) || state == null || immutable == null || webAlive() ||
+            !state.optString("rideId").equals(immutable.optString("rideId")) ||
+            !state.optString("bridgeSessionId").equals(immutable.optString("bridgeSessionId")) ||
+            !NativeLocationPolicy.fresh(immutable.optLong("observedAt"), System.currentTimeMillis())) return;
+        try {
+          int seq = state.optInt("lastSequence");
+          if (seq >= Integer.MAX_VALUE - 1) { invalidate(g, "sequence_exhausted"); return; }
+          immutable.put("sequence", seq + 1);
+          state.put("lastSequence", seq + 1).put("pending", immutable);
+          persist(); // sequence + fix committed together before network delivery
+        } catch (Exception e) { invalidate(g, "secure_state_failed"); return; }
+      }
+      flush(g);
+    });
+  }
+  void requestFlush() { long g = epoch(); submit(g, () -> flush(g)); }
+  private boolean hasCredential(long now) {
+    return state != null && !state.optString("token").isEmpty() &&
+      NativeLocationPolicy.credential(state.optLong("tokenExpiresAtMs"), now);
+  }
+  private boolean webAlive() { return NativeLocationPolicy.webAlive(heartbeatElapsed, SystemClock.elapsedRealtime()); }
+  private boolean freshPending() {
+    JSONObject fix = state == null ? null : state.optJSONObject("pending");
+    return fix != null && NativeLocationPolicy.fresh(fix.optLong("observedAt"), System.currentTimeMillis());
+  }
+  private void flush(long g) {
+    JSONObject snapshot;
+    boolean renew;
+    synchronized (lock) {
+      if (!current(g) || state == null || SystemClock.elapsedRealtime() < retryAtElapsed) return;
+      if (!hasCredential(System.currentTimeMillis())) {
+        if (!webAlive()) invalidate(g, "credential_expired_reopen_app");
+        return;
+      }
+      renew = state.optLong("tokenExpiresAtMs") <= System.currentTimeMillis() + 3 * 60_000L;
+      if (!renew && (webAlive() || !freshPending())) {
+        if (state.has("pending") && !freshPending()) {
+          state.remove("pending");
+          try { persist(); } catch (Exception e) { invalidate(g, "secure_state_failed"); }
         }
-        backoff = Math.min(MAX_RETRY_MS, backoff * 2);
-        break;
+        return;
       }
-      JSONArray next = new JSONArray();
-      for (JSONObject o : remaining) next.put(o);
-      writeQueue(next);
-      queuedCount = next.length();
-    } finally {
-      flushing.set(false);
+      snapshot = copy(state);
+    }
+    JSONObject response = post(g, snapshot, renew);
+    synchronized (lock) {
+      if (!current(g) || state == null) return;
+      String reason = response.optString("reason", "network_error");
+      lastReason = reason;
+      if (NativeLocationPolicy.terminal(reason)) { invalidate(g, reason); return; }
+      try {
+        if (renew && response.optBoolean("ok") && !response.optString("token").isEmpty() &&
+            NativeLocationPolicy.credential(response.optLong("expiresAtMs"), System.currentTimeMillis())) {
+          state.put("token", response.getString("token")).put("tokenExpiresAtMs", response.getLong("expiresAtMs"));
+          failures = 0; retryAtElapsed = 0; persist();
+          // Upload pending fix on the next tick; do not send a stale point after a slow refresh.
+        } else if (!renew && (response.optBoolean("accepted") || NativeLocationPolicy.drop(reason))) {
+          if (response.optBoolean("accepted")) uploaded++; else rejected++;
+          state.remove("pending"); failures = 0; retryAtElapsed = 0; persist();
+        } else {
+          failures = Math.min(failures + 1, 5);
+          retryAtElapsed = SystemClock.elapsedRealtime() + Math.min(60_000L, 2000L << failures);
+        }
+      } catch (Exception e) { invalidate(g, "secure_state_failed"); }
     }
   }
-
-  private boolean isDuplicate(String reason) {
-    return reason != null
-        && (reason.contains("duplicate")
-            || reason.contains("out_of_order")
-            || reason.contains("noop"));
-  }
-
-  private boolean isRecoverableAuthFailure(String reason) {
-    return "TOKEN_EXPIRED".equals(reason)
-        || "INVALID_SIGNATURE".equals(reason)
-        || "INVALID_TOKEN".equals(reason);
-  }
-
-  private boolean isPermanentBindingInvalid(String reason) {
-    return "ASSIGNMENT_TOKEN_MISMATCH".equals(reason)
-        || "NOT_ASSIGNED_DRIVER".equals(reason)
-        || "RIDE_NOT_ACTIVE".equals(reason)
-        || "VEHICLE_MISMATCH".equals(reason);
-  }
-
-  private void notifyPermanentBindingInvalid(String reason) {
-    PermanentBindingInvalidListener listener = bindingInvalidListener;
-    if (listener == null) return;
-    mainHandler.post(() -> listener.onPermanentBindingInvalid(reason));
-  }
-
-  private static String deriveRefreshUrl(String uploadUrl, String explicit) {
-    if (explicit != null && !explicit.trim().isEmpty()) return explicit.trim();
-    if (uploadUrl == null || uploadUrl.isEmpty()) return "";
-    if (uploadUrl.contains("ingestBackgroundDriverLocation")) {
-      return uploadUrl.replace(
-          "ingestBackgroundDriverLocation", "refreshBackgroundDriverLocationCredential");
-    }
-    return "";
-  }
-
-  /** Renew via HTTPS while the current token is still valid. */
-  private void tryRenewCredentialLocked() {
-    long now = System.currentTimeMillis();
-    if (refreshUrl == null || refreshUrl.isEmpty()) return;
-    if (token == null || token.isEmpty()) return;
-    if (tokenExpiresAtMs <= now + 5_000L) return;
-    if (tokenExpiresAtMs > now + RENEW_BEFORE_MS) return;
-
-    RefreshResult result = postRefresh();
-    if (result.ok && result.token != null && !result.token.isEmpty()) {
-      token = result.token.trim();
-      if (result.expiresAtMs > 0L) tokenExpiresAtMs = result.expiresAtMs;
-      savePrefs();
-      lastReason = "credential_renewed";
-    } else if (isPermanentBindingInvalid(result.reason)) {
-      lastReason = result.reason;
-      writeQueue(new JSONArray());
-      queuedCount = 0;
-      notifyPermanentBindingInvalid(result.reason);
-    } else if (result.reason != null && !result.reason.isEmpty()) {
-      lastReason = result.reason;
-    }
-  }
-
-  private RefreshResult postRefresh() {
-    RefreshResult out = new RefreshResult();
+  private JSONObject post(long g, JSONObject snapshot, boolean refresh) {
     HttpURLConnection conn = null;
     try {
-      URL url = new URL(refreshUrl);
-      conn = (HttpURLConnection) url.openConnection();
-      conn.setConnectTimeout(12_000);
-      conn.setReadTimeout(12_000);
-      conn.setRequestMethod("POST");
-      conn.setDoOutput(true);
+      String endpoint = snapshot.optString(refresh ? "refreshUrl" : "uploadUrl");
+      if (!NativeLocationPolicy.endpoint(endpoint, refresh)) return new JSONObject().put("reason", "INVALID_BINDING");
+      conn = (HttpURLConnection) new URL(endpoint).openConnection();
+      synchronized (lock) {
+        if (!current(g) || (!refresh && (webAlive() || !freshPending()))) return new JSONObject();
+        connection = conn;
+      }
+      conn.setInstanceFollowRedirects(false); conn.setConnectTimeout(10_000); conn.setReadTimeout(10_000);
+      conn.setRequestMethod("POST"); conn.setDoOutput(true);
       conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-      JSONObject body = new JSONObject();
-      body.put("token", token);
+      JSONObject body = new JSONObject().put("token", snapshot.optString("token"));
+      if (!refresh) body.put("fix", snapshot.getJSONObject("pending")).put("force", false);
       byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
       conn.setFixedLengthStreamingMode(bytes.length);
-      try (OutputStream os = conn.getOutputStream()) {
-        os.write(bytes);
-      }
+      try (OutputStream out = conn.getOutputStream()) { out.write(bytes); }
       int code = conn.getResponseCode();
-      String response = readStream(code >= 400 ? conn.getErrorStream() : conn.getInputStream());
-      JSONObject parsed = response.isEmpty() ? new JSONObject() : new JSONObject(response);
-      out.ok = parsed.optBoolean("ok", code >= 200 && code < 300);
-      if (out.ok) {
-        out.token = parsed.optString("token", "");
-        out.expiresAtMs = parsed.optLong("expiresAtMs", 0L);
-        out.reason = "credential_renewed";
-      } else {
-        out.reason = parsed.optString("reason", code >= 200 && code < 300 ? "refresh_denied" : "http_" + code);
+      if (code < 200 || code >= 500 || (code >= 300 && code < 400)) return new JSONObject().put("reason", "http_" + code);
+      InputStream stream = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
+      if (stream == null) return new JSONObject().put("reason", "empty_response");
+      try (InputStream in = stream; ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+        byte[] chunk = new byte[2048]; int n;
+        while ((n = in.read(chunk)) != -1) {
+          if (buffer.size() + n > 32_000) throw new IllegalStateException("RESPONSE_TOO_LARGE");
+          buffer.write(chunk, 0, n);
+        }
+        JSONObject result = new JSONObject(buffer.toString("UTF-8"));
+        if (code >= 400) { result.put("accepted", false).put("ok", false); }
+        return result;
       }
     } catch (Exception e) {
-      out.ok = false;
-      out.reason = "network_error";
+      JSONObject failure = new JSONObject();
+      try { failure.put("reason", "network_error"); } catch (Exception ignored) {}
+      return failure;
     } finally {
       if (conn != null) conn.disconnect();
-    }
-    return out;
-  }
-
-  private UploadResult postFix(JSONObject fix, boolean force) {
-    UploadResult out = new UploadResult();
-    HttpURLConnection conn = null;
-    try {
-      URL url = new URL(uploadUrl);
-      conn = (HttpURLConnection) url.openConnection();
-      conn.setConnectTimeout(12_000);
-      conn.setReadTimeout(12_000);
-      conn.setRequestMethod("POST");
-      conn.setDoOutput(true);
-      conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-      JSONObject body = new JSONObject();
-      body.put("token", token);
-      body.put("fix", fix);
-      body.put("force", force);
-      byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
-      conn.setFixedLengthStreamingMode(bytes.length);
-      try (OutputStream os = conn.getOutputStream()) {
-        os.write(bytes);
-      }
-      int code = conn.getResponseCode();
-      String response = readStream(code >= 400 ? conn.getErrorStream() : conn.getInputStream());
-      JSONObject parsed = response.isEmpty() ? new JSONObject() : new JSONObject(response);
-      out.httpCode = code;
-      out.ok = parsed.optBoolean("ok", code >= 200 && code < 300);
-      out.accepted = parsed.optBoolean("accepted", false);
-      out.reason = parsed.optString("reason", code >= 200 && code < 300 ? "ok" : "http_" + code);
-    } catch (Exception e) {
-      out.ok = false;
-      out.accepted = false;
-      out.reason = "network_error";
-    } finally {
-      if (conn != null) conn.disconnect();
-    }
-    return out;
-  }
-
-  private static String readStream(java.io.InputStream in) {
-    if (in == null) return "";
-    try (BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-      StringBuilder sb = new StringBuilder();
-      String line;
-      while ((line = br.readLine()) != null) sb.append(line);
-      return sb.toString();
-    } catch (Exception e) {
-      return "";
+      synchronized (lock) { if (connection == conn) connection = null; }
     }
   }
-
-  private File queueFile() {
-    return new File(appContext.getFilesDir(), QUEUE_FILE);
+  private void persist() throws Exception { if (state != null) store.write(state); }
+  private static JSONObject copy(JSONObject value) {
+    try { return value == null ? null : new JSONObject(value.toString()); } catch (Exception e) { return null; }
   }
-
-  private JSONArray readQueue() {
-    File f = queueFile();
-    if (!f.exists()) return new JSONArray();
-    try (FileInputStream in = new FileInputStream(f)) {
-      byte[] buf = new byte[(int) Math.min(f.length(), 256_000)];
-      int n = in.read(buf);
-      if (n <= 0) return new JSONArray();
-      return new JSONArray(new String(buf, 0, n, StandardCharsets.UTF_8));
-    } catch (Exception e) {
-      return new JSONArray();
+  private void invalidate(long g, String reason) {
+    if (!current(g)) return;
+    lastReason = reason; state = null; store.clear();
+    main.post(() -> { synchronized (lock) { if (current(g) && invalidListener != null) invalidListener.onPermanentBindingInvalid(reason); } });
+  }
+  JSONObject getDiagnostics() {
+    synchronized (lock) {
+      JSONObject result = new JSONObject();
+      try { result.put("queued", state != null && state.has("pending") ? 1 : 0).put("uploaded", uploaded)
+        .put("rejected", rejected).put("lastReason", lastReason).put("lastSequence", getLastSequence())
+        .put("hasCredential", hasCredential(System.currentTimeMillis())); } catch (Exception ignored) {}
+      return result;
     }
   }
-
-  private void writeQueue(JSONArray arr) {
-    try (FileOutputStream out = new FileOutputStream(queueFile(), false)) {
-      out.write(arr.toString().getBytes(StandardCharsets.UTF_8));
-    } catch (Exception ignored) {
-    }
+  private void disconnect() { HttpURLConnection c = connection; if (c != null) c.disconnect(); }
+  void clear() {
+    synchronized (lock) { ++generation; state = null; heartbeatElapsed = 0; store.clear(); }
+    disconnect();
   }
-
-  private void loadPrefs() {
-    SharedPreferences p = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-    uploadUrl = p.getString("uploadUrl", "");
-    refreshUrl = p.getString("refreshUrl", "");
-    token = p.getString("token", "");
-    tokenExpiresAtMs = p.getLong("tokenExpiresAtMs", 0L);
-    lastSequence = p.getInt("lastSequence", 0);
-    if (refreshUrl == null || refreshUrl.isEmpty()) {
-      refreshUrl = deriveRefreshUrl(uploadUrl, "");
-    }
-  }
-
-  private void savePrefs() {
-    appContext
-        .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .edit()
-        .putString("uploadUrl", uploadUrl)
-        .putString("refreshUrl", refreshUrl)
-        .putString("token", token)
-        .putLong("tokenExpiresAtMs", tokenExpiresAtMs)
-        .putInt("lastSequence", lastSequence)
-        .apply();
-  }
-
   void shutdown() {
-    try {
-      if (networkCallback != null) {
-        ConnectivityManager cm =
-            (ConnectivityManager) appContext.getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (cm != null) cm.unregisterNetworkCallback(networkCallback);
-      }
-    } catch (Exception ignored) {
-    }
-    networkCallback = null;
-    if (queueRetryRunnable != null) {
-      mainHandler.removeCallbacks(queueRetryRunnable);
-      queueRetryRunnable = null;
-    }
-    executor.shutdownNow();
-  }
-
-  static final class UploadResult {
-    boolean ok;
-    boolean accepted;
-    String reason = "";
-    int httpCode;
-  }
-
-  static final class RefreshResult {
-    boolean ok;
-    String token = "";
-    long expiresAtMs;
-    String reason = "";
+    synchronized (lock) { closed = true; ++generation; }
+    main.removeCallbacks(tick);
+    try { if (network != null && connectivity != null) connectivity.unregisterNetworkCallback(network); } catch (RuntimeException ignored) {}
+    disconnect(); worker.shutdownNow();
   }
 }

@@ -254,8 +254,8 @@ async function testAckValidationUnchangedAfterRetry() {
 }
 
 function testStaticSendFailureRetry() {
-  const src = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8");
-  const proto = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-protocol.mjs"), "utf8");
+  const src = fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8");
+  const proto = fs.readFileSync(path.join(ROOT, "shared/js/p2p-protocol.mjs"), "utf8");
   record(
     "static-scheduleSendFailureRetry",
     /function scheduleSendFailureRetry/.test(src) ? "PASS" : "FAIL"

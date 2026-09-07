@@ -10,6 +10,11 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 const HOST = process.env.PHASE2E_HOST || "http://127.0.0.1:5000";
@@ -30,11 +35,11 @@ const { locationGeoFields } = require(path.join(ROOT, "functions", "geo-cells.js
 
 let adminApp;
 try {
-  adminApp = admin.app();
+  adminApp = adminAppSdk.getApp();
 } catch {
-  adminApp = admin.initializeApp({ projectId: PROJECT });
+  adminApp = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const db = admin.firestore(adminApp);
+const db = adminFirestoreSdk.getFirestore(adminApp);
 
 const results = [];
 const pickup = { lat: 24.8607, lng: 67.0011, address: "Pickup E2E Clifton" };
@@ -55,7 +60,7 @@ function url(appPath = "/") {
 
 async function ensureUser(email, password, uid) {
   try {
-    return await admin.auth().createUser({
+    return await adminAuthSdk.getAuth().createUser({
       uid,
       email,
       password,
@@ -64,7 +69,7 @@ async function ensureUser(email, password, uid) {
     });
   } catch (e) {
     if (e.code === "auth/uid-already-exists" || e.code === "auth/email-already-exists") {
-      return admin.auth().getUser(uid).catch(() => admin.auth().getUserByEmail(email));
+      return adminAuthSdk.getAuth().getUser(uid).catch(() => adminAuthSdk.getAuth().getUserByEmail(email));
     }
     throw e;
   }
@@ -146,7 +151,7 @@ async function seedBase() {
     status: "online",
     driverId: "e2e-d1",
     location: { lat: pickup.lat + 0.001, lng: pickup.lng + 0.001 },
-    locationUpdatedAt: admin.firestore.Timestamp.now(),
+    locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
     ...locationGeoFields(pickup.lat + 0.001, pickup.lng + 0.001),
   });
   await db.doc("vehicles/e2e-v2").set({
@@ -156,7 +161,7 @@ async function seedBase() {
     status: "online",
     driverId: "e2e-d2",
     location: { lat: pickup.lat + 0.002, lng: pickup.lng },
-    locationUpdatedAt: admin.firestore.Timestamp.now(),
+    locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
     ...locationGeoFields(pickup.lat + 0.002, pickup.lng),
   });
   await db.doc("vehicles/e2e-v-block").set({
@@ -166,7 +171,7 @@ async function seedBase() {
     status: "offline",
     driverId: "e2e-blocked",
     location: { lat: pickup.lat, lng: pickup.lng },
-    locationUpdatedAt: admin.firestore.Timestamp.now(),
+    locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
     ...locationGeoFields(pickup.lat, pickup.lng),
   });
   await db.doc("vehicles/e2e-v-own2").set({
@@ -176,7 +181,7 @@ async function seedBase() {
     status: "offline",
     driverId: null,
     location: { lat: 24.91, lng: 67.1 },
-    locationUpdatedAt: admin.firestore.Timestamp.now(),
+    locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
     ...locationGeoFields(24.91, 67.1),
   });
 }
@@ -1129,7 +1134,7 @@ async function main() {
         vehicleType: "Go",
         vehicleTypeKey: "go",
         paymentMethod: "cash",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: adminFirestoreSdk.FieldValue.serverTimestamp(),
         candidateCount: 1,
         candidateDriverLimit: 10,
         matchingStatus: "candidates_ready",
@@ -1141,7 +1146,7 @@ async function main() {
         distanceKm: 0.5,
         ringKm: 1,
         status: "invited",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: adminFirestoreSdk.FieldValue.serverTimestamp(),
       });
     }
 
@@ -1205,7 +1210,7 @@ async function main() {
         farePkr: 250,
         estimatedFare: 250,
         vehicleType: "Go",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: adminFirestoreSdk.FieldValue.serverTimestamp(),
       });
       await db.doc(`ride_candidates/${ref.id}_e2e-d1`).set({
         rideId: ref.id,
@@ -1213,7 +1218,7 @@ async function main() {
         distanceKm: 0.4,
         ringKm: 1,
         status: "invited",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: adminFirestoreSdk.FieldValue.serverTimestamp(),
       });
     }
     // Clear d1 active state

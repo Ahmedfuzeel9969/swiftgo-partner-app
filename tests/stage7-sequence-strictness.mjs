@@ -31,7 +31,8 @@ const RIDE_ID = "ride_stage7_seq";
 const VEHICLE = "veh_stage7_seq";
 const TRACKING = "trk_stage7_seq01";
 const AST = "ast_stage7_seq";
-const NOW = 7_000_000;
+// The shared GPS contract now checks recency against the real server clock.
+const NOW = Date.now();
 
 const results = [];
 function record(name, status, detail = "") {
@@ -40,8 +41,11 @@ function record(name, status, detail = "") {
 }
 
 function createIngestMockDb(ride, vehicle) {
-  let vehicleDoc = { ...vehicle };
+  let vehicleDoc = { driverId: DRIVER_UID, ...vehicle };
   return {
+    // The production authorization contract now reads the assigned driver's
+    // approved partner record; represent it in this isolated sequence fixture.
+    doc(path) { const [name, id] = path.split("/"); return { _collection: name, _id: id }; },
     collection(name) {
       return {
         doc(id) {
@@ -52,6 +56,9 @@ function createIngestMockDb(ride, vehicle) {
     async runTransaction(fn) {
       const tx = {
         async get(ref) {
+          if (ref._collection === "partners") {
+            return { exists: true, data: () => ({ role: "driver", accountStatus: "active", driverApprovalStatus: "approved" }) };
+          }
           if (ref._collection === "rides") {
             return { exists: true, data: () => ride };
           }
@@ -209,8 +216,8 @@ function createIngestMockDb(ride, vehicle) {
     custProtocol.P2P_MIN_LOC_GAP_MS === P2P_MIN_LOC_GAP_MS ? "PASS" : "FAIL"
   );
 
-  const drvProto = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-protocol.mjs"), "utf8");
-  const drvSession = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8");
+  const drvProto = fs.readFileSync(path.join(ROOT, "shared/js/p2p-protocol.mjs"), "utf8");
+  const drvSession = fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8");
   record(
     "protocol-documents-min-gap-intent",
     drvProto.includes("P2P_MIN_LOC_GAP_MS") &&

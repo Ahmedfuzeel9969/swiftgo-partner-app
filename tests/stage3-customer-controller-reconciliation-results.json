@@ -1,8 +1,8 @@
 {
   "stage": 3,
   "area": "customer-controller-reconciliation",
-  "generatedAt": "2026-08-20T13:42:19.076Z",
-  "pass": 14,
+  "generatedAt": "2026-08-27T10:35:46.270Z",
+  "pass": 15,
   "fail": 0,
   "results": [
     {
@@ -74,6 +74,11 @@
       "name": "hidden-does-not-suspend-or-destroy-p2p",
       "status": "PASS",
       "detail": "state=CONNECTING uiVisible=false"
+    },
+    {
+      "name": "same-session-ice-restart-offer-is-reanswered",
+      "status": "PASS",
+      "detail": "published=of_first,of_restart"
     }
   ]
 }

@@ -5,9 +5,11 @@
 
 "use strict";
 
-const admin = require(require.resolve("firebase-admin", { paths: [__dirname, process.cwd()] }));
+const { getAuth } = require("firebase-admin/auth");
 const { FieldValue } = require("firebase-admin/firestore");
-const { isCallerAuthorizedForDiagnostic } = require("./admin-claims");
+const { isCallerAuthorizedForDiagnostic, assertAdminInTransaction } = require("./admin-claims");
+const { POLICY, afterDays } = require("./retention-policy");
+const { assertAccountAccessInTransaction } = require("./account-deletion-workflow");
 
 function err(code, message) {
   const e = new Error(message || code);
@@ -16,7 +18,7 @@ function err(code, message) {
 }
 
 function isBlockedStatus(status) {
-  return status === "blocked" || status === "suspended";
+  return ["blocked", "suspended", "deletion_pending", "closed"].includes(status);
 }
 
 function normalizeName(value, max = 120) {
@@ -45,7 +47,7 @@ async function ensureCallerIsSuperAdmin(db, auth) {
 
 async function loadTargetAuthUser(targetUid) {
   try {
-    return await admin.auth().getUser(targetUid);
+    return await getAuth().getUser(targetUid);
   } catch (e) {
     if (e?.code === "auth/user-not-found") throw err("not-found", "TARGET_USER_NOT_FOUND");
     throw err("failed-precondition", "TARGET_AUTH_LOOKUP_FAILED");
@@ -113,15 +115,25 @@ async function requestOwnerAccess(db, auth, data = {}) {
   const businessName = normalizeName(data?.businessName) || null;
   const email = String(auth.token?.email || "").trim().toLowerCase() || null;
 
-  await appRef.set(
+  return db.runTransaction(async (tx) => {
+    await assertAccountAccessInTransaction(tx, db, uid);
+    const current = await tx.get(appRef);
+    const currentPartner = await tx.get(db.doc(`partners/${uid}`));
+    assertPartnerEligible(currentPartner.data());
+    if (current.data()?.identityErasurePending === true) throw err("failed-precondition", "IDENTITY_ERASURE_IN_PROGRESS");
+    if (currentPartner.data()?.role === "owner") return { ok: true, status: "already_owner", uid, idempotent: true };
+    if (current.data()?.status === "pending") return { ok: true, status: "pending", uid, idempotent: true };
+    tx.set(appRef,
     {
       uid,
       email,
       fullName,
       businessName,
       status: "pending",
-      createdAt: appSnap.exists
-        ? appSnap.data()?.createdAt || FieldValue.serverTimestamp()
+      retentionPolicyVersion: POLICY.version,
+      identityDueAt: FieldValue.delete(),
+      createdAt: current.exists
+        ? current.data()?.createdAt || FieldValue.serverTimestamp()
         : FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       rejectionReason: null,
@@ -131,7 +143,7 @@ async function requestOwnerAccess(db, auth, data = {}) {
     { merge: true }
   );
 
-  await db.collection("audit_logs").doc(`owner_request_${uid}_${Date.now()}`).set({
+  tx.set(db.collection("audit_logs").doc(`owner_request_${uid}_${Date.now()}`), {
     action: "owner_access_requested",
     actorUid: uid,
     targetUid: uid,
@@ -140,6 +152,7 @@ async function requestOwnerAccess(db, auth, data = {}) {
   });
 
   return { ok: true, status: "pending", uid };
+  });
 }
 
 /**
@@ -165,6 +178,8 @@ async function approveOwnerAccess(db, auth, data = {}) {
   }
 
   return db.runTransaction(async (tx) => {
+    await assertAdminInTransaction(tx, db, auth);
+    await assertAccountAccessInTransaction(tx, db, targetUid);
     const partnerSnap = await tx.get(partnerRef);
     const appSnap = await tx.get(appRef);
 
@@ -177,6 +192,7 @@ async function approveOwnerAccess(db, auth, data = {}) {
     }
 
     const appData = appSnap.exists ? appSnap.data() || {} : {};
+    if (appData.identityErasurePending === true) throw err("failed-precondition", "IDENTITY_ERASURE_IN_PROGRESS");
     if (appSnap.exists) {
       if (appData.status === "rejected") {
         throw err("failed-precondition", "APPLICATION_REJECTED");
@@ -280,6 +296,7 @@ async function rejectOwnerAccess(db, auth, data = {}) {
   const partnerRef = db.collection("partners").doc(targetUid);
 
   return db.runTransaction(async (tx) => {
+    await assertAdminInTransaction(tx, db, auth);
     const appSnap = await tx.get(appRef);
     const partnerSnap = await tx.get(partnerRef);
 
@@ -288,6 +305,7 @@ async function rejectOwnerAccess(db, auth, data = {}) {
     }
 
     const appData = appSnap.data() || {};
+    if (appData.identityErasurePending === true) throw err("failed-precondition", "IDENTITY_ERASURE_IN_PROGRESS");
     if (appData.status === "rejected") {
       return { ok: true, status: "already_rejected", targetUid, idempotent: true };
     }
@@ -301,6 +319,8 @@ async function rejectOwnerAccess(db, auth, data = {}) {
 
     tx.update(appRef, {
       status: "rejected",
+      retentionPolicyVersion: POLICY.version,
+      identityDueAt: afterDays(Date.now(), POLICY.rejectedIdentityDays),
       rejectionReason: reason,
       rejectedAt: FieldValue.serverTimestamp(),
       rejectedBy: auth.uid,

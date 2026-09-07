@@ -646,10 +646,10 @@ async function rulesTests() {
     projectId: PROJECT,
     firestore: { rules: rulesText, host: "127.0.0.1", port: 8080 },
   });
-  const admin = require("firebase-admin");
-  if (!admin.apps.length) admin.initializeApp({ projectId: PROJECT });
-  const adminDb = admin.firestore();
-  const Ts = admin.firestore.Timestamp;
+  const { getApps, initializeApp } = require("firebase-admin/app");
+  const { getFirestore, Timestamp: Ts } = require("firebase-admin/firestore");
+  if (!getApps().length) initializeApp({ projectId: PROJECT });
+  const adminDb = getFirestore();
 
   await testEnv.clearFirestore();
 

@@ -30,7 +30,12 @@ const {
 const { loadAndSelectGeoCandidates } = require("./geo-match");
 const { isValidGeoCell } = require("./geo-coverage");
 const { seedDriverLocationFromVehicle } = require("./driver-location");
-const { computeCancellationFare } = require("./partial-fare");
+const { computeCancellationFare, resolveCancellationDistance } = require("./partial-fare");
+
+function cancellationBreakdown(pricing, ride, telemetry) {
+  const distance = resolveCancellationDistance(ride, telemetry);
+  return { ...distance, ...computeCancellationFare(pricing, ride, distance.traveledDistanceKm) };
+}
 const { settlePartialCancellation } = require("./settlement");
 const {
   reconcileDriverAvailabilityInTx,
@@ -38,6 +43,8 @@ const {
   isDriverAvailableForRematch,
 } = require("./active-ride-reconcile");
 const { assignmentLocationBaselineResetPatch } = require("./server-mirror-aggregate");
+const { readBookingQuote } = require("./booking-pricing");
+const { money, documentId, requireApprovedDriver } = require("./security-policy");
 
 const CANCEL_REASON_KEYS = Object.freeze([
   "taking_too_long",
@@ -433,16 +440,19 @@ async function reconcileCustomerBookingState(db, customerUid, { nowMs = Date.now
   }
 
   if (toClose.length) {
-    const batch = db.batch();
-    for (const item of toClose) {
-      batch.update(db.collection("rides").doc(item.id), {
+    const closed = await Promise.all(toClose.map((item) => db.runTransaction(async (tx) => {
+      const ref = db.doc(`rides/${item.id}`);
+      const current = await tx.get(ref);
+      if (!current.exists || !isSearchingPastExpiry(current.data(), nowMs)) return null;
+      tx.update(ref, {
         status: item.status,
         expiredAt: FieldValue.serverTimestamp(),
         expireReason: item.reason,
         cancelledAt: FieldValue.serverTimestamp(),
       });
-    }
-    await batch.commit();
+      return item;
+    })));
+    toClose.splice(0, toClose.length, ...closed.filter(Boolean));
     await Promise.all(
       toClose.map((item) =>
         closeCandidatesAndOffersForRide(db, item.id, item.reason).catch(() => ({
@@ -453,14 +463,16 @@ async function reconcileCustomerBookingState(db, customerUid, { nowMs = Date.now
     );
   }
 
-  const refreshed = await countCustomerActiveBookings(db, customerUid);
-  await db.collection("booking_slots").doc(customerUid).set(
-    {
-      count: refreshed.length,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+  // Serialize reconciliation with creation. A query followed by a plain set
+  // could overwrite the increment of a concurrently created booking.
+  const refreshed = await db.runTransaction(async (tx) => {
+    const slot = db.doc(`booking_slots/${customerUid}`);
+    await tx.get(slot);
+    const live = await tx.get(db.collection("rides").where(CUSTOMER_RIDE_OWNER_FIELD, "==", customerUid)
+      .where("status", "in", [...NON_TERMINAL_RIDE_STATUSES]).limit(5));
+    tx.set(slot, { count: live.size, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return live.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  });
 
   return {
     activeCount: refreshed.length,
@@ -644,26 +656,17 @@ async function createCustomerBooking(
 ) {
   if (!customerUid || !ridePayload) throw err("invalid-argument", "MISSING_FIELDS");
 
-  const pickupLat = Number(ridePayload.pickupLocation?.lat);
-  const pickupLng = Number(ridePayload.pickupLocation?.lng);
-  if (!Number.isFinite(pickupLat) || !Number.isFinite(pickupLng)) {
-    throw err("invalid-argument", "INVALID_PICKUP");
-  }
-  const dropLat = Number(ridePayload.dropoffLocation?.lat);
-  const dropLng = Number(ridePayload.dropoffLocation?.lng);
-  if (!Number.isFinite(dropLat) || !Number.isFinite(dropLng)) {
-    throw err("invalid-argument", "INVALID_DROPOFF");
+  const quoteSnap = await db.doc(`booking_quotes/${documentId(ridePayload.quoteId, "QUOTE")}`).get();
+  if (!quoteSnap.exists || quoteSnap.data().userId !== customerUid) throw err("permission-denied", "QUOTE_NOT_OWNED");
+  const priorQuote = quoteSnap.data();
+  if (priorQuote.consumedRideId) {
+    return { id: priorQuote.consumedRideId, count: priorQuote.consumedCount, payload: priorQuote.payload,
+      farePkr: priorQuote.payload.farePkr, estimatedFare: priorQuote.payload.estimatedFare,
+      dispatchSettings: await readDispatchSettings(db), idempotent: true };
   }
 
   // Sync slots to live rides and expire stale searching docs before limit checks.
-  const reconciled = await reconcileCustomerBookingState(db, customerUid);
-  const liveCount = reconciled.activeCount;
-  if (liveCount >= MAX_CUSTOMER_ACTIVE_BOOKINGS) {
-    throw err("failed-precondition", "MAX_ACTIVE_BOOKINGS");
-  }
-  if (liveCount >= 1 && !confirmedExtraBooking) {
-    throw err("failed-precondition", "CONFIRM_EXTRA_BOOKING");
-  }
+  await reconcileCustomerBookingState(db, customerUid);
 
   const slotRef = db.collection("booking_slots").doc(customerUid);
   const rideRef = db.collection("rides").doc();
@@ -671,6 +674,10 @@ async function createCustomerBooking(
   const searchExpireMs = Math.round(normalizeSearchTimeoutSeconds(dispatch.searchTimeoutSeconds) * 1000);
 
   const created = await db.runTransaction(async (tx) => {
+    await require("./account-deletion-workflow").assertAccountAccessInTransaction(tx, db, customerUid);
+    const quote = await readBookingQuote(tx, db, customerUid, ridePayload);
+    if (quote.existingRideId) return { id: quote.existingRideId, count: quote.count, payload: priorQuote.payload,
+      farePkr: priorQuote.payload.farePkr, estimatedFare: priorQuote.payload.estimatedFare, idempotent: true };
     const slotSnap = await tx.get(slotRef);
     // Post-reconcile slots track live non-terminal count; TX remains race-safe.
     const count = slotSnap.exists ? Math.max(0, Number(slotSnap.data()?.count || 0)) : 0;
@@ -683,7 +690,9 @@ async function createCustomerBooking(
 
     const now = Date.now();
     const payload = {
-      ...ridePayload,
+      ...quote.payload,
+      quoteId: quote.quoteRef.id,
+      pricingAuthority: "server_quote_v1",
       [CUSTOMER_RIDE_OWNER_FIELD]: customerUid,
       userId: customerUid,
       status: "searching_driver",
@@ -698,6 +707,12 @@ async function createCustomerBooking(
       if (payload[k] === undefined) delete payload[k];
     });
     tx.set(rideRef, payload);
+    tx.update(quote.quoteRef, { consumedRideId: rideRef.id, consumedCount: count + 1, consumedAt: FieldValue.serverTimestamp() });
+    if (quote.promoRef) {
+      tx.update(quote.promoRef, { usedCount: FieldValue.increment(1) });
+      tx.create(db.doc(`promo_redemptions/${rideRef.id}`), { rideId: rideRef.id, userId: customerUid,
+        code: quote.payload.promoCode, discountAmount: quote.payload.discountAmount, createdAt: FieldValue.serverTimestamp() });
+    }
     tx.set(
       slotRef,
       {
@@ -706,7 +721,8 @@ async function createCustomerBooking(
       },
       { merge: true }
     );
-    return { id: rideRef.id, count: count + 1 };
+    return { id: rideRef.id, count: count + 1, payload: quote.payload,
+      farePkr: quote.payload.farePkr, estimatedFare: quote.payload.estimatedFare };
   });
   // Reuse this server-read configuration for the immediate match. It is never
   // returned to the customer and later rematches still read current settings.
@@ -752,9 +768,11 @@ async function previewCancellationFare(db, { customerUid, rideId }) {
       perKmRate: 0,
     };
   }
-  const pricingSnap = await db.collection("settings").doc("pricing").get();
+  const [pricingSnap, telemetrySnap] = await Promise.all([
+    db.collection("settings").doc("pricing").get(), db.collection("rideBreadcrumbTelemetry").doc(rideId).get(),
+  ]);
   const pricing = pricingSnap.exists ? pricingSnap.data() || {} : {};
-  const breakdown = computeCancellationFare(pricing, ride);
+  const breakdown = cancellationBreakdown(pricing, ride, telemetrySnap.exists ? telemetrySnap.data() : null);
   return {
     rideId,
     status: ride.status,
@@ -781,15 +799,6 @@ async function cancelCustomerBooking(db, { customerUid, rideId, cancelReason, ca
   const preRide = preSnap.data() || {};
   if (!isOwnedByCustomer(preRide, customerUid)) {
     throw err("permission-denied", "NOT_YOUR_BOOKING");
-  }
-
-  let partialBreakdown = null;
-  if (String(preRide.status || "") === "in_progress") {
-    const pricingSnap = await db.collection("settings").doc("pricing").get();
-    partialBreakdown = computeCancellationFare(
-      pricingSnap.exists ? pricingSnap.data() || {} : {},
-      preRide
-    );
   }
 
   const outcome = await db.runTransaction(async (tx) => {
@@ -823,6 +832,18 @@ async function cancelCustomerBooking(db, { customerUid, rideId, cancelReason, ca
     if (!CANCELLABLE_RIDE_STATUSES.includes(String(ride.status || ""))) {
       throw err("failed-precondition", `NOT_CANCELLABLE:${ride.status || "unknown"}`);
     }
+    let partialBreakdown = null;
+    if (String(ride.status) === "in_progress") {
+      // Distance, current status and price are read in the SAME transaction.
+      // A concurrently committed breadcrumb forces retry; a late terminal
+      // batch cannot modify the fixed cancellation amount afterwards.
+      const [price, telemetry] = await Promise.all([
+        tx.get(db.collection("settings").doc("pricing")),
+        tx.get(db.collection("rideBreadcrumbTelemetry").doc(rideId)),
+      ]);
+      partialBreakdown = cancellationBreakdown(price.exists ? price.data() : {}, ride,
+        telemetry.exists ? telemetry.data() : null);
+    }
     const assignedDriverId = ride.driverId || null;
     let partnerRef = null;
     let partnerSnap = null;
@@ -842,6 +863,9 @@ async function cancelCustomerBooking(db, { customerUid, rideId, cancelReason, ca
       patch.cancellationFare = partialBreakdown.cancellationFare;
       patch.farePkr = partialBreakdown.cancellationFare;
       patch.partialCancellation = true;
+      patch.cancellationDistanceSource = partialBreakdown.distanceSource;
+      patch.cancellationDistanceCoverageIncomplete = partialBreakdown.distanceCoverageIncomplete;
+      patch.cancellationDistanceMeasuredThroughAtMs = partialBreakdown.distanceMeasuredThroughAtMs;
     }
     if (assignedDriverId) {
       patch.previousDriverId = assignedDriverId;
@@ -911,6 +935,8 @@ async function cancelCustomerBooking(db, { customerUid, rideId, cancelReason, ca
     cancellationFare: outcome.partialBreakdown?.cancellationFare ?? outcome.cancellationFare ?? 0,
     traveledDistanceKm:
       outcome.partialBreakdown?.traveledDistanceKm ?? outcome.traveledDistanceKm ?? 0,
+    distanceSource: outcome.partialBreakdown?.distanceSource ?? null,
+    distanceCoverageIncomplete: outcome.partialBreakdown?.distanceCoverageIncomplete ?? null,
     settlement,
   };
 }
@@ -996,7 +1022,7 @@ async function expireSearchingBooking(db, { customerUid, rideId, nowMs = Date.no
  *
  * @returns {{ processed, expired, skipped, failed, readsEstimate, writesEstimate }}
  */
-async function expireDueSearchingBookings(db, { limit = 25, nowMs = Date.now() } = {}) {
+async function expireDueSearchingBookings(db, { limit = 25, nowMs = Date.now(), strictIndex = false } = {}) {
   const batchLimit = Math.max(1, Math.min(50, Number(limit) || 25));
   const nowTs = Timestamp.fromMillis(nowMs);
   let snap;
@@ -1009,6 +1035,7 @@ async function expireDueSearchingBookings(db, { limit = 25, nowMs = Date.now() }
       .limit(batchLimit)
       .get();
   } catch (e) {
+    if (strictIndex) throw e;
     // Emulator / missing index fallback: scan customer's active is not global —
     // use a capped status-only query then filter in memory (still not full fleet of all statuses).
     const fallback = await db
@@ -1059,7 +1086,7 @@ async function expireDueSearchingBookings(db, { limit = 25, nowMs = Date.now() }
  *
  * @returns {{ processed, expired, skipped, failed, readsEstimate, writesEstimate }}
  */
-async function expireDueRideOffers(db, { limit = 25, nowMs = Date.now() } = {}) {
+async function expireDueRideOffers(db, { limit = 25, nowMs = Date.now(), strictIndex = false } = {}) {
   const batchLimit = Math.max(1, Math.min(50, Number(limit) || 25));
   const dispatch = await readDispatchSettings(db);
   const fallbackOfferTimeoutSeconds = dispatch.offerTimeoutSeconds;
@@ -1074,7 +1101,8 @@ async function expireDueRideOffers(db, { limit = 25, nowMs = Date.now() } = {}) 
       .limit(batchLimit)
       .get();
     docs = snap.docs;
-  } catch {
+  } catch (error) {
+    if (strictIndex) throw error;
     const fallback = await db
       .collection("ride_offers")
       .where("status", "in", [...OPEN_OFFER_STATUSES])
@@ -1335,7 +1363,13 @@ async function matchRideCandidates(
     }
   }
 
-  selected = (selected || []).filter((c) => !excludeSet.has(String(c.driverId)));
+  // Fail closed at the common exit, including geo fallback/probe paths.
+  const approved = await Promise.all((selected || []).map(async (candidate) => {
+    const snap = await db.doc(`partners/${documentId(candidate.driverId)}`).get();
+    try { requireApprovedDriver(snap.data()); } catch { return null; }
+    return candidate;
+  }));
+  selected = approved.filter((c) => c && !excludeSet.has(String(c.driverId)));
 
   console.log(
     "[Dispatch Debug] Candidates ready for booking:",
@@ -1469,8 +1503,7 @@ async function submitRideOffer(db, params) {
   } = params;
 
   if (!rideId || !driverUid || !vehicleId) throw err("invalid-argument", "MISSING_FIELDS");
-  const bid = Math.max(0, Math.round(Number(fare) || 0));
-  if (!Number.isFinite(bid) || bid < 0) throw err("invalid-argument", "INVALID_FARE");
+  const bid = money(fare, "FARE");
 
   const existingOfferId = `${rideId}_${driverUid}`;
   const openCountSnap = await db
@@ -1513,6 +1546,7 @@ async function submitRideOffer(db, params) {
       throw err("permission-denied", "NOT_A_CANDIDATE");
     }
     const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
+    requireApprovedDriver(partner);
     if (partner.accountStatus === "blocked") throw err("permission-denied", "DRIVER_BLOCKED");
     if (partner.accountStatus === "suspended") throw err("permission-denied", "DRIVER_SUSPENDED");
     if (!vehicleSnap.exists || vehicleSnap.data()?.driverId !== driverUid) {
@@ -1539,9 +1573,9 @@ async function submitRideOffer(db, params) {
       fare: bid,
       status: "open",
       vehicleId,
-      ownerId: ownerId || null,
-      driverName: driverName || "SwiftGo Driver",
-      vehiclePlate: vehiclePlate || "—",
+      ownerId: vehicleSnap.data().ownerId || null,
+      driverName: partner.displayName || partner.name || "SwiftGo Driver",
+      vehiclePlate: vehicleSnap.data().plate || "—",
       offerExpiresAt,
       offerTimeoutSeconds,
       offerSubmittedAtMs: nowMs,
@@ -1574,7 +1608,7 @@ async function submitRideOffer(db, params) {
  * Customer counter on a specific offer.
  */
 async function counterRideOffer(db, { offerId, customerUid, fare }) {
-  const bid = Math.max(0, Math.round(Number(fare) || 0));
+  const bid = money(fare, "FARE");
   const offerRef = db.collection("ride_offers").doc(offerId);
   const dispatch = await readDispatchSettings(db);
   const offerTimeoutSeconds = normalizeOfferTimeoutSeconds(dispatch.offerTimeoutSeconds);
@@ -1651,6 +1685,7 @@ async function rejectRideOffer(db, { offerId, customerUid }) {
  */
 async function finalizeAssignmentFromOffer(db, params) {
   const { offerId, actorUid, actorRole } = params;
+  if (!["customer", "driver"].includes(actorRole)) throw err("permission-denied", "INVALID_ACTOR_ROLE");
   // actorRole: 'customer' | 'driver'
   const offerRef = db.collection("ride_offers").doc(offerId);
   const dispatch = await readDispatchSettings(db);
@@ -1674,6 +1709,8 @@ async function finalizeAssignmentFromOffer(db, params) {
           throw err("not-found", "OFFER_NOT_FOUND");
         }
         const offer = offerSnap.data() || {};
+        if ((actorRole === "customer" && offer.customerId !== actorUid) ||
+            (actorRole === "driver" && offer.driverId !== actorUid)) throw err("permission-denied", "NOT_YOUR_OFFER");
         assignDiag = {
           offerId,
           rideId: offer.rideId ?? null,
@@ -1722,6 +1759,7 @@ async function finalizeAssignmentFromOffer(db, params) {
         const partnerRef = db.collection("partners").doc(offer.driverId);
         const partnerSnap = await tx.get(partnerRef);
         const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
+        requireApprovedDriver(partner);
         if (partner.accountStatus === "blocked") {
           transactionOutcome = "DRIVER_BLOCKED";
           throw err("permission-denied", "DRIVER_BLOCKED");
@@ -1748,9 +1786,9 @@ async function finalizeAssignmentFromOffer(db, params) {
           vehicleSnap,
         });
 
-        let finalFare = Math.round(Number(offer.fare) || 0);
+        let finalFare = money(offer.fare, "FARE", 500000, 0);
         if (actorRole === "driver" && offer.status === "countered") {
-          finalFare = Math.round(Number(offer.customerCounterFare) || 0);
+          finalFare = money(offer.customerCounterFare, "FARE");
           if (finalFare <= 0) {
             transactionOutcome = "NO_COUNTER";
             throw err("failed-precondition", "NO_COUNTER");
@@ -1762,9 +1800,9 @@ async function finalizeAssignmentFromOffer(db, params) {
           status: "accepted",
           driverId: offer.driverId,
           vehicleId: offer.vehicleId,
-          ownerId: offer.ownerId,
-          driverName: offer.driverName,
-          vehiclePlate: offer.vehiclePlate,
+          ownerId: vehicleSnap.data().ownerId || null,
+          driverName: partner.displayName || partner.name || "SwiftGo Driver",
+          vehiclePlate: vehicleSnap.data().plate || "—",
           farePkr: finalFare,
           estimatedFare: finalFare,
           driverBidFare: finalFare,
@@ -1918,6 +1956,7 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
       }
 
       const partner = partnerSnap.exists ? partnerSnap.data() || {} : {};
+      requireApprovedDriver(partner);
       if (partner.accountStatus === "blocked") {
         transactionOutcome = "DRIVER_BLOCKED";
         throw err("permission-denied", "DRIVER_BLOCKED");
@@ -1977,8 +2016,8 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
         throw err("failed-precondition", "OFFER_NEGOTIATION_ACTIVE");
       }
 
-      const finalFare = Math.round(Number(ride.estimatedFare ?? ride.farePkr ?? 0));
-      if (!Number.isFinite(finalFare) || finalFare <= 0) {
+      const finalFare = money(ride.estimatedFare ?? ride.farePkr, "FARE", 500000, 0);
+      if (!Number.isFinite(finalFare) || finalFare < 0) {
         transactionOutcome = "INVALID_FARE";
         throw err("failed-precondition", "INVALID_FARE");
       }
@@ -1998,9 +2037,9 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
         status: "accepted",
         driverId: driverUid,
         vehicleId,
-        ownerId: ownerId || null,
-        driverName: driverName || "SwiftGo Driver",
-        vehiclePlate: vehiclePlate || "—",
+        ownerId: vehicleSnap.data().ownerId || null,
+        driverName: partner.displayName || partner.name || "SwiftGo Driver",
+        vehiclePlate: vehicleSnap.data().plate || "—",
         farePkr: finalFare,
         estimatedFare: finalFare,
         driverBidFare: finalFare,
@@ -2016,9 +2055,9 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
         fare: finalFare,
         status: "accepted",
         vehicleId,
-        ownerId: ownerId || null,
-        driverName: driverName || "SwiftGo Driver",
-        vehiclePlate: vehiclePlate || "—",
+        ownerId: vehicleSnap.data().ownerId || null,
+        driverName: partner.displayName || partner.name || "SwiftGo Driver",
+        vehiclePlate: vehicleSnap.data().plate || "—",
         acceptedAtCustomerFare: true,
         updatedAt: FieldValue.serverTimestamp(),
       };

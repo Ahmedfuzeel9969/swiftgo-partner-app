@@ -3,6 +3,9 @@ node_modules/
 .firebase/
 hosting-dist/
 .hosting-deploy-lock.json
+.release-baselines/
+.dependency-trials/
+cleanup-review/
 *-debug.log
 .firebaserc.local
 NUL

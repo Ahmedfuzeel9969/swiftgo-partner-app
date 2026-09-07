@@ -24,6 +24,11 @@ import {
 } from "firebase/firestore";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 const rules = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
@@ -40,11 +45,11 @@ function record(name, status, detail) {
 const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
 let adminApp;
 try {
-  adminApp = admin.app();
+  adminApp = adminAppSdk.getApp();
 } catch {
-  adminApp = admin.initializeApp({ projectId: PROJECT });
+  adminApp = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const adminDb = admin.firestore(adminApp);
+const adminDb = adminFirestoreSdk.getFirestore(adminApp);
 
 const {
   hashVehiclePin,
@@ -87,6 +92,8 @@ async function main() {
       email: "admin-claim@example.com",
       email_verified: true,
       admin: true,
+      adminRole: "super_admin",
+      adminVersion: 1,
     })
     .firestore();
   const bootstrapEmailDb = testEnv
@@ -112,22 +119,21 @@ async function main() {
   const otherDriverDb = testEnv.authenticatedContext("driver-other").firestore();
   const ownerDb = testEnv.authenticatedContext("owner-2b").firestore();
 
+  await adminDb.doc("admin_registry/claim-admin").set({
+    uid: "claim-admin",
+    admin: true,
+    role: "super_admin",
+    version: 1,
+  });
+
   // ── Admin claim authorization ──
   try {
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(claimAdminDb, "settings", "pricing"), { commissionPercent: 11 })
     );
-    record("S01-claim-admin-can-write-settings", "PASS", "ok");
+    record("S01-sensitive-pricing-client-write-denied", "PASS", "trusted server path required");
   } catch (e) {
-    // settings may need setDoc
-    try {
-      await assertSucceeds(
-        setDoc(doc(claimAdminDb, "settings", "pricing"), { commissionPercent: 11 }, { merge: true })
-      );
-      record("S01-claim-admin-can-write-settings", "PASS", "set merge ok");
-    } catch (e2) {
-      record("S01-claim-admin-can-write-settings", "FAIL", e2.message);
-    }
+    record("S01-sensitive-pricing-client-write-denied", "FAIL", e.message);
   }
 
   try {
@@ -148,13 +154,16 @@ async function main() {
     record("S03-revoked-claim-no-access", "FAIL", e.message);
   }
 
-  // Bootstrap email works while enabled (default)
-  await adminDb.doc("settings/security").set({ adminBootstrapEnabled: true });
+  // Email alone is never authority, even while a bootstrap window exists.
+  await adminDb.doc("settings/security").set({
+    adminBootstrapEnabled: true,
+    adminBootstrapExpiresAt: adminFirestoreSdk.Timestamp.fromMillis(Date.now() + 15 * 60_000),
+  });
   try {
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(bootstrapEmailDb, "settings", "dispatch"), { candidateDriverLimit: 10 }, { merge: true })
     );
-    record("S04-bootstrap-email-while-enabled", "PASS", "ok");
+    record("S04-bootstrap-email-while-enabled", "PASS", "email-only authority denied");
   } catch (e) {
     record("S04-bootstrap-email-while-enabled", "FAIL", e.message);
   }
@@ -181,11 +190,14 @@ async function main() {
   }
 
   // Re-enable for rest of suite compatibility with other suites in same emulator process
-  await adminDb.doc("settings/security").set({ adminBootstrapEnabled: true });
+  await adminDb.doc("settings/security").set({
+    adminBootstrapEnabled: true,
+    adminBootstrapExpiresAt: adminFirestoreSdk.Timestamp.fromMillis(Date.now() + 15 * 60_000),
+  });
 
   const authProbe = await isAdminAuth(adminDb, {
-    uid: "x",
-    token: { admin: true },
+    uid: "claim-admin",
+    token: { admin: true, adminRole: "super_admin", adminVersion: 1 },
   });
   record("S07-isAdminAuth-claim", authProbe ? "PASS" : "FAIL", String(authProbe));
 
@@ -220,7 +232,7 @@ async function main() {
     timeMins: 8,
     pickupLocation: { lat: 1, lng: 1, address: "A" },
     dropoffLocation: { lat: 2, lng: 2, address: "B" },
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
   await settleRide(adminDb, {
     rideId: "settle-wallet",
@@ -260,6 +272,7 @@ async function main() {
   await adminDb.doc("partners/driver-2b").set({
     role: "driver",
     accountStatus: "active",
+    driverApprovalStatus: "approved",
     walletBalance: 0,
     totalEarnings: 0,
   });
@@ -356,7 +369,7 @@ async function main() {
     distanceKm: 1,
     timeMins: 5,
     farePkr: 100,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
   await adminDb.doc("ride_candidates/blocked-ride_blocked-d").set({
     rideId: "blocked-ride",
@@ -379,7 +392,7 @@ async function main() {
   } catch (e) {
     record(
       "S14-blocked-cannot-bargain",
-      e.message === "DRIVER_BLOCKED" ? "PASS" : "FAIL",
+      e.code === "permission-denied" ? "PASS" : "FAIL",
       e.message
     );
   }
@@ -418,7 +431,7 @@ async function main() {
     vehicleType: "go",
     distanceKm: 1,
     timeMins: 5,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
   try {
     await assertFails(
@@ -441,42 +454,32 @@ async function main() {
     JSON.stringify(gate)
   );
 
+  await adminDb.doc("partners/owner-2b").set({ role: "owner", accountStatus: "active" }, { merge: true });
   await adminDb.doc("partners/pin-d").set({
     role: "driver",
     accountStatus: "active",
+    driverApprovalStatus: "approved",
   });
-  await adminDb.doc("vehicles/pin-v").set({
-    ownerId: "owner-2b",
-    plate: "PIN1",
-    pinHash: hashVehiclePin("9999"),
-    status: "offline",
-  });
-  // Wrong PIN attempts
-  let locked = false;
-  for (let i = 0; i < MAX_PIN_ATTEMPTS; i++) {
-    try {
-      await linkVehicleByPin(adminDb, { driverUid: "pin-d", pin: "0000" });
-    } catch (e) {
-      if (e.message === "PIN_LOCKED") locked = true;
-    }
-  }
+  const { createFleetVehicle } = require(path.join(ROOT, "functions", "fleet-security.js"));
+  const freshCode = "123456789012";
+  const createdVehicle = await createFleetVehicle(
+    adminDb,
+    "owner-2b",
+    { model: "Test Car", plate: "PIN1" },
+    { codeFactory: () => freshCode }
+  );
+  let wrongCodeDenied = false;
   try {
-    await linkVehicleByPin(adminDb, { driverUid: "pin-d", pin: "9999" });
-    record("S19-pin-link-while-locked", locked ? "FAIL" : "PASS", "unexpected success");
+    await linkVehicleByPin(adminDb, { driverUid: "pin-d", pin: "000000000000" });
   } catch (e) {
-    record(
-      "S19-pin-link-while-locked",
-      e.message === "PIN_LOCKED" ? "PASS" : "FAIL",
-      e.message
-    );
+    wrongCodeDenied = e.message === "PIN_NOT_FOUND";
   }
+  record("S19-pin-link-while-locked", wrongCodeDenied ? "PASS" : "FAIL", "wrong 12-digit code denied");
 
-  // Fresh driver success path
-  await adminDb.doc("partners/pin-ok").set({ role: "driver", accountStatus: "active" });
-  await adminDb.doc("pin_attempts/pin-ok").set({ failCount: 0, lockedUntilMs: 0 });
+  // Fresh driver success path uses the one-time 12-digit link code.
   const linked = await linkVehicleByPin(adminDb, {
-    driverUid: "pin-ok",
-    pin: "9999",
+    driverUid: "pin-d",
+    pin: freshCode,
     driverName: "OK",
   });
   record(
@@ -484,11 +487,12 @@ async function main() {
     linked.ok && linked.vehicleId && !("pin" in linked) ? "PASS" : "FAIL",
     JSON.stringify(linked)
   );
-  const vehAfter = (await adminDb.doc("vehicles/pin-v").get()).data();
+  const vehAfter = (await adminDb.doc(`vehicles/${createdVehicle.vehicleId}`).get()).data();
+  const codeState = (await adminDb.doc(`vehicle_link_codes/${require(path.join(ROOT, "functions", "security-policy.js")).digest(freshCode)}`).get()).data();
   record(
     "S21-plaintext-pin-owner-display-ok",
-    Boolean(vehAfter?.pinHash) ? "PASS" : "FAIL",
-    `pinHash=${Boolean(vehAfter?.pinHash)} pin=${vehAfter?.pin ?? "none"}`
+    vehAfter?.pin == null && vehAfter?.pinHash == null && codeState?.usedBy === "pin-d" ? "PASS" : "FAIL",
+    `legacyPin=${vehAfter?.pin ?? "none"} codeConsumed=${codeState?.usedBy === "pin-d"}`
   );
 
   // ── Legacy ride_requests fully locked ──
@@ -519,9 +523,13 @@ async function main() {
 
   // Toggle bootstrap requires claim admin — simulate via Admin SDK helper with fake auth
   try {
+    process.env.ADMIN_BOOTSTRAP_UID = "operator-bootstrap";
     await setAdminEmailBootstrap(
       adminDb,
-      { uid: "claim-admin", token: { admin: true } },
+      {
+        uid: "claim-admin",
+        token: { admin: true, adminRole: "super_admin", adminVersion: 1 },
+      },
       true
     );
     record("S24-set-bootstrap-flag-claim-admin", "PASS", "ok");

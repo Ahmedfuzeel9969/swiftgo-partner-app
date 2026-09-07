@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-10T06:28:17.227Z",
+  "generatedAt": "2026-08-30T03:42:27.594Z",
   "pass": 41,
   "fail": 0,
   "results": [
@@ -121,7 +121,7 @@
     {
       "name": "callable-bootstrap-super-admin-approves",
       "status": "PASS",
-      "detail": "approved bootstrap owner may approve"
+      "detail": "registry-provisioned bootstrap super admin may approve"
     },
     {
       "name": "callable-non-admin-approve-denied",

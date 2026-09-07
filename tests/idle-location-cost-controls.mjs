@@ -40,6 +40,11 @@ import {
 } from "../driver-app/js/idle-publish-config.mjs";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "tests", "idle-location-cost-controls-results.json");
 const PROJECT = "demo-swiftgo-phase1";
@@ -782,11 +787,11 @@ async function runEmulatorTests() {
   const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
   let adminApp;
   try {
-    adminApp = admin.app();
+    adminApp = adminAppSdk.getApp();
   } catch {
-    adminApp = admin.initializeApp({ projectId: PROJECT });
+    adminApp = adminAppSdk.initializeApp({ projectId: PROJECT });
   }
-  const db = admin.firestore(adminApp);
+  const db = adminFirestoreSdk.getFirestore(adminApp);
   const { BOOTSTRAP_ADMIN_EMAIL } = require(path.join(ROOT, "functions", "admin-claims.js"));
 
   function clientApp(name) {
@@ -802,7 +807,7 @@ async function runEmulatorTests() {
 
   async function ensureUser(email, password, uidHint) {
     try {
-      return await admin.auth().createUser({
+      return await adminAuthSdk.getAuth().createUser({
         uid: uidHint,
         email,
         password,
@@ -810,7 +815,7 @@ async function runEmulatorTests() {
       });
     } catch (e) {
       if (e.code === "auth/uid-already-exists" || e.code === "auth/email-already-exists") {
-        return admin.auth().getUser(uidHint).catch(() => admin.auth().getUserByEmail(email));
+        return adminAuthSdk.getAuth().getUser(uidHint).catch(() => adminAuthSdk.getAuth().getUserByEmail(email));
       }
       throw e;
     }
@@ -869,7 +874,7 @@ async function runEmulatorTests() {
   await signInWithEmailAndPassword(ordinary.auth, "idle-user@example.com", "IdleCost-test!");
   await signInWithEmailAndPassword(claimAdmin.auth, "idle-claim-admin@example.com", "IdleCost-test!");
 
-  await admin.auth().setCustomUserClaims("idle-claim-admin", { admin: true });
+  await adminAuthSdk.getAuth().setCustomUserClaims("idle-claim-admin", { admin: true });
   await db.doc("users/idle-claim-admin").set(
     { role: "admin", email: "idle-claim-admin@example.com" },
     { merge: true }
@@ -1217,7 +1222,7 @@ async function runEmulatorTests() {
   const expiredNorm = normalizeIdlePublishConfig(
     {
       idleMovementTriggerDisabled: true,
-      idleDiagnosticExpiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 60_000),
+      idleDiagnosticExpiresAt: adminFirestoreSdk.Timestamp.fromMillis(Date.now() - 60_000),
     },
     { nowMs: Date.now() }
   );

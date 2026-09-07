@@ -1,6 +1,7 @@
 /**
  * Phase 6 — submitRideBreadcrumbBatch callable.
- * Updates shadow telemetry only. Never touches fare/settlement/wallet.
+ * Validates measured raw segments. Never writes a fare/wallet; cancellation
+ * reads this server-owned measurement in its own settlement transaction.
  */
 
 "use strict";
@@ -14,10 +15,14 @@ const {
 } = require("./breadcrumb-schema");
 
 const TELEMETRY_COLLECTION = "rideBreadcrumbTelemetry";
+const { createHash } = require("node:crypto");
+const { timestampToMs } = require("./server-mirror-aggregate");
+const { normalizeLocationReportingConfig } = require("./location-reporting-config");
 
 function emptyTelemetry(rideId, driverId, vehicleId, assignmentVersion, trackingSessionId, assignmentSessionToken) {
   return {
     protocolVersion: BREADCRUMB_PROTOCOL_VERSION,
+    measurementVersion: 2,
     rideId,
     driverId,
     vehicleId,
@@ -28,7 +33,9 @@ function emptyTelemetry(rideId, driverId, vehicleId, assignmentVersion, tracking
     lastFixSequence: 0,
     lastAcceptedObservedAt: null,
     lastAcceptedRawPoint: null,
+    lastDistanceAnchor: null,
     lastBatchKey: "",
+    lastBatchDigest: "",
     denseChordDistanceMeters: 0,
     acceptedPointCount: 0,
     rejectedPointCount: 0,
@@ -43,6 +50,9 @@ function emptyTelemetry(rideId, driverId, vehicleId, assignmentVersion, tracking
 
 function batchKey(batch) {
   return `${batch.batchSequence}:${batch.firstFixSequence}:${batch.lastFixSequence}:${batch.trackingSessionId}`;
+}
+function batchDigest(batch) {
+  return createHash("sha256").update(JSON.stringify({ key: batchKey(batch), points: batch.points, gapBefore: batch.gapBefore })).digest("hex");
 }
 
 /**
@@ -87,10 +97,11 @@ async function submitRideBreadcrumbBatch(db, input) {
 
   const result = await db.runTransaction(async (tx) => {
     // All required reads before any writes.
-    const [rideSnap, telemetrySnap, vehicleSnap] = await Promise.all([
+    const [rideSnap, telemetrySnap, vehicleSnap, reportingSnap] = await Promise.all([
       tx.get(rideRef),
       tx.get(telemetryRef),
       tx.get(vehicleRef),
+      tx.get(db.doc("settings/locationReporting")),
     ]);
 
     if (!rideSnap.exists) {
@@ -163,6 +174,8 @@ async function submitRideBreadcrumbBatch(db, input) {
       throw err;
     }
 
+    const tripStartedAtMs = timestampToMs(ride.tripStartedAt);
+    if (!tripStartedAtMs) { const e = new Error("TRIP_START_MISSING"); e.code = "failed-precondition"; throw e; }
     let tel = telemetrySnap.exists
       ? {
           ...emptyTelemetry(
@@ -192,7 +205,9 @@ async function submitRideBreadcrumbBatch(db, input) {
       String(tel.assignmentSessionToken || "") &&
       String(tel.assignmentSessionToken) !== serverToken;
 
-    if (sessionChanged || assignmentChanged) {
+    if (sessionChanged || assignmentChanged || tel.measurementVersion !== 2 ||
+        (telemetrySnap.exists && telemetrySnap.data().measurementVersion !== 2)) {
+      const prior = tel;
       tel = emptyTelemetry(
         rideId,
         driverUid,
@@ -202,15 +217,22 @@ async function submitRideBreadcrumbBatch(db, input) {
         serverToken
       );
       tel.incompleteCoverage = true;
+      // Retain measured distance across a GPS restart of the SAME assignment,
+      // but do not invent a connecting segment. Old shadow data stays legacy.
+      if (!assignmentChanged && telemetrySnap.data()?.measurementVersion === 2) {
+        for (const key of ["denseChordDistanceMeters", "acceptedPointCount", "rejectedPointCount", "coverageStartAt", "coverageEndAt", "coverageSeconds", "gapCount"])
+          tel[key] = prior[key];
+      }
       tel.gapCount = Number(tel.gapCount || 0) + 1;
     }
 
     const key = batchKey(batch);
+    const digest = batchDigest(batch);
     // Idempotent duplicate
     if (tel.lastBatchKey === key || Number(tel.lastBatchSequence) === batch.batchSequence) {
       if (
         Number(tel.lastBatchSequence) === batch.batchSequence &&
-        tel.lastBatchKey === key
+        tel.lastBatchKey === key && tel.lastBatchDigest === digest
       ) {
         return {
           ok: true,
@@ -234,6 +256,7 @@ async function submitRideBreadcrumbBatch(db, input) {
       }
     }
 
+    let missingBatch = false;
     if (batch.batchSequence !== Number(tel.lastBatchSequence || 0) + 1 && Number(tel.lastBatchSequence || 0) > 0) {
       // Allow first batch after reset (lastBatchSequence 0); otherwise require strict next.
       if (!(Number(tel.lastBatchSequence || 0) === 0 && batch.batchSequence >= 1)) {
@@ -245,15 +268,20 @@ async function submitRideBreadcrumbBatch(db, input) {
         // Skip ahead — treat as gap, do not invent missing batches' distance.
         tel.gapCount = Number(tel.gapCount || 0) + 1;
         tel.incompleteCoverage = true;
+        missingBatch = true;
       }
     }
 
     // Drop already-applied fix sequences (overlap / retry slices) — no double-count.
     const lastFix = Number(tel.lastFixSequence || 0);
-    const freshPoints = batch.points.filter((p) => Number(p.sequence) > lastFix);
+    const freshPoints = batch.points.filter((p) => p.sequence > lastFix && p.observedAt >= tripStartedAtMs &&
+      p.observedAt > (tel.coverageEndAt || 0) && p.observedAt <= nowMs);
     if (!freshPoints.length) {
       tel.lastBatchSequence = batch.batchSequence;
       tel.lastBatchKey = key;
+      tel.lastBatchDigest = digest;
+      tel.lastFixSequence = Math.max(lastFix, batch.lastFixSequence);
+      tel.incompleteCoverage = true;
       const updatedAtDup = new Date(nowMs);
       tel.updatedAt = updatedAtDup;
       tx.set(telemetryRef, tel, { merge: true });
@@ -274,7 +302,7 @@ async function submitRideBreadcrumbBatch(db, input) {
     }
 
     const previousAnchor =
-      batch.gapBefore || !tel.lastAcceptedRawPoint
+      missingBatch || batch.gapBefore || !tel.lastAcceptedRawPoint || tel.lastDistanceAnchor === null
         ? null
         : {
             lat: tel.lastAcceptedRawPoint.lat,
@@ -285,6 +313,7 @@ async function submitRideBreadcrumbBatch(db, input) {
 
     const chord = accumulateDenseChordMeters(freshPoints, {
       previousAnchor,
+      distanceAnchor: tel.lastDistanceAnchor || previousAnchor,
       gapBefore: Boolean(batch.gapBefore) || !previousAnchor,
     });
 
@@ -292,6 +321,8 @@ async function submitRideBreadcrumbBatch(db, input) {
     tel.denseChordDistanceMeters = Math.round((prevDist + chord.distanceMeters) * 100) / 100;
     tel.acceptedPointCount = Number(tel.acceptedPointCount || 0) + chord.acceptedPointCount;
     tel.rejectedPointCount = Number(tel.rejectedPointCount || 0) + chord.rejectedPointCount;
+    tel.gapCount += chord.gapCount;
+    if (chord.gapCount || freshPoints.length !== batch.points.length) tel.incompleteCoverage = true;
     if (batch.gapBefore) {
       tel.gapCount = Number(tel.gapCount || 0) + 1;
       tel.incompleteCoverage = true;
@@ -299,6 +330,8 @@ async function submitRideBreadcrumbBatch(db, input) {
     tel.lastBatchSequence = batch.batchSequence;
     tel.lastFixSequence = freshPoints[freshPoints.length - 1].sequence;
     tel.lastBatchKey = key;
+    tel.lastBatchDigest = digest;
+    tel.lastDistanceAnchor = chord.distanceAnchor;
     tel.trackingSessionId = batch.trackingSessionId;
     tel.assignmentVersion = expectedAv;
     tel.assignmentSessionToken = serverToken;
@@ -313,7 +346,7 @@ async function submitRideBreadcrumbBatch(db, input) {
         lng: chord.lastAccepted.lng,
       };
       tel.lastAcceptedObservedAt = chord.lastAccepted.observedAt;
-      if (!tel.coverageStartAt) tel.coverageStartAt = batch.points[0].observedAt;
+      if (!tel.coverageStartAt) tel.coverageStartAt = freshPoints[0].observedAt;
       tel.coverageEndAt = chord.lastAccepted.observedAt;
       if (tel.coverageStartAt && tel.coverageEndAt) {
         tel.coverageSeconds = Math.max(
@@ -325,8 +358,11 @@ async function submitRideBreadcrumbBatch(db, input) {
 
     const updatedAt = new Date(nowMs);
     tel.updatedAt = updatedAt;
+    // Same super-admin retention window as the associated location report.
+    // A purge additionally requires a terminal ride and approved maintenance policy.
+    tel.expiresAt = new Date(nowMs + normalizeLocationReportingConfig(reportingSnap.data()).retentionDays * 86400000);
 
-    // Shadow only — never write traveledDistanceKm / fare / wallet fields.
+    // Server-owned measurement only; no mutable client distance/fare accepted.
     tx.set(telemetryRef, tel, { merge: true });
 
     return {

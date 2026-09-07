@@ -1,322 +1,144 @@
-/**
- * Phase 2B — Super Admin custom claims + bootstrap transition.
- */
-
+/** Versioned, revocable administration. User profile roles/email are NOT authority. */
 "use strict";
-
-const admin = require(require.resolve("firebase-admin", { paths: [__dirname, process.cwd()] }));
-const { FieldValue } = require("firebase-admin/firestore");
-
+const { getAuth } = require("firebase-admin/auth");
+const { FieldValue, Timestamp } = require("firebase-admin/firestore");
+const { randomUUID } = require("node:crypto");
+const { fail, documentId } = require("./security-policy");
+const { LOCATION_DELIVERY_KEYS } = require("./location-delivery-policy");
+// Historical display/export compatibility only. Never authorizes a request.
 const BOOTSTRAP_ADMIN_EMAIL = "fuzail1158@gmail.com";
+const isBootstrapEmailAuth = (auth) => auth?.token?.email_verified === true && String(auth.token.email).toLowerCase() === BOOTSTRAP_ADMIN_EMAIL;
+const isClaimAdmin = (auth) => auth?.token?.admin === true;
 
-function err(code, message) {
-  const e = new Error(message || code);
-  e.code = code;
-  return e;
+function registryAllows(entry, auth, requiredRole = null) {
+  return Boolean(auth?.uid && isClaimAdmin(auth) && Number.isInteger(auth.token.adminVersion) &&
+    entry?.admin === true && entry.version === auth.token.adminVersion && entry.role === auth.token.adminRole &&
+    ["admin", "super_admin"].includes(entry.role) && (!requiredRole || entry.role === requiredRole));
 }
-
-function isBootstrapEmailAuth(auth) {
-  const email = String(auth?.token?.email || "").toLowerCase();
-  return email === BOOTSTRAP_ADMIN_EMAIL && auth?.token?.email_verified === true;
+async function assertAdminInTransaction(tx, db, auth, role = "super_admin") {
+  if (!auth?.uid) fail("permission-denied", "SUPER_ADMIN_ONLY");
+  const snap = await tx.get(db.doc(`admin_registry/${documentId(auth.uid)}`));
+  if (!registryAllows(snap.data(), auth, role)) fail("permission-denied", "SUPER_ADMIN_ONLY");
 }
-
-function isClaimAdmin(auth) {
-  return auth?.token?.admin === true;
-}
-
-async function isEmailBootstrapEnabled(db) {
-  const snap = await db.collection("settings").doc("security").get();
-  // Default OFF — must explicitly enable transitional bootstrap.
-  if (!snap.exists) return false;
-  return snap.data()?.adminBootstrapEnabled === true;
-}
-
-async function hasSuperAdminUserRole(db, uid) {
-  if (!uid) return false;
-  const snap = await db.collection("users").doc(uid).get();
-  if (!snap.exists) return false;
-  return snap.data()?.role === "super_admin";
-}
-
-/** Persist users/{uid}.role = super_admin (Admin SDK only; clients cannot set this). */
-async function ensureSuperAdminUserDoc(db, auth) {
-  const uid = auth?.uid;
-  if (!uid) return;
-  await ensureSuperAdminUserDocForUid(db, uid, {
-    email: String(auth?.token?.email || "").toLowerCase() || null,
-    displayName: auth?.token?.name || null,
+async function writeAdminSettings(db, auth, path, payload) {
+  await db.runTransaction(async (tx) => {
+    await assertAdminInTransaction(tx, db, auth);
+    tx.set(db.doc(path), payload, { merge: true });
+    tx.create(db.collection("audit_logs").doc(), { action: "admin_settings_saved", actorUid: auth.uid,
+      settingsPath: path, fields: Object.keys(payload), createdAt: FieldValue.serverTimestamp() });
   });
 }
 
-async function ensureSuperAdminUserDocForUid(db, uid, { email = null, displayName = null } = {}) {
-  if (!uid) return;
-  const ref = db.collection("users").doc(uid);
+async function readAdminRole(db, auth) {
+  if (!auth?.uid || !isClaimAdmin(auth) || !Number.isInteger(auth.token.adminVersion)) return null;
+  const snap = await db.doc(`admin_registry/${documentId(auth.uid)}`).get();
+  const entry = snap.exists ? snap.data() : null;
+  if (!registryAllows(entry, auth)) return null;
+  return entry.role;
+}
+async function isAdminAuth(db, auth) { return (await readAdminRole(db, auth)) !== null; }
+async function isCallerAuthorizedForDiagnostic(db, auth) { return (await readAdminRole(db, auth)) === "super_admin"; }
+async function ensureCallerCanAdminWrite(db, auth) { return isCallerAuthorizedForDiagnostic(db, auth); }
+async function hasSuperAdminUserRole(db, uid) { const snap = await db.doc(`users/${documentId(uid)}`).get(); return snap.data()?.role === "super_admin"; }
+async function hasAdminUserRole(db, uid) { const snap = await db.doc(`users/${documentId(uid)}`).get(); return snap.data()?.role === "admin"; }
+
+async function setProfileRole(db, uid, role, profile = {}) {
+  const ref = db.doc(`users/${documentId(uid)}`);
   const snap = await ref.get();
-  const payload = {
-    role: "super_admin",
-    email,
-    displayName: displayName || email || "Super Admin",
-    updatedAt: FieldValue.serverTimestamp(),
-    adminRoleSyncedAt: FieldValue.serverTimestamp(),
-  };
-  if (!snap.exists) {
-    payload.walletBalance = 0;
-  }
-  await ref.set(payload, { merge: true });
+  await ref.set({ ...(!snap.exists ? { walletBalance: 0 } : {}), ...profile, role, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
 }
+const ensureSuperAdminUserDocForUid = (db, uid, profile) => setProfileRole(db, uid, "super_admin", profile);
+const ensureAdminUserDocForUid = (db, uid, profile) => setProfileRole(db, uid, "admin", profile);
+const ensureSuperAdminUserDoc = (db, auth) => ensureSuperAdminUserDocForUid(db, auth.uid);
 
-/** Persist users/{uid}.role = admin for claim-granted operators (not super_admin). */
-async function ensureAdminUserDocForUid(db, uid, { email = null, displayName = null } = {}) {
-  if (!uid) return;
-  const ref = db.collection("users").doc(uid);
-  const snap = await ref.get();
-  const existingRole = snap.exists ? snap.data()?.role : null;
-  if (existingRole === "super_admin") return;
-  const payload = {
-    role: "admin",
-    email,
-    displayName: displayName || email || "Admin",
-    updatedAt: FieldValue.serverTimestamp(),
-    adminRoleSyncedAt: FieldValue.serverTimestamp(),
-  };
-  if (!snap.exists) {
-    payload.walletBalance = 0;
-  }
-  await ref.set(payload, { merge: true });
+function bootstrapWindow(security) {
+  const deadline = security?.adminBootstrapExpiresAt?.toMillis?.() ?? 0;
+  return security?.adminBootstrapEnabled === true && deadline > Date.now() && deadline <= Date.now() + 24 * 60 * 60 * 1000;
 }
+async function isEmailBootstrapEnabled(db) { return bootstrapWindow((await db.doc("settings/security").get()).data()); }
 
-async function hasAdminUserRole(db, uid) {
-  if (!uid) return false;
-  const snap = await db.collection("users").doc(uid).get();
-  if (!snap.exists) return false;
-  return snap.data()?.role === "admin";
-}
-
-async function isAdminAuth(db, auth) {
-  if (!auth) return false;
-  if (isClaimAdmin(auth)) return true;
-  if (await hasSuperAdminUserRole(db, auth.uid)) return true;
-  if (!(await isEmailBootstrapEnabled(db))) return false;
-  return isBootstrapEmailAuth(auth);
-}
-
-/** One-time / transitional: bootstrap email may self-grant admin claim. */
-async function bootstrapAdminClaim(db, auth) {
-  if (!auth?.uid) throw err("unauthenticated", "AUTH_REQUIRED");
-  if (!(await isEmailBootstrapEnabled(db))) {
-    throw err("failed-precondition", "BOOTSTRAP_DISABLED");
-  }
-  if (!isBootstrapEmailAuth(auth)) throw err("permission-denied", "NOT_BOOTSTRAP_ADMIN");
-  await admin.auth().setCustomUserClaims(auth.uid, { admin: true });
-  await ensureSuperAdminUserDoc(db, auth);
-  await db.collection("audit_logs").doc(`admin_bootstrap_${auth.uid}_${Date.now()}`).set({
-    action: "admin_claim_bootstrap",
-    actorUid: auth.uid,
-    targetUid: auth.uid,
-    createdAt: FieldValue.serverTimestamp(),
-    trustedCreator: "bootstrapAdminClaim",
-  });
-  return { ok: true, admin: true, role: "super_admin" };
-}
-
-/**
- * Grant ordinary admin claim (admin:true + users/{uid}.role = admin).
- * Security/migration: before 2026-08-09 this callable also wrote role super_admin.
- * Use grantSuperAdminClaim for explicit Super Admin elevation.
- */
-async function grantAdminClaim(db, auth, targetUid) {
-  if (!(await isAdminAuth(db, auth))) throw err("permission-denied", "ADMIN_ONLY");
-  const uid = String(targetUid || "").trim();
-  if (!uid) throw err("invalid-argument", "MISSING_UID");
-  await admin.auth().setCustomUserClaims(uid, { admin: true });
-  const targetUser = await admin.auth().getUser(uid).catch(() => null);
-  await ensureAdminUserDocForUid(db, uid, {
-    email: String(targetUser?.email || "").toLowerCase() || null,
-    displayName: targetUser?.displayName || null,
-  });
-  await db.collection("admin_registry").doc(uid).set(
-    {
-      uid,
-      admin: true,
-      role: "admin",
-      grantedBy: auth.uid,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
-  await db.collection("audit_logs").doc(`admin_grant_${uid}_${Date.now()}`).set({
-    action: "admin_claim_grant",
-    actorUid: auth.uid,
-    targetUid: uid,
-    role: "admin",
-    createdAt: FieldValue.serverTimestamp(),
-    trustedCreator: "grantAdminClaim",
-  });
-  return { ok: true, targetUid: uid, admin: true, role: "admin" };
-}
-
-/** Explicit Super Admin elevation — only persisted super_admin or bootstrap owner. */
-async function grantSuperAdminClaim(db, auth, targetUid) {
-  if (!(await isCallerAuthorizedForDiagnostic(db, auth))) {
-    throw err("permission-denied", "SUPER_ADMIN_ONLY");
-  }
-  const uid = String(targetUid || "").trim();
-  if (!uid) throw err("invalid-argument", "MISSING_UID");
-  await admin.auth().setCustomUserClaims(uid, { admin: true });
-  const targetUser = await admin.auth().getUser(uid).catch(() => null);
-  await ensureSuperAdminUserDocForUid(db, uid, {
-    email: String(targetUser?.email || "").toLowerCase() || null,
-    displayName: targetUser?.displayName || null,
-  });
-  await db.collection("admin_registry").doc(uid).set(
-    {
-      uid,
-      admin: true,
-      role: "super_admin",
-      grantedBy: auth.uid,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
-  await db.collection("audit_logs").doc(`admin_super_grant_${uid}_${Date.now()}`).set({
-    action: "admin_super_admin_grant",
-    actorUid: auth.uid,
-    targetUid: uid,
-    role: "super_admin",
-    createdAt: FieldValue.serverTimestamp(),
-    trustedCreator: "grantSuperAdminClaim",
-  });
-  return { ok: true, targetUid: uid, admin: true, role: "super_admin" };
-}
-
-/** Revoke admin claim — only existing claim/bootstrap admins. */
-async function revokeAdminClaim(db, auth, targetUid) {
-  if (!(await isAdminAuth(db, auth))) throw err("permission-denied", "ADMIN_ONLY");
-  const uid = String(targetUid || "").trim();
-  if (!uid) throw err("invalid-argument", "MISSING_UID");
-  if (uid === auth.uid) throw err("failed-precondition", "CANNOT_REVOKE_SELF");
-  await admin.auth().setCustomUserClaims(uid, { admin: false });
-  await db.collection("admin_registry").doc(uid).set(
-    {
-      uid,
-      admin: false,
-      revokedBy: auth.uid,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
-  await db.collection("audit_logs").doc(`admin_revoke_${uid}_${Date.now()}`).set({
-    action: "admin_claim_revoke",
-    actorUid: auth.uid,
-    targetUid: uid,
-    createdAt: FieldValue.serverTimestamp(),
-    trustedCreator: "revokeAdminClaim",
-  });
-  return { ok: true, targetUid: uid, admin: false };
-}
-
-/** After verified admins have claims, disable email bootstrap path. */
-async function setAdminEmailBootstrap(db, auth, enabled) {
-  if (!(await isAdminAuth(db, auth))) throw err("permission-denied", "ADMIN_ONLY");
-  if (!isClaimAdmin(auth)) {
-    throw err("failed-precondition", "CLAIM_ADMIN_REQUIRED_TO_TOGGLE_BOOTSTRAP");
-  }
-  const value = Boolean(enabled);
-  await db.collection("settings").doc("security").set(
-    {
-      adminBootstrapEnabled: value,
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedBy: auth.uid,
-    },
-    { merge: true }
-  );
-  await db.collection("audit_logs").doc(`admin_bootstrap_flag_${Date.now()}`).set({
-    action: "admin_bootstrap_flag",
-    actorUid: auth.uid,
-    adminBootstrapEnabled: value,
-    createdAt: FieldValue.serverTimestamp(),
-    trustedCreator: "setAdminEmailBootstrap",
-  });
-  return { ok: true, adminBootstrapEnabled: value };
-}
-
-/** First login: owner email enables bootstrap + admin claim (Admin SDK — no prior settings write needed). */
-async function initSuperAdminAccess(db, auth) {
-  if (!auth?.uid) throw err("unauthenticated", "AUTH_REQUIRED");
-  if (!isBootstrapEmailAuth(auth)) throw err("permission-denied", "NOT_BOOTSTRAP_ADMIN");
-
-  await db.collection("settings").doc("security").set(
-    {
-      adminBootstrapEnabled: true,
-      updatedAt: FieldValue.serverTimestamp(),
-      initializedBy: auth.uid,
-    },
-    { merge: true }
-  );
-
-  await admin.auth().setCustomUserClaims(auth.uid, { admin: true });
-  await ensureSuperAdminUserDoc(db, auth);
-
-  await db.collection("audit_logs").doc(`admin_init_${auth.uid}_${Date.now()}`).set({
-    action: "admin_init_super_access",
-    actorUid: auth.uid,
-    createdAt: FieldValue.serverTimestamp(),
-    trustedCreator: "initSuperAdminAccess",
-  });
-
-  return { ok: true, admin: true, role: "super_admin", adminBootstrapEnabled: true };
-}
-
-function requestTouchesDiagnosticControls(data) {
-  if (!data || typeof data !== "object") return false;
-  if (data.idleMovementTriggerDisabled != null) return true;
-  if (data.idleDiagnosticDurationMinutes != null) return true;
-  if (data.idleDiagnosticReason != null) return true;
-  return false;
-}
-
-/** Diagnostic idle controls: persisted super_admin role or approved bootstrap email — not admin:true claim alone. */
-async function isCallerAuthorizedForDiagnostic(db, auth) {
-  if (!auth?.uid) return false;
-  if (await hasSuperAdminUserRole(db, auth.uid)) return true;
-  if (!(await isEmailBootstrapEnabled(db))) return false;
-  return isBootstrapEmailAuth(auth);
-}
-
-/** Callable admin writes: grant owner on first use, or verify existing admin. */
-async function ensureCallerCanAdminWrite(db, auth) {
-  if (!auth?.uid) return false;
-  if (await isAdminAuth(db, auth)) {
-    // Only the approved bootstrap owner is synced to super_admin here.
-    // Ordinary admin:true operators keep users/{uid}.role = admin.
-    if (isBootstrapEmailAuth(auth)) {
-      await ensureSuperAdminUserDoc(db, auth);
+/** Registry is disabled FIRST. Any partial failure leaves old/new tokens denied. */
+async function changeAdminRole(db, auth, uid, role, { bootstrap = false } = {}) {
+  documentId(uid, "UID");
+  const authApi = getAuth();
+  const user = await authApi.getUser(uid);
+  if (user.disabled) fail("permission-denied", "TARGET_ACCOUNT_INACTIVE");
+  const ref = db.doc(`admin_registry/${uid}`);
+  const profileRef = db.doc(`users/${uid}`);
+  const operationId = randomUUID();
+  const version = await db.runTransaction(async (tx) => {
+    if (!bootstrap) await assertAdminInTransaction(tx, db, auth);
+    const [snap, profile, security] = await Promise.all([
+      tx.get(ref), tx.get(profileRef), bootstrap ? tx.get(db.doc("settings/security")) : null,
+    ]);
+    if (bootstrap && (!bootstrapWindow(security?.data()) || auth.uid !== process.env.ADMIN_BOOTSTRAP_UID || auth.token?.email_verified !== true)) {
+      fail("permission-denied", "BOOTSTRAP_DISABLED");
     }
-    return true;
-  }
-  if (!isBootstrapEmailAuth(auth)) return false;
-  await initSuperAdminAccess(db, auth);
-  return true;
+    const version = Number(snap.data()?.version || 0) + 1;
+    tx.set(ref, { uid, admin: false, role: "none", version, operationId, changedBy: auth.uid, updatedAt: FieldValue.serverTimestamp() });
+    tx.set(profileRef, { ...(!profile.exists ? { walletBalance: 0 } : {}), role: "customer", updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    if (bootstrap) tx.update(db.doc("settings/security"), { adminBootstrapEnabled: false, adminBootstrapUsedAt: FieldValue.serverTimestamp() });
+    tx.create(db.doc(`audit_logs/admin_begin_${operationId}`), { action: "admin_role_change_started", actorUid: auth.uid, targetUid: uid, role,
+      createdAt: FieldValue.serverTimestamp(), trustedCreator: "changeAdminRole" });
+    return version;
+  });
+  const claims = { ...(user.customClaims || {}), admin: role !== "none", adminVersion: version };
+  if (role === "none") delete claims.adminRole; else claims.adminRole = role;
+  await authApi.setCustomUserClaims(uid, claims);
+  if (role === "none") await authApi.revokeRefreshTokens(uid);
+  await db.runTransaction(async (tx) => {
+    if (!bootstrap && auth.uid !== uid) await assertAdminInTransaction(tx, db, auth);
+    const current = await tx.get(ref);
+    if (current.data()?.operationId !== operationId || current.data()?.version !== version) fail("aborted", "ADMIN_CHANGE_SUPERSEDED");
+    tx.update(ref, { admin: role !== "none", role, completedAt: FieldValue.serverTimestamp() });
+    tx.set(profileRef, { role: role === "none" ? "customer" : role, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    tx.create(db.doc(`audit_logs/admin_done_${operationId}`), { action: "admin_role_change_completed", actorUid: auth.uid, targetUid: uid, role,
+      createdAt: FieldValue.serverTimestamp(), trustedCreator: "changeAdminRole" });
+  });
+  return { ok: true, targetUid: uid, admin: role !== "none", role, adminVersion: version };
 }
-
-module.exports = {
-  BOOTSTRAP_ADMIN_EMAIL,
-  isBootstrapEmailAuth,
-  isClaimAdmin,
-  isEmailBootstrapEnabled,
-  isAdminAuth,
-  hasSuperAdminUserRole,
-  hasAdminUserRole,
-  ensureSuperAdminUserDoc,
-  ensureSuperAdminUserDocForUid,
-  ensureAdminUserDocForUid,
-  ensureCallerCanAdminWrite,
-  requestTouchesDiagnosticControls,
-  isCallerAuthorizedForDiagnostic,
-  bootstrapAdminClaim,
-  initSuperAdminAccess,
-  grantAdminClaim,
-  grantSuperAdminClaim,
-  revokeAdminClaim,
-  setAdminEmailBootstrap,
-};
+async function requireSuper(db, auth) {
+  if (!(await isCallerAuthorizedForDiagnostic(db, auth))) fail("permission-denied", "SUPER_ADMIN_ONLY");
+}
+async function grantAdminClaim(db, auth, uid) {
+  await requireSuper(db, auth);
+  if (uid === auth.uid) fail("failed-precondition", "CANNOT_DEMOTE_SELF");
+  return changeAdminRole(db, auth, uid, "admin");
+}
+async function grantSuperAdminClaim(db, auth, uid) { await requireSuper(db, auth); return changeAdminRole(db, auth, uid, "super_admin"); }
+async function revokeAdminClaim(db, auth, uid) {
+  await requireSuper(db, auth);
+  if (uid === auth.uid) fail("failed-precondition", "CANNOT_REVOKE_SELF");
+  return changeAdminRole(db, auth, uid, "none");
+}
+async function initSuperAdminAccess(db, auth) {
+  if (!auth?.uid) fail("unauthenticated", "AUTH_REQUIRED");
+  if (await isCallerAuthorizedForDiagnostic(db, auth)) return { ok: true, role: "super_admin", admin: true };
+  if (!process.env.ADMIN_BOOTSTRAP_UID || auth.uid !== process.env.ADMIN_BOOTSTRAP_UID || auth.token?.email_verified !== true) {
+    fail("permission-denied", "OPERATOR_BOOTSTRAP_REQUIRED");
+  }
+  return changeAdminRole(db, auth, auth.uid, "super_admin", { bootstrap: true });
+}
+async function bootstrapAdminClaim(db, auth) { return initSuperAdminAccess(db, auth); }
+async function setAdminEmailBootstrap(db, auth, enabled) {
+  await requireSuper(db, auth);
+  if (typeof enabled !== "boolean") fail("invalid-argument", "INVALID_BOOTSTRAP_FLAG");
+  if (enabled && !process.env.ADMIN_BOOTSTRAP_UID) fail("failed-precondition", "OPERATOR_BOOTSTRAP_REQUIRED");
+  await db.runTransaction(async (batch) => {
+  await assertAdminInTransaction(batch, db, auth);
+  batch.set(db.doc("settings/security"), { adminBootstrapEnabled: Boolean(enabled),
+    adminBootstrapExpiresAt: Timestamp.fromMillis(enabled ? Date.now() + 15 * 60 * 1000 : 0),
+    updatedAt: FieldValue.serverTimestamp(), updatedBy: auth.uid }, { merge: true });
+  batch.create(db.collection("audit_logs").doc(), { action: "bootstrap_window_changed", enabled: Boolean(enabled), actorUid: auth.uid,
+    createdAt: FieldValue.serverTimestamp(), trustedCreator: "setAdminEmailBootstrap" });
+  });
+  return { ok: true, adminBootstrapEnabled: Boolean(enabled) };
+}
+function requestTouchesDiagnosticControls(data) {
+  return ["idleMovementTriggerDisabled", "idleDiagnosticDurationMinutes", "idleDiagnosticReason", ...LOCATION_DELIVERY_KEYS]
+    .some((key) => Object.prototype.hasOwnProperty.call(data || {}, key));
+}
+module.exports = { BOOTSTRAP_ADMIN_EMAIL, isBootstrapEmailAuth, isClaimAdmin, registryAllows, assertAdminInTransaction, writeAdminSettings, readAdminRole, isEmailBootstrapEnabled, isAdminAuth,
+  hasSuperAdminUserRole, hasAdminUserRole, ensureSuperAdminUserDoc, ensureSuperAdminUserDocForUid, ensureAdminUserDocForUid,
+  ensureCallerCanAdminWrite, requestTouchesDiagnosticControls, isCallerAuthorizedForDiagnostic, bootstrapAdminClaim,
+  initSuperAdminAccess, grantAdminClaim, grantSuperAdminClaim, revokeAdminClaim, setAdminEmailBootstrap };

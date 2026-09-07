@@ -64,8 +64,8 @@ function resolveEffectiveRates(rates, distanceKm, timeMins) {
   if (distanceTiers.length && Number.isFinite(distance) && distance >= 0) {
     const match = distanceTiers.find((tier) => tier.upToKm == null || distance <= tier.upToKm);
     if (match) {
-      baseFare = Number(match.baseFare) || baseFare;
-      perKmRate = Number(match.perKmRate) || perKmRate;
+      baseFare = match.baseFare != null && Number.isFinite(Number(match.baseFare)) && Number(match.baseFare) >= 0 ? Number(match.baseFare) : baseFare;
+      perKmRate = match.perKmRate != null && Number.isFinite(Number(match.perKmRate)) && Number(match.perKmRate) >= 0 ? Number(match.perKmRate) : perKmRate;
     }
   }
 
@@ -80,8 +80,8 @@ function resolveEffectiveRates(rates, distanceKm, timeMins) {
     const minPerKm = time / distance;
     const match = paceTiers.find((tier) => tier.maxMinPerKm == null || minPerKm <= tier.maxMinPerKm);
     if (match) {
-      baseFare = Number(match.baseFare) || baseFare;
-      perKmRate = Number(match.perKmRate) || perKmRate;
+      baseFare = match.baseFare != null && Number.isFinite(Number(match.baseFare)) && Number(match.baseFare) >= 0 ? Number(match.baseFare) : baseFare;
+      perKmRate = match.perKmRate != null && Number.isFinite(Number(match.perKmRate)) && Number(match.perKmRate) >= 0 ? Number(match.perKmRate) : perKmRate;
     }
   }
 

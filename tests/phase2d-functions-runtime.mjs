@@ -15,6 +15,11 @@ import {
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 
@@ -31,11 +36,11 @@ function record(name, expected, actual, status) {
 const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
 let adminApp;
 try {
-  adminApp = admin.app();
+  adminApp = adminAppSdk.getApp();
 } catch {
-  adminApp = admin.initializeApp({ projectId: PROJECT });
+  adminApp = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const db = admin.firestore(adminApp);
+const db = adminFirestoreSdk.getFirestore(adminApp);
 const { BOOTSTRAP_ADMIN_EMAIL, hashVehiclePin } = (() => {
   const claims = require(path.join(ROOT, "functions", "admin-claims.js"));
   const pin = require(path.join(ROOT, "functions", "pin-security.js"));
@@ -64,7 +69,7 @@ function clientApp(name) {
 
 async function ensureUser(email, password, uidHint) {
   try {
-    const user = await admin.auth().createUser({
+    const user = await adminAuthSdk.getAuth().createUser({
       uid: uidHint,
       email,
       password,
@@ -74,7 +79,7 @@ async function ensureUser(email, password, uidHint) {
     return user;
   } catch (e) {
     if (e.code === "auth/uid-already-exists" || e.code === "auth/email-already-exists") {
-      return admin.auth().getUser(uidHint).catch(() => admin.auth().getUserByEmail(email));
+      return adminAuthSdk.getAuth().getUser(uidHint).catch(() => adminAuthSdk.getAuth().getUserByEmail(email));
     }
     throw e;
   }
@@ -166,7 +171,7 @@ async function main() {
     status: "online",
     driverId: "rt-d1",
     location: { lat: pickup.lat + 0.001, lng: pickup.lng },
-    locationUpdatedAt: admin.firestore.Timestamp.now(),
+    locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
     ...locationGeoFields(pickup.lat + 0.001, pickup.lng),
   });
   await db.doc("vehicles/rt-v2").set({
@@ -176,7 +181,7 @@ async function main() {
     status: "online",
     driverId: "rt-d2",
     location: { lat: pickup.lat + 0.002, lng: pickup.lng },
-    locationUpdatedAt: admin.firestore.Timestamp.now(),
+    locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
     ...locationGeoFields(pickup.lat + 0.002, pickup.lng),
   });
 
@@ -259,13 +264,13 @@ async function main() {
     rideId: b1.id,
     driverId: "rt-d1",
     status: "invited",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: adminFirestoreSdk.FieldValue.serverTimestamp(),
   });
   await db.doc(`ride_candidates/${b1.id}_rt-d2`).set({
     rideId: b1.id,
     driverId: "rt-d2",
     status: "invited",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: adminFirestoreSdk.FieldValue.serverTimestamp(),
   });
 
   const offer = await callAs(drv1.functions, "submitRideOffer", {
@@ -414,7 +419,7 @@ async function main() {
     timeMins: 5,
     pickupLocation: pickup,
     dropoffLocation: dropoff,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: adminFirestoreSdk.FieldValue.serverTimestamp(),
   });
   try {
     await callAs(drv2.functions, "completeRideSettlement", {
@@ -458,13 +463,13 @@ async function main() {
       String(errCode(e)).includes("permission-denied") || String(errCode(e)).includes("ADMIN_ONLY");
   }
   await callAs(boot.functions, "grantAdminClaim", { uid: "rt-grant" });
-  const granted = (await admin.auth().getUser("rt-grant")).customClaims || {};
+  const granted = (await adminAuthSdk.getAuth().getUser("rt-grant")).customClaims || {};
   await callAs(boot.functions, "revokeAdminClaim", { uid: "rt-grant" });
-  const revoked = (await admin.auth().getUser("rt-grant")).customClaims || {};
+  const revoked = (await adminAuthSdk.getAuth().getUser("rt-grant")).customClaims || {};
   await callAs(boot.functions, "setAdminEmailBootstrap", { enabled: false });
   let bootDisabled = false;
   try {
-    await admin.auth().setCustomUserClaims("rt-boot", { admin: false });
+    await adminAuthSdk.getAuth().setCustomUserClaims("rt-boot", { admin: false });
     await boot.auth.currentUser.getIdToken(true);
     await callAs(boot.functions, "bootstrapAdminClaim", {});
   } catch (e) {
@@ -473,7 +478,7 @@ async function main() {
       String(errCode(e)).includes("failed-precondition");
   }
   // Restore claim admin for cleanup toggle
-  await admin.auth().setCustomUserClaims("rt-boot", { admin: true });
+  await adminAuthSdk.getAuth().setCustomUserClaims("rt-boot", { admin: true });
   await boot.auth.currentUser.getIdToken(true);
   await callAs(boot.functions, "setAdminEmailBootstrap", { enabled: true });
 

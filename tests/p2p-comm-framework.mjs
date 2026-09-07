@@ -183,8 +183,8 @@ function record(name, status, detail = "") {
 
 // Isolation: location protocol untouched
 {
-  const locProto = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-protocol.mjs"), "utf8");
-  const peer = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8");
+  const locProto = fs.readFileSync(path.join(ROOT, "shared/js/p2p-protocol.mjs"), "utf8");
+  const peer = fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8");
   record(
     "location_protocol_untouched_no_comm_types",
     !locProto.includes("comm_text") && locProto.includes('LOC: "loc"') ? "PASS" : "FAIL"

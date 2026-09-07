@@ -8,7 +8,9 @@
 const { FieldValue } = require("firebase-admin/firestore");
 const { accumulateTraveledSegment } = require("./partial-fare");
 const locationReportingConfigCache = require("./location-reporting-config-cache.js");
-const { buildAcceptedMirrorAggregatePatch } = require("./server-mirror-aggregate.js");
+const { buildMirrorOutcomeAggregatePatch } = require("./server-mirror-aggregate.js");
+const { validateRideLocationFix, rideLocationAssignmentVersion } = require("./ride-location-contract");
+const { resolveLocationDeliveryPolicy } = require("./location-delivery-policy");
 const {
   LOCATION_DIAG,
   evaluateFixAgainstPrevious,
@@ -40,12 +42,12 @@ function envelopeFromVehicleLocation(loc) {
   return {
     lat: loc.lat,
     lng: loc.lng,
-    observedAt: Number(loc.observedAt) || 0,
-    sequence: Number(loc.sequence) || 0,
+    observedAt: loc.observedAt,
+    sequence: loc.sequence,
     sessionId: String(loc.sessionId || ""),
-    accuracyM: loc.accuracyM != null ? Number(loc.accuracyM) : null,
-    headingDeg: loc.headingDeg != null ? Number(loc.headingDeg) : null,
-    speedMps: loc.speedMps != null ? Number(loc.speedMps) : null,
+    accuracyM: loc.accuracyM ?? null,
+    headingDeg: loc.headingDeg ?? null,
+    speedMps: loc.speedMps ?? null,
     source: String(loc.source || "gps"),
   };
 }
@@ -117,6 +119,11 @@ function buildDriverLocationPatch(vehicle, ride) {
     vehicle?.locationUpdatedAt != null && vehicle?.locationUpdatedAt !== "";
   const committedTrustAnchorMs = resolveCommittedTrustAnchorMs(vehicle);
   const serverNowMs = Date.now();
+  const checked = validateRideLocationFix(incoming, {
+    nowMs: serverNowMs, trackingSessionId: vehicleSessionId,
+    previous: ride.driverLocation?.assignmentId === ride.assignmentSessionToken ? previous : null,
+  });
+  if (!checked.ok) return { skip: true, reason: checked.reason };
 
   const gate = evaluateFixAgainstPrevious(previous, incoming, {
     enforceSessionConsistency: true,
@@ -148,6 +155,10 @@ function buildDriverLocationPatch(vehicle, ride) {
   };
   // Server-controlled receive time (nested under driverLocation).
   driverLocation.receivedAt = FieldValue.serverTimestamp();
+  driverLocation.rideId = ride.id;
+  driverLocation.role = "driver";
+  driverLocation.assignmentVersion = rideLocationAssignmentVersion(ride);
+  driverLocation.assignmentId = ride.assignmentSessionToken || "";
 
   const patch = {
     driverLocation,
@@ -177,6 +188,7 @@ function buildDriverLocationPatch(vehicle, ride) {
   if (String(ride?.status || "") === "in_progress") {
     const travel = accumulateTraveledSegment(ride, incoming.lat, incoming.lng);
     patch.traveledDistanceKm = travel.traveledDistanceKm;
+    patch.traveledDistanceMeters = travel.traveledDistanceMeters;
     patch.lastTrackedLocation = travel.lastTrackedLocation;
   }
 
@@ -189,7 +201,7 @@ function buildDriverLocationPatch(vehicle, ride) {
  *
  * @param {FirebaseFirestore.Firestore} db
  * @param {string} vehicleId
- * @param {object|null} vehicleAfter committed vehicle snapshot (trigger path); ignored when readVehicleInTxn
+ * @param {object|null} vehicleAfter trigger hint only; current vehicle is always read transactionally
  * @param {{
  *   rideId?: string,
  *   readVehicleInTxn?: boolean,
@@ -228,11 +240,14 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
       : (fn) => db.runTransaction(fn);
 
   let result;
+  let failureScope = null;
   try {
     result = await runTx(async (tx) => {
       // --- reads only (vehicle first when needed so rideId can come from live vehicle) ---
       let vehicle = vehicleAfter || {};
-      if (opts.readVehicleInTxn) {
+      // Always read current ownership/session. Delayed triggers must not revive
+      // a retired session from their immutable, but now obsolete, event snapshot.
+      {
         const vehicleSnap = await tx.get(vehicleRef);
         if (!vehicleSnap.exists) {
           return { mirrored: false, reason: "vehicle_missing" };
@@ -251,24 +266,47 @@ async function mirrorRideLocationTransactional(db, vehicleId, vehicleAfter, opts
         return { mirrored: false, reason: "ride_missing" };
       }
       const ride = rideSnap.data() || {};
-      if (ride.vehicleId && ride.vehicleId !== vehicleId) {
-        return { mirrored: false, reason: "vehicle_mismatch" };
+      failureScope = { rideId, assignment: ride.assignmentSessionToken };
+      const finish = (reason, mirrored = false, locationPatch = {}) => {
+        const patch = { ...locationPatch };
+        if (trackServerAggregate) Object.assign(patch, buildMirrorOutcomeAggregatePatch(ride, reason, mirrored, Date.now()));
+        if (Object.keys(patch).length) tx.update(rideRef, patch);
+        return { mirrored, reason };
+      };
+      if (ride.vehicleId !== vehicleId || vehicle.activeRideId !== rideId ||
+          !ride.driverId || vehicle.driverId !== ride.driverId) {
+        return finish("vehicle_mismatch");
       }
 
-      const decision = buildDriverLocationPatch(vehicle, ride);
+      const settingsSnap = await tx.get(db.doc("settings/dispatch"));
+      const delivery = resolveLocationDeliveryPolicy(settingsSnap.exists ? settingsSnap.data() : {});
+      if (!delivery.firebaseFallbackEnabled) return finish("firebase_disabled");
+      const assignedMs = timestampToMs(ride.assignedAt);
+      if (assignedMs && Date.now() - assignedMs < delivery.p2pFirstGraceMs) {
+        return finish("p2p_first_grace");
+      }
+      const decision = buildDriverLocationPatch(vehicle, { ...ride, id: rideId });
       if (decision.skip) {
-        return { mirrored: false, reason: decision.reason };
+        return finish(decision.reason);
       }
 
       // --- writes after all reads ---
-      const patch = { ...decision.patch };
-      if (trackServerAggregate) {
-        Object.assign(patch, buildAcceptedMirrorAggregatePatch(ride, Date.now()));
-      }
-      tx.update(rideRef, patch);
-      return { mirrored: true, reason: LOCATION_DIAG.MIRRORED };
+      return finish(LOCATION_DIAG.MIRRORED, true, decision.patch);
     });
   } catch (err) {
+    // Best effort, separate transaction after the failed location transaction.
+    // Never charge a failure to a replacement assignment. If the database is
+    // unavailable too, only the structured error log survives (not a fake zero).
+    if (trackServerAggregate && failureScope?.assignment) {
+      try {
+        const scope = failureScope;
+        await db.runTransaction(async (tx) => {
+          const ref = db.doc(`rides/${scope.rideId}`), snap = await tx.get(ref);
+          if (!snap.exists || snap.data().assignmentSessionToken !== scope.assignment) return;
+          tx.update(ref, buildMirrorOutcomeAggregatePatch(snap.data(), "ride_location_mirror_txn_failed", false));
+        });
+      } catch { if (!opts.silent) logLocationDiag("mirror_failure_aggregate_unavailable"); }
+    }
     if (!opts.silent) {
       logLocationDiag("ride_location_mirror_txn_failed", {
         code: String(err?.code || err?.message || "txn_error").slice(0, 80),
@@ -295,7 +333,7 @@ async function seedDriverLocationFromVehicle(db, rideId, vehicleId) {
 }
 
 async function mirrorDriverLocationToRide(db, vehicleId, vehicle) {
-  // Trigger path: use immutable event snapshot for vehicle fields.
+  // Trigger data is a hint; stale event coordinates/ownership are never authoritative.
   return mirrorRideLocationTransactional(db, vehicleId, vehicle || {}, {});
 }
 

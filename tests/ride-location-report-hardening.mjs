@@ -38,6 +38,11 @@ import {
 } from "../shared/js/location-reporting-config-cache.mjs";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "tests", "ride-location-report-hardening-results.json");
 
@@ -328,11 +333,11 @@ process.env.FIRESTORE_EMULATOR_HOST ||= "127.0.0.1:8080";
 
 let app;
 try {
-  app = admin.app();
+  app = adminAppSdk.getApp();
 } catch {
-  app = admin.initializeApp({ projectId: "demo-swiftgo-phase1" });
+  app = adminAppSdk.initializeApp({ projectId: "demo-swiftgo-phase1" });
 }
-const db = admin.firestore(app);
+const db = adminFirestoreSdk.getFirestore(app);
 
 const {
   submitRideLocationReportSection,
@@ -374,19 +379,19 @@ await db.doc(`rides/${RIDE_MERGE}`).set({
   vehicleId: "veh_merge_7a",
   status: "accepted",
   assignmentSessionToken: TOKEN_MERGE,
-  assignedAt: admin.firestore.Timestamp.now(),
-  createdAt: admin.firestore.Timestamp.now(),
+  assignedAt: adminFirestoreSdk.Timestamp.now(),
+  createdAt: adminFirestoreSdk.Timestamp.now(),
   pickupLocation: { lat: 24.86, lng: 67.0 },
   dropoffLocation: { lat: 24.87, lng: 67.01 },
   driverLocation: { lat: 24.86, lng: 67.0, sequence: 1, sessionId: "ts_merge_new", observedAt: 10_000 },
   driverTrackingSessionId: "ts_merge_new",
-  driverTrackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  driverTrackingSessionStartedAt: adminFirestoreSdk.Timestamp.fromMillis(0),
 });
 
 await db.doc("vehicles/veh_merge_7a").set({
   activeRideId: RIDE_MERGE,
   trackingSessionId: "ts_merge_new",
-  trackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  trackingSessionStartedAt: adminFirestoreSdk.Timestamp.fromMillis(0),
   location: {
     lat: 24.86001,
     lng: 67.00001,
@@ -394,7 +399,7 @@ await db.doc("vehicles/veh_merge_7a").set({
     sessionId: "ts_merge_new",
     observedAt: 20_000,
   },
-  locationUpdatedAt: admin.firestore.Timestamp.now(),
+  locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
 });
 
 const vehicleSnap = (await db.doc("vehicles/veh_merge_7a").get()).data();
@@ -449,10 +454,10 @@ await db.doc(`rides/${RIDE_CFG_FAIL}`).set({
   vehicleId: VEH_CFG_FAIL,
   status: "accepted",
   assignmentSessionToken: TOKEN_MERGE,
-  assignedAt: admin.firestore.Timestamp.now(),
+  assignedAt: adminFirestoreSdk.Timestamp.now(),
   driverLocation: { lat: 24.86, lng: 67.0, sequence: 1, sessionId: "ts_cfg_fail", observedAt: 10_000 },
   driverTrackingSessionId: "ts_cfg_fail",
-  driverTrackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  driverTrackingSessionStartedAt: adminFirestoreSdk.Timestamp.fromMillis(0),
   serverMirrorAccepted: 2,
   firstServerMirrorAt: 1_000,
   lastServerMirrorAt: 5_000,
@@ -461,7 +466,7 @@ await db.doc(`rides/${RIDE_CFG_FAIL}`).set({
 await db.doc(`vehicles/${VEH_CFG_FAIL}`).set({
   activeRideId: RIDE_CFG_FAIL,
   trackingSessionId: "ts_cfg_fail",
-  trackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  trackingSessionStartedAt: adminFirestoreSdk.Timestamp.fromMillis(0),
   location: {
     lat: 24.86005,
     lng: 67.00005,
@@ -469,7 +474,7 @@ await db.doc(`vehicles/${VEH_CFG_FAIL}`).set({
     sessionId: "ts_cfg_fail",
     observedAt: 25_000,
   },
-  locationUpdatedAt: admin.firestore.Timestamp.now(),
+  locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
 });
 const vehicleCfgFail = (await db.doc(`vehicles/${VEH_CFG_FAIL}`).get()).data();
 const cacheMod = require("../functions/location-reporting-config-cache.js");
@@ -548,8 +553,8 @@ await db.doc(`rides/${RIDE_FINAL}`).set({
   driverId: DRIVER,
   status: "completed",
   assignmentSessionToken: TOKEN_MERGE,
-  assignedAt: admin.firestore.Timestamp.now(),
-  settledAt: admin.firestore.Timestamp.now(),
+  assignedAt: adminFirestoreSdk.Timestamp.now(),
+  settledAt: adminFirestoreSdk.Timestamp.now(),
   serverMirrorAccepted: 5,
   firstServerMirrorAt: 1_000,
   lastServerMirrorAt: 9_000,
@@ -584,8 +589,8 @@ await db.doc(`rides/${RIDE_CANCEL}`).set({
   driverId: DRIVER,
   status: "cancelled_by_customer",
   assignmentSessionToken: TOKEN_MERGE,
-  assignedAt: admin.firestore.Timestamp.now(),
-  cancelledAt: admin.firestore.Timestamp.now(),
+  assignedAt: adminFirestoreSdk.Timestamp.now(),
+  cancelledAt: adminFirestoreSdk.Timestamp.now(),
 });
 const cancelDriverRes = await submitRideLocationReportSection(db, {
   callerUid: DRIVER,
@@ -612,8 +617,8 @@ await db.doc(`rides/${RIDE_ACTIVE_FINAL}`).set({
   driverId: DRIVER,
   status: "in_progress",
   assignmentSessionToken: TOKEN_MERGE,
-  assignedAt: admin.firestore.Timestamp.now(),
-  tripStartedAt: admin.firestore.Timestamp.now(),
+  assignedAt: adminFirestoreSdk.Timestamp.now(),
+  tripStartedAt: adminFirestoreSdk.Timestamp.now(),
   serverMirrorAccepted: 4,
   firstServerMirrorAt: 1_000,
   lastServerMirrorAt: 8_000,
@@ -662,8 +667,8 @@ await db.doc(`rides/${RIDE_CANCEL_FINAL}`).set({
   driverId: DRIVER,
   status: "cancelled_by_customer",
   assignmentSessionToken: TOKEN_MERGE,
-  assignedAt: admin.firestore.Timestamp.now(),
-  cancelledAt: admin.firestore.Timestamp.now(),
+  assignedAt: adminFirestoreSdk.Timestamp.now(),
+  cancelledAt: adminFirestoreSdk.Timestamp.now(),
   serverMirrorAccepted: 2,
   firstServerMirrorAt: 1_000,
   lastServerMirrorAt: 4_000,
@@ -707,7 +712,7 @@ await db.doc(`rides/${RIDE_REMATCH}`).set({
   driverId: DRIVER,
   status: "accepted",
   assignmentSessionToken: "as_rematch_new_token_7a",
-  assignedAt: admin.firestore.Timestamp.now(),
+  assignedAt: adminFirestoreSdk.Timestamp.now(),
 });
 let rematchDenied = false;
 try {
@@ -744,18 +749,18 @@ await db.doc(`rides/${RIDE_AGG_RESET}`).set({
   vehicleId: VEH_AGG_D1,
   status: "accepted",
   assignmentSessionToken: TOKEN_AGG_D1,
-  assignedAt: admin.firestore.Timestamp.now(),
+  assignedAt: adminFirestoreSdk.Timestamp.now(),
   driverTrackingSessionId: "ts_agg_d1",
-  driverTrackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  driverTrackingSessionStartedAt: adminFirestoreSdk.Timestamp.fromMillis(0),
   pickupLocation: { lat: 24.86, lng: 67.0 },
   dropoffLocation: { lat: 24.87, lng: 67.01 },
 });
 await db.doc(`vehicles/${VEH_AGG_D1}`).set({
   activeRideId: RIDE_AGG_RESET,
   trackingSessionId: "ts_agg_d1",
-  trackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  trackingSessionStartedAt: adminFirestoreSdk.Timestamp.fromMillis(0),
   location: { lat: 24.86001, lng: 67.00001, sequence: 1, sessionId: "ts_agg_d1", observedAt: 10_000 },
-  locationUpdatedAt: admin.firestore.Timestamp.fromMillis(10_000),
+  locationUpdatedAt: adminFirestoreSdk.Timestamp.fromMillis(10_000),
 });
 let vehAggSnap = (await db.doc(`vehicles/${VEH_AGG_D1}`).get()).data();
 for (const seq of [2, 3]) {
@@ -769,7 +774,7 @@ for (const seq of [2, 3]) {
       sessionId: "ts_agg_d1",
       observedAt,
     },
-    locationUpdatedAt: admin.firestore.Timestamp.fromMillis(observedAt),
+    locationUpdatedAt: adminFirestoreSdk.Timestamp.fromMillis(observedAt),
   };
   await mirrorRideLocationTransactional(db, VEH_AGG_D1, vehAggSnap, {
     reportingConfig: { enabled: true, uploadMode: "ride_end", collectFirebaseMetrics: true },
@@ -785,9 +790,9 @@ await db.doc(`rides/${RIDE_AGG_RESET}`).update({
 await db.doc(`vehicles/${VEH_AGG_D2}`).set({
   activeRideId: RIDE_AGG_RESET,
   trackingSessionId: "ts_agg_d2",
-  trackingSessionStartedAt: admin.firestore.Timestamp.fromMillis(0),
+  trackingSessionStartedAt: adminFirestoreSdk.Timestamp.fromMillis(0),
   location: { lat: 24.87002, lng: 67.01002, sequence: 2, sessionId: "ts_agg_d2", observedAt: 20_000 },
-  locationUpdatedAt: admin.firestore.Timestamp.fromMillis(20_000),
+  locationUpdatedAt: adminFirestoreSdk.Timestamp.fromMillis(20_000),
 });
 const rideAfterRematch = (await db.doc(`rides/${RIDE_AGG_RESET}`).get()).data();
 const vehAggD2 = (await db.doc(`vehicles/${VEH_AGG_D2}`).get()).data();
@@ -812,7 +817,7 @@ try {
 } catch (e) {
   staleDriver1Denied = e.message === "STALE_ASSIGNMENT";
 }
-await db.doc(`rides/${RIDE_AGG_RESET}`).update({ status: "completed", settledAt: admin.firestore.Timestamp.now() });
+await db.doc(`rides/${RIDE_AGG_RESET}`).update({ status: "completed", settledAt: adminFirestoreSdk.Timestamp.now() });
 const aggDriverRes = await submitRideLocationReportSection(db, {
   callerUid: DRIVER2,
   rideId: RIDE_AGG_RESET,

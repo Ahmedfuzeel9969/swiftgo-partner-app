@@ -12,6 +12,11 @@ import {
 } from "../functions/active-ride-reconcile.js";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 const OUT = path.join(ROOT, "tests", "driver-active-ride-pointer-heal-results.json");
@@ -33,11 +38,11 @@ function record(name, status, detail = "") {
 const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
 let app;
 try {
-  app = admin.app();
+  app = adminAppSdk.getApp();
 } catch {
-  app = admin.initializeApp({ projectId: PROJECT });
+  app = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const db = admin.firestore(app);
+const db = adminFirestoreSdk.getFirestore(app);
 
 const {
   submitRideOffer,
@@ -137,7 +142,7 @@ async function seedSearchingRide(rideId, customerId = "cust-heal") {
     farePkr: 500,
     pickupLocation: { lat: 24.86, lng: 67.01, address: "A" },
     dropoffLocation: { lat: 24.87, lng: 67.02, address: "B" },
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
 }
 
@@ -146,7 +151,7 @@ async function seedCandidate(rideId, driverUid) {
     rideId,
     driverId: driverUid,
     status: "invited",
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
 }
 
@@ -159,7 +164,7 @@ async function withdrawOpenOffersForDriver(driverUid) {
     .get();
   const batch = db.batch();
   for (const doc of snap.docs) {
-    batch.set(doc.ref, { status: "withdrawn", updatedAt: admin.firestore.Timestamp.now() }, { merge: true });
+    batch.set(doc.ref, { status: "withdrawn", updatedAt: adminFirestoreSdk.Timestamp.now() }, { merge: true });
   }
   if (!snap.empty) await batch.commit();
 }
@@ -180,7 +185,7 @@ async function seedDriverVehicle(driverUid, vehicleId, ownerId = "owner-heal") {
     plate: "HEAL-1",
     location: { lat: 24.86, lng: 67.01 },
     geoCell: "g_6900_2300",
-    locationUpdatedAt: admin.firestore.Timestamp.now(),
+    locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
   });
 }
 
@@ -435,8 +440,8 @@ async function emulatorTests() {
     status: "accepted",
     estimatedFare: 500,
   });
-  await db.doc(`partners/${driverA}`).set({ activeRideId: admin.firestore.FieldValue.delete() }, { merge: true });
-  await db.doc(`vehicles/${vehicleA}`).set({ activeRideId: admin.firestore.FieldValue.delete() }, { merge: true });
+  await db.doc(`partners/${driverA}`).set({ activeRideId: adminFirestoreSdk.FieldValue.delete() }, { merge: true });
+  await db.doc(`vehicles/${vehicleA}`).set({ activeRideId: adminFirestoreSdk.FieldValue.delete() }, { merge: true });
   const offer11 = "heal-offer-no-pointer";
   await seedSearchingRide(offer11);
   await seedCandidate(offer11, driverA);
@@ -490,7 +495,7 @@ async function emulatorTests() {
 
   // 13 concurrent assignment — one wins
   const raceRide = "heal-race-ride";
-  await db.doc(`partners/${driverA}`).set({ activeRideId: admin.firestore.FieldValue.delete() }, { merge: true });
+  await db.doc(`partners/${driverA}`).set({ activeRideId: adminFirestoreSdk.FieldValue.delete() }, { merge: true });
   await seedSearchingRide(raceRide);
   await seedCandidate(raceRide, driverA);
   await submitRideOffer(db, {
@@ -608,11 +613,11 @@ async function emulatorTests() {
   await db.doc(`rides/${activePin}`).delete().catch(() => {});
   await db.doc(`rides/heal-race-ride`).delete().catch(() => {});
   await db.doc(`partners/${driverA}`).set(
-    { activeRideId: admin.firestore.FieldValue.delete() },
+    { activeRideId: adminFirestoreSdk.FieldValue.delete() },
     { merge: true }
   );
   await db.doc(`vehicles/${vehicleA}`).set(
-    { activeRideId: admin.firestore.FieldValue.delete() },
+    { activeRideId: adminFirestoreSdk.FieldValue.delete() },
     { merge: true }
   );
   await withdrawOpenOffersForDriver(driverA);

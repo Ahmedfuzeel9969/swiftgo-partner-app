@@ -1,3 +1,4 @@
+const { validateRideLocationFix } = require("./ride-location-contract");
 /**
  * Phase 1 live-location foundation — normalize / validate GPS envelopes.
  * Privacy: never log coordinates, ride IDs, or driver IDs from this module.
@@ -132,65 +133,18 @@ function timestampToMs(value) {
 }
 
 function normalizeLocationFix(raw, ctx) {
-  const lat = coerceCoordNumber(raw?.latitude ?? raw?.lat);
-  const lng = coerceCoordNumber(raw?.longitude ?? raw?.lng);
-  if (!isValidLatLng(lat, lng)) {
-    return { ok: false, reason: LOCATION_DIAG.INVALID, envelope: null };
-  }
-
-  const accuracyM =
-    raw?.accuracyM != null
-      ? Number(raw.accuracyM)
-      : raw?.accuracy != null
-        ? Number(raw.accuracy)
-        : null;
-  if (Number.isFinite(accuracyM) && accuracyM > MAX_ACCEPT_ACCURACY_M) {
-    return { ok: false, reason: LOCATION_DIAG.POOR_ACCURACY, envelope: null };
-  }
-
-  const observedAt =
-    Number(raw?.observedAt) ||
-    Number(raw?.timestamp) ||
-    Number(ctx?.nowMs) ||
-    Date.now();
-  if (!Number.isFinite(observedAt) || observedAt <= 0) {
-    return { ok: false, reason: LOCATION_DIAG.INVALID, envelope: null };
-  }
-
-  const sequence = Math.max(1, Math.floor(Number(ctx?.sequence) || 1));
-  // Must match Cloud Functions + Firestore rules: string, trimmed 3–64, [A-Za-z0-9_-].
-  if (typeof ctx?.sessionId !== "string" || !isValidTrackingSessionId(ctx.sessionId)) {
-    return { ok: false, reason: LOCATION_DIAG.INVALID, envelope: null };
-  }
-  const sessionId = ctx.sessionId.trim();
-
-  const speedMps =
-    raw?.speedMps != null
-      ? Number(raw.speedMps)
-      : raw?.speed != null && Number(raw.speed) >= 0
-        ? Number(raw.speed)
-        : null;
-
-  const headingDeg = normalizeHeadingDeg(raw?.headingDeg ?? raw?.heading);
-
-  /** @type {Record<string, unknown>} */
-  const envelope = {
-    lat: Math.round(lat * 1e7) / 1e7,
-    lng: Math.round(lng * 1e7) / 1e7,
-    observedAt,
-    sequence,
-    sessionId,
-    source: String(raw?.source || "gps"),
-  };
-  if (Number.isFinite(accuracyM) && accuracyM >= 0) {
-    envelope.accuracyM = Math.round(accuracyM * 10) / 10;
-  }
-  if (headingDeg != null) envelope.headingDeg = headingDeg;
-  if (Number.isFinite(speedMps) && speedMps >= 0) {
-    envelope.speedMps = Math.round(speedMps * 100) / 100;
-  }
-
-  return { ok: true, reason: LOCATION_DIAG.ACCEPTED, envelope };
+  const checked = validateRideLocationFix({
+    lat: raw?.latitude ?? raw?.lat, lng: raw?.longitude ?? raw?.lng,
+    observedAt: raw?.observedAt ?? raw?.timestamp,
+    sequence: ctx?.sequence, sessionId: ctx?.sessionId,
+    accuracyM: raw?.accuracyM ?? raw?.accuracy ?? null,
+    headingDeg: raw?.headingDeg ?? raw?.heading ?? null,
+    speedMps: raw?.speedMps ?? raw?.speed ?? null,
+  }, { nowMs: ctx?.nowMs ?? Date.now() });
+  if (!checked.ok) return { ok: false, reason: checked.reason, envelope: null };
+  const { trackingSessionId, ...fix } = checked.fix;
+  return { ok: true, reason: LOCATION_DIAG.ACCEPTED,
+    envelope: { ...fix, sessionId: trackingSessionId, source: raw?.source || "gps" } };
 }
 
 /**
@@ -323,6 +277,17 @@ function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
     return { accept: false, reason: LOCATION_DIAG.INVALID };
   }
 
+  if (sessionCtx.enforceSessionConsistency || next.sessionId) {
+    const checked = validateRideLocationFix(next, {
+      nowMs: sessionCtx.serverNowMs ?? sessionCtx.nowMs ?? Date.now(),
+      previous: previous?.sessionId && previous?.sequence > 0 ? previous : null,
+    });
+    if (!checked.ok) return { accept: false, reason:
+      checked.reason === "duplicate_fix" ? LOCATION_DIAG.DUPLICATE :
+      checked.reason === "impossible_jump" ? LOCATION_DIAG.IMPOSSIBLE_JUMP :
+      checked.reason === "out_of_order" ? LOCATION_DIAG.OUT_OF_ORDER : checked.reason };
+  }
+
   const nextSession = String(next.sessionId || "");
   const vehicleSessionId = String(sessionCtx.vehicleSessionId || "");
   const enforce = Boolean(sessionCtx.enforceSessionConsistency);
@@ -413,26 +378,6 @@ function evaluateFixAgainstPrevious(previous, next, sessionCtx = {}) {
     }
     if (nextObs === prevObs && !sameCoords) {
       return { accept: false, reason: LOCATION_DIAG.OUT_OF_ORDER };
-    }
-  }
-
-  // Impossible jump (same session only, after ordering passed).
-  if (prevSession && nextSession && prevSession === nextSession && nextObs > prevObs) {
-    const elapsed = nextObs - prevObs;
-    if (elapsed >= MIN_JUMP_ELAPSED_MS) {
-      const prevAcc = Number(previous.accuracyM);
-      const skipJump =
-        Number.isFinite(prevAcc) && prevAcc > JUMP_SKIP_IF_PREV_ACCURACY_M;
-      if (!skipJump) {
-        const distM = haversineM(
-          { lat: Number(previous.lat), lng: Number(previous.lng) },
-          { lat: Number(next.lat), lng: Number(next.lng) }
-        );
-        const speed = distM / (elapsed / 1000);
-        if (speed > MAX_PLAUSIBLE_SPEED_MPS) {
-          return { accept: false, reason: LOCATION_DIAG.IMPOSSIBLE_JUMP };
-        }
-      }
     }
   }
 

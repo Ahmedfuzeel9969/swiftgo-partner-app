@@ -516,11 +516,10 @@ function unitPresenceHeartbeatTests() {
 }
 
 async function emulatorPresenceTests() {
-  const admin = require("firebase-admin");
-  if (!admin.apps.length) {
-    admin.initializeApp({ projectId: PROJECT });
-  }
-  const db = admin.firestore();
+  const adminApp = require("firebase-admin/app");
+  const adminFirestore = require("firebase-admin/firestore");
+  if (!adminApp.getApps().length) adminApp.initializeApp({ projectId: PROJECT });
+  const db = adminFirestore.getFirestore();
   const customer = "vp-cust";
   const other = "vp-other";
   const driver = "vp-drv";
@@ -669,10 +668,11 @@ async function rulesTests() {
     projectId: PROJECT,
     firestore: { rules: rulesText, host: "127.0.0.1", port: 8080 },
   });
-  const admin = require("firebase-admin");
-  if (!admin.apps.length) admin.initializeApp({ projectId: PROJECT });
-  const adminDb = admin.firestore();
-  const AdminTs = admin.firestore.Timestamp;
+  const adminApp = require("firebase-admin/app");
+  const adminFirestore = require("firebase-admin/firestore");
+  if (!adminApp.getApps().length) adminApp.initializeApp({ projectId: PROJECT });
+  const adminDb = adminFirestore.getFirestore();
+  const AdminTs = adminFirestore.Timestamp;
 
   await testEnv.clearFirestore();
 

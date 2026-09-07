@@ -50,8 +50,8 @@ function fix(at, lat = 24.86, lng = 67.0) {
 
   const mapped = mapCustomerRuntimeCounters(counters, {});
   record(
-    "map-customer-firebase-rendered",
-    mapped.firebaseSnapshotsReceived === 3 && mapped.firebaseValidRendered === 3 ? "PASS" : "FAIL",
+    "map-customer-firebase-receipt-and-selection-not-paint",
+    mapped.firebaseSnapshotsReceived === 3 && mapped.firebaseFixesAccepted === 3 && mapped.firebaseValidRendered === undefined ? "PASS" : "FAIL",
     `received=${mapped.firebaseSnapshotsReceived} rendered=${mapped.firebaseValidRendered}`
   );
 }
@@ -137,6 +137,7 @@ function fix(at, lat = 24.86, lng = 67.0) {
     getFirebase: () => ({ ready: true, functions: {} }),
     getRuntimeCounters: () => ({
       p2p: {
+        firebaseReceived: 4,
         firebaseAccepted: 4,
         firebaseRendered: 4,
         p2pAccepted: 0,
@@ -154,12 +155,17 @@ function fix(at, lat = 24.86, lng = 67.0) {
   client.syncCountersFromRuntime();
   const snap = client.snapshotSection();
   record(
-    "report-client-sync-firebase-rendered",
-    snap?.counters?.firebaseSnapshotsReceived === 4 && snap?.counters?.firebaseValidRendered === 4
+    "report-client-sync-does-not-invent-map-paint",
+    snap?.counters?.firebaseSnapshotsReceived === 4 && snap?.counters?.firebaseValidRendered === 0 && snap?.counters?.firebaseFixesAccepted === 4
       ? "PASS"
       : "FAIL",
     `received=${snap?.counters?.firebaseSnapshotsReceived} rendered=${snap?.counters?.firebaseValidRendered}`
   );
+
+  const point = { ...fix(Date.now()), source: "firebase" };
+  for (let n = 0; n < 60; n++) client.noteDisplayFrame(point);
+  record("paint-events-distinguish-one-fix-from-sixty-frames",
+    client.snapshotSection().counters.firebaseValidRendered === 1 && client.snapshotSection().counters.mapFramesPainted === 60 ? "PASS" : "FAIL");
 
   const health = classifyReportHealth({
     driver: { counters: { gpsFixesReceived: 4 } },

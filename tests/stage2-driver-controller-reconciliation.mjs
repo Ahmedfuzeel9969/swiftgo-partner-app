@@ -176,6 +176,62 @@ async function testAssignmentVersionSyncAfterOffer() {
   await drv.stop({ closeRemote: false });
 }
 
+async function testAnswerMustMatchPublishedOffer() {
+  let watchCb = null;
+  let publishedSessionId = "";
+  const pcs = [];
+  function TrackingRTCPeerConnection() {
+    const pc = MockRTCPeerConnection();
+    pcs.push(pc);
+    return pc;
+  }
+  const drv = createDriverP2pController({
+    RTCPeerConnection: TrackingRTCPeerConnection,
+    ensureIceConfiguration: async () => {},
+    createRidePeerOfferClient: async (payload) => {
+      publishedSessionId = payload.peerSessionId;
+      return {
+        assignmentVersion: 881100,
+        sessionId: payload.peerSessionId,
+        offerFingerprint: "of_current_offer",
+      };
+    },
+    closeRidePeerSessionClient: async () => {},
+    watchRidePeerSession: (_rid, onData) => {
+      watchCb = onData;
+      return () => {};
+    },
+  });
+  await drv.start({ rideId: "ride_answer_identity", trackingSessionId: "trk_answer", vehicleId: "v" });
+  await sleep(80);
+  const pc = pcs.at(-1);
+  watchCb?.({
+    sessionId: publishedSessionId,
+    assignmentVersion: 881100,
+    state: "answer_ready",
+    answer: "v=0\r\no=- stale-answer\r\n",
+    answeredOfferFingerprint: "of_old_offer",
+  });
+  await sleep(30);
+  const staleApplied = pc?.remoteDescription?.sdp === "v=0\r\no=- stale-answer\r\n";
+  watchCb?.({
+    sessionId: publishedSessionId,
+    assignmentVersion: 881100,
+    state: "answer_ready",
+    answer: "v=0\r\no=- current-answer\r\n",
+    answeredOfferFingerprint: "of_current_offer",
+  });
+  await sleep(40);
+  record(
+    "driver-applies-only-answer-for-current-offer",
+    !staleApplied && pc?.remoteDescription?.sdp === "v=0\r\no=- current-answer\r\n"
+      ? "PASS"
+      : "FAIL",
+    `staleApplied=${staleApplied} remote=${pc?.remoteDescription?.sdp || "none"}`
+  );
+  await drv.stop({ closeRemote: false });
+}
+
 async function testHasRaceSafeguards() {
   const src = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-ride-controller.mjs"), "utf8");
   const checks = [
@@ -200,6 +256,7 @@ async function main() {
   await testStopInvalidatesLateOffer();
   await testStaleWatchCannotPoisonRideB();
   await testAssignmentVersionSyncAfterOffer();
+  await testAnswerMustMatchPublishedOffer();
 
   const pass = results.filter((r) => r.status === "PASS").length;
   const fail = results.filter((r) => r.status === "FAIL").length;

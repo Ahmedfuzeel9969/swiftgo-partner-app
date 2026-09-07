@@ -8,6 +8,11 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "tests", "ride-lifecycle-timestamps-results.json");
 
@@ -141,11 +146,11 @@ process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || "12
 
 let app;
 try {
-  app = admin.app();
+  app = adminAppSdk.getApp();
 } catch {
-  app = admin.initializeApp({ projectId: "demo-swiftgo-phase1" });
+  app = adminAppSdk.initializeApp({ projectId: "demo-swiftgo-phase1" });
 }
-const db = admin.firestore(app);
+const db = adminFirestoreSdk.getFirestore(app);
 
 const {
   createCustomerBooking,
@@ -178,7 +183,7 @@ await db.doc("vehicles/rlt-v-drv1").set({
   status: "online",
   plate: "RLT-1",
   location: { lat: pickup.lat, lng: pickup.lng },
-  locationUpdatedAt: admin.firestore.Timestamp.now(),
+  locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
 });
 await db.doc("vehicles/rlt-v-drv2").set({
   ownerId: "rlt-owner",
@@ -186,7 +191,7 @@ await db.doc("vehicles/rlt-v-drv2").set({
   status: "online",
   plate: "RLT-2",
   location: { lat: pickup.lat + 0.001, lng: pickup.lng },
-  locationUpdatedAt: admin.firestore.Timestamp.now(),
+  locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
 });
 
 async function assignRideToDriver(rideId, driverUid, vehicleId, driverLabel) {

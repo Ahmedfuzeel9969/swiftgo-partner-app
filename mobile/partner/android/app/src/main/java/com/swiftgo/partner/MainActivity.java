@@ -6,6 +6,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
+    registerPlugin(com.swiftgo.mobile.NativeSettingsPlugin.class);
     registerPlugin(DriverLocationPlugin.class);
     super.onCreate(savedInstanceState);
   }

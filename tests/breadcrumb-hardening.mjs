@@ -23,16 +23,13 @@ import {
   validateIsolatedRulesResults,
   BREADCRUMB_TELEMETRY_RULES_RESULTS,
 } from "./breadcrumb-isolated-rules-runner.mjs";
+import { BREADCRUMB_TEST_PROJECT, requireBreadcrumbEmulators, breadcrumbResultPath } from "./helpers/breadcrumb-test-safety.mjs";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = path.join(ROOT, "tests", "breadcrumb-hardening-results.json");
-const PROJECT = "demo-swiftgo-phase1";
-
-process.env.FIRESTORE_EMULATOR_HOST ||= "127.0.0.1:8080";
-process.env.FIREBASE_AUTH_EMULATOR_HOST ||= "127.0.0.1:9099";
-process.env.GCLOUD_PROJECT ||= PROJECT;
-process.env.GOOGLE_CLOUD_PROJECT ||= PROJECT;
+requireBreadcrumbEmulators();
+const OUT = breadcrumbResultPath("breadcrumb-hardening-results.json");
+const PROJECT = BREADCRUMB_TEST_PROJECT;
 
 const results = [];
 function record(name, status, detail = "", category = "unit") {
@@ -50,8 +47,11 @@ const { submitRideBreadcrumbBatch, TELEMETRY_COLLECTION } = require(
 );
 const { settleRide } = require(path.join(ROOT, "functions", "settlement.js"));
 const { mintAssignmentSessionToken } = require(path.join(ROOT, "functions", "bargaining.js"));
-const admin = require(
-  require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] })
+const adminApp = require(
+  require.resolve("firebase-admin/app", { paths: [path.join(ROOT, "functions"), ROOT] })
+);
+const adminFirestore = require(
+  require.resolve("firebase-admin/firestore", { paths: [path.join(ROOT, "functions"), ROOT] })
 );
 
 function createFakeTimers() {
@@ -529,6 +529,7 @@ async function flushOrderAndSettlement(db) {
     userId: "cust_flush",
     status: "in_progress",
     estimatedFare: 400,
+    tripStartedAt: new Date(Date.now() - 120000),
     farePkr: 400,
     traveledDistanceKm: 2,
     assignmentSessionToken: token,
@@ -627,6 +628,7 @@ async function flushOrderAndSettlement(db) {
     userId: "cust_flush",
     status: "in_progress",
     estimatedFare: 300,
+    tripStartedAt: new Date(Date.now() - 120000),
     farePkr: 300,
     traveledDistanceKm: 1,
     assignmentSessionToken: token2,
@@ -688,6 +690,7 @@ async function flushOrderAndSettlement(db) {
     status: "in_progress",
     assignmentSessionToken: token,
     traveledDistanceKm: 0,
+    tripStartedAt: new Date(Date.now() - 120000),
     estimatedFare: 100,
   });
   await db.collection("vehicles").doc(seed.vehicleId).set({
@@ -943,7 +946,7 @@ async function rulesHonest() {
 }
 
 function staleIsolatedRulesRejectionTest() {
-  const resultsPath = path.join(ROOT, "tests", BREADCRUMB_TELEMETRY_RULES_RESULTS);
+  const resultsPath = breadcrumbResultPath(BREADCRUMB_TELEMETRY_RULES_RESULTS);
   const staleGeneratedAt = new Date(Date.now() - 60 * 60_000).toISOString();
   const stalePass = {
     suite: "breadcrumb-telemetry-rules",
@@ -1071,8 +1074,8 @@ async function main() {
     record("h-privacy-uncaught", "FAIL", String(e.message || e).slice(0, 160), "static");
   }
 
-  if (!admin.apps.length) admin.initializeApp({ projectId: PROJECT });
-  const db = admin.firestore();
+  if (!adminApp.getApps().length) adminApp.initializeApp({ projectId: PROJECT });
+  const db = adminFirestore.getFirestore();
   try {
     await flushOrderAndSettlement(db);
   } catch (e) {

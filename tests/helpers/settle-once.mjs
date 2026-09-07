@@ -7,6 +7,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 const params = JSON.parse(process.argv[2] || "{}");
@@ -15,10 +20,10 @@ if (!process.env.FIRESTORE_EMULATOR_HOST) {
 }
 
 const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
-const app = admin.initializeApp({ projectId: params.projectId || "demo-swiftgo-phase1" });
+const app = adminAppSdk.initializeApp({ projectId: params.projectId || "demo-swiftgo-phase1" });
 const { settleRide } = require(path.join(ROOT, "functions", "settlement.js"));
 
-settleRide(admin.firestore(app), {
+settleRide(adminFirestoreSdk.getFirestore(app), {
   rideId: params.rideId,
   collectionName: params.collectionName,
   callerUid: params.callerUid,

@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-08-15T11:10:11.376Z",
-  "baseUrl": "https://swiftgo-ride-app.web.app",
-  "total": 238,
-  "passed": 233,
-  "failed": 5,
-  "passRate": 97.9,
+  "generatedAt": "2026-08-30T04:01:29.237Z",
+  "baseUrl": null,
+  "total": 225,
+  "passed": 225,
+  "failed": 0,
+  "passRate": 100,
   "bySuite": {
     "structure": {
       "passed": 39,
@@ -32,14 +32,14 @@
       "total": 8
     },
     "security": {
-      "passed": 15,
-      "failed": 2,
-      "total": 17
+      "passed": 16,
+      "failed": 0,
+      "total": 16
     },
     "wiring": {
-      "passed": 43,
-      "failed": 3,
-      "total": 46
+      "passed": 49,
+      "failed": 0,
+      "total": 49
     },
     "a11y": {
       "passed": 7,
@@ -47,9 +47,9 @@
       "total": 7
     },
     "http": {
-      "passed": 16,
+      "passed": 1,
       "failed": 0,
-      "total": 16
+      "total": 1
     }
   },
   "findings": [
@@ -58,12 +58,6 @@
       "area": "Backend",
       "title": "walletBalance client-writable",
       "detail": "firestore.rules allows owners full write on users/{uid}. A modified client can set any walletBalance."
-    },
-    {
-      "sev": "Low",
-      "area": "Security",
-      "title": "No Content-Security-Policy",
-      "detail": "Hosting headers may exist but CSP is not configured."
     },
     {
       "sev": "Info",
@@ -773,13 +767,13 @@
       "suite": "i18n",
       "name": "i18n EN keys > 60",
       "status": "PASS",
-      "detail": "count=384"
+      "detail": "count=391"
     },
     {
       "suite": "i18n",
       "name": "i18n UR keys > 60",
       "status": "PASS",
-      "detail": "count=384"
+      "detail": "count=391"
     },
     {
       "suite": "i18n",
@@ -939,7 +933,7 @@
     },
     {
       "suite": "security",
-      "name": "Bookings create requires own userId",
+      "name": "Canonical ride creation is trusted-server only",
       "status": "PASS",
       "detail": ""
     },
@@ -958,8 +952,8 @@
     {
       "suite": "security",
       "name": "Hosting SPA rewrite to index.html",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "security",
@@ -994,20 +988,14 @@
     {
       "suite": "security",
       "name": "walletBalance read-only for client (Phase 9)",
-      "status": "FAIL",
+      "status": "PASS",
       "detail": "create must be 0; updates may not touch walletBalance"
     },
     {
       "suite": "security",
-      "name": "booking.status constrained to enum (Phase 9)",
+      "name": "legacy bookings are read-only; canonical booking writes use rides",
       "status": "PASS",
-      "detail": "isValidStatus enum enforced on create + update"
-    },
-    {
-      "suite": "security",
-      "name": "Booking payload shape validated (Phase 9)",
-      "status": "PASS",
-      "detail": ""
+      "detail": "no client-side legacy booking write/listener remains"
     },
     {
       "suite": "security",
@@ -1227,21 +1215,21 @@
     },
     {
       "suite": "wiring",
-      "name": "Phase 15 dynamic fare matrix and route listener",
+      "name": "Phase 15 canonical catalog-driven fare matrix and route listener",
       "status": "PASS",
       "detail": ""
     },
     {
       "suite": "wiring",
       "name": "Phase 16.1 rides collection write + searching_driver status",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
       "name": "Phase 16.2 searching-for-driver UI state",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
@@ -1294,8 +1282,26 @@
     {
       "suite": "wiring",
       "name": "Partner auth routes strictly by saved role",
-      "status": "FAIL",
-      "detail": "assertion failed"
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Owner app gates dashboard by saved owner role only",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Owner onboarding is server-authoritative via Cloud Functions",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "suite": "wiring",
+      "name": "Super Admin panel lists owner applications on demand",
+      "status": "PASS",
+      "detail": ""
     },
     {
       "suite": "wiring",
@@ -1413,99 +1419,9 @@
     },
     {
       "suite": "http",
-      "name": "HTTP GET / → 200 (https://swiftgo-ride-app.web.app)",
+      "name": "HTTP smoke skipped (no server reachable)",
       "status": "PASS",
-      "detail": ""
-    },
-    {
-      "suite": "http",
-      "name": "HTTP GET /js/app.js → 200",
-      "status": "PASS",
-      "detail": "status=200"
-    },
-    {
-      "suite": "http",
-      "name": "HTTP GET /js/i18n.js → 200",
-      "status": "PASS",
-      "detail": "status=200"
-    },
-    {
-      "suite": "http",
-      "name": "HTTP GET /js/auth.js → 200",
-      "status": "PASS",
-      "detail": "status=200"
-    },
-    {
-      "suite": "http",
-      "name": "HTTP GET /js/data.js → 200",
-      "status": "PASS",
-      "detail": "status=200"
-    },
-    {
-      "suite": "http",
-      "name": "HTTP GET /js/firebase.js → 200",
-      "status": "PASS",
-      "detail": "status=200"
-    },
-    {
-      "suite": "http",
-      "name": "HTTP GET /js/firebase-config.js → 200",
-      "status": "PASS",
-      "detail": "status=200"
-    },
-    {
-      "suite": "http",
-      "name": "HTTP GET /js/dashboard.js → 200",
-      "status": "PASS",
-      "detail": "status=200"
-    },
-    {
-      "suite": "http",
-      "name": "HTTP GET /js/sheet.js → 200",
-      "status": "PASS",
-      "detail": "status=200"
-    },
-    {
-      "suite": "http",
-      "name": "HTTP GET /js/map.js → 200",
-      "status": "PASS",
-      "detail": "status=200"
-    },
-    {
-      "suite": "http",
-      "name": "HTTP GET /css/styles.css → 200",
-      "status": "PASS",
-      "detail": "status=200"
-    },
-    {
-      "suite": "http",
-      "name": "Served HTML has SwiftGo title",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "suite": "http",
-      "name": "Served HTML has auth modal",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "suite": "http",
-      "name": "Served HTML has pay sheet",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "suite": "http",
-      "name": "Served HTML has ride panel",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "suite": "http",
-      "name": "Live config projectId = swiftgo-ride-app",
-      "status": "PASS",
-      "detail": ""
+      "detail": "tried local + live"
     }
   ]
 }

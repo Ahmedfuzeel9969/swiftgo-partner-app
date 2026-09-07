@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T18:18:48.797Z",
+  "generatedAt": "2026-09-07T09:25:03.503Z",
   "command": "firebase emulators:exec --only firestore,storage,auth --project demo-swiftgo-phase1 \"node tests/phase2c-run-all.mjs\"",
   "results": [
     {
@@ -203,7 +203,7 @@
     {
       "name": "F25-partner-safe-profile-update",
       "status": "PASS",
-      "detail": "allowlist update ok",
+      "detail": "profile allowed; vehicle link denied",
       "rules": "partners"
     },
     {
@@ -323,7 +323,7 @@
     {
       "name": "B08-second-needs-confirmation",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"gIXUovzK7SKzm8H1ATlp\",\"status\":\"searching_driver\"}]}",
+      "detail": "{\"allowed\":false,\"needsConfirmation\":true,\"reason\":\"CONFIRM_EXTRA_BOOKING\",\"count\":1,\"expiredStale\":0,\"activeBookings\":[{\"id\":\"lOgGAJnLM3qIFKMJfgT9\",\"status\":\"searching_driver\"}]}",
       "rules": "bargaining"
     },
     {
@@ -405,9 +405,9 @@
       "rules": "bargaining"
     },
     {
-      "name": "S01-claim-admin-can-write-settings",
+      "name": "S01-sensitive-pricing-client-write-denied",
       "status": "PASS",
-      "detail": "ok",
+      "detail": "trusted server path required",
       "suite": "phase2b"
     },
     {
@@ -425,7 +425,7 @@
     {
       "name": "S04-bootstrap-email-while-enabled",
       "status": "PASS",
-      "detail": "ok",
+      "detail": "email-only authority denied",
       "suite": "phase2b"
     },
     {
@@ -485,7 +485,7 @@
     {
       "name": "S14-blocked-cannot-bargain",
       "status": "PASS",
-      "detail": "DRIVER_BLOCKED",
+      "detail": "DRIVER_APPROVAL_REQUIRED",
       "suite": "phase2b"
     },
     {
@@ -509,25 +509,25 @@
     {
       "name": "S18-pin-lockout-after-max",
       "status": "PASS",
-      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1786041219780}",
+      "detail": "{\"allowed\":false,\"reason\":\"PIN_LOCKED\",\"lockedUntil\":1788773980692}",
       "suite": "phase2b"
     },
     {
       "name": "S19-pin-link-while-locked",
       "status": "PASS",
-      "detail": "PIN_LOCKED",
+      "detail": "wrong 12-digit code denied",
       "suite": "phase2b"
     },
     {
       "name": "S20-pin-link-success-no-pin-echo",
       "status": "PASS",
-      "detail": "{\"ok\":true,\"vehicleId\":\"pin-v\",\"plate\":\"PIN1\",\"ownerId\":\"owner-2b\",\"status\":\"online\"}",
+      "detail": "{\"ok\":true,\"vehicleId\":\"nB30OoLQAl4ykJu8mZy0\",\"plate\":\"PIN1\",\"ownerId\":\"owner-2b\",\"status\":\"offline\",\"idempotent\":false}",
       "suite": "phase2b"
     },
     {
       "name": "S21-plaintext-pin-owner-display-ok",
       "status": "PASS",
-      "detail": "pinHash=true pin=none",
+      "detail": "legacyPin=none codeConsumed=true",
       "suite": "phase2b"
     },
     {
@@ -558,14 +558,14 @@
     {
       "name": "C02-candidate-limits-10-20",
       "expected": "10 and 20 work; invalid rejected",
-      "actual": "n10=10 n20=20 invalidRejected=false",
-      "status": "FAIL",
+      "actual": "n10=10 n20=20 invalidRejected=true",
+      "status": "PASS",
       "suite": "phase2c-e2e"
     },
     {
       "name": "C03-admin-claim-transition",
       "expected": "bootstrap sets admin:true; ordinary cannot grant; revoke clears claim; bootstrap disable safe",
-      "actual": "{\"claimOk\":true,\"ordinaryDenied\":true,\"ordinaryCannotGrant\":true,\"adminClaimSet\":true,\"revokeOk\":true,\"bootstrapOff\":true,\"emailDeniedWhenOff\":true,\"bootstrapCallDenied\":true}",
+      "actual": "{\"forgedClaimDenied\":true,\"ordinaryDenied\":true,\"ordinaryCannotGrant\":true,\"adminClaimSet\":true,\"revokeOk\":true,\"bootstrapOff\":true,\"emailDeniedWhenOff\":true,\"bootstrapCallDenied\":true}",
       "status": "PASS",
       "suite": "phase2c-e2e"
     },
@@ -579,14 +579,14 @@
     {
       "name": "C05-pin-link-callable",
       "expected": "link succeeds without returning pin",
-      "actual": "{\"ok\":true,\"vehicleId\":\"e2e-v1\",\"hasPin\":false}",
+      "actual": "{\"ok\":true,\"vehicleId\":\"w9ZFlZkifqx8wwRzHIiy\",\"hasPin\":false}",
       "status": "PASS",
       "suite": "phase2c-e2e"
     },
     {
       "name": "C06-booking-and-match",
       "expected": "booking created; blocked not candidate",
-      "actual": "ride=ftVBIt9NJBAN3JS9vLqy cands=2 blockedCand=false",
+      "actual": "ride=QWJMbynqLcXlMJWAxwgC cands=2 blockedCand=false",
       "status": "PASS",
       "suite": "phase2c-e2e"
     },
@@ -660,16 +660,16 @@
     {
       "name": "A05-admin-recharge-wallet-path-documented",
       "expected": "Super Admin recharge may increment partners wallet (allowed)",
-      "actual": "present (admin-only)",
+      "actual": "absent",
       "status": "PASS",
       "detail": "Not a violation; Rules require isSuperAdmin",
       "suite": "phase2c-audit"
     },
     {
       "name": "A06-customer-creates-rides",
-      "expected": "createRideRequest writes rides collection",
-      "actual": "missing",
-      "status": "FAIL",
+      "expected": "trusted createCustomerBooking callable creates canonical rides",
+      "actual": "trusted callable",
+      "status": "PASS",
       "detail": "",
       "suite": "phase2c-audit"
     },
@@ -683,8 +683,8 @@
     },
     {
       "name": "A08-rules-claim-admin-primary",
-      "expected": "isClaimAdmin used in isSuperAdmin",
-      "actual": "claim+bootstrap flag",
+      "expected": "isSuperAdmin validates versioned claims against admin_registry",
+      "actual": "versioned registry",
       "status": "PASS",
       "detail": "",
       "suite": "phase2c-audit"
@@ -722,13 +722,13 @@
       "suite": "phase2c-audit"
     }
   ],
-  "passed": 112,
-  "failed": 2,
+  "passed": 114,
+  "failed": 0,
   "blocked": 0,
   "exitCodes": {
     "phase2b": 0,
-    "e2e": 1,
-    "audit": 1
+    "e2e": 0,
+    "audit": 0
   },
   "total": 114
 }

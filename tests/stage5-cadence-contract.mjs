@@ -113,7 +113,7 @@ function testConfiguredInterval() {
 }
 
 function testStaticCadenceImplementation() {
-  const src = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8");
+  const src = fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8");
   const checks = [
     ["flushPendingLoc-uses-named-min-gap", /minGapMs = P2P_MIN_LOC_GAP_MS/],
     ["scheduleCadenceFlush-present", /function scheduleCadenceFlush/],

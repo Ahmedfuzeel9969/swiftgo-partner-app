@@ -6,6 +6,8 @@
 "use strict";
 
 const { FieldValue } = require("firebase-admin/firestore");
+const { assertAdminInTransaction } = require("./admin-claims");
+const { financialRetention } = require("./retention-policy");
 
 const DEFAULT_COMMISSION_PERCENT = 10;
 
@@ -82,6 +84,7 @@ async function settleRide(db, params) {
   const auditRef = db.collection("audit_logs").doc(`settle_${ledgerId}_${Date.now()}`);
 
   return db.runTransaction(async (tx) => {
+    if (isAdmin) await assertAdminInTransaction(tx, db, params.adminAuth);
     const [rideSnap, ledgerSnap, pricingSnap] = await Promise.all([
       tx.get(rideRef),
       tx.get(ledgerRef),
@@ -228,6 +231,7 @@ async function settleRide(db, params) {
     }
 
     const ledgerDoc = {
+      ...financialRetention(Date.now()),
       rideId,
       collectionName,
       customerId,
@@ -246,6 +250,9 @@ async function settleRide(db, params) {
 
     tx.set(ledgerRef, ledgerDoc);
     tx.update(rideRef, {
+      retainFinancialUntil: ledgerDoc.retainFinancialUntil,
+      retentionPolicyVersion: ledgerDoc.retentionPolicyVersion,
+      financialYearEnd: ledgerDoc.financialYearEnd,
       status: "completed",
       commissionAmount,
       driverEarnings,
@@ -392,6 +399,7 @@ async function settlePartialCancellation(db, params) {
     const { commissionAmount, driverEarnings } = calculateSplit(grossFare, commissionPercent);
 
     const ledgerDoc = {
+      ...financialRetention(Date.now()),
       rideId,
       collectionName: "rides",
       customerId: customerUid,
@@ -411,6 +419,9 @@ async function settlePartialCancellation(db, params) {
 
     tx.set(ledgerRef, ledgerDoc);
     tx.update(rideRef, {
+      retainFinancialUntil: ledgerDoc.retainFinancialUntil,
+      retentionPolicyVersion: ledgerDoc.retentionPolicyVersion,
+      financialYearEnd: ledgerDoc.financialYearEnd,
       farePkr: grossFare,
       cancellationFare: grossFare,
       traveledDistanceKm,

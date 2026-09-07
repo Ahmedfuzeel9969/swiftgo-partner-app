@@ -208,6 +208,59 @@ async function testHiddenDoesNotSuspendP2p() {
   await cust.stop({ closeRemote: false });
 }
 
+async function testIceRestartOfferOnSameSessionIsAnswered() {
+  let watchCb = null;
+  const published = [];
+  const cust = createCustomerP2pController({
+    RTCPeerConnection: MockRTCPeerConnection,
+    ensureIceConfiguration: async () => {},
+    answerMemory: null,
+    publishRidePeerAnswerClient: async (payload) => {
+      published.push(payload);
+      return { ok: true };
+    },
+    closeRidePeerSessionClient: async () => {},
+    watchRidePeerSession: (_rid, onData) => {
+      watchCb = onData;
+      return () => {};
+    },
+  });
+
+  cust.syncForRide(
+    { id: "ride_restart", status: "in_progress", assignmentVersion: 17 },
+    { isVisible: true }
+  );
+  const base = {
+    sessionId: "ps_restart_same01",
+    trackingSessionId: "trk_restart",
+    assignmentVersion: 17,
+    state: "offer_ready",
+  };
+  watchCb?.({
+    ...base,
+    offer: "v=0\r\no=- first-offer\r\n",
+    offerFingerprint: "of_first",
+  });
+  await sleep(80);
+  watchCb?.({
+    ...base,
+    offer: "v=0\r\no=- ice-restart-offer\r\n",
+    offerFingerprint: "of_restart",
+  });
+  await sleep(100);
+
+  record(
+    "same-session-ice-restart-offer-is-reanswered",
+    published.length === 2 &&
+      published[0]?.offerFingerprint === "of_first" &&
+      published[1]?.offerFingerprint === "of_restart"
+      ? "PASS"
+      : "FAIL",
+    `published=${published.map((p) => p.offerFingerprint).join(",")}`
+  );
+  await cust.stop({ closeRemote: false });
+}
+
 function testStaticSafeguards() {
   const src = fs.readFileSync(path.join(ROOT, "customer-app/js/p2p-ride-controller.mjs"), "utf8");
   const checks = [
@@ -233,6 +286,7 @@ async function main() {
   await testStaleAnswerUsesCapturedRideId();
   await testOldSessionLocBlockedOnRideSwitch();
   await testHiddenDoesNotSuspendP2p();
+  await testIceRestartOfferOnSameSessionIsAnswered();
 
   const pass = results.filter((r) => r.status === "PASS").length;
   const fail = results.filter((r) => r.status === "FAIL").length;

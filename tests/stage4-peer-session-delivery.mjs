@@ -224,7 +224,7 @@ async function testSyncAssignmentVersionRejectsInvalid() {
 }
 
 function testStaticDeliveryGuards() {
-  const src = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8");
+  const src = fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8");
   const checks = [
     ["sentSequences", /const sentSequences = new Set\(\)/],
     ["validateDriverAck", /function validateDriverAck/],

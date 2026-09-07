@@ -267,9 +267,9 @@ async function testStaticLastPublishedOfferDeclared() {
   );
   record(
     "static-customer-stall-requests-fresh-driver-offer",
-    custSrc.includes('onNeedReconnect: () =>') &&
+      custSrc.includes('onNeedReconnect: () =>') &&
       custSrc.includes('requestFreshDriverOffer("customer_transport_stalled")') &&
-      custSrc.includes("closeSignaling(rideId)")
+      custSrc.includes("closeSignaling(rideId, pendingOfferDoc)")
       ? "PASS"
       : "FAIL"
   );

@@ -1,19 +1,2137 @@
 {
-  "generatedAt": "2026-08-20T14:13:23.930Z",
+  "generatedAt": "2026-08-30T04:01:33.757Z",
   "mode": "dist",
-  "target": "F:\\ride-app\\hosting-dist",
-  "pass": 35,
-  "fail": 3,
+  "target": "C:\\Users\\pc\\.codex\\worktrees\\2c08\\ride-app\\hosting-dist",
+  "pass": 54,
+  "fail": 0,
+  "inventoryScope": "Sampled public startup assets only; not the entire deployed release or backend",
+  "sampledAssetsSha256": "b36e0af5fa0b029bdf15404d571a734949052c6826b98f29f330ecceb6054bf9",
+  "assetInventory": [
+    {
+      "path": "admin/index.html",
+      "bytes": 57723,
+      "sha256": "fcfd0e7bcfb5d4350f370efbcf277ffee60a15e8ffd19c8c940353467122b928",
+      "status": 200,
+      "contentType": "text/html"
+    },
+    {
+      "path": "admin/js/a11y.js",
+      "bytes": 5689,
+      "sha256": "0615b2efc3a89344789f296538e0c5a8d8ee97c606df013e2e66f66afb397e95",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/admin-app.js",
+      "bytes": 121721,
+      "sha256": "7677ae9c32bcb8345813998d7f381294b5d88c80e33d268b21f47033d0e3ce78",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/admin-owner-applications-client.js",
+      "bytes": 802,
+      "sha256": "7e3e07c91728b2f14209bfebfe4aebe3b78c91bfe2d91185040493652009f2a7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/admin-settings-client.js",
+      "bytes": 3280,
+      "sha256": "750d4c4c7c5cedd6fcdc8b57dc066bef7c077493681b4313ea52c092489278d6",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/audio-service.js",
+      "bytes": 10500,
+      "sha256": "7785fa79df194b1b191889f5917d087046be74f03dbc662f87d824022dafbeba",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/driver-verification-review.js",
+      "bytes": 4592,
+      "sha256": "b546011f18c7e291c1675d139a4468fc51a1ee2a1704b82215baff8a55785147",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/firebase-config.js",
+      "bytes": 698,
+      "sha256": "84639bbb877f4d82c0a9c56b7262ebfe5a6107cbfac19daac0bd556b0e45bd35",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/firebase.js",
+      "bytes": 3833,
+      "sha256": "31438c617da16e97e9d0d3f1b7bf1d734c75f764c2df265fafb09f2f263b2ae1",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/fleet-map.js",
+      "bytes": 11010,
+      "sha256": "9309ef013545f44001c33162315a0df0e1fd41e7302c7f9729bc57070dd92258",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/idle-publish-config.mjs",
+      "bytes": 7845,
+      "sha256": "cd0fbe6a5bf0b69a44d5b5c181260a6b10948ef1fa3b0c79ebb6fa94ac3ef23e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/location-reporting-config.mjs",
+      "bytes": 11028,
+      "sha256": "9f210228b354f76fbdde7d6d8981be61bba4dff38dc115decaafa6943bc147b7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/privacy-maintenance.js",
+      "bytes": 14864,
+      "sha256": "98554500cc6e27d5f16866c8df8042136c9d2ddba3e8922868bc69d20b66acd2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/ride-location-report-schema.mjs",
+      "bytes": 26441,
+      "sha256": "31707a9dca571a6a5dc29dcf4c192adba28e3a4da10ff7aa1ddba9d8010fb378",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/ride-location-report-view.mjs",
+      "bytes": 16879,
+      "sha256": "c267565ce4ca270b933dc7ec262711c1be6d6de7dc9b5287dd249429b058dc7d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/js/vehicle-catalog.mjs",
+      "bytes": 8887,
+      "sha256": "437c580ed2762d2f9a5f9b98148f815d0e801026b88ff4f5d7b9be7be480d166",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "admin/vehicle-catalog.json",
+      "bytes": 1743,
+      "sha256": "778d1b6bfcf92295ff7303eec17f62d6921ae51790589756261330d4c9531273",
+      "status": 200,
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "customer-app/js/live-location-render.mjs",
+      "bytes": 6649,
+      "sha256": "0c0033be7be9a7343aee9efdc4bf19dd3775a5dc08e5553f5d0f59da6b55b7d8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/index.html",
+      "bytes": 79421,
+      "sha256": "7b233bd36f3d910adfa57d485374a5aff998f891880b9f53ea338199d9e3f8b3",
+      "status": 200,
+      "contentType": "text/html"
+    },
+    {
+      "path": "customer/js/a11y.js",
+      "bytes": 6681,
+      "sha256": "322c0f85cfd541af55874f2aef87ca9e9ebc50affae9b49a8299950812e5f15b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/app.js",
+      "bytes": 18024,
+      "sha256": "ac79c6b74b39fa853c8102b4ffab1bdaec7fae8a1ef030c31ff541172e8a432c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/auth.js",
+      "bytes": 9137,
+      "sha256": "3564ddcdb1d4c918e64ec9bba9e9b4d97294d9ba7f31b4bbc713c3c646337b41",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/booking-client.js",
+      "bytes": 2446,
+      "sha256": "de02c3e1a49a5ea377054796864ab2835bd3d35325ff8c2814e7bf46255ab9b3",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/booking-gate.js",
+      "bytes": 3314,
+      "sha256": "1d9f72839817443ae0d280b8af5a8aac52658958cab022c4452dbea7c96b7dfc",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/cancel-reason-dialog.js",
+      "bytes": 6848,
+      "sha256": "996093528b1b383b055bf6526efda33e25cd0be8b8e48a70061ae3b1fbfdb169",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/confirm-dialog.js",
+      "bytes": 2158,
+      "sha256": "146ab4b5606e1b9a8e9f842902e3529814e34e37ab45d0234fa4791a2634c976",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/customer-location-publisher.mjs",
+      "bytes": 4922,
+      "sha256": "b8628a7d8eb0a60e1dd8f9f0b97f671f3e24957e8975a61471f74702ebb062d2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/dashboard.js",
+      "bytes": 2484,
+      "sha256": "651196071113c9c8dba503d18203607c77df2a746bd736872315e0b1a1312a9b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/data.js",
+      "bytes": 16889,
+      "sha256": "84f1d3c3b5618347382a496186cb0b97da6d7782a17d98aede94672b6bd1e80c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/diagnostics-screen-core.mjs",
+      "bytes": 150,
+      "sha256": "7f65910ad2fa568c6a251fa75229e4302d7d96b3e0b92967e75ee12b32bb0017",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/diagnostics-screen.js",
+      "bytes": 161,
+      "sha256": "03d576230d908dab5b6ff3f99d1f8357b1edd25774e38b142b7553e26ba4025c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/dispatch-latency.js",
+      "bytes": 2604,
+      "sha256": "bbe8499adbf1206926bc559b419393460b785265f7c8a67d719e7b8ee8cd0185",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/dispatch-offer-settings.mjs",
+      "bytes": 1144,
+      "sha256": "c598698f44a188bc2fd36707cc1486a94b7837721222056132a3e6bcce437bea",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/display-location-pipeline.mjs",
+      "bytes": 12517,
+      "sha256": "f0dfdae074077a1b5c477523e437c8779c6ad6de12b756c63ff48d905ff7b2d0",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/driver-track.js",
+      "bytes": 10416,
+      "sha256": "c0892a29ba12dc6c9bfa753e948d8e17fc455b213573282286cd60e5d3ae925d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/e2e-hooks.js",
+      "bytes": 2886,
+      "sha256": "7234b850332eff12398bb8d69a268657c635f57b194e0914cec573710de67d61",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/fare.js",
+      "bytes": 6426,
+      "sha256": "b121dcc5588406a85bc4fba1506f4d05303a10a68dc688dfc5afd7f7f7cfe829",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/field-diagnostics.mjs",
+      "bytes": 144,
+      "sha256": "d5daf6d3acf4a405b9ec46d119c468ebdf370fa6a1cebf9c93b3a7a51ffa0cf0",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/firebase-config.js",
+      "bytes": 698,
+      "sha256": "84639bbb877f4d82c0a9c56b7262ebfe5a6107cbfac19daac0bd556b0e45bd35",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/firebase.js",
+      "bytes": 3911,
+      "sha256": "b7a24470c42aa340d1dba4bcb6dad601a0cba4d2435c4dea74b1f3d6efe02f2e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/geometry-quality.mjs",
+      "bytes": 3119,
+      "sha256": "c03387ba728455960f57a41e69fb9a287c659dfe1bb15cfb2819d47d94e51a7b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/history.js",
+      "bytes": 20262,
+      "sha256": "7b4104d604e9122a529c510675d7f59eb95ec6cbb00c3fb23c8557e1a1863dce",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/i18n.js",
+      "bytes": 47030,
+      "sha256": "d928128dfec926aa1d17338556189bd816ab53ec233348c5a8dc8a18a0a5d892",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/live-location-render.mjs",
+      "bytes": 6649,
+      "sha256": "0c0033be7be9a7343aee9efdc4bf19dd3775a5dc08e5553f5d0f59da6b55b7d8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/live-location-source-arbiter.mjs",
+      "bytes": 155,
+      "sha256": "99d77564ad1f38d2ac2f86bd8e8ea06282c6126ab7d18fba84963bc709dec0ff",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/location-reporting-config-cache.mjs",
+      "bytes": 3800,
+      "sha256": "c4979565d9547fecfabb05eeb99dbd5491bbe423ab28dc11abaebf05b94acba8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/location-reporting-config.mjs",
+      "bytes": 11028,
+      "sha256": "9f210228b354f76fbdde7d6d8981be61bba4dff38dc115decaafa6943bc147b7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/location.js",
+      "bytes": 29112,
+      "sha256": "c654f86c5d5baf4f475205e5d1e4f3857c6dd8a84defa1463db25542e634c81e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/map.js",
+      "bytes": 35437,
+      "sha256": "b165b3f4243e3e2474510b4749c6177cc70227d4dd403cb685df4e05611fdda4",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/marker-heading.mjs",
+      "bytes": 2348,
+      "sha256": "3d707fc4ab7d57646ff3644b593238d3785dec01df63fee4d0db65c6f18b8ff8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/native-shell.js",
+      "bytes": 137,
+      "sha256": "1a64973d525ef7d47bfe28034a01c712fb022520872477b99ee6ef721d8ac538",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/off-route-detector.mjs",
+      "bytes": 4179,
+      "sha256": "5e1a6eb4c78878dbb90029df66757997db31110767757401b153b11a06d08f5d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/offer-client.js",
+      "bytes": 10155,
+      "sha256": "30e34ca29276c1fe0cb9ed45309431cb5b8c34d9f6f0d7c14e2f4ec4de0d5a59",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/p2p-background-keepalive.mjs",
+      "bytes": 6067,
+      "sha256": "a119ef4c2e5b8c2d29a8b179f7a07d8b6d643e1d527666fe6c2801fce4365a95",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/p2p-comm-panel.mjs",
+      "bytes": 141,
+      "sha256": "88e8abe78098a72c0a17519c7105210952b90a6a793fb55bd2361c8e7a3cd8c2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/p2p-ice-bootstrap-core.mjs",
+      "bytes": 149,
+      "sha256": "787a9965b64b7c78ee3c1615bae6fe2067e5cd98e78ede6afae2507f7d9d8e4c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/p2p-ice-bootstrap.mjs",
+      "bytes": 1849,
+      "sha256": "cee3046e44f3ee2a9583cb0b65cce0e7ac64241dd8cde2c41fc473d047aa782c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/p2p-peer-session.mjs",
+      "bytes": 143,
+      "sha256": "10ec8dcf35c37b5cfbd1d718cb73d513cc1c341d611ddc7b68cf593b82ce60d5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/p2p-protocol.mjs",
+      "bytes": 139,
+      "sha256": "af5587a53accb4aff2c8f3876282136c15e30acd4d74f3e7965d521e1063db9b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/p2p-ride-controller.mjs",
+      "bytes": 25296,
+      "sha256": "52de38b0d4e8e0f76601cc7a9e9aad43542938b4453b6e0f32fa2061e1cf4210",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/p2p-signaling-client.mjs",
+      "bytes": 1404,
+      "sha256": "6983cf3bf2b5616805cf84336a7c7c608c5719f4efe2c6f5f6070db5db52084d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/quick-places.js",
+      "bytes": 3161,
+      "sha256": "ff12067ce8655d911b23703dabeebc891d930ed86078dfd3a2f188520de710f7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/rate-details-modal.js",
+      "bytes": 2501,
+      "sha256": "0e90461151d0aaec118f52681304cb41cdfc1f607363ff8e5134a30f6422a1cf",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/rate-details-view.js",
+      "bytes": 5091,
+      "sha256": "99ed3f4579065faae6b8b14d327c12a3f7ff2f147ae001aabfd6a896bcf6f21f",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/ride-flow.js",
+      "bytes": 65345,
+      "sha256": "617cab7fe8c0b30363f82c2d6872a72a7ae6bfa594d8c52f9f01ec2f5ce489a5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/ride-location-local-counter-store.mjs",
+      "bytes": 16930,
+      "sha256": "c8d65dbcc40548c319eb9a57b4706ef97985d76e69f684577f52fa06e68dcb62",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/ride-location-report-client.mjs",
+      "bytes": 19141,
+      "sha256": "6acb3a8b9229e01f3dd076ee819b4c6f46377f9017bbd43ec493fb4f37da432d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/ride-location-report-pending-queue.mjs",
+      "bytes": 2843,
+      "sha256": "34515927bbfccca7bf4433595c2ea766ee9d616b126a2e15136a4447a87151d6",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/ride-location-report-schema.mjs",
+      "bytes": 26441,
+      "sha256": "31707a9dca571a6a5dc29dcf4c192adba28e3a4da10ff7aa1ddba9d8010fb378",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/ride-status.js",
+      "bytes": 2573,
+      "sha256": "7e4b239e72ab7ca0123aaa30710eb0058a87e30cf8e69af6cfcf4b0c3ce98d43",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/ride-view-lifecycle.mjs",
+      "bytes": 10439,
+      "sha256": "1db42df7f68a3c57193cde60fdfcf7fa5eeafb7c4c68f6d831396e048a298899",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/road-route-provider.mjs",
+      "bytes": 13367,
+      "sha256": "1acf421823cade876ab280722c35071a367e7a124db0df2af0279e7851a5d64d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/route-geometry.mjs",
+      "bytes": 6764,
+      "sha256": "190b86a9ea446240cfc0d7fff76511041670335089a48b6a8624aff0d9150385",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/route-motion-controller.mjs",
+      "bytes": 4914,
+      "sha256": "321fdf5d081d9dd2b6ed562de2150b9dbf6a7cfd0265146b3e5abfab96beaba5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/route-progress.mjs",
+      "bytes": 2684,
+      "sha256": "35f273aac3999ca379e9c0c1b8ec0f464cb7b663f2dee00a212a914ebe79d325",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/route-projection.mjs",
+      "bytes": 10984,
+      "sha256": "9758afb8bd9fe29497770a211c27a166bee56bd44cf5b4cc0b33ed744c1d65b3",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/route-provider-bootstrap.mjs",
+      "bytes": 151,
+      "sha256": "546f413774d45901f53c7af4a3e83a5c705f801a1f77cc54a04d370d132df7b9",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/route-request-guard.mjs",
+      "bytes": 2214,
+      "sha256": "22953277e894178420e1d9acec9a834904135faacda5f3dd3562138fbdba2f9d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/routing.js",
+      "bytes": 8247,
+      "sha256": "fcb19cecd5e1b6b28cf1cdfb43dcf49d5b44ba0e849a72547ee2b5166b5c7ad2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/screens.js",
+      "bytes": 1948,
+      "sha256": "63b814905c10ebb8c58d6fa07df4abbc961510b5f92b53d28bb6217bb2f3aebe",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/sheet.js",
+      "bytes": 22232,
+      "sha256": "61a170d3aa9a0ceaf6e86b590850d6f39c2f5b5b00fcb956ebb0ae7a6fa442f5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/step-ui.js",
+      "bytes": 7305,
+      "sha256": "177a70253e7a24541c3ada21a0c88b0028ade63cacc701cbddc7c3be94325261",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/support.js",
+      "bytes": 977,
+      "sha256": "f223d3dec7b418f59f70ed7e374c82990e20bf2e885a5515bd6ad52f5c7465f2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/tracking-target.mjs",
+      "bytes": 3147,
+      "sha256": "6cc7b2a07e3b64d06d1ccf344b44a9d710855adfe479bdeac370e5eeedfe5ab7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/trust.js",
+      "bytes": 4672,
+      "sha256": "a9b2dbd6958199a50d33027674e01ec19ff203bdfe8b6ce281833b3695a5a68f",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/two-leg-route-controller.mjs",
+      "bytes": 22542,
+      "sha256": "a559284ecee3493d97a23cbf5a933162f78d305daf802a5ade9e8698e959e094",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/two-leg-route-layers.mjs",
+      "bytes": 14711,
+      "sha256": "c726a8fa30bb6f92de919221366fb2df5b4dc20bec2e5440c3f9b1604fb4300e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/utility-drawer.js",
+      "bytes": 7117,
+      "sha256": "2e4ffd9bfcf031b7aa425b766d03a75cffee81cd280e087c22e15be958dba0c7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/vehicle-catalog.mjs",
+      "bytes": 8887,
+      "sha256": "437c580ed2762d2f9a5f9b98148f815d0e801026b88ff4f5d7b9be7be480d166",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/js/viewer-presence-client.mjs",
+      "bytes": 6270,
+      "sha256": "8967187f44a3db8d6c715a98eb8a4593241dd25acd97737bb3f3893ee6282802",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "customer/vehicle-catalog.json",
+      "bytes": 1743,
+      "sha256": "778d1b6bfcf92295ff7303eec17f62d6921ae51790589756261330d4c9531273",
+      "status": 200,
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "driver-app/js/idle-publish-config.mjs",
+      "bytes": 146,
+      "sha256": "0b2be3df1990a5df7952e7daf73ee410162386a28e90a7e6e82c89815a9de963",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "driver-app/js/location-checkpoint-policy.mjs",
+      "bytes": 19763,
+      "sha256": "869db5f890da9797a87898384f59dd2bb1058e3117e65ca0461bb576d6f5da2a",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "driver-app/js/location-envelope.mjs",
+      "bytes": 18204,
+      "sha256": "03dcffdb1157fc38c625893d929dfd935fa8a5ea0539420e57a3a99627fde17b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "driver-app/js/p2p-protocol.mjs",
+      "bytes": 139,
+      "sha256": "af5587a53accb4aff2c8f3876282136c15e30acd4d74f3e7965d521e1063db9b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "index.html",
+      "bytes": 79421,
+      "sha256": "7b233bd36f3d910adfa57d485374a5aff998f891880b9f53ea338199d9e3f8b3",
+      "status": 200,
+      "contentType": "text/html"
+    },
+    {
+      "path": "js/a11y.js",
+      "bytes": 6681,
+      "sha256": "322c0f85cfd541af55874f2aef87ca9e9ebc50affae9b49a8299950812e5f15b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/app.js",
+      "bytes": 18024,
+      "sha256": "ac79c6b74b39fa853c8102b4ffab1bdaec7fae8a1ef030c31ff541172e8a432c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/auth.js",
+      "bytes": 9137,
+      "sha256": "3564ddcdb1d4c918e64ec9bba9e9b4d97294d9ba7f31b4bbc713c3c646337b41",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/booking-client.js",
+      "bytes": 2446,
+      "sha256": "de02c3e1a49a5ea377054796864ab2835bd3d35325ff8c2814e7bf46255ab9b3",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/booking-gate.js",
+      "bytes": 3314,
+      "sha256": "1d9f72839817443ae0d280b8af5a8aac52658958cab022c4452dbea7c96b7dfc",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/cancel-reason-dialog.js",
+      "bytes": 6848,
+      "sha256": "996093528b1b383b055bf6526efda33e25cd0be8b8e48a70061ae3b1fbfdb169",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/confirm-dialog.js",
+      "bytes": 2158,
+      "sha256": "146ab4b5606e1b9a8e9f842902e3529814e34e37ab45d0234fa4791a2634c976",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/customer-location-publisher.mjs",
+      "bytes": 4922,
+      "sha256": "b8628a7d8eb0a60e1dd8f9f0b97f671f3e24957e8975a61471f74702ebb062d2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/dashboard.js",
+      "bytes": 2484,
+      "sha256": "651196071113c9c8dba503d18203607c77df2a746bd736872315e0b1a1312a9b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/data.js",
+      "bytes": 16889,
+      "sha256": "84f1d3c3b5618347382a496186cb0b97da6d7782a17d98aede94672b6bd1e80c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/diagnostics-screen-core.mjs",
+      "bytes": 150,
+      "sha256": "7f65910ad2fa568c6a251fa75229e4302d7d96b3e0b92967e75ee12b32bb0017",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/diagnostics-screen.js",
+      "bytes": 161,
+      "sha256": "03d576230d908dab5b6ff3f99d1f8357b1edd25774e38b142b7553e26ba4025c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/dispatch-latency.js",
+      "bytes": 2604,
+      "sha256": "bbe8499adbf1206926bc559b419393460b785265f7c8a67d719e7b8ee8cd0185",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/dispatch-offer-settings.mjs",
+      "bytes": 1144,
+      "sha256": "c598698f44a188bc2fd36707cc1486a94b7837721222056132a3e6bcce437bea",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/display-location-pipeline.mjs",
+      "bytes": 12517,
+      "sha256": "f0dfdae074077a1b5c477523e437c8779c6ad6de12b756c63ff48d905ff7b2d0",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/driver-track.js",
+      "bytes": 10416,
+      "sha256": "c0892a29ba12dc6c9bfa753e948d8e17fc455b213573282286cd60e5d3ae925d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/e2e-hooks.js",
+      "bytes": 2886,
+      "sha256": "7234b850332eff12398bb8d69a268657c635f57b194e0914cec573710de67d61",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/fare.js",
+      "bytes": 6426,
+      "sha256": "b121dcc5588406a85bc4fba1506f4d05303a10a68dc688dfc5afd7f7f7cfe829",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/field-diagnostics.mjs",
+      "bytes": 144,
+      "sha256": "d5daf6d3acf4a405b9ec46d119c468ebdf370fa6a1cebf9c93b3a7a51ffa0cf0",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/firebase-config.js",
+      "bytes": 698,
+      "sha256": "84639bbb877f4d82c0a9c56b7262ebfe5a6107cbfac19daac0bd556b0e45bd35",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/firebase.js",
+      "bytes": 3911,
+      "sha256": "b7a24470c42aa340d1dba4bcb6dad601a0cba4d2435c4dea74b1f3d6efe02f2e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/geometry-quality.mjs",
+      "bytes": 3119,
+      "sha256": "c03387ba728455960f57a41e69fb9a287c659dfe1bb15cfb2819d47d94e51a7b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/history.js",
+      "bytes": 20262,
+      "sha256": "7b4104d604e9122a529c510675d7f59eb95ec6cbb00c3fb23c8557e1a1863dce",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/i18n.js",
+      "bytes": 47030,
+      "sha256": "d928128dfec926aa1d17338556189bd816ab53ec233348c5a8dc8a18a0a5d892",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/live-location-render.mjs",
+      "bytes": 6649,
+      "sha256": "0c0033be7be9a7343aee9efdc4bf19dd3775a5dc08e5553f5d0f59da6b55b7d8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/live-location-source-arbiter.mjs",
+      "bytes": 155,
+      "sha256": "99d77564ad1f38d2ac2f86bd8e8ea06282c6126ab7d18fba84963bc709dec0ff",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/location-reporting-config-cache.mjs",
+      "bytes": 3800,
+      "sha256": "c4979565d9547fecfabb05eeb99dbd5491bbe423ab28dc11abaebf05b94acba8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/location-reporting-config.mjs",
+      "bytes": 11028,
+      "sha256": "9f210228b354f76fbdde7d6d8981be61bba4dff38dc115decaafa6943bc147b7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/location.js",
+      "bytes": 29112,
+      "sha256": "c654f86c5d5baf4f475205e5d1e4f3857c6dd8a84defa1463db25542e634c81e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/map.js",
+      "bytes": 35437,
+      "sha256": "b165b3f4243e3e2474510b4749c6177cc70227d4dd403cb685df4e05611fdda4",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/marker-heading.mjs",
+      "bytes": 2348,
+      "sha256": "3d707fc4ab7d57646ff3644b593238d3785dec01df63fee4d0db65c6f18b8ff8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/native-shell.js",
+      "bytes": 137,
+      "sha256": "1a64973d525ef7d47bfe28034a01c712fb022520872477b99ee6ef721d8ac538",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/off-route-detector.mjs",
+      "bytes": 4179,
+      "sha256": "5e1a6eb4c78878dbb90029df66757997db31110767757401b153b11a06d08f5d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/offer-client.js",
+      "bytes": 10155,
+      "sha256": "30e34ca29276c1fe0cb9ed45309431cb5b8c34d9f6f0d7c14e2f4ec4de0d5a59",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/p2p-background-keepalive.mjs",
+      "bytes": 6067,
+      "sha256": "a119ef4c2e5b8c2d29a8b179f7a07d8b6d643e1d527666fe6c2801fce4365a95",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/p2p-comm-panel.mjs",
+      "bytes": 141,
+      "sha256": "88e8abe78098a72c0a17519c7105210952b90a6a793fb55bd2361c8e7a3cd8c2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/p2p-ice-bootstrap-core.mjs",
+      "bytes": 149,
+      "sha256": "787a9965b64b7c78ee3c1615bae6fe2067e5cd98e78ede6afae2507f7d9d8e4c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/p2p-ice-bootstrap.mjs",
+      "bytes": 1849,
+      "sha256": "cee3046e44f3ee2a9583cb0b65cce0e7ac64241dd8cde2c41fc473d047aa782c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/p2p-peer-session.mjs",
+      "bytes": 143,
+      "sha256": "10ec8dcf35c37b5cfbd1d718cb73d513cc1c341d611ddc7b68cf593b82ce60d5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/p2p-protocol.mjs",
+      "bytes": 139,
+      "sha256": "af5587a53accb4aff2c8f3876282136c15e30acd4d74f3e7965d521e1063db9b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/p2p-ride-controller.mjs",
+      "bytes": 25296,
+      "sha256": "52de38b0d4e8e0f76601cc7a9e9aad43542938b4453b6e0f32fa2061e1cf4210",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/p2p-signaling-client.mjs",
+      "bytes": 1404,
+      "sha256": "6983cf3bf2b5616805cf84336a7c7c608c5719f4efe2c6f5f6070db5db52084d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/phase1-billing-diagnostics.mjs",
+      "bytes": 153,
+      "sha256": "5a1f1c9ed937264b7217114bca5c1e82afdba14aaa963c804c3f54336a2e6b84",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/quick-places.js",
+      "bytes": 3161,
+      "sha256": "ff12067ce8655d911b23703dabeebc891d930ed86078dfd3a2f188520de710f7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/rate-details-modal.js",
+      "bytes": 2501,
+      "sha256": "0e90461151d0aaec118f52681304cb41cdfc1f607363ff8e5134a30f6422a1cf",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/rate-details-view.js",
+      "bytes": 5091,
+      "sha256": "99ed3f4579065faae6b8b14d327c12a3f7ff2f147ae001aabfd6a896bcf6f21f",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/ride-flow.js",
+      "bytes": 65345,
+      "sha256": "617cab7fe8c0b30363f82c2d6872a72a7ae6bfa594d8c52f9f01ec2f5ce489a5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/ride-location-local-counter-store.mjs",
+      "bytes": 16930,
+      "sha256": "c8d65dbcc40548c319eb9a57b4706ef97985d76e69f684577f52fa06e68dcb62",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/ride-location-report-client.mjs",
+      "bytes": 19141,
+      "sha256": "6acb3a8b9229e01f3dd076ee819b4c6f46377f9017bbd43ec493fb4f37da432d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/ride-location-report-pending-queue.mjs",
+      "bytes": 2843,
+      "sha256": "34515927bbfccca7bf4433595c2ea766ee9d616b126a2e15136a4447a87151d6",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/ride-location-report-schema.mjs",
+      "bytes": 26441,
+      "sha256": "31707a9dca571a6a5dc29dcf4c192adba28e3a4da10ff7aa1ddba9d8010fb378",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/ride-status.js",
+      "bytes": 2573,
+      "sha256": "7e4b239e72ab7ca0123aaa30710eb0058a87e30cf8e69af6cfcf4b0c3ce98d43",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/ride-view-lifecycle.mjs",
+      "bytes": 10439,
+      "sha256": "1db42df7f68a3c57193cde60fdfcf7fa5eeafb7c4c68f6d831396e048a298899",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/road-route-provider.mjs",
+      "bytes": 13367,
+      "sha256": "1acf421823cade876ab280722c35071a367e7a124db0df2af0279e7851a5d64d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/route-geometry.mjs",
+      "bytes": 6764,
+      "sha256": "190b86a9ea446240cfc0d7fff76511041670335089a48b6a8624aff0d9150385",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/route-motion-controller.mjs",
+      "bytes": 4914,
+      "sha256": "321fdf5d081d9dd2b6ed562de2150b9dbf6a7cfd0265146b3e5abfab96beaba5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/route-progress.mjs",
+      "bytes": 2684,
+      "sha256": "35f273aac3999ca379e9c0c1b8ec0f464cb7b663f2dee00a212a914ebe79d325",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/route-projection.mjs",
+      "bytes": 10984,
+      "sha256": "9758afb8bd9fe29497770a211c27a166bee56bd44cf5b4cc0b33ed744c1d65b3",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/route-provider-bootstrap.mjs",
+      "bytes": 151,
+      "sha256": "546f413774d45901f53c7af4a3e83a5c705f801a1f77cc54a04d370d132df7b9",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/route-request-guard.mjs",
+      "bytes": 2214,
+      "sha256": "22953277e894178420e1d9acec9a834904135faacda5f3dd3562138fbdba2f9d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/routing.js",
+      "bytes": 8247,
+      "sha256": "fcb19cecd5e1b6b28cf1cdfb43dcf49d5b44ba0e849a72547ee2b5166b5c7ad2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/screens.js",
+      "bytes": 1948,
+      "sha256": "63b814905c10ebb8c58d6fa07df4abbc961510b5f92b53d28bb6217bb2f3aebe",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/sheet.js",
+      "bytes": 22232,
+      "sha256": "61a170d3aa9a0ceaf6e86b590850d6f39c2f5b5b00fcb956ebb0ae7a6fa442f5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/step-ui.js",
+      "bytes": 7305,
+      "sha256": "177a70253e7a24541c3ada21a0c88b0028ade63cacc701cbddc7c3be94325261",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/support.js",
+      "bytes": 977,
+      "sha256": "f223d3dec7b418f59f70ed7e374c82990e20bf2e885a5515bd6ad52f5c7465f2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/tracking-target.mjs",
+      "bytes": 3147,
+      "sha256": "6cc7b2a07e3b64d06d1ccf344b44a9d710855adfe479bdeac370e5eeedfe5ab7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/trust.js",
+      "bytes": 4672,
+      "sha256": "a9b2dbd6958199a50d33027674e01ec19ff203bdfe8b6ce281833b3695a5a68f",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/two-leg-route-controller.mjs",
+      "bytes": 22542,
+      "sha256": "a559284ecee3493d97a23cbf5a933162f78d305daf802a5ade9e8698e959e094",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/two-leg-route-layers.mjs",
+      "bytes": 14711,
+      "sha256": "c726a8fa30bb6f92de919221366fb2df5b4dc20bec2e5440c3f9b1604fb4300e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/utility-drawer.js",
+      "bytes": 7117,
+      "sha256": "2e4ffd9bfcf031b7aa425b766d03a75cffee81cd280e087c22e15be958dba0c7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/vehicle-catalog.mjs",
+      "bytes": 8887,
+      "sha256": "437c580ed2762d2f9a5f9b98148f815d0e801026b88ff4f5d7b9be7be480d166",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "js/viewer-presence-client.mjs",
+      "bytes": 6270,
+      "sha256": "8967187f44a3db8d6c715a98eb8a4593241dd25acd97737bb3f3893ee6282802",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/index.html",
+      "bytes": 13058,
+      "sha256": "3836fc1f300f4294eda00c74183b30536c98cf64d53ef2235807f5eb915ef0bf",
+      "status": 200,
+      "contentType": "text/html"
+    },
+    {
+      "path": "owner/js/a11y.js",
+      "bytes": 5689,
+      "sha256": "0615b2efc3a89344789f296538e0c5a8d8ee97c606df013e2e66f66afb397e95",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/auth-surface-routing.mjs",
+      "bytes": 9699,
+      "sha256": "0da460fd1182efd9ffba738d87557c5fac5ae23fedc07178c33f396b103582b9",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/firebase-config.js",
+      "bytes": 698,
+      "sha256": "84639bbb877f4d82c0a9c56b7262ebfe5a6107cbfac19daac0bd556b0e45bd35",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/firebase.js",
+      "bytes": 3917,
+      "sha256": "7b8bf1798464a071c709320ee9a5c9c2ddd84c8bb4ff9cce4bc50ee5639c6645",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/i18n.js",
+      "bytes": 4183,
+      "sha256": "98337546350423f4e75eebc97b443a2e5d9eee995ed7c8e4425c038dd15bc466",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/native-shell.js",
+      "bytes": 137,
+      "sha256": "1a64973d525ef7d47bfe28034a01c712fb022520872477b99ee6ef721d8ac538",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/owner-app.js",
+      "bytes": 77697,
+      "sha256": "a0eeee9f27a0a40783b26b600e1367e17552598c6e67f0b11cf24938026164ad",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/owner-onboarding-client.js",
+      "bytes": 633,
+      "sha256": "2bbe4e09cecbc3317c119091757e3ff0eec0c3f6220390fd92c116bbc8fcb18b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/pin-link-client.js",
+      "bytes": 549,
+      "sha256": "6e67dc298aa1be12a2261de41a7477ad1660abbbdde513f726fffc630d110002",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/pricing-client.js",
+      "bytes": 14476,
+      "sha256": "fe477edb53a1660036b0602ce14064b11b58784d22c3860b739a634249aca18d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/rate-details-modal.js",
+      "bytes": 2602,
+      "sha256": "d9f208984f35179ae0b7fd75985b0b8474f9764189e647217a079e7e9b0d26e0",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/settlement-client.js",
+      "bytes": 774,
+      "sha256": "8bb6289e0ab43a0dbb44b9903aa63551911b8af17491793fe7ff660ff5e90ec5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/trust.js",
+      "bytes": 1170,
+      "sha256": "d84207ecc1b48d2309f4d640cc52a19b3ed744c275ce7120aff8d5504294c7ef",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/js/vehicle-catalog.mjs",
+      "bytes": 8887,
+      "sha256": "437c580ed2762d2f9a5f9b98148f815d0e801026b88ff4f5d7b9be7be480d166",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "owner/vehicle-catalog.json",
+      "bytes": 1743,
+      "sha256": "778d1b6bfcf92295ff7303eec17f62d6921ae51790589756261330d4c9531273",
+      "status": 200,
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "partner/index.html",
+      "bytes": 31574,
+      "sha256": "ce95eed9a43b9bd687b4cec559d71fb5bfe390711b1482990b139804ff2e3a2e",
+      "status": 200,
+      "contentType": "text/html"
+    },
+    {
+      "path": "partner/js/AvailableRidesList.js",
+      "bytes": 11694,
+      "sha256": "650d4c60e357cbf15e8f2f7dfbb59224ba2830bd2d35646207f9473ac29a7efe",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/DriverHome.js",
+      "bytes": 8106,
+      "sha256": "99348d792f96966c2eff8250ac7dc4feb3e14c4135f26c832aad8be216387229",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/EarningsDetail.js",
+      "bytes": 8185,
+      "sha256": "a3853151da0e876625360f28a2e189f34301013522f4ebf21e1fff75b671e8b5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/RideRequestDetail.js",
+      "bytes": 35531,
+      "sha256": "98abb8367be0089f886b8bc9ddc9a5770889f307bdc0ef19bc3bb4c02eb54696",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/a11y.js",
+      "bytes": 5689,
+      "sha256": "0615b2efc3a89344789f296538e0c5a8d8ee97c606df013e2e66f66afb397e95",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/active-ride-reconcile.mjs",
+      "bytes": 5984,
+      "sha256": "df2f7225bb4757e964ce1d46e74dd5a230b49db1b749439a3e1e66eb9bd75186",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/audio-service.js",
+      "bytes": 10493,
+      "sha256": "0001ef0612f168f4594bddf1eede97d877e0dd4130d401e75e58499608d744f0",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/auth-surface-routing.mjs",
+      "bytes": 9699,
+      "sha256": "0da460fd1182efd9ffba738d87557c5fac5ae23fedc07178c33f396b103582b9",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/background-location-credential-policy.mjs",
+      "bytes": 2157,
+      "sha256": "ac9047025033658b2ddb5e5175498a5d7ddb112306869962d2619a6afc84d77f",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/background-location-native.mjs",
+      "bytes": 11013,
+      "sha256": "99980179d35898952a1df8ec6ac841032c7e047635497ab38a8add19ef11f82c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/breadcrumb-collector.mjs",
+      "bytes": 9073,
+      "sha256": "a5ad8853d2e618937e7e47c6a3c6d1232068cdb52b00f1f0a2cf1af79fadf001",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/breadcrumb-queue.mjs",
+      "bytes": 14684,
+      "sha256": "ea05b25ac4ea69519d9bfa2e737d84ec164641ed5fcef60bca3905857d8e6401",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/breadcrumb-schema.mjs",
+      "bytes": 12675,
+      "sha256": "82092adfeafdc526d216727a4a65fe48acc3bd1fd68539b255540c862ba0e530",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/breadcrumb-uploader.mjs",
+      "bytes": 7278,
+      "sha256": "69b49fa241687823b70fedd793c5b81ee93b10b0222b387b1547079936b01346",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/customer-location-marker.mjs",
+      "bytes": 1511,
+      "sha256": "2e3bba7e7fcfa6f4483a122decd258976d5504afaa59fb691a1c0e1219598d03",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/diagnostics-screen-core.mjs",
+      "bytes": 150,
+      "sha256": "7f65910ad2fa568c6a251fa75229e4302d7d96b3e0b92967e75ee12b32bb0017",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/diagnostics-screen.js",
+      "bytes": 161,
+      "sha256": "03d576230d908dab5b6ff3f99d1f8357b1edd25774e38b142b7553e26ba4025c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/dispatch-latency.js",
+      "bytes": 651,
+      "sha256": "addf50f3e07997893938b8bda9fce9cfca54042a9c7d2dda5f26c9617c2b76e7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/dispatch-offer-settings.mjs",
+      "bytes": 1144,
+      "sha256": "c598698f44a188bc2fd36707cc1486a94b7837721222056132a3e6bcce437bea",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/display-location-pipeline.mjs",
+      "bytes": 12517,
+      "sha256": "f0dfdae074077a1b5c477523e437c8779c6ad6de12b756c63ff48d905ff7b2d0",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/driver-active-route.mjs",
+      "bytes": 7463,
+      "sha256": "5ca3d5446e0bdd3149164bda6630b4459abebfd62dfe55a64e34728c416a9967",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/driver-app.js",
+      "bytes": 176131,
+      "sha256": "27bf03ec1f7ce9a89863b93c276edcec6da0d459f005b7813acdb43ebb1bd9f2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/driver-dashboard.js",
+      "bytes": 8041,
+      "sha256": "d839fd0a300f4e07832a04cb4bcf1e0ed473d1565e37ed536aa01715c157c07a",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/driver-offer-inbox.js",
+      "bytes": 13087,
+      "sha256": "d27bb0128294b0f0a39046aeb52aff0fff4b0ec3724137b28ae403c3c606ecb6",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/driver-verification.js",
+      "bytes": 5758,
+      "sha256": "e1012c6e712414bbbae91525d54b0a6bfe7d5a86e2de4720e68f695670fb6367",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/earnings-service.js",
+      "bytes": 7930,
+      "sha256": "40d7e565e0a3dd0351b93885323731851c62bbc7eafaec7b5f3ba1cb19651c50",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/field-diagnostics.mjs",
+      "bytes": 144,
+      "sha256": "d5daf6d3acf4a405b9ec46d119c468ebdf370fa6a1cebf9c93b3a7a51ffa0cf0",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/firebase-config.js",
+      "bytes": 698,
+      "sha256": "84639bbb877f4d82c0a9c56b7262ebfe5a6107cbfac19daac0bd556b0e45bd35",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/firebase.js",
+      "bytes": 3919,
+      "sha256": "e378f68c9220ca09432b58a04836929386922fd7ca7986a0a2e3d56899e08608",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/fresh-location.mjs",
+      "bytes": 7092,
+      "sha256": "5ac8e7b7352db456ed0c723b740e944a9cc2376abe6261f4949e0a641b84cb1e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/geometry-quality.mjs",
+      "bytes": 3119,
+      "sha256": "c03387ba728455960f57a41e69fb9a287c659dfe1bb15cfb2819d47d94e51a7b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/home-service.js",
+      "bytes": 2275,
+      "sha256": "d587197eabab83d0552f6f0aced26770bc79b722e7398a417b54b4b9da250f63",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/i18n.js",
+      "bytes": 7533,
+      "sha256": "e65f5bcc6689bd6156f4c522bc7364ee9a6be3c4c515ecefb4a9f19d1fbe4f7d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/idle-publish-config.mjs",
+      "bytes": 7845,
+      "sha256": "cd0fbe6a5bf0b69a44d5b5c181260a6b10948ef1fa3b0c79ebb6fa94ac3ef23e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/local-first-cache.js",
+      "bytes": 2043,
+      "sha256": "1337baf6666e10a917ae952c86dfc14e5575f12d07bc7e66000a3624852b99a0",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/location-checkpoint-policy.mjs",
+      "bytes": 19763,
+      "sha256": "869db5f890da9797a87898384f59dd2bb1058e3117e65ca0461bb576d6f5da2a",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/location-envelope.mjs",
+      "bytes": 18204,
+      "sha256": "03dcffdb1157fc38c625893d929dfd935fa8a5ea0539420e57a3a99627fde17b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/location-reporting-config-cache.mjs",
+      "bytes": 3800,
+      "sha256": "c4979565d9547fecfabb05eeb99dbd5491bbe423ab28dc11abaebf05b94acba8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/location-reporting-config.mjs",
+      "bytes": 11028,
+      "sha256": "9f210228b354f76fbdde7d6d8981be61bba4dff38dc115decaafa6943bc147b7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/location-write-queue.mjs",
+      "bytes": 4042,
+      "sha256": "fbd084a65f989658f7a280f8817b1de8298b9b000e28d4d6b5547ed28410a03e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/marker-heading.mjs",
+      "bytes": 2348,
+      "sha256": "3d707fc4ab7d57646ff3644b593238d3785dec01df63fee4d0db65c6f18b8ff8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/native-shell.js",
+      "bytes": 137,
+      "sha256": "1a64973d525ef7d47bfe28034a01c712fb022520872477b99ee6ef721d8ac538",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/off-route-detector.mjs",
+      "bytes": 4179,
+      "sha256": "5e1a6eb4c78878dbb90029df66757997db31110767757401b153b11a06d08f5d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/online-readiness-diag.mjs",
+      "bytes": 587,
+      "sha256": "3220849a3971bff66cfdd3922259c62226220d84c023456797c87f70ff27cc6e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/p2p-comm-panel.mjs",
+      "bytes": 141,
+      "sha256": "88e8abe78098a72c0a17519c7105210952b90a6a793fb55bd2361c8e7a3cd8c2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/p2p-comm-session.mjs",
+      "bytes": 143,
+      "sha256": "9d69591759789395bb27e91a4246b8e4217a589dea3a371fc97299ce638b8173",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/p2p-ice-bootstrap-core.mjs",
+      "bytes": 149,
+      "sha256": "787a9965b64b7c78ee3c1615bae6fe2067e5cd98e78ede6afae2507f7d9d8e4c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/p2p-ice-bootstrap.mjs",
+      "bytes": 1849,
+      "sha256": "cee3046e44f3ee2a9583cb0b65cce0e7ac64241dd8cde2c41fc473d047aa782c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/p2p-peer-session.mjs",
+      "bytes": 143,
+      "sha256": "10ec8dcf35c37b5cfbd1d718cb73d513cc1c341d611ddc7b68cf593b82ce60d5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/p2p-protocol.mjs",
+      "bytes": 139,
+      "sha256": "af5587a53accb4aff2c8f3876282136c15e30acd4d74f3e7965d521e1063db9b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/p2p-ride-controller.mjs",
+      "bytes": 26338,
+      "sha256": "f89581e5d5b80aa0527e0b668c51817e68eb537f9fa9f7eb686de64af70f2405",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/p2p-signaling-client.mjs",
+      "bytes": 1403,
+      "sha256": "efa0a3b925f672f376b84a4b68bd7cf599201eed6071fe0f732c116581293f9b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/phase1-billing-diagnostics.mjs",
+      "bytes": 153,
+      "sha256": "5a1f1c9ed937264b7217114bca5c1e82afdba14aaa963c804c3f54336a2e6b84",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/phase2-runtime-verification.mjs",
+      "bytes": 154,
+      "sha256": "92049d1279e024fdd9f506acd3a42c17b15521036720d3a6c4184f0fc38b2c93",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/pin-link-client.js",
+      "bytes": 794,
+      "sha256": "7b3ace9100426c2ff499d19ff5c54a74e38c8c9d60bb7f2c50a203d24a0c6fed",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/pricing-client.js",
+      "bytes": 14479,
+      "sha256": "7bd5d71582f1803918cc8fd53b158166424ba452bcad184bc9b2d176e22e8d9a",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/rate-details-modal.js",
+      "bytes": 2616,
+      "sha256": "d4293c227687890db16151c932656aa436268dfca4c477468dc3520b0cf3f490",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/ride-location-local-counter-store.mjs",
+      "bytes": 16930,
+      "sha256": "c8d65dbcc40548c319eb9a57b4706ef97985d76e69f684577f52fa06e68dcb62",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/ride-location-report-client.mjs",
+      "bytes": 19141,
+      "sha256": "6acb3a8b9229e01f3dd076ee819b4c6f46377f9017bbd43ec493fb4f37da432d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/ride-location-report-pending-queue.mjs",
+      "bytes": 2843,
+      "sha256": "34515927bbfccca7bf4433595c2ea766ee9d616b126a2e15136a4447a87151d6",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/ride-location-report-schema.mjs",
+      "bytes": 26441,
+      "sha256": "31707a9dca571a6a5dc29dcf4c192adba28e3a4da10ff7aa1ddba9d8010fb378",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/ride-radar-actions.js",
+      "bytes": 5051,
+      "sha256": "1824df8b61db89d03b532dbed67b512e743553e4e2a649812f1bd3d49ce1d8af",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/ride-radar-controller.js",
+      "bytes": 4658,
+      "sha256": "3a60a95c9219ff66b0866e0f048239feb20688d7ee1f34e4e252aec49e0b7332",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/ride-radar-feed-hub.mjs",
+      "bytes": 1053,
+      "sha256": "21e5c64cbf66488a3379d6592af754229e5fe19a8a41b13261cd7ff883908ced",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/ride-radar-model.js",
+      "bytes": 664,
+      "sha256": "bd46ebec8b7f80b391bf647dce89f26117098535e69c3b5583f2dbcbb5396b37",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/ride-radar-routing.js",
+      "bytes": 1205,
+      "sha256": "7cac1d79b7516401e3f131d6441906bba6dcc33e476dd59fea309e9643b08678",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/ride-radar-service.js",
+      "bytes": 13905,
+      "sha256": "f7065434f2c683091810b55e53bd125375e6f2f2353d34f44fad4931857d412a",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/road-route-provider.mjs",
+      "bytes": 13367,
+      "sha256": "1acf421823cade876ab280722c35071a367e7a124db0df2af0279e7851a5d64d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/route-geometry.mjs",
+      "bytes": 6764,
+      "sha256": "190b86a9ea446240cfc0d7fff76511041670335089a48b6a8624aff0d9150385",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/route-motion-controller.mjs",
+      "bytes": 4914,
+      "sha256": "321fdf5d081d9dd2b6ed562de2150b9dbf6a7cfd0265146b3e5abfab96beaba5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/route-progress.mjs",
+      "bytes": 2684,
+      "sha256": "35f273aac3999ca379e9c0c1b8ec0f464cb7b663f2dee00a212a914ebe79d325",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/route-projection.mjs",
+      "bytes": 10984,
+      "sha256": "9758afb8bd9fe29497770a211c27a166bee56bd44cf5b4cc0b33ed744c1d65b3",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/route-provider-bootstrap.mjs",
+      "bytes": 151,
+      "sha256": "546f413774d45901f53c7af4a3e83a5c705f801a1f77cc54a04d370d132df7b9",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/route-request-guard.mjs",
+      "bytes": 2214,
+      "sha256": "22953277e894178420e1d9acec9a834904135faacda5f3dd3562138fbdba2f9d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/settlement-client.js",
+      "bytes": 833,
+      "sha256": "c19a0de25caf38e08dbb3d93a80342d34e0561db9e00089ade5c1ce5732865b9",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/trust.js",
+      "bytes": 1212,
+      "sha256": "8a140f98476291f6497aa759d4fc5293095e6d1f11d9b82794b5bfce7c005e1f",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/two-leg-route-controller.mjs",
+      "bytes": 22542,
+      "sha256": "a559284ecee3493d97a23cbf5a933162f78d305daf802a5ade9e8698e959e094",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/two-leg-route-layers.mjs",
+      "bytes": 14711,
+      "sha256": "c726a8fa30bb6f92de919221366fb2df5b4dc20bec2e5440c3f9b1604fb4300e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/vehicle-catalog.mjs",
+      "bytes": 8887,
+      "sha256": "437c580ed2762d2f9a5f9b98148f815d0e801026b88ff4f5d7b9be7be480d166",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/viewer-presence-consumer.mjs",
+      "bytes": 4888,
+      "sha256": "6e3735b2f046b0b44c747ffdd0b06323c87790b272ab3e0873780a53aed7275e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/js/wallet.js",
+      "bytes": 5780,
+      "sha256": "7a8ddb49727142081e59d7d84fce9dbbbf6b152a89a75d3223ee0cf563d8bd53",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "partner/vehicle-catalog.json",
+      "bytes": 1743,
+      "sha256": "778d1b6bfcf92295ff7303eec17f62d6921ae51790589756261330d4c9531273",
+      "status": 200,
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "shared/js/background-location-probe.mjs",
+      "bytes": 1790,
+      "sha256": "9d345e7d7f6ceb9bf093b4aa4feaa872605c62a2826500924842a2c799e04fa8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/breadcrumb-schema.mjs",
+      "bytes": 12675,
+      "sha256": "82092adfeafdc526d216727a4a65fe48acc3bd1fd68539b255540c862ba0e530",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/diagnostics-screen-core.mjs",
+      "bytes": 8281,
+      "sha256": "22e0fdcaf3e5364ae0863af12edbb714c6f0390a15c5497d8b93e1d576dfca27",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/fallback-location-watch.mjs",
+      "bytes": 1851,
+      "sha256": "ed8764e7f3a06953ca35456559461b4b7326a662d264241f2d814df3fabed76f",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/field-diagnostics.mjs",
+      "bytes": 14690,
+      "sha256": "ee08bf46b57d44c184a7ae100e412775d2e45c52a4bb7dae5620d31af76cbde8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/geometry-quality.mjs",
+      "bytes": 3119,
+      "sha256": "c03387ba728455960f57a41e69fb9a287c659dfe1bb15cfb2819d47d94e51a7b",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/idle-publish-config.mjs",
+      "bytes": 7845,
+      "sha256": "cd0fbe6a5bf0b69a44d5b5c181260a6b10948ef1fa3b0c79ebb6fa94ac3ef23e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/live-location-source-arbiter.mjs",
+      "bytes": 7235,
+      "sha256": "8a120f7c6316fdacef17766bc682d4f7a52ad0670cd1d1b98ea2fa2d0d265ee5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/location-delivery-policy.mjs",
+      "bytes": 4078,
+      "sha256": "9a2e707d7b9eae258e41878cc180a5f1e64bfeedea4f7152643c67759510e019",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/map-tile-provider.mjs",
+      "bytes": 2175,
+      "sha256": "c4e14b80ee24b16c4437b5d000340c06070db713ec327ba6e3d0bae5dbdb2962",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/native-bridge.mjs",
+      "bytes": 1404,
+      "sha256": "61d4039b2f9a40d2576c99b1a8e5e8afe37e52393b3ac849464cba1be3f2d39c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-comm-call.mjs",
+      "bytes": 12562,
+      "sha256": "43d11191b2eb8a9964627d499f6c62957d3a71fd6fe49b5b88d603b45f22cbe5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-comm-panel.mjs",
+      "bytes": 30773,
+      "sha256": "697f4ca8f815bec5aa53b5c62c305a6ba1178830d0a93933e3dd701b389eea8c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-comm-protocol.mjs",
+      "bytes": 7438,
+      "sha256": "5ee166b17ab010dae72c1c7e7a2ef4caba07853e7df5cbfbae9e483d196fe64e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-comm-session.mjs",
+      "bytes": 15190,
+      "sha256": "9086a450c0667a35e31891b575d1975a442c3232b0dd7b4572936633b13c43b8",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-comm-voice.mjs",
+      "bytes": 7576,
+      "sha256": "00327d0677d7afb112f40bf4595479ae4caf61668df14369f45d7324d2499205",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-ice-bootstrap-core.mjs",
+      "bytes": 3213,
+      "sha256": "ddd4bebab2e36f42df1b91aae7ce224fa8bd174f9a2e78332d3fc4cd86479a60",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-ice-config.mjs",
+      "bytes": 1148,
+      "sha256": "2a698ca70197ca26ccd815c1e8dff034a906499b60c13a59fce6fe1da4dea227",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-location-envelope.mjs",
+      "bytes": 7290,
+      "sha256": "756819176a7103f10c07dcf66e9a144ed58a5fc42431d49ea15e2681986d69fb",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-peer-session.mjs",
+      "bytes": 58433,
+      "sha256": "9a9a127a2fe3d6d3dbf9c6451accd7560087e331a1c6d2b924ce46a0ef04e61e",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-pipeline-trace.mjs",
+      "bytes": 14650,
+      "sha256": "c55dd7d9c3e2ad16dc94350366218de59de882eddbb1d2ef0119ae825b638397",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-protocol.mjs",
+      "bytes": 8191,
+      "sha256": "742747d3416e80a04187f60b380eda45f152b8727f350c253a1ce4421b877575",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/p2p-session-lease.mjs",
+      "bytes": 2647,
+      "sha256": "98e628d50500f4148442405c98cb002e80cf4ed068aa8f0f910adbc0df768dc9",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/phase1-billing-diagnostics.mjs",
+      "bytes": 13026,
+      "sha256": "148fea7876cb0ac043b920370f79f7bb844bba32226e30828156a200b906bc11",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/phase1-billing-reports.mjs",
+      "bytes": 13575,
+      "sha256": "50965550fee65c9800f12014b580c9e4911b41b6fa19d995099aa389cc40c95c",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/phase2-runtime-reports.mjs",
+      "bytes": 21077,
+      "sha256": "4f878d5c867c2a7078d21156fdc84d41ee75baa8a2a32302c75cbc9ba1e42bc3",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/phase2-runtime-verification.mjs",
+      "bytes": 9734,
+      "sha256": "77a36c79588bbca8e8404ec56577fb5f8c1fb904601fc171e1761ca767357ec5",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/phase3-billing-proof.mjs",
+      "bytes": 2365,
+      "sha256": "4b72d3ca950f3ec350fff97ba74635e30145216d3152cb19e215f2027f5ff174",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/phase3-billing-reports.mjs",
+      "bytes": 23017,
+      "sha256": "10c56d53cec9a19d1112c6cffcfc3c42dc4f1c2edfc2bf387ac76b781a6ec6a7",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/ride-location-contract.mjs",
+      "bytes": 4261,
+      "sha256": "f8652fc432283408a7499f06bb2aef8368eeeea8bc62e0a32fadc7bbad7804c4",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/road-route-provider.mjs",
+      "bytes": 13367,
+      "sha256": "1acf421823cade876ab280722c35071a367e7a124db0df2af0279e7851a5d64d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/route-geometry.mjs",
+      "bytes": 6764,
+      "sha256": "190b86a9ea446240cfc0d7fff76511041670335089a48b6a8624aff0d9150385",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/route-provider-bootstrap.mjs",
+      "bytes": 1139,
+      "sha256": "37ef88fefac48fbb4310a6a68a9aac2164e094407c5fa5e0649c2cf5b98440c2",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "shared/js/route-request-guard.mjs",
+      "bytes": 2214,
+      "sha256": "22953277e894178420e1d9acec9a834904135faacda5f3dd3562138fbdba2f9d",
+      "status": 200,
+      "contentType": "text/javascript"
+    },
+    {
+      "path": "vehicle-catalog.json",
+      "bytes": 1743,
+      "sha256": "778d1b6bfcf92295ff7303eec17f62d6921ae51790589756261330d4c9531273",
+      "status": 200,
+      "contentType": "application/octet-stream"
+    }
+  ],
   "results": [
     {
       "name": "hosting-dist-exists",
       "status": "PASS",
-      "detail": "F:\\ride-app\\hosting-dist"
+      "detail": "C:\\Users\\pc\\.codex\\worktrees\\2c08\\ride-app\\hosting-dist"
     },
     {
       "name": "customer-root-html-loads",
       "status": "PASS",
-      "detail": "F:\\ride-app\\hosting-dist\\index.html"
+      "detail": "C:\\Users\\pc\\.codex\\worktrees\\2c08\\ride-app\\hosting-dist\\index.html"
     },
     {
       "name": "customer-root-home-marker:id=\"screen-home\"",
@@ -42,13 +2160,13 @@
     },
     {
       "name": "customer-root-import-graph-complete",
-      "status": "FAIL",
-      "detail": "missing=driver-app/js/location-checkpoint-policy.mjs, driver-app/js/p2p-protocol.mjs, customer-app/js/live-location-render.mjs, driver-app/js/location-envelope.mjs htmlFallback=— scanned=84"
+      "status": "PASS",
+      "detail": "scanned=110"
     },
     {
       "name": "customer-root-export-bindings-resolve",
       "status": "PASS",
-      "detail": "modules=80"
+      "detail": "modules=109"
     },
     {
       "name": "customer-root-firebase-init-module",
@@ -68,7 +2186,7 @@
     {
       "name": "customer-alias-html-loads",
       "status": "PASS",
-      "detail": "F:\\ride-app\\hosting-dist\\customer\\index.html"
+      "detail": "C:\\Users\\pc\\.codex\\worktrees\\2c08\\ride-app\\hosting-dist\\customer\\index.html"
     },
     {
       "name": "customer-alias-home-marker:id=\"screen-home\"",
@@ -97,13 +2215,13 @@
     },
     {
       "name": "customer-alias-import-graph-complete",
-      "status": "FAIL",
-      "detail": "missing=driver-app/js/location-checkpoint-policy.mjs, driver-app/js/p2p-protocol.mjs, customer-app/js/live-location-render.mjs, driver-app/js/location-envelope.mjs htmlFallback=— scanned=84"
+      "status": "PASS",
+      "detail": "scanned=110"
     },
     {
       "name": "customer-alias-export-bindings-resolve",
       "status": "PASS",
-      "detail": "modules=80"
+      "detail": "modules=109"
     },
     {
       "name": "customer-alias-firebase-init-module",
@@ -123,7 +2241,7 @@
     {
       "name": "driver-html-loads",
       "status": "PASS",
-      "detail": "F:\\ride-app\\hosting-dist\\partner\\index.html"
+      "detail": "C:\\Users\\pc\\.codex\\worktrees\\2c08\\ride-app\\hosting-dist\\partner\\index.html"
     },
     {
       "name": "driver-home-marker:id=\"driverHomeRoot\"",
@@ -147,13 +2265,13 @@
     },
     {
       "name": "driver-import-graph-complete",
-      "status": "FAIL",
-      "detail": "missing=driver-app/js/location-checkpoint-policy.mjs, driver-app/js/p2p-protocol.mjs, customer-app/js/live-location-render.mjs, driver-app/js/location-envelope.mjs htmlFallback=— scanned=97"
+      "status": "PASS",
+      "detail": "scanned=114"
     },
     {
       "name": "driver-export-bindings-resolve",
       "status": "PASS",
-      "detail": "modules=93"
+      "detail": "modules=113"
     },
     {
       "name": "driver-firebase-init-module",
@@ -174,6 +2292,86 @@
       "name": "driver-p2p:p2p-comm-panel.mjs",
       "status": "PASS",
       "detail": "partner/js/p2p-comm-panel.mjs"
+    },
+    {
+      "name": "admin-html-loads",
+      "status": "PASS",
+      "detail": "C:\\Users\\pc\\.codex\\worktrees\\2c08\\ride-app\\hosting-dist\\admin\\index.html"
+    },
+    {
+      "name": "admin-home-marker:id=\"adminGoogleLoginBtn\"",
+      "status": "PASS",
+      "detail": "admin/index.html"
+    },
+    {
+      "name": "admin-home-marker:admin-app.js",
+      "status": "PASS",
+      "detail": "admin/index.html"
+    },
+    {
+      "name": "admin-entry-script",
+      "status": "PASS",
+      "detail": "/admin/js/admin-app.js"
+    },
+    {
+      "name": "admin-entry-is-js",
+      "status": "PASS",
+      "detail": "admin/js/admin-app.js ct=text/javascript"
+    },
+    {
+      "name": "admin-import-graph-complete",
+      "status": "PASS",
+      "detail": "scanned=17"
+    },
+    {
+      "name": "admin-export-bindings-resolve",
+      "status": "PASS",
+      "detail": "modules=16"
+    },
+    {
+      "name": "admin-firebase-init-module",
+      "status": "PASS",
+      "detail": "admin/js/firebase.js"
+    },
+    {
+      "name": "owner-html-loads",
+      "status": "PASS",
+      "detail": "C:\\Users\\pc\\.codex\\worktrees\\2c08\\ride-app\\hosting-dist\\owner\\index.html"
+    },
+    {
+      "name": "owner-home-marker:id=\"ownerDashboard\"",
+      "status": "PASS",
+      "detail": "owner/index.html"
+    },
+    {
+      "name": "owner-home-marker:id=\"driverGoogleLoginBtn\"",
+      "status": "PASS",
+      "detail": "owner/index.html"
+    },
+    {
+      "name": "owner-entry-script",
+      "status": "PASS",
+      "detail": "js/owner-app.js"
+    },
+    {
+      "name": "owner-entry-is-js",
+      "status": "PASS",
+      "detail": "owner/js/owner-app.js ct=text/javascript"
+    },
+    {
+      "name": "owner-import-graph-complete",
+      "status": "PASS",
+      "detail": "scanned=16"
+    },
+    {
+      "name": "owner-export-bindings-resolve",
+      "status": "PASS",
+      "detail": "modules=15"
+    },
+    {
+      "name": "owner-firebase-init-module",
+      "status": "PASS",
+      "detail": "owner/js/firebase.js"
     },
     {
       "name": "asset-not-html:partner/js/phase1-billing-diagnostics.mjs",

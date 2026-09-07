@@ -5,8 +5,26 @@
 
 "use strict";
 
-const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
+const { onCall: firebaseOnCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret, defineBoolean } = require("firebase-functions/params");
+defineBoolean("ENFORCE_APP_CHECK", { default: false });
+const { readAppCheckEnforcement } = require("./app-check-policy");
+const { assertAccountAccessAllowed, syncDeletionAuthBlock, reviewAccountDeletion } = require("./account-deletion-workflow");
+const { normalizeRetentionPolicy, saveRetentionPolicy, purgeExpiredTransientData, runRetentionMaintenance } = require("./data-retention");
+const { POLICY: APPROVED_RETENTION_POLICY } = require("./retention-policy");
+const { inspectAccountDisposition, executeAccountDispositionPage } = require("./account-disposition");
+const { disposeIdentityRecord } = require("./identity-disposition");
+const { setRetentionLegalHold, previewFinancialRetention } = require("./retention-admin");
+// One policy for every callable. HTTPS native ingest retains its scoped HMAC.
+const onCall = (options, handler) => {
+  const { allowDeletionRequest = false, ...firebaseOptions } = options;
+  return firebaseOnCall({ ...firebaseOptions, enforceAppCheck: readAppCheckEnforcement() }, async (request) => {
+    if (request.auth?.uid && !allowDeletionRequest) {
+      try { await assertAccountAccessAllowed(db, request.auth.uid); } catch (error) { throw mapErr(error); }
+    }
+    return handler(request);
+  });
+};
 const { logger } = require("firebase-functions");
 const { onDocumentCreated, onDocumentWritten, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { initializeApp, getApps } = require("firebase-admin/app");
@@ -51,11 +69,17 @@ const {
   revokeAdminClaim,
   setAdminEmailBootstrap,
   isAdminAuth,
+  readAdminRole,
+  writeAdminSettings,
   ensureCallerCanAdminWrite,
   requestTouchesDiagnosticControls,
   isCallerAuthorizedForDiagnostic,
 } = require("./admin-claims");
 const { linkVehicleByPin } = require("./pin-link");
+const { createFleetVehicle, rotateVehicleLinkCode, releaseFleetVehicle } = require("./fleet-security");
+const { beginDriverVerification, submitDriverVerification, reviewDriverVerification } = require("./driver-verification");
+const { quoteCustomerBooking } = require("./booking-pricing");
+const { approveRechargeRequest } = require("./recharge");
 const {
   requestAccountDeletion: performAccountDeletionRequest,
   submitSupportReport: performSupportReport,
@@ -76,6 +100,7 @@ const {
 } = require("./ops-monitor");
 const { reportGeoCellCoverage } = require("./geo-coverage");
 const { mirrorDriverLocationToRide } = require("./driver-location");
+const { publishCustomerRideLocation } = require("./customer-location");
 const { applyRideLifecycleTimestampStamp } = require("./ride-lifecycle-timestamps");
 const { settleRide } = require("./settlement");
 const { refreshRideViewerPresence } = require("./ride-viewer-presence");
@@ -83,8 +108,14 @@ const {
   createRidePeerOffer,
   publishRidePeerAnswer,
   closeRidePeerSession,
+  renewRidePeerSession,
+  getRidePeerOfferRevision,
 } = require("./ride-peer-session");
-const { issueP2pTurnCredentials } = require("./p2p-turn-credentials");
+const { issueRideTurnCredentials } = require("./p2p-turn-credentials");
+const {
+  issueNativeP2pCredential,
+  handleNativeP2pAction,
+} = require("./native-p2p-transport");
 const { submitRideBreadcrumbBatch } = require("./breadcrumb-batch");
 const { submitRideLocationReportSection } = require("./ride-location-report");
 const {
@@ -115,6 +146,10 @@ function mapErr(err) {
     "failed-precondition",
     "unauthenticated",
     "resource-exhausted",
+    "unavailable",
+    "already-exists",
+    "cancelled",
+    "aborted",
   ];
   if (known.includes(code)) return new HttpsError(code, message);
   if (message === "INVALID_CANDIDATE_LIMIT" || message === "INVALID_SEARCH_RADIUS") {
@@ -156,7 +191,7 @@ async function wrapCall(name, request, fn) {
 }
 
 async function callerIsAdmin(request) {
-  return isAdminAuth(db, request.auth);
+  return isCallerAuthorizedForDiagnostic(db, request.auth);
 }
 
 exports.completeRideSettlement = onCall({ region: "us-central1" }, async (request) => {
@@ -168,6 +203,7 @@ exports.completeRideSettlement = onCall({ region: "us-central1" }, async (reques
         collectionName: request.data?.collectionName,
         callerUid: request.auth.uid,
         isAdmin: await callerIsAdmin(request),
+        adminAuth: request.auth,
       });
     } catch (err) {
       await recordSettlementFailure(db, request.data?.rideId, err?.message || err);
@@ -230,6 +266,7 @@ exports.linkVehicleByPin = onCall({ region: "us-central1" }, async (request) => 
     return await linkVehicleByPin(db, {
       driverUid: request.auth.uid,
       pin: request.data?.pin,
+      requestIp: request.rawRequest?.ip,
       driverName: request.auth.token?.name || request.data?.driverName,
     });
   } catch (err) {
@@ -238,6 +275,21 @@ exports.linkVehicleByPin = onCall({ region: "us-central1" }, async (request) => 
 });
 
 /** Check / confirm gate before creating an extra booking. */
+for (const [name, action] of Object.entries({ createFleetVehicle, rotateVehicleLinkCode, releaseFleetVehicle })) {
+  exports[name] = onCall({ region: "us-central1" }, async (request) => {
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+    return wrapCall(name, request, () => action(db, request.auth.uid, name === "createFleetVehicle" ? request.data : request.data?.vehicleId));
+  });
+}
+
+for (const [name, action] of Object.entries({ beginDriverVerification, submitDriverVerification, reviewDriverVerification })) {
+  exports[name] = onCall({ region: "us-central1" }, async (request) => {
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+    return wrapCall(name, request, () => name === "beginDriverVerification" ? action(db, request.auth.uid) :
+      action(db, name === "reviewDriverVerification" ? request.auth : request.auth.uid, request.data));
+  });
+}
+
 exports.checkCustomerBookingGate = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   try {
@@ -268,6 +320,19 @@ function sanitizeCallableResult(value) {
 }
 
 /** Race-safe booking create (4 concurrent non-terminal max). */
+exports.quoteCustomerBooking = onCall({ region: "us-central1", timeoutSeconds: 30 }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("quoteCustomerBooking", request, () => quoteCustomerBooking(db, request.auth.uid, request.data));
+});
+
+exports.getAdminAccess = onCall({ region: "us-central1" }, async (request) => {
+  const role = await readAdminRole(db, request.auth);
+  return { authorized: role === "super_admin", role };
+});
+
+exports.approveRechargeRequest = onCall({ region: "us-central1" }, async (request) =>
+  wrapCall("approveRechargeRequest", request, () => approveRechargeRequest(db, request.auth, request.data?.requestId)));
+
 exports.createCustomerBooking = onCall(
   { region: "us-central1", minInstances: 1, timeoutSeconds: 60 },
   async (request) => {
@@ -285,20 +350,8 @@ exports.createCustomerBooking = onCall(
         confirmedExtraBooking: Boolean(data.confirmedExtraBooking),
         dispatchTraceId: normalizeDispatchTraceId(data.dispatchTraceId),
         ridePayload: {
-          pickupLocation: data.pickupLocation,
-          dropoffLocation: data.dropoffLocation,
-          vehicleType: String(data.vehicleType || "").slice(0, 40),
-          vehicleTypeKey: data.vehicleTypeKey
-            ? String(data.vehicleTypeKey).slice(0, 40)
-            : undefined,
-          distanceKm: Math.max(0, Number(data.distanceKm) || 0),
-          timeMins: Math.max(0, Number(data.timeMins) || 0),
-          farePkr: Math.max(0, Number(data.farePkr) || 0),
-          estimatedFare: Math.max(0, Number(data.estimatedFare ?? data.farePkr) || 0),
-          promoCode: data.promoCode,
-          discountAmount: data.discountAmount,
-          originalFare: data.originalFare,
-          paymentMethod: data.paymentMethod,
+          quoteId: data.quoteId,
+          acceptedFare: data.acceptedFare,
         },
       });
       timer.mark("ride_tx_complete", { rideId: created?.id });
@@ -314,8 +367,8 @@ exports.createCustomerBooking = onCall(
           matchRideCandidates(db, {
             rideId: created.id,
             pickup: {
-              lat: Number(data.pickupLocation?.lat),
-              lng: Number(data.pickupLocation?.lng),
+              lat: created.payload.pickupLocation.lat,
+              lng: created.payload.pickupLocation.lng,
             },
             dispatchSettings: created.dispatchSettings,
             _latencyTimer: timer,
@@ -337,6 +390,8 @@ exports.createCustomerBooking = onCall(
       return sanitizeCallableResult({
         id: created.id,
         count: created.count,
+        farePkr: created.farePkr,
+        estimatedFare: created.estimatedFare,
         dispatchTraceId: String(data.dispatchTraceId || ""),
         matchingStatus,
         candidateCount,
@@ -730,6 +785,7 @@ exports.cancelRideByAdmin = onCall({ region: "us-central1" }, async (request) =>
     return await cancelRideByAdmin(db, {
       rideId: String(request.data?.rideId || "").trim(),
       adminUid: request.auth.uid,
+      adminAuth: request.auth,
       reason: request.data?.reason,
     });
   } catch (err) {
@@ -895,13 +951,9 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       }
       payload.searchTimeoutSeconds = normalizeSearchTimeoutSeconds(searchSec);
     }
-    if (request.data?.customerLocationFallbackSeconds != null) {
-      const fallbackSec = Math.round(Number(request.data.customerLocationFallbackSeconds));
-      if (!Number.isFinite(fallbackSec) || (fallbackSec !== 0 && (fallbackSec < 30 || fallbackSec > 300))) {
-        throw new HttpsError("invalid-argument", "CUSTOMER_LOCATION_FALLBACK_OUT_OF_RANGE");
-      }
-      payload.customerLocationFallbackSeconds = fallbackSec;
-    }
+    const { locationDeliverySettingsPatch } = require("./location-delivery-policy");
+    const deliveryPatch = locationDeliverySettingsPatch(request.data);
+    Object.assign(payload, deliveryPatch);
 
     if (radius) {
       payload.maxSearchRadiusKm = radius.maxSearchRadiusKm;
@@ -919,7 +971,7 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       payload.searchRingsKm = buildSearchRingsKm(fallbackKm);
     }
 
-    await db.collection("settings").doc("dispatch").set(payload, { merge: true });
+    await writeAdminSettings(db, request.auth, "settings/dispatch", payload);
     return {
       ok: true,
       candidateDriverLimit: limit,
@@ -932,6 +984,9 @@ exports.setCandidateDriverLimit = onCall({ region: "us-central1" }, async (reque
       idleDiagnosticExpiresAt: payload.idleDiagnosticExpiresAt ?? null,
       offerTimeoutSeconds: payload.offerTimeoutSeconds ?? null,
       customerLocationFallbackSeconds: payload.customerLocationFallbackSeconds ?? null,
+      p2pFallbackAfterSeconds: payload.p2pFallbackAfterSeconds ?? null,
+      firebaseLocationFallbackEnabled: payload.firebaseLocationFallbackEnabled ?? null,
+      ...deliveryPatch,
     };
   } catch (err) {
     throw mapErr(err);
@@ -1028,7 +1083,7 @@ exports.saveAdminPricingSettings = onCall({ region: "us-central1" }, async (requ
     const baseFare = Number(data.baseFare);
     const perKmRate = Number(data.perKmRate);
     const commissionPercent = Number(data.commissionPercent);
-    await db.collection("settings").doc("pricing").set(
+    await writeAdminSettings(db, request.auth, "settings/pricing",
       {
         walletThreshold,
         baseFare:
@@ -1070,7 +1125,7 @@ exports.getDispatchSettings = onCall({ region: "us-central1" }, async (request) 
 });
 
 /** Phase 4E — soft account deletion request (retains financial/audit records). */
-exports.requestAccountDeletion = onCall({ region: "us-central1" }, async (request) => {
+exports.requestAccountDeletion = onCall({ region: "us-central1", allowDeletionRequest: true }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   try {
     return await performAccountDeletionRequest(db, {
@@ -1081,7 +1136,7 @@ exports.requestAccountDeletion = onCall({ region: "us-central1" }, async (reques
       appId: request.data?.appId,
     });
   } catch (err) {
-    console.error("[requestAccountDeletion]", err?.message || err);
+    console.error("[requestAccountDeletion]", err?.code || "internal");
     throw mapErr(err);
   }
 });
@@ -1244,17 +1299,78 @@ exports.refreshRideViewerPresence = onCall({ region: "us-central1" }, async (req
 });
 
 /** Phase 3 — driver publishes bundled WebRTC offer (non-trickle). */
+exports.publishCustomerRideLocation = onCall({ region: "us-central1" }, async (request) => {
+  try { return await publishCustomerRideLocation(db, request.auth?.uid, request.data); }
+  catch (err) { throw mapErr(err); }
+});
+
+// Maintenance configuration is super-admin-only. Preview never mutates data.
+exports.getPrivacyMaintenanceStatus = onCall({ region: "us-central1" }, async (request) => {
+  if (!(await ensureCallerCanAdminWrite(db, request.auth))) throw new HttpsError("permission-denied", "SUPER_ADMIN_ONLY");
+  return { policy: normalizeRetentionPolicy((await db.doc("settings/dataRetention").get()).data()),
+    approvedPolicy: APPROVED_RETENTION_POLICY,
+    schedulerExportEnabled: process.env.ENABLE_RETENTION_SCHEDULE === "true",
+    erasureExecutorAvailable: process.env.ENABLE_ACCOUNT_ERASURE === "true" };
+});
+exports.savePrivacyMaintenanceSettings = onCall({ region: "us-central1" }, async (request) => {
+  try { return await saveRetentionPolicy(db, request.auth, request.data); } catch (error) { throw mapErr(error); }
+});
+exports.previewExpiredPrivateData = onCall({ region: "us-central1" }, async (request) => {
+  if (!(await ensureCallerCanAdminWrite(db, request.auth))) throw new HttpsError("permission-denied", "SUPER_ADMIN_ONLY");
+  try { return await purgeExpiredTransientData(db, { dryRun: true }); } catch (error) { throw mapErr(error); }
+});
+exports.retryDeletionAuthBlock = onCall({ region: "us-central1" }, async (request) => {
+  if (!(await ensureCallerCanAdminWrite(db, request.auth))) throw new HttpsError("permission-denied", "SUPER_ADMIN_ONLY");
+  try { return { authBlockStatus: await syncDeletionAuthBlock(db, request.data?.uid) }; } catch (error) { throw mapErr(error); }
+});
+exports.reviewAccountDeletion = onCall({ region: "us-central1" }, async (request) => {
+  try { return await reviewAccountDeletion(db, request.auth, request.data); } catch (error) { throw mapErr(error); }
+});
+exports.previewAccountDisposition = onCall({ region: "us-central1" }, async (request) => {
+  try { return await inspectAccountDisposition(db, request.auth, request.data?.uid); } catch (error) { throw mapErr(error); }
+});
+exports.executeAccountDispositionPage = onCall({ region: "us-central1", timeoutSeconds: 480 }, async (request) => {
+  try { return await executeAccountDispositionPage(db, request.auth, request.data,
+    { allowMutation: process.env.ENABLE_ACCOUNT_ERASURE === "true" }); } catch (error) { throw mapErr(error); }
+});
+exports.previewIdentityDisposition = onCall({ region: "us-central1" }, async (request) => {
+  try { return await disposeIdentityRecord(db, request.auth, request.data, { dryRun: true }); } catch (error) { throw mapErr(error); }
+});
+exports.executeIdentityDisposition = onCall({ region: "us-central1", timeoutSeconds: 480 }, async (request) => {
+  try { return await disposeIdentityRecord(db, request.auth, request.data,
+    { dryRun: false, allowMutation: process.env.ENABLE_ACCOUNT_ERASURE === "true" }); } catch (error) { throw mapErr(error); }
+});
+exports.setRetentionLegalHold = onCall({ region: "us-central1" }, async (request) => {
+  try { return await setRetentionLegalHold(db, request.auth, request.data); } catch (error) { throw mapErr(error); }
+});
+exports.previewFinancialRetention = onCall({ region: "us-central1" }, async (request) => {
+  try { return await previewFinancialRetention(db, request.auth, request.data); } catch (error) { throw mapErr(error); }
+});
+// Merely deploying the ordinary app cannot create a paid/destructive scheduler.
+// Both this explicit server deployment opt-in and current admin policy are required.
+if (process.env.ENABLE_RETENTION_SCHEDULE === "true") {
+  const { onSchedule } = require("firebase-functions/v2/scheduler");
+  exports.runPrivacyMaintenance = onSchedule({ schedule: "every 10 minutes", region: "us-central1", timeoutSeconds: 480, maxInstances: 1 },
+    async () => runRetentionMaintenance(db, { allowMutation: true }));
+}
+
 exports.createRidePeerOffer = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  if (typeof request.data?.expectedPeerSessionId !== "string" || typeof request.data?.expectedOfferFingerprint !== "string") {
+    throw new HttpsError("invalid-argument", "OFFER_REVISION_REQUIRED");
+  }
   return wrapCall("createRidePeerOffer", request, () =>
     createRidePeerOffer(db, {
       driverUid: request.auth.uid,
       rideId: request.data?.rideId,
       offerSdp: request.data?.offerSdp,
+      assignmentId: request.data?.assignmentId,
       peerSessionId: request.data?.peerSessionId,
       trackingSessionId: request.data?.trackingSessionId,
       assignmentVersion: request.data?.assignmentVersion,
       vehicleId: request.data?.vehicleId,
+      expectedPeerSessionId: request.data?.expectedPeerSessionId,
+      expectedOfferFingerprint: request.data?.expectedOfferFingerprint,
     })
   );
 });
@@ -1268,6 +1384,7 @@ exports.publishRidePeerAnswer = onCall({ region: "us-central1" }, async (request
       rideId: request.data?.rideId,
       answerSdp: request.data?.answerSdp,
       peerSessionId: request.data?.peerSessionId,
+      offerFingerprint: request.data?.offerFingerprint,
     })
   );
 });
@@ -1279,21 +1396,42 @@ exports.closeRidePeerSession = onCall({ region: "us-central1" }, async (request)
     closeRidePeerSession(db, {
       uid: request.auth.uid,
       rideId: request.data?.rideId,
+      peerSessionId: request.data?.peerSessionId,
+      offerFingerprint: request.data?.offerFingerprint,
     })
   );
 });
 
-/** Phase 3 — ephemeral TURN credentials for NAT traversal (coturn REST API). */
-exports.getP2pTurnCredentials = onCall({ region: "us-central1" }, async (request) => {
+exports.getRidePeerOfferRevision = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("getRidePeerOfferRevision", request, () => getRidePeerOfferRevision(db, {
+    uid: request.auth.uid, rideId: request.data?.rideId, assignmentId: request.data?.assignmentId,
+  }));
+});
+
+exports.renewRidePeerSession = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  return wrapCall("renewRidePeerSession", request, () => renewRidePeerSession(db, {
+    uid: request.auth.uid, rideId: request.data?.rideId, peerSessionId: request.data?.peerSessionId,
+    offerFingerprint: request.data?.offerFingerprint, assignmentId: request.data?.assignmentId,
+  }));
+});
+
+// Opt-in secret binding: enabling/deploying the provider is a separate operation.
+// P2P_TURN_CONFIG is Secret Manager JSON, never a Hosting/Firestore value.
+exports.getP2pTurnCredentials = onCall({ region: "us-central1",
+  secrets: process.env.P2P_TURN_ENABLED === "true" ? ["P2P_TURN_CONFIG"] : [],
+}, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   return wrapCall("getP2pTurnCredentials", request, () =>
-    issueP2pTurnCredentials({ uid: request.auth.uid })
+    issueRideTurnCredentials(db, { uid: request.auth.uid, rideId: request.data?.rideId,
+      assignmentId: request.data?.assignmentId }, { enabled: process.env.P2P_TURN_ENABLED === "true" })
   );
 });
 
 /**
- * Phase 6 — shadow breadcrumb batch (dense chord telemetry only).
- * Does not mutate traveledDistanceKm, fare, wallet, or settlement.
+ * Validated raw breadcrumb measurements (not the customer live-location route).
+ * No direct fare/wallet mutation; cancellation reads server-validated segments.
  */
 exports.submitRideBreadcrumbBatch = onCall({ region: "us-central1" }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
@@ -1317,7 +1455,7 @@ exports.saveAdminLocationReportingSettings = onCall({ region: "us-central1" }, a
       buildValidatedLocationReportingSettings,
     } = require("./location-reporting-config");
     const config = buildValidatedLocationReportingSettings(request.data || {});
-    await db.doc(LOCATION_REPORTING_CONFIG_DOC_PATH).set(
+    await writeAdminSettings(db, request.auth, LOCATION_REPORTING_CONFIG_DOC_PATH,
       {
         schemaVersion: LOCATION_REPORTING_SCHEMA_VERSION,
         ...config,
@@ -1373,6 +1511,67 @@ exports.issueBackgroundLocationCredential = onCall(
         ttlMs: request.data?.ttlMs,
       })
     );
+  }
+);
+
+/**
+ * WebView-authenticated hand-off capability for the Android native WebRTC
+ * service.  It is assignment-bound, short-lived and contains no Firebase
+ * refresh token or permanent TURN secret.
+ */
+exports.issueNativeP2pCredential = onCall(
+  { region: "us-central1", secrets: [backgroundLocationUploadSecret] },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+    return wrapCall("issueNativeP2pCredential", request, () =>
+      issueNativeP2pCredential(db, {
+        uid: request.auth.uid,
+        role: request.data?.role,
+        rideId: request.data?.rideId,
+        vehicleId: request.data?.vehicleId,
+        assignmentId: request.data?.assignmentId,
+        trackingSessionId: request.data?.trackingSessionId,
+      })
+    );
+  }
+);
+
+/** Native HTTPS signaling/policy route; no coordinates are logged here. */
+exports.nativeRidePeerTransport = onRequest(
+  { region: "us-central1", cors: true, secrets: [backgroundLocationUploadSecret] },
+  async (req, res) => {
+    if (req.method === "OPTIONS") {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type");
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      res.status(405).json({ ok: false, reason: "METHOD_NOT_ALLOWED" });
+      return;
+    }
+    try {
+      const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      const result = await handleNativeP2pAction(db, body);
+      const reason = String(result?.reason || "");
+      const status = result?.ok === false && ["INVALID_TOKEN", "INVALID_SIGNATURE", "TOKEN_EXPIRED"].includes(reason)
+        ? 401 : result?.ok === false && reason === "SECRET_NOT_CONFIGURED" ? 503 : 200;
+      res.status(status).json(result);
+    } catch (err) {
+      const code = String(err?.code || "");
+      const status = code === "permission-denied" ? 403 :
+        code === "unauthenticated" ? 401 : code === "invalid-argument" ? 400 :
+        code === "not-found" ? 404 : code === "failed-precondition" ? 409 : 500;
+      if (status === 500) {
+        logger.error("nativeRidePeerTransport_failed", {
+          code: err?.code || null,
+          message: String(err?.message || err).slice(0, 160),
+        });
+        await recordFunctionError(db, "nativeRidePeerTransport", err).catch(() => {});
+      }
+      res.status(status).json({ ok: false, reason: status === 500 ? "INTERNAL" : String(err?.message || "REJECTED").slice(0, 80) });
+    }
   }
 );
 

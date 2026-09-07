@@ -19,6 +19,11 @@ import {
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 const OUT = path.join(ROOT, "tests", "phase3a-per-ride-results.json");
@@ -35,11 +40,11 @@ const { locationGeoFields } = require(path.join(ROOT, "functions", "geo-cells.js
 
 let adminApp;
 try {
-  adminApp = admin.app();
+  adminApp = adminAppSdk.getApp();
 } catch {
-  adminApp = admin.initializeApp({ projectId: PROJECT });
+  adminApp = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const db = admin.firestore(adminApp);
+const db = adminFirestoreSdk.getFirestore(adminApp);
 
 const pickup = { lat: 24.8607, lng: 67.0011, address: "Pickup 3A" };
 const dropoff = { lat: 24.9056, lng: 67.0822, address: "Drop 3A" };
@@ -65,10 +70,10 @@ function clientApp(name) {
 
 async function ensureUser(email, password, uid) {
   try {
-    return await admin.auth().createUser({ uid, email, password, emailVerified: true });
+    return await adminAuthSdk.getAuth().createUser({ uid, email, password, emailVerified: true });
   } catch (e) {
     if (e.code === "auth/uid-already-exists" || e.code === "auth/email-already-exists") {
-      return admin.auth().getUser(uid).catch(() => admin.auth().getUserByEmail(email));
+      return adminAuthSdk.getAuth().getUser(uid).catch(() => adminAuthSdk.getAuth().getUserByEmail(email));
     }
     throw e;
   }
@@ -171,7 +176,7 @@ async function seedDrivers(n, prefix) {
       status: "online",
       driverId: uid,
       location: { lat: pickup.lat + i * 0.0005, lng: pickup.lng + i * 0.0005 },
-      locationUpdatedAt: admin.firestore.Timestamp.now(),
+      locationUpdatedAt: adminFirestoreSdk.Timestamp.now(),
       ...locationGeoFields(pickup.lat + i * 0.0005, pickup.lng + i * 0.0005),
     });
     ids.push({ uid, vid });

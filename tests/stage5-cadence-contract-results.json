@@ -1,7 +1,7 @@
 {
   "stage": 5,
   "area": "cadence-contract-audit",
-  "generatedAt": "2026-08-20T13:20:25.755Z",
+  "generatedAt": "2026-08-27T17:28:45.943Z",
   "configuredIntervalMs": 3000,
   "minimumSpacingMs": 1500,
   "earliestTwoSuccessfulSendsMs": 1500,

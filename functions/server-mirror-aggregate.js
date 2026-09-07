@@ -7,6 +7,31 @@
 const { FieldValue } = require("firebase-admin/firestore");
 const { createEmptyServerCounters } = require("./ride-location-report-schema.js");
 
+function mirrorOutcomeCounter(reason, mirrored) {
+  if (mirrored) return "mirrorAccepted";
+  if (["firebase_disabled", "p2p_first_grace"].includes(reason)) return "mirrorSkippedPolicy";
+  if (/session|assignment/.test(reason)) return "mirrorSkippedSessionMismatch";
+  if (/duplicate/.test(reason)) return "mirrorSkippedDuplicate";
+  if (/order|sequence|timestamp_not_monotonic/.test(reason)) return "mirrorSkippedOutOfOrder";
+  if (/noop|unchanged/.test(reason)) return "mirrorSkippedNoop";
+  if (/inactive|missing|no_active|vehicle_mismatch/.test(reason)) return "mirrorSkippedInactive";
+  if (/failed|txn/.test(reason)) return "mirrorFailed";
+  return "mirrorSkippedInvalid";
+}
+
+/** One completed mirror invocation; Firestore transaction retries do not add
+ * attempts. A separately redelivered trigger IS another attempt, usually a
+ * duplicate skip. Counters do not claim one attempt equals one vehicle write. */
+function buildMirrorOutcomeAggregatePatch(ride = {}, reason, mirrored, nowMs = Date.now()) {
+  const counters = { ...createEmptyServerCounters(), mirrorAttempts: Number(ride.serverMirrorAccepted) || 0,
+    mirrorAccepted: Number(ride.serverMirrorAccepted) || 0, ...(ride.serverMirrorCounters || {}) };
+  counters.mirrorAttempts++;
+  counters[mirrorOutcomeCounter(reason, mirrored)]++;
+  const patch = { serverMirrorCounters: counters };
+  if (mirrored) Object.assign(patch, acceptedTimingPatch(ride, nowMs));
+  return patch;
+}
+
 function timestampToMs(value) {
   if (value == null) return null;
   if (typeof value.toMillis === "function") return value.toMillis();
@@ -23,7 +48,7 @@ function timestampToMs(value) {
  * @param {object} ride current ride snapshot
  * @param {number} nowMs
  */
-function buildAcceptedMirrorAggregatePatch(ride = {}, nowMs = Date.now()) {
+function acceptedTimingPatch(ride = {}, nowMs = Date.now()) {
   const accepted = (Number(ride.serverMirrorAccepted) || 0) + 1;
   const lastAtMs = timestampToMs(ride.lastServerMirrorAt);
   const firstAtMs = timestampToMs(ride.firstServerMirrorAt) ?? nowMs;
@@ -39,6 +64,10 @@ function buildAcceptedMirrorAggregatePatch(ride = {}, nowMs = Date.now()) {
   };
 }
 
+function buildAcceptedMirrorAggregatePatch(ride = {}, nowMs = Date.now()) {
+  return buildMirrorOutcomeAggregatePatch(ride, "accepted", true, nowMs);
+}
+
 /**
  * Convert ride aggregate into report server section (submit-time merge only).
  * @param {object} ride
@@ -46,14 +75,15 @@ function buildAcceptedMirrorAggregatePatch(ride = {}, nowMs = Date.now()) {
  */
 function serverSectionFromRideAggregate(ride = {}) {
   const accepted = Number(ride.serverMirrorAccepted) || 0;
-  if (accepted <= 0) return null;
+  if (accepted <= 0 && !(ride.serverMirrorCounters?.mirrorAttempts > 0)) return null;
 
   const firstMirrorAtMs = timestampToMs(ride.firstServerMirrorAt);
   const lastMirrorAtMs = timestampToMs(ride.lastServerMirrorAt);
   const longestGapMs =
     ride.maximumMirrorGapMs == null ? null : Number(ride.maximumMirrorGapMs) || null;
 
-  const counters = { ...createEmptyServerCounters(), mirrorAttempts: accepted, mirrorAccepted: accepted };
+  const counters = { ...createEmptyServerCounters(), mirrorAttempts: accepted, mirrorAccepted: accepted,
+    ...(ride.serverMirrorCounters || {}) };
 
   return {
     counters,
@@ -65,13 +95,14 @@ function serverSectionFromRideAggregate(ride = {}) {
 }
 
 function hasRideServerMirrorAggregate(ride = {}) {
-  return (Number(ride.serverMirrorAccepted) || 0) > 0;
+  return (Number(ride.serverMirrorAccepted) || Number(ride.serverMirrorCounters?.mirrorAttempts) || 0) > 0;
 }
 
 /** Reset assignment-scoped mirror aggregate when assignmentSessionToken is minted/rotated. */
 function assignmentServerMirrorAggregateResetPatch() {
   return {
     serverMirrorAccepted: 0,
+    serverMirrorCounters: createEmptyServerCounters(),
     firstServerMirrorAt: null,
     lastServerMirrorAt: null,
     maximumMirrorGapMs: 0,
@@ -93,6 +124,8 @@ function assignmentLocationBaselineResetPatch() {
 }
 
 module.exports = {
+  buildMirrorOutcomeAggregatePatch,
+  mirrorOutcomeCounter,
   buildAcceptedMirrorAggregatePatch,
   serverSectionFromRideAggregate,
   hasRideServerMirrorAggregate,

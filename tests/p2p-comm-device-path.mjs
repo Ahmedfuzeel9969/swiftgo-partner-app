@@ -84,7 +84,7 @@ function record(name, status, detail = "") {
   );
   record(
     "onChannelOpen_hook_exists",
-    fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8").includes("onChannelOpen")
+    fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8").includes("onChannelOpen")
       ? "PASS"
       : "FAIL"
   );
@@ -154,7 +154,7 @@ function record(name, status, detail = "") {
 
 // 3) Blob coercion path (Android WebView)
 {
-  const peerSrc = fs.readFileSync(path.join(ROOT, "driver-app/js/p2p-peer-session.mjs"), "utf8");
+  const peerSrc = fs.readFileSync(path.join(ROOT, "shared/js/p2p-peer-session.mjs"), "utf8");
   record(
     "onmessage_handles_arraybuffer_or_blob",
     peerSrc.includes("arrayBuffer") && peerSrc.includes("TextDecoder") && peerSrc.includes('binaryType = "arraybuffer"')

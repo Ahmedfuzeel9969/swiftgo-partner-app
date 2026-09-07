@@ -13,6 +13,11 @@ import {
 } from "../shared/js/location-reporting-config.mjs";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "tests", "ride-location-report-admin-config-results.json");
 
@@ -216,11 +221,11 @@ process.env.FIRESTORE_EMULATOR_HOST ||= "127.0.0.1:8080";
 
 let app;
 try {
-  app = admin.app();
+  app = adminAppSdk.getApp();
 } catch {
-  app = admin.initializeApp({ projectId: "demo-swiftgo-phase1" });
+  app = adminAppSdk.initializeApp({ projectId: "demo-swiftgo-phase1" });
 }
-const db = admin.firestore(app);
+const db = adminFirestoreSdk.getFirestore(app);
 
 const savedConfig = buildValidatedLocationReportingSettings({
   enabled: true,
@@ -238,7 +243,7 @@ const savedConfig = buildValidatedLocationReportingSettings({
 await db.doc("settings/locationReporting").set({
   schemaVersion: 1,
   ...savedConfig,
-  updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  updatedAt: adminFirestoreSdk.FieldValue.serverTimestamp(),
   updatedBy: "admin-config-test",
 });
 

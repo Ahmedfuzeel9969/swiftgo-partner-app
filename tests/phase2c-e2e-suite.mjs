@@ -7,6 +7,11 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
+const adminModulePaths = [process.cwd() + "/functions", process.cwd()];
+const adminAppSdk = require(require.resolve("firebase-admin/app", { paths: adminModulePaths }));
+const adminAuthSdk = require(require.resolve("firebase-admin/auth", { paths: adminModulePaths }));
+const adminFirestoreSdk = require(require.resolve("firebase-admin/firestore", { paths: adminModulePaths }));
+const adminStorageSdk = require(require.resolve("firebase-admin/storage", { paths: adminModulePaths }));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "demo-swiftgo-phase1";
 
@@ -25,23 +30,25 @@ function record(name, expected, actual, status) {
 const admin = require(require.resolve("firebase-admin", { paths: [path.join(ROOT, "functions"), ROOT] }));
 let app;
 try {
-  app = admin.app();
+  app = adminAppSdk.getApp();
 } catch {
-  app = admin.initializeApp({ projectId: PROJECT });
+  app = adminAppSdk.initializeApp({ projectId: PROJECT });
 }
-const db = admin.firestore(app);
+const db = adminFirestoreSdk.getFirestore(app);
 
 const { validateCandidateDriverLimit, selectCandidatesProgressive } = require(
   path.join(ROOT, "functions", "matching.js")
 );
 const {
-  createCustomerBooking,
+  createCustomerBooking: createCustomerBookingTrusted,
   matchRideCandidates,
   submitRideOffer,
   counterRideOffer,
   finalizeAssignmentFromOffer,
   evaluateCustomerBookingGate,
 } = require(path.join(ROOT, "functions", "bargaining.js"));
+const { quoteCustomerBooking } = require(path.join(ROOT, "functions", "booking-pricing.js"));
+const { createFleetVehicle } = require(path.join(ROOT, "functions", "fleet-security.js"));
 const { settleRide } = require(path.join(ROOT, "functions", "settlement.js"));
 const { linkVehicleByPin } = require(path.join(ROOT, "functions", "pin-link.js"));
 const { hashVehiclePin } = require(path.join(ROOT, "functions", "pin-security.js"));
@@ -70,6 +77,23 @@ function ridePayload(fare = 200) {
     farePkr: fare,
     estimatedFare: fare,
   };
+}
+
+async function createCustomerBooking(database, options) {
+  if (options.ridePayload?.quoteId) {
+    return createCustomerBookingTrusted(database, options);
+  }
+  const input = options.ridePayload || {};
+  const quote = await quoteCustomerBooking(database, options.customerUid, input, {
+    routeProvider: async () => ({
+      distanceKm: Number(input.distanceKm || 1),
+      timeMins: Number(input.timeMins || 1),
+    }),
+  });
+  return createCustomerBookingTrusted(database, {
+    ...options,
+    ridePayload: { quoteId: quote.quoteId, acceptedFare: quote.farePkr },
+  });
 }
 
 async function main() {
@@ -111,7 +135,7 @@ async function main() {
     validateCandidateDriverLimit(20);
     let bad = false;
     try {
-      validateCandidateDriverLimit(15);
+      validateCandidateDriverLimit(101);
     } catch {
       bad = true;
     }
@@ -137,7 +161,7 @@ async function main() {
   let adminClaimStatus = "FAIL";
   let adminClaimDetail = {};
   try {
-    const auth = admin.auth();
+    const auth = adminAuthSdk.getAuth();
     const bootUser = await auth.createUser({
       uid: "e2e-boot-admin",
       email: BOOTSTRAP_ADMIN_EMAIL,
@@ -157,7 +181,7 @@ async function main() {
       password: "Phase2C-test-only!",
     });
 
-    const claimOk = await isAdminAuth(db, { uid: "a1", token: { admin: true } });
+    const forgedClaimDenied = !(await isAdminAuth(db, { uid: "a1", token: { admin: true } }));
     const ordinaryDenied = !(await isAdminAuth(db, {
       uid: ordinary.uid,
       token: { email: ordinary.email, email_verified: true },
@@ -174,28 +198,41 @@ async function main() {
       ordinaryCannotGrant = e.message === "ADMIN_ONLY" || e.code === "permission-denied";
     }
 
+    process.env.ADMIN_BOOTSTRAP_UID = bootUser.uid;
+    await db.doc("settings/security").set({
+      adminBootstrapEnabled: true,
+      adminBootstrapExpiresAt: adminFirestoreSdk.Timestamp.fromMillis(Date.now() + 15 * 60_000),
+    });
     const boot = await bootstrapAdminClaim(db, {
       uid: bootUser.uid,
       token: { email: BOOTSTRAP_ADMIN_EMAIL, email_verified: true },
     });
     const bootClaims = (await auth.getUser(bootUser.uid)).customClaims || {};
     const adminClaimSet = boot.admin === true && bootClaims.admin === true;
+    const bootAuth = {
+      uid: bootUser.uid,
+      token: {
+        admin: true,
+        adminRole: "super_admin",
+        adminVersion: boot.adminVersion,
+      },
+    };
 
     await grantAdminClaim(
       db,
-      { uid: bootUser.uid, token: { admin: true } },
+      bootAuth,
       target.uid
     );
     const grantedClaims = (await auth.getUser(target.uid)).customClaims || {};
     await revokeAdminClaim(
       db,
-      { uid: bootUser.uid, token: { admin: true } },
+      bootAuth,
       target.uid
     );
     const revokedClaims = (await auth.getUser(target.uid)).customClaims || {};
     const revokeOk = grantedClaims.admin === true && revokedClaims.admin === false;
 
-    await setAdminEmailBootstrap(db, { uid: bootUser.uid, token: { admin: true } }, false);
+    await setAdminEmailBootstrap(db, bootAuth, false);
     const bootstrapOff = (await isEmailBootstrapEnabled(db)) === false;
     const emailDeniedWhenOff = !(await isAdminAuth(db, {
       uid: "boot-check",
@@ -208,12 +245,12 @@ async function main() {
         token: { email: BOOTSTRAP_ADMIN_EMAIL, email_verified: true },
       });
     } catch (e) {
-      bootstrapCallDenied = e.message === "BOOTSTRAP_DISABLED" || e.code === "failed-precondition";
+      bootstrapCallDenied = ["permission-denied", "failed-precondition"].includes(e.code);
     }
-    await setAdminEmailBootstrap(db, { uid: bootUser.uid, token: { admin: true } }, true);
+    await setAdminEmailBootstrap(db, bootAuth, true);
 
     adminClaimDetail = {
-      claimOk,
+      forgedClaimDenied,
       ordinaryDenied,
       ordinaryCannotGrant,
       adminClaimSet,
@@ -223,7 +260,7 @@ async function main() {
       bootstrapCallDenied,
     };
     adminClaimStatus =
-      claimOk &&
+      forgedClaimDenied &&
       ordinaryDenied &&
       ordinaryCannotGrant &&
       adminClaimSet &&
@@ -283,6 +320,7 @@ async function main() {
   await db.doc("partners/e2e-d1").set({
     role: "driver",
     accountStatus: "active",
+    driverApprovalStatus: "approved",
     walletBalance: 0,
     totalEarnings: 0,
     totalRidesCompleted: 0,
@@ -290,22 +328,25 @@ async function main() {
   await db.doc("partners/e2e-d2").set({
     role: "driver",
     accountStatus: "active",
+    driverApprovalStatus: "approved",
     walletBalance: 0,
   });
   await db.doc("partners/e2e-blocked").set({
     role: "driver",
     accountStatus: "blocked",
   });
-  await db.doc("vehicles/e2e-v1").set({
-    ownerId: "e2e-own",
-    plate: "E2E1",
-    pinHash: hashVehiclePin("7777"),
-    status: "offline",
-  });
+  await db.doc("partners/e2e-own").set({ role: "owner", accountStatus: "active" });
+  const vehicleCode = "777777777777";
+  const fleetVehicle = await createFleetVehicle(
+    db,
+    "e2e-own",
+    { model: "E2E Car", plate: "E2E1" },
+    { codeFactory: () => vehicleCode }
+  );
 
   const pinLink = await linkVehicleByPin(db, {
     driverUid: "e2e-d1",
-    pin: "7777",
+    pin: vehicleCode,
     driverName: "E2E Driver",
   });
   record(
@@ -348,7 +389,7 @@ async function main() {
     rideId: b1.id,
     driverUid: "e2e-d1",
     fare: 320,
-    vehicleId: "e2e-v1",
+    vehicleId: fleetVehicle.vehicleId,
     ownerId: "e2e-own",
     driverName: "E2E Driver",
     vehiclePlate: "E2E1",
@@ -391,7 +432,7 @@ async function main() {
       rideId: b2.id,
       driverUid: "e2e-d1",
       fare: 260,
-      vehicleId: "e2e-v1",
+      vehicleId: fleetVehicle.vehicleId,
       ownerId: "e2e-own",
       driverName: "E2E Driver",
       vehiclePlate: "E2E1",
@@ -491,7 +532,7 @@ async function main() {
     vehicleType: "go",
     distanceKm: 1,
     timeMins: 5,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: adminFirestoreSdk.Timestamp.now(),
   });
   try {
     await settleRide(db, { rideId: "e2e-wrong", callerUid: "e2e-d1" });
