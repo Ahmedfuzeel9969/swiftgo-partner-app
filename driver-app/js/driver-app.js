@@ -3435,9 +3435,18 @@ function buildOnlineReadyVehiclePayload(lat, lng) {
     { lat, lng, observedAt: Date.now(), source: "gps" },
     { sessionId: locationTrackingSessionId, sequence: nextLocationSequence(), nowMs: Date.now() }
   );
+  // Rules require location.sessionId === trackingSessionId. Never fall back to
+  // {lat,lng} only — that permission-denied's the ONLINE_READY write.
   const location = envelope.ok
     ? toVehicleLocationField(envelope.envelope)
-    : { lat, lng };
+    : {
+        lat,
+        lng,
+        observedAt: Date.now(),
+        sequence: 1,
+        sessionId: locationTrackingSessionId,
+        source: "gps",
+      };
   const payload = {
     driverId: currentDriver.uid,
     status: activeExecutionRide?.id ? "in_ride" : "online",

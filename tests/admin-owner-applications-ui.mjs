@@ -95,6 +95,13 @@ function main() {
       adminJs.includes('from "./admin-owner-applications-client.js'),
     "super admin uses trusted callables"
   );
+  const settingsJs = read("super-admin-panel/js/admin-settings-client.js");
+  record(
+    "callAdmin-exported-for-owner-applications",
+    /export\s+async\s+function\s+callAdmin\s*\(/.test(settingsJs) &&
+      clientJs.includes('import { callAdmin } from "./admin-settings-client.js'),
+    "admin-owner-applications-client must receive an exported callAdmin or the panel never boots"
+  );
   record(
     "ui-view-switch-loads-on-demand",
     adminJs.includes('if (key === "owner-applications")') &&

@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-20T14:09:30.036Z",
-  "pass": 11,
+  "generatedAt": "2026-09-15T19:43:18.136Z",
+  "pass": 12,
   "fail": 0,
   "results": [
     {
@@ -52,6 +52,11 @@
       "name": "ui-callable-clients-wired",
       "status": "PASS",
       "detail": "super admin uses trusted callables"
+    },
+    {
+      "name": "callAdmin-exported-for-owner-applications",
+      "status": "PASS",
+      "detail": "admin-owner-applications-client must receive an exported callAdmin or the panel never boots"
     },
     {
       "name": "ui-view-switch-loads-on-demand",

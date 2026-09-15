@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-09-15T19:22:17.202Z",
+  "generatedAt": "2026-09-15T19:43:28.302Z",
   "mode": "dist",
   "target": "F:\\ride-app\\hosting-dist",
-  "pass": 40,
+  "pass": 55,
   "fail": 0,
   "results": [
     {
@@ -174,6 +174,81 @@
       "name": "driver-p2p:p2p-comm-panel.mjs",
       "status": "PASS",
       "detail": "partner/js/p2p-comm-panel.mjs"
+    },
+    {
+      "name": "owner-html-loads",
+      "status": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\owner\\index.html"
+    },
+    {
+      "name": "owner-home-marker:js/owner-app.js",
+      "status": "PASS",
+      "detail": "owner/index.html"
+    },
+    {
+      "name": "owner-entry-script",
+      "status": "PASS",
+      "detail": "js/owner-app.js"
+    },
+    {
+      "name": "owner-entry-is-js",
+      "status": "PASS",
+      "detail": "owner/js/owner-app.js ct=text/javascript"
+    },
+    {
+      "name": "owner-import-graph-complete",
+      "status": "PASS",
+      "detail": "scanned=14"
+    },
+    {
+      "name": "owner-export-bindings-resolve",
+      "status": "PASS",
+      "detail": "modules=14"
+    },
+    {
+      "name": "owner-firebase-init-module",
+      "status": "PASS",
+      "detail": "owner/js/firebase.js"
+    },
+    {
+      "name": "admin-html-loads",
+      "status": "PASS",
+      "detail": "F:\\ride-app\\hosting-dist\\admin\\index.html"
+    },
+    {
+      "name": "admin-home-marker:id=\"adminLoginScreen\"",
+      "status": "PASS",
+      "detail": "admin/index.html"
+    },
+    {
+      "name": "admin-home-marker:admin-app.js",
+      "status": "PASS",
+      "detail": "admin/index.html"
+    },
+    {
+      "name": "admin-entry-script",
+      "status": "PASS",
+      "detail": "/admin/js/admin-app.js"
+    },
+    {
+      "name": "admin-entry-is-js",
+      "status": "PASS",
+      "detail": "admin/js/admin-app.js ct=text/javascript"
+    },
+    {
+      "name": "admin-import-graph-complete",
+      "status": "PASS",
+      "detail": "scanned=14"
+    },
+    {
+      "name": "admin-export-bindings-resolve",
+      "status": "PASS",
+      "detail": "modules=13"
+    },
+    {
+      "name": "admin-firebase-init-module",
+      "status": "PASS",
+      "detail": "admin/js/firebase.js"
     },
     {
       "name": "phase1-packaged:js/phase1-billing-diagnostics.mjs",

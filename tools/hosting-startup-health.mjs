@@ -325,18 +325,23 @@ async function checkApp({ name, htmlRel, homeMarkers, firebaseRel, p2pRels }) {
   }
 
   const scripts = extractScriptSrcs(html.text);
-  const localEntry = scripts.find((s) => s.includes("app.js") || s.includes("driver-app.js"));
+  const localEntry = scripts.find(
+    (s) =>
+      s.includes("admin-app.js") ||
+      s.includes("owner-app.js") ||
+      s.includes("driver-app.js") ||
+      /(?:^|\/)app\.js$/.test(s.replace(/\?.*$/, ""))
+  );
   record(`${name}-entry-script`, Boolean(localEntry), localEntry || "none");
   if (!localEntry) return;
 
-  const entryRel = path.posix.normalize(
-    path.posix.join(path.posix.dirname(htmlRel), localEntry)
-  ).replace(/^\.\//, "");
-  // html at "" (root) dirname is "." → join("./js/app.js")
+  const src = String(localEntry).replace(/^\.\//, "").replace(/^\//, "");
   const entry =
     htmlRel === "index.html" || htmlRel === ""
-      ? localEntry.replace(/^\.\//, "")
-      : path.posix.join(path.posix.dirname(htmlRel), localEntry).replace(/\\/g, "/");
+      ? src
+      : src.startsWith(path.posix.dirname(htmlRel) + "/") || src.startsWith("admin/") || src.startsWith("owner/") || src.startsWith("partner/") || src.startsWith("customer/")
+        ? src
+        : path.posix.join(path.posix.dirname(htmlRel), src).replace(/\\/g, "/");
 
   const entryFile = await readTarget(entry);
   record(
@@ -412,6 +417,20 @@ async function main() {
       "partner/js/p2p-peer-session.mjs",
       "partner/js/p2p-comm-panel.mjs",
     ],
+  });
+
+  await checkApp({
+    name: "owner",
+    htmlRel: "owner/index.html",
+    homeMarkers: ["js/owner-app.js"],
+    firebaseRel: "owner/js/firebase.js",
+  });
+
+  await checkApp({
+    name: "admin",
+    htmlRel: "admin/index.html",
+    homeMarkers: ['id="adminLoginScreen"', "admin-app.js"],
+    firebaseRel: "admin/js/firebase.js",
   });
 
   // Guard: phase1 must be hosting-packaged, not the app-local wrapper that 404s on ../../driver-app/*

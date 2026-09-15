@@ -755,6 +755,22 @@ function staticContractTests() {
   );
 
   record(
+    "S05b-online-ready-location-always-has-sessionId",
+    (() => {
+      const start = driverApp.indexOf("function buildOnlineReadyVehiclePayload");
+      const end = driverApp.indexOf("async function writeOnlineReadyVehicle", start);
+      const block = driverApp.slice(start, end);
+      return (
+        block.includes("sessionId: locationTrackingSessionId") &&
+        !block.includes(": { lat, lng }")
+      );
+    })()
+      ? "PASS"
+      : "FAIL",
+    "envelope fallback must still stamp location.sessionId for Firestore rules"
+  );
+
+  record(
     "S06-radar-gated-on-isOnlineReady",
     driverApp.includes("isOnlineReady()") &&
       driverApp.match(/function startRadarBackgroundFeed[\s\S]{0,120}isOnlineReady/)
