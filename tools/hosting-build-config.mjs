@@ -32,3 +32,21 @@ export const HOSTING_DIST_JS_TARGETS = [
   "admin/js",
   "shared/js",
 ];
+
+/** phase1 must be rewritten for hosting — never ship app-local wrappers. */
+export const PHASE1_HOSTING_TARGETS = [
+  "js/phase1-billing-diagnostics.mjs",
+  "customer/js/phase1-billing-diagnostics.mjs",
+  "partner/js/phase1-billing-diagnostics.mjs",
+  "shared/js/phase1-billing-diagnostics.mjs",
+];
+
+/** @param {string} text */
+export function isPackagedPhase1Diagnostics(text) {
+  return (
+    String(text || "").length > 1000 &&
+    text.includes("./location-checkpoint-policy.mjs") &&
+    !text.includes('export * from "../../shared/js/phase1-billing-diagnostics.mjs"') &&
+    !text.includes("../../driver-app/js/location-checkpoint-policy.mjs")
+  );
+}

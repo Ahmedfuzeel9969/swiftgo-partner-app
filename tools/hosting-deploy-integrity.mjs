@@ -19,6 +19,10 @@ import {
   analyzeHostingRouting,
   loadHostingConfig,
 } from "./hosting-routing-config.mjs";
+import {
+  PHASE1_HOSTING_TARGETS,
+  isPackagedPhase1Diagnostics,
+} from "./hosting-build-config.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -124,6 +128,30 @@ function writeBuildLock(sha) {
   console.log(`[hosting-deploy-integrity] recorded HEAD ${sha}`);
 }
 
+function assertPhase1PackagedInDist() {
+  const missing = [];
+  const broken = [];
+  for (const rel of PHASE1_HOSTING_TARGETS) {
+    const abs = path.join(ROOT, "hosting-dist", ...rel.split("/"));
+    if (!fs.existsSync(abs)) {
+      missing.push(rel);
+      continue;
+    }
+    const text = fs.readFileSync(abs, "utf8");
+    if (!isPackagedPhase1Diagnostics(text)) {
+      broken.push(`${rel} (len=${text.length})`);
+    }
+  }
+  if (missing.length || broken.length) {
+    fail(
+      "Hosting dist still contains broken phase1-billing-diagnostics wrappers.\n" +
+        `  missing: ${missing.join(", ") || "none"}\n` +
+        `  broken: ${broken.join(", ") || "none"}\n` +
+        "Driver/customer ES module graphs will fail on production."
+    );
+  }
+}
+
 function verifyBuildStamp() {
   const headSha = readHeadSha();
   if (!fs.existsSync(STAMP_PATH)) {
@@ -168,6 +196,7 @@ function main() {
 
   if (VERIFY_BUILD) {
     verifyBuildStamp();
+    assertPhase1PackagedInDist();
     console.log("[hosting-deploy-integrity] post-build verification PASS");
     return;
   }

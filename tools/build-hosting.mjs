@@ -18,6 +18,8 @@ import { spawnSync, execSync } from "node:child_process";
 import {
   HOSTING_DIST_JS_TARGETS,
   SHARED_JS_MODULES,
+  PHASE1_HOSTING_TARGETS,
+  isPackagedPhase1Diagnostics,
 } from "./hosting-build-config.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -160,6 +162,15 @@ function main() {
   // Step 4 — hosting-safe phase1 diagnostics (driver/customer boot depends on this).
   for (const rel of PHASE1_HOSTING_JS_TARGETS) {
     packagePhase1DiagnosticsForHosting(path.join(DIST, ...rel.split("/")));
+  }
+  for (const rel of PHASE1_HOSTING_TARGETS) {
+    const abs = path.join(DIST, ...rel.split("/"));
+    const text = fs.readFileSync(abs, "utf8");
+    if (!isPackagedPhase1Diagnostics(text)) {
+      throw new Error(
+        `Hosting build left broken phase1 wrapper at ${rel} — driver/customer apps will not boot`
+      );
+    }
   }
 
   console.info("[build-hosting] packaged apps into hosting-dist/");

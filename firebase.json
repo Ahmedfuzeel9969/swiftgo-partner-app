@@ -19,6 +19,11 @@
         "type": 301
       },
       {
+        "source": "/driver-app/",
+        "destination": "/partner/",
+        "type": 301
+      },
+      {
         "source": "/driver-app/**",
         "destination": "/partner/",
         "type": 301
@@ -35,6 +40,11 @@
       },
       {
         "source": "/owner-app",
+        "destination": "/owner/",
+        "type": 301
+      },
+      {
+        "source": "/owner-app/",
         "destination": "/owner/",
         "type": 301
       },

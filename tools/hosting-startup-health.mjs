@@ -19,6 +19,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  PHASE1_HOSTING_TARGETS,
+  isPackagedPhase1Diagnostics,
+} from "./hosting-build-config.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -410,15 +414,26 @@ async function main() {
     ],
   });
 
+  // Guard: phase1 must be hosting-packaged, not the app-local wrapper that 404s on ../../driver-app/*
+  for (const rel of PHASE1_HOSTING_TARGETS) {
+    const f = await readTarget(rel);
+    if (!f.ok) {
+      record(`phase1-packaged:${rel}`, false, "missing");
+      continue;
+    }
+    record(
+      `phase1-packaged:${rel}`,
+      isPackagedPhase1Diagnostics(f.text),
+      `len=${f.text.length}`
+    );
+  }
+
   // Guard: known hybrid footguns must not be HTML when referenced by live graphs
   for (const rel of [
-    "partner/js/phase1-billing-diagnostics.mjs",
     "partner/js/route-provider-bootstrap.mjs",
     "partner/js/p2p-comm-session.mjs",
-    "js/phase1-billing-diagnostics.mjs",
   ]) {
     const f = await readTarget(rel);
-    // Optional if entry graph does not import them — only fail when present as HTML
     if (!f.ok) {
       record(`asset-optional:${rel}`, true, "absent (ok if unused)");
       continue;
