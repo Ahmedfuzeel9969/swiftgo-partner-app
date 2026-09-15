@@ -1004,7 +1004,11 @@ async function signInDriverWithGoogle() {
   try {
     await signInWithPopup(auth, googleProvider);
   } catch (error) {
-    if (error?.code === "auth/popup-blocked") {
+    if (
+      error?.code === "auth/popup-blocked" ||
+      error?.code === "auth/cancelled-popup-request" ||
+      error?.code === "auth/operation-not-supported-in-this-environment"
+    ) {
       await signInWithRedirect(auth, googleProvider);
       return;
     }
@@ -2208,6 +2212,7 @@ function boot() {
       isFirebaseConfigured() && firebase.ready
     }`
   );
+  window.dispatchEvent(new CustomEvent("swiftgo:app-ready", { detail: { surface: "owner" } }));
 }
 
 boot();

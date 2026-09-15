@@ -422,7 +422,7 @@ async function main() {
   await checkApp({
     name: "driver",
     htmlRel: "partner/index.html",
-    homeMarkers: ['id="driverHomeRoot"', "js/driver-app.js"],
+    homeMarkers: ['id="driverHomeRoot"', "js/driver-app.js", "protected-app-startup-guard.js"],
     firebaseRel: "partner/js/firebase.js",
     p2pRels: [
       "partner/js/p2p-ride-controller.mjs",
@@ -434,7 +434,7 @@ async function main() {
   await checkApp({
     name: "admin",
     htmlRel: "admin/index.html",
-    homeMarkers: ['id="adminGoogleLoginBtn"', "admin-app.js"],
+    homeMarkers: ['id="adminGoogleLoginBtn"', "admin-app.js", "protected-app-startup-guard.js"],
     firebaseRel: "admin/js/firebase.js",
     p2pRels: [],
   });
@@ -442,10 +442,19 @@ async function main() {
   await checkApp({
     name: "owner",
     htmlRel: "owner/index.html",
-    homeMarkers: ['id="ownerDashboard"', 'id="driverGoogleLoginBtn"'],
+    homeMarkers: ['id="ownerDashboard"', 'id="driverGoogleLoginBtn"', "protected-app-startup-guard.js"],
     firebaseRel: "owner/js/firebase.js",
     p2pRels: [],
   });
+
+  const startupGuard = await readTarget("shared/js/protected-app-startup-guard.js");
+  record(
+    "protected-startup-guard-loads",
+    startupGuard.ok && !isHtmlContent(startupGuard.text) && looksLikeJs(startupGuard.text),
+    startupGuard.ok
+      ? `ct=${startupGuard.contentType} len=${startupGuard.text.length}`
+      : `status=${startupGuard.status}`
+  );
 
   // Guard: known hybrid footguns must not be HTML when referenced by live graphs
   for (const rel of [

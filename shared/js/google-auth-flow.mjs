@@ -1,6 +1,34 @@
 export const CANONICAL_AUTH_HOST = "swiftgo-ride-app.firebaseapp.com";
 export const AUTH_START_PARAM = "swiftgoGoogleAuth";
 
+const POPUP_FALLBACK_CODES = new Set([
+  "auth/popup-blocked",
+  "auth/cancelled-popup-request",
+  "auth/operation-not-supported-in-this-environment",
+]);
+
+export function shouldFallBackToRedirect(error) {
+  return POPUP_FALLBACK_CODES.has(String(error?.code || ""));
+}
+
+async function signInOnCanonicalHost({
+  auth,
+  provider,
+  signInWithPopup,
+  signInWithRedirect,
+}) {
+  if (typeof signInWithPopup === "function") {
+    try {
+      await signInWithPopup(auth, provider);
+      return "popup";
+    } catch (error) {
+      if (!shouldFallBackToRedirect(error)) throw error;
+    }
+  }
+  await signInWithRedirect(auth, provider);
+  return "redirecting";
+}
+
 export function buildCanonicalAuthUrl(currentHref) {
   const url = new URL(currentHref);
   url.protocol = "https:";
@@ -23,6 +51,7 @@ export function consumeCanonicalAuthStart(locationLike, historyLike) {
 export async function beginCanonicalGoogleSignIn({
   auth,
   provider,
+  signInWithPopup,
   signInWithRedirect,
   locationLike = window.location,
 }) {
@@ -30,18 +59,18 @@ export async function beginCanonicalGoogleSignIn({
     locationLike.assign(buildCanonicalAuthUrl(locationLike.href));
     return "navigating";
   }
-  await signInWithRedirect(auth, provider);
-  return "redirecting";
+  return signInOnCanonicalHost({ auth, provider, signInWithPopup, signInWithRedirect });
 }
 
 export async function resumeCanonicalGoogleSignIn({
   auth,
   provider,
+  signInWithPopup,
   signInWithRedirect,
   locationLike = window.location,
   historyLike = window.history,
 }) {
   if (!consumeCanonicalAuthStart(locationLike, historyLike)) return false;
-  await signInWithRedirect(auth, provider);
+  await signInOnCanonicalHost({ auth, provider, signInWithPopup, signInWithRedirect });
   return true;
 }

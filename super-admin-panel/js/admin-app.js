@@ -38,6 +38,7 @@ import {
   GoogleAuthProvider,
   getRedirectResult,
   onAuthStateChanged,
+  signInWithPopup,
   signInWithRedirect,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
@@ -490,6 +491,7 @@ async function signInWithGoogle() {
     await beginCanonicalGoogleSignIn({
       auth,
       provider: googleProvider,
+      signInWithPopup,
       signInWithRedirect,
     });
   } catch (error) {
@@ -3147,6 +3149,7 @@ function boot() {
   resumeCanonicalGoogleSignIn({
     auth: firebase.auth,
     provider: googleProvider,
+    signInWithPopup,
     signInWithRedirect,
   })
     .then((resumed) => {
@@ -3204,6 +3207,7 @@ function boot() {
       isFirebaseConfigured() && firebase.ready
     }`
   );
+  window.dispatchEvent(new CustomEvent("swiftgo:app-ready", { detail: { surface: "admin" } }));
 }
 
 boot();

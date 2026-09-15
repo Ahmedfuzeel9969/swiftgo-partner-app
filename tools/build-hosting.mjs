@@ -151,8 +151,11 @@ function main() {
   console.info("  shared/js      <- canonical road modules (also inlined into app js/)");
 
   const headSha = sourceBefore.headSha;
+  stampModuleEntrypoint("index.html", "js/app.js", headSha);
+  stampModuleEntrypoint("customer/index.html", "js/app.js", headSha);
   stampModuleEntrypoint("partner/index.html", "js/driver-app.js", headSha);
   stampModuleEntrypoint("admin/index.html", "/admin/js/admin-app.js", headSha);
+  stampModuleEntrypoint("owner/index.html", "js/owner-app.js", headSha);
   const stamp = writeHostingStamp(ROOT, sourceBefore, { isolatedTest: ISOLATED_TEST });
   console.info(`[build-hosting] source stamp HEAD ${headSha}`);
   console.info(`[build-hosting] source ${stamp.sourceSha256}; artifact ${stamp.artifactSha256}; dirty=${stamp.sourceDirty}`);

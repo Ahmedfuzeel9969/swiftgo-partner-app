@@ -1,4 +1,3 @@
-/** SwiftGo Driver app — map, rides, wallet, PIN linking. No owner/driver mode switching. */
 import { createStreetTileLayer } from "../../shared/js/map-tile-provider.mjs";
 
 import { firebaseConfig } from "./firebase-config.js";
@@ -10,6 +9,7 @@ import {
   GoogleAuthProvider,
   getRedirectResult,
   onAuthStateChanged,
+  signInWithPopup,
   signInWithRedirect,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
@@ -2095,6 +2095,7 @@ async function signInDriverWithGoogle() {
     await beginCanonicalGoogleSignIn({
       auth,
       provider: googleProvider,
+      signInWithPopup,
       signInWithRedirect,
     });
   } catch (error) {
@@ -5022,6 +5023,7 @@ function boot() {
     resumeCanonicalGoogleSignIn({
       auth: firebase.auth,
       provider: googleProvider,
+      signInWithPopup,
       signInWithRedirect,
     })
       .then((resumed) => {
@@ -5075,6 +5077,7 @@ function boot() {
       isFirebaseConfigured() && firebase.ready
     }`
   );
+  window.dispatchEvent(new CustomEvent("swiftgo:app-ready", { detail: { surface: "driver" } }));
   } catch (error) {
     console.error("[SwiftGo Driver] boot failed", error);
     showAuthOverlay("ایپ شروع نہیں ہو سکی — صفحہ ریفریش کریں");
