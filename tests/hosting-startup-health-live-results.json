@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-09-07T11:19:52.879Z",
+  "generatedAt": "2026-09-15T18:55:22.001Z",
   "mode": "live",
   "target": "https://swiftgo-ride-app.web.app",
-  "pass": 53,
+  "pass": 57,
   "fail": 0,
   "inventoryScope": "Sampled public startup assets only; not the entire deployed release or backend",
-  "sampledAssetsSha256": "5bca931db8eecb6a3063d29b8ff635f3294ce8489f31a3ef1835dccb3c6e542c",
+  "sampledAssetsSha256": "9e22a6c41441d47f2d85e04201802533f60d7b2a2df4b407f4a5e951c96d4811",
   "assetInventory": [
     {
       "path": "admin/index.html",
-      "bytes": 57723,
-      "sha256": "be894c4dc6621e58b712ce8a9a8abb66122c5f08ce049a6021a1d1f2aa8feb41",
+      "bytes": 57824,
+      "sha256": "82f5067e40f3af6ea32b19502aab3a02167a6081d50c10f5ba1740d281983211",
       "status": 200,
       "contentType": "text/html; charset=utf-8"
     },
@@ -23,8 +23,8 @@
     },
     {
       "path": "admin/js/admin-app.js",
-      "bytes": 121721,
-      "sha256": "7677ae9c32bcb8345813998d7f381294b5d88c80e33d268b21f47033d0e3ce78",
+      "bytes": 121863,
+      "sha256": "a5be84f6bb536c0405157acd08aacd12474f7ef5dbee880402aaab4ee9c5318a",
       "status": 200,
       "contentType": "text/javascript; charset=utf-8"
     },
@@ -135,8 +135,8 @@
     },
     {
       "path": "customer/index.html",
-      "bytes": 79421,
-      "sha256": "7b233bd36f3d910adfa57d485374a5aff998f891880b9f53ea338199d9e3f8b3",
+      "bytes": 79409,
+      "sha256": "e972f5b77c6ee41636ca96f6b0c89d33eea0a5ba0f6ce7ca2b96fd3749094bfa",
       "status": 200,
       "contentType": "text/html; charset=utf-8"
     },
@@ -674,8 +674,8 @@
     },
     {
       "path": "index.html",
-      "bytes": 79421,
-      "sha256": "7b233bd36f3d910adfa57d485374a5aff998f891880b9f53ea338199d9e3f8b3",
+      "bytes": 79409,
+      "sha256": "e972f5b77c6ee41636ca96f6b0c89d33eea0a5ba0f6ce7ca2b96fd3749094bfa",
       "status": 200,
       "contentType": "text/html; charset=utf-8"
     },
@@ -1185,8 +1185,8 @@
     },
     {
       "path": "owner/index.html",
-      "bytes": 13058,
-      "sha256": "3836fc1f300f4294eda00c74183b30536c98cf64d53ef2235807f5eb915ef0bf",
+      "bytes": 13143,
+      "sha256": "9dc7ce8904581c06b5ac0bcf229036401692b9565b7802415287f0eb45a6c8d6",
       "status": 200,
       "contentType": "text/html; charset=utf-8"
     },
@@ -1234,8 +1234,8 @@
     },
     {
       "path": "owner/js/owner-app.js",
-      "bytes": 77697,
-      "sha256": "a0eeee9f27a0a40783b26b600e1367e17552598c6e67f0b11cf24938026164ad",
+      "bytes": 77930,
+      "sha256": "9f0b72ee9fd14d53ba4b757b0ca66e3c35fd2ad026705f1659c77f43dca2ce90",
       "status": 200,
       "contentType": "text/javascript; charset=utf-8"
     },
@@ -1297,8 +1297,8 @@
     },
     {
       "path": "partner/index.html",
-      "bytes": 31574,
-      "sha256": "602c6e8c7878a1c93195614c88264d7cbc1b8548c435cdf78227982430e19533",
+      "bytes": 31671,
+      "sha256": "7a664c305e414245c816606b5c7fe955df50ca4271efe45c03f87e3e8a08df82",
       "status": 200,
       "contentType": "text/html; charset=utf-8"
     },
@@ -1451,8 +1451,8 @@
     },
     {
       "path": "partner/js/driver-app.js",
-      "bytes": 176131,
-      "sha256": "27bf03ec1f7ce9a89863b93c276edcec6da0d459f005b7813acdb43ebb1bd9f2",
+      "bytes": 176198,
+      "sha256": "37ca93540edf33349d323c849b0bbf546b4b0dd603145818615c81e929d30977",
       "status": 200,
       "contentType": "text/javascript; charset=utf-8"
     },
@@ -2080,6 +2080,13 @@
       "contentType": "text/javascript; charset=utf-8"
     },
     {
+      "path": "shared/js/protected-app-startup-guard.js",
+      "bytes": 3096,
+      "sha256": "bb4ee51b3b9bd46f204086f3867385dfd3d3e69394c9c3136c3c17855e1d68ce",
+      "status": 200,
+      "contentType": "text/javascript; charset=utf-8"
+    },
+    {
       "path": "shared/js/ride-location-contract.mjs",
       "bytes": 4261,
       "sha256": "f8652fc432283408a7499f06bb2aef8368eeeea8bc62e0a32fadc7bbad7804c4",
@@ -2249,6 +2256,11 @@
       "detail": "partner/index.html"
     },
     {
+      "name": "driver-home-marker:protected-app-startup-guard.js",
+      "status": "PASS",
+      "detail": "partner/index.html"
+    },
+    {
       "name": "driver-entry-script",
       "status": "PASS",
       "detail": "js/driver-app.js"
@@ -2304,6 +2316,11 @@
       "detail": "admin/index.html"
     },
     {
+      "name": "admin-home-marker:protected-app-startup-guard.js",
+      "status": "PASS",
+      "detail": "admin/index.html"
+    },
+    {
       "name": "admin-entry-script",
       "status": "PASS",
       "detail": "/admin/js/admin-app.js"
@@ -2344,6 +2361,11 @@
       "detail": "owner/index.html"
     },
     {
+      "name": "owner-home-marker:protected-app-startup-guard.js",
+      "status": "PASS",
+      "detail": "owner/index.html"
+    },
+    {
       "name": "owner-entry-script",
       "status": "PASS",
       "detail": "js/owner-app.js"
@@ -2367,6 +2389,11 @@
       "name": "owner-firebase-init-module",
       "status": "PASS",
       "detail": "owner/js/firebase.js"
+    },
+    {
+      "name": "protected-startup-guard-loads",
+      "status": "PASS",
+      "detail": "ct=text/javascript; charset=utf-8 len=2949"
     },
     {
       "name": "asset-not-html:partner/js/phase1-billing-diagnostics.mjs",

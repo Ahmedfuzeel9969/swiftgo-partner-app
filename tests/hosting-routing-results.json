@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-20T14:14:36.887Z",
-  "liveBase": null,
-  "pass": 17,
+  "generatedAt": "2026-09-15T18:55:26.570Z",
+  "liveBase": "https://swiftgo-ride-app.firebaseapp.com",
+  "pass": 35,
   "fail": 0,
   "results": [
     {
@@ -85,9 +85,99 @@
       "detail": "no redirect loop"
     },
     {
-      "name": "live-probes",
+      "name": "live:/",
       "status": "PASS",
-      "detail": "skipped (pass --live URL or npm run test:hosting-routing:emulator)"
+      "detail": "200"
+    },
+    {
+      "name": "live-no-self-redirect:/",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/partner",
+      "status": "PASS",
+      "detail": "1 redirect(s) → 200"
+    },
+    {
+      "name": "live-no-self-redirect:/partner",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/partner/",
+      "status": "PASS",
+      "detail": "200"
+    },
+    {
+      "name": "live-no-self-redirect:/partner/",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/owner",
+      "status": "PASS",
+      "detail": "1 redirect(s) → 200"
+    },
+    {
+      "name": "live-no-self-redirect:/owner",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/owner/",
+      "status": "PASS",
+      "detail": "200"
+    },
+    {
+      "name": "live-no-self-redirect:/owner/",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/admin",
+      "status": "PASS",
+      "detail": "1 redirect(s) → 200"
+    },
+    {
+      "name": "live-no-self-redirect:/admin",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/admin/",
+      "status": "PASS",
+      "detail": "200"
+    },
+    {
+      "name": "live-no-self-redirect:/admin/",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/customer",
+      "status": "PASS",
+      "detail": "1 redirect(s) → 200"
+    },
+    {
+      "name": "live-no-self-redirect:/customer",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live:/customer/",
+      "status": "PASS",
+      "detail": "200"
+    },
+    {
+      "name": "live-no-self-redirect:/customer/",
+      "status": "PASS",
+      "detail": "no self-redirect"
+    },
+    {
+      "name": "live-customer-root-available",
+      "status": "PASS",
+      "detail": "status=200"
     }
   ]
 }
