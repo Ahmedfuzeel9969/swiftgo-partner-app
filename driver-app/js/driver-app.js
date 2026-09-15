@@ -3425,6 +3425,19 @@ function resolveInSessionFreshGpsFix() {
   return null;
 }
 
+function sanitizeOnlineReadyLocation(location) {
+  const lat = Number(location?.lat);
+  const lng = Number(location?.lng);
+  const sessionId = String(location?.sessionId || locationTrackingSessionId || "").trim();
+  const out = { lat, lng, sessionId };
+  const observedAt = Number(location?.observedAt);
+  if (Number.isFinite(observedAt) && observedAt > 0) out.observedAt = observedAt;
+  const sequence = Math.floor(Number(location?.sequence) || 0);
+  if (sequence > 0) out.sequence = sequence;
+  if (location?.source) out.source = String(location.source);
+  return out;
+}
+
 function buildOnlineReadyVehiclePayload(lat, lng) {
   const cell = `${Math.floor(lat / LOCATION_GRID_DEG)}_${Math.floor(lng / LOCATION_GRID_DEG)}`;
   const geoCell = matchGeoCellId(lat, lng);
@@ -3437,7 +3450,7 @@ function buildOnlineReadyVehiclePayload(lat, lng) {
   );
   // Rules require location.sessionId === trackingSessionId. Never fall back to
   // {lat,lng} only — that permission-denied's the ONLINE_READY write.
-  const location = envelope.ok
+  const rawLocation = envelope.ok
     ? toVehicleLocationField(envelope.envelope)
     : {
         lat,
@@ -3447,22 +3460,25 @@ function buildOnlineReadyVehiclePayload(lat, lng) {
         sessionId: locationTrackingSessionId,
         source: "gps",
       };
+  const existingSession = String(linkedVehicle?.trackingSessionId || "");
+  const sessionIsNew = existingSession !== String(locationTrackingSessionId || "");
+  if (sessionIsNew) locationTrackingSessionStartPending = true;
+  // Heartbeat rule allowlist only — never send driverId / activeRideId here.
+  // Adding activeRideId:null to a vehicle that lacks the field is permission-denied.
   const payload = {
-    driverId: currentDriver.uid,
-    status: activeExecutionRide?.id ? "in_ride" : "online",
+    status: "online",
     driverName:
       currentDriver.displayName ||
       currentDriver.email?.split("@")[0] ||
       "SwiftGo Driver",
-    location,
+    location: sanitizeOnlineReadyLocation(rawLocation),
     locationUpdatedAt: serverTimestamp(),
     locationGridCell: cell,
     geoCell,
     hotspotId: hotspotId || null,
-    activeRideId: activeExecutionRide?.id || null,
     trackingSessionId: locationTrackingSessionId,
   };
-  if (locationTrackingSessionStartPending) {
+  if (locationTrackingSessionStartPending || sessionIsNew) {
     payload.trackingSessionStartedAt = serverTimestamp();
   }
   return payload;
@@ -3486,7 +3502,25 @@ async function writeOnlineReadyVehicle(lat, lng) {
   lastVehicleLocationLatLng = { lat, lng };
   lastVehicleStatusWritten = payload.status;
   lastLocationSyncError = "";
-  linkedVehicle = { ...linkedVehicle, ...payload, id: linkedVehicle.id };
+  linkedVehicle = {
+    ...linkedVehicle,
+    ...payload,
+    id: linkedVehicle.id,
+    trackingSessionId: payload.trackingSessionId,
+    driverId: currentDriver.uid,
+    status: "online",
+  };
+  if (linkedVehicle.activeRideId && !activeExecutionRide?.id) {
+    try {
+      await updateDoc(doc(db, "vehicles", linkedVehicle.id), {
+        activeRideId: null,
+        status: "online",
+      });
+      linkedVehicle.activeRideId = null;
+    } catch (clearErr) {
+      console.warn("[SwiftGo Partner] clear stale activeRideId", clearErr);
+    }
+  }
   paintDriverAvailabilityDiag();
 }
 
@@ -3569,7 +3603,12 @@ async function activateDriverOnlineMode() {
           80
         );
         failOnlineActivation({ category: "geo_write_failed" });
-        setLocationMessage("مقام سرور پر محفوظ نہیں ہو سکا — دوبارہ کوشش کریں");
+        const denied = String(error?.code || "").includes("permission-denied");
+        setLocationMessage(
+          denied
+            ? "گاڑی پر مقام لکھنے کی اجازت نہیں — PIN سے دوبارہ منسلک کر کے کوشش کریں"
+            : "مقام سرور پر محفوظ نہیں ہو سکا — دوبارہ کوشش کریں"
+        );
         return false;
       }
 

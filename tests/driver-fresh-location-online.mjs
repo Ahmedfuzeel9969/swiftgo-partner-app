@@ -762,12 +762,14 @@ function staticContractTests() {
       const block = driverApp.slice(start, end);
       return (
         block.includes("sessionId: locationTrackingSessionId") &&
-        !block.includes(": { lat, lng }")
+        !block.includes(": { lat, lng }") &&
+        !block.includes("driverId: currentDriver.uid") &&
+        !block.includes("activeRideId: activeExecutionRide")
       );
     })()
       ? "PASS"
       : "FAIL",
-    "envelope fallback must still stamp location.sessionId for Firestore rules"
+    "online write must stamp sessionId and stay within the location heartbeat rule allowlist"
   );
 
   record(
