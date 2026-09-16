@@ -1,0 +1,65 @@
+{
+  "generatedAt": "2026-09-16T08:08:15.719Z",
+  "summary": {
+    "pass": 9,
+    "fail": 0,
+    "blocked": 0,
+    "total": 9
+  },
+  "results": [
+    {
+      "name": "export-wired",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-online-callable"
+    },
+    {
+      "name": "client-wired",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-online-callable"
+    },
+    {
+      "name": "online-write-uses-callable-not-client-updateDoc",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-online-callable"
+    },
+    {
+      "name": "happy-path-offline-to-online",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-online-callable"
+    },
+    {
+      "name": "post-pin-doc-stamps-sessionId",
+      "status": "PASS",
+      "detail": "",
+      "suite": "driver-online-callable"
+    },
+    {
+      "name": "deny-other-driver",
+      "status": "PASS",
+      "detail": "VEHICLE_IN_USE",
+      "suite": "driver-online-callable"
+    },
+    {
+      "name": "deny-blocked-partner",
+      "status": "PASS",
+      "detail": "DRIVER_BLOCKED",
+      "suite": "driver-online-callable"
+    },
+    {
+      "name": "deny-in-ride",
+      "status": "PASS",
+      "detail": "DRIVER_HAS_ACTIVE_RIDE",
+      "suite": "driver-online-callable"
+    },
+    {
+      "name": "deny-invalid-lat",
+      "status": "PASS",
+      "detail": "INVALID_LOCATION",
+      "suite": "driver-online-callable"
+    }
+  ]
+}

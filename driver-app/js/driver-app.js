@@ -84,6 +84,7 @@ import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
 import { createRideLocationReportClient } from "./ride-location-report-client.mjs";
 import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
+import { setDriverOnlineLocationClient } from "./driver-online-client.js";
 import {
   cancelAssignedRideByDriverClient,
   recordDispatchDeliveryReceiptClient,
@@ -3484,23 +3485,31 @@ function buildOnlineReadyVehiclePayload(lat, lng) {
   return payload;
 }
 
-/** Single coherent Firestore write — driver is matchable only after this succeeds. */
+/** Trusted go-online write — Admin SDK callable, not client updateDoc. */
 async function writeOnlineReadyVehicle(lat, lng) {
   if (!linkedVehicle?.id || !currentDriver?.uid) throw new Error("NOT_LINKED");
   // Serialize against GPS location writes so session-start is stamped once.
   locationWriteSerializer.cancelAll();
   const payload = buildOnlineReadyVehiclePayload(lat, lng);
-  const { db } = getFirebase();
-  await updateDoc(doc(db, "vehicles", linkedVehicle.id), payload);
+  const result = await setDriverOnlineLocationClient({
+    vehicleId: linkedVehicle.id,
+    lat,
+    lng,
+    trackingSessionId: payload.trackingSessionId,
+    driverName: payload.driverName,
+    observedAt: payload.location?.observedAt,
+    sequence: payload.location?.sequence,
+    source: payload.location?.source,
+  });
   if (locationTrackingSessionStartPending) {
     locationTrackingSessionStartPending = false;
   }
   locationWriteSerializer.markSessionStartComplete();
   lastLocationGridCell = payload.locationGridCell;
-  lastMatchGeoCell = payload.geoCell;
+  lastMatchGeoCell = result?.geoCell || payload.geoCell;
   lastVehicleLocationWrite = Date.now();
   lastVehicleLocationLatLng = { lat, lng };
-  lastVehicleStatusWritten = payload.status;
+  lastVehicleStatusWritten = "online";
   lastLocationSyncError = "";
   linkedVehicle = {
     ...linkedVehicle,
@@ -3509,18 +3518,11 @@ async function writeOnlineReadyVehicle(lat, lng) {
     trackingSessionId: payload.trackingSessionId,
     driverId: currentDriver.uid,
     status: "online",
+    activeRideId: null,
+    geoCell: result?.geoCell || payload.geoCell,
+    locationGridCell: result?.locationGridCell || payload.locationGridCell,
+    hotspotId: result?.hotspotId ?? payload.hotspotId,
   };
-  if (linkedVehicle.activeRideId && !activeExecutionRide?.id) {
-    try {
-      await updateDoc(doc(db, "vehicles", linkedVehicle.id), {
-        activeRideId: null,
-        status: "online",
-      });
-      linkedVehicle.activeRideId = null;
-    } catch (clearErr) {
-      console.warn("[SwiftGo Partner] clear stale activeRideId", clearErr);
-    }
-  }
   paintDriverAvailabilityDiag();
 }
 
@@ -3603,10 +3605,15 @@ async function activateDriverOnlineMode() {
           80
         );
         failOnlineActivation({ category: "geo_write_failed" });
-        const denied = String(error?.code || "").includes("permission-denied");
+        const code = String(error?.code || error?.message || "");
+        const notLinked =
+          code.includes("VEHICLE_NOT_LINKED") ||
+          code.includes("VEHICLE_IN_USE") ||
+          code.includes("not-found") ||
+          code.includes("failed-precondition");
         setLocationMessage(
-          denied
-            ? "گاڑی پر مقام لکھنے کی اجازت نہیں — PIN سے دوبارہ منسلک کر کے کوشش کریں"
+          notLinked
+            ? "گاڑی منسلک نہیں — PIN سے دوبارہ منسلک کر کے کوشش کریں"
             : "مقام سرور پر محفوظ نہیں ہو سکا — دوبارہ کوشش کریں"
         );
         return false;

@@ -769,7 +769,24 @@ function staticContractTests() {
     })()
       ? "PASS"
       : "FAIL",
-    "online write must stamp sessionId and stay within the location heartbeat rule allowlist"
+    "online payload still stamps sessionId for the trusted callable"
+  );
+
+  record(
+    "S05c-online-write-uses-trusted-callable",
+    (() => {
+      const start = driverApp.indexOf("async function writeOnlineReadyVehicle");
+      const end = driverApp.indexOf("async function activateDriverOnlineMode", start);
+      const block = driverApp.slice(start, end);
+      return (
+        driverApp.includes("setDriverOnlineLocationClient") &&
+        block.includes("setDriverOnlineLocationClient") &&
+        !block.includes("updateDoc(")
+      );
+    })()
+      ? "PASS"
+      : "FAIL",
+    "go-online must use Admin SDK callable, not client Firestore updateDoc"
   );
 
   record(

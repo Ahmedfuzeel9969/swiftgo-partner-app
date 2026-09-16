@@ -56,6 +56,7 @@ const {
   isCallerAuthorizedForDiagnostic,
 } = require("./admin-claims");
 const { linkVehicleByPin } = require("./pin-link");
+const { setDriverOnlineLocation } = require("./driver-online");
 const {
   requestAccountDeletion: performAccountDeletionRequest,
   submitSupportReport: performSupportReport,
@@ -231,6 +232,26 @@ exports.linkVehicleByPin = onCall({ region: "us-central1" }, async (request) => 
       driverUid: request.auth.uid,
       pin: request.data?.pin,
       driverName: request.auth.token?.name || request.data?.driverName,
+    });
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+/** Driver go-online GPS write — Admin SDK (same trust boundary as PIN). */
+exports.setDriverOnlineLocation = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await setDriverOnlineLocation(db, {
+      driverUid: request.auth.uid,
+      vehicleId: request.data?.vehicleId,
+      lat: request.data?.lat,
+      lng: request.data?.lng,
+      trackingSessionId: request.data?.trackingSessionId,
+      driverName: request.auth.token?.name || request.data?.driverName,
+      observedAt: request.data?.observedAt,
+      sequence: request.data?.sequence,
+      source: request.data?.source,
     });
   } catch (err) {
     throw mapErr(err);

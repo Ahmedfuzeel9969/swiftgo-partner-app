@@ -1,8 +1,8 @@
 {
   "suite": "driver-fresh-location-online",
-  "pass": 33,
+  "pass": 35,
   "fail": 0,
-  "total": 57,
+  "total": 59,
   "results": [
     {
       "name": "01-fresh-valid-location-succeeds",
@@ -49,7 +49,7 @@
     {
       "name": "04-browser-callback-never-fires",
       "status": "PASS",
-      "detail": "timeout 74ms",
+      "detail": "timeout 71ms",
       "suite": "driver-fresh-location-online"
     },
     {
@@ -320,6 +320,18 @@
       "name": "S05-setOnlineUi-only-after-geo-write",
       "status": "PASS",
       "detail": "",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "S05b-online-ready-location-always-has-sessionId",
+      "status": "PASS",
+      "detail": "online payload still stamps sessionId for the trusted callable",
+      "suite": "driver-fresh-location-online"
+    },
+    {
+      "name": "S05c-online-write-uses-trusted-callable",
+      "status": "PASS",
+      "detail": "go-online must use Admin SDK callable, not client Firestore updateDoc",
       "suite": "driver-fresh-location-online"
     },
     {
