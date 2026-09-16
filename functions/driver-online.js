@@ -12,6 +12,7 @@
 const { FieldValue } = require("firebase-admin/firestore");
 const { locationGeoFields } = require("./geo-cells");
 const { isValidTrackingSessionId, isValidLatLng } = require("./live-location-envelope");
+const { healStaleDriverPointers } = require("./active-ride-reconcile");
 
 function err(code, message) {
   const e = new Error(message || code);
@@ -55,8 +56,8 @@ async function setDriverOnlineLocation(db, input) {
   }
 
   if (!vehicleSnap.exists) throw err("not-found", "VEHICLE_NOT_FOUND");
-  const vehicle = vehicleSnap.data() || {};
-  const assignedDriver = String(vehicle.driverId || "").trim();
+  const vehicleBefore = vehicleSnap.data() || {};
+  const assignedDriver = String(vehicleBefore.driverId || "").trim();
   const partnerVehicle = String(partner.currentVehicleId || "").trim();
 
   if (assignedDriver && assignedDriver !== driverUid) {
@@ -65,7 +66,18 @@ async function setDriverOnlineLocation(db, input) {
   if (!assignedDriver && partnerVehicle !== vehicleId) {
     throw err("failed-precondition", "VEHICLE_NOT_LINKED");
   }
-  if (String(vehicle.status || "") === "in_ride") {
+
+  await healStaleDriverPointers(db, { driverUid, vehicleId });
+  const [vehicleAfterHeal, partnerAfterHeal] = await Promise.all([
+    vehicleRef.get(),
+    partnerRef.get(),
+  ]);
+  const vehicle = vehicleAfterHeal.exists ? vehicleAfterHeal.data() || {} : vehicleBefore;
+  const partnerLive = partnerAfterHeal.exists ? partnerAfterHeal.data() || {} : partner;
+  if (partnerLive.accountStatus === "blocked" || partnerLive.accountStatus === "suspended") {
+    throw err("permission-denied", "DRIVER_BLOCKED");
+  }
+  if (String(vehicle.status || "") === "in_ride" && String(vehicle.activeRideId || "").trim()) {
     throw err("failed-precondition", "DRIVER_HAS_ACTIVE_RIDE");
   }
 

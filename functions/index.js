@@ -324,14 +324,44 @@ exports.createCustomerBooking = onCall(
       });
       timer.mark("ride_tx_complete", { rideId: created?.id });
 
-      const latencyPayload = timer.finish({ rideId: created.id });
+      const pickup = {
+        lat: Number(data.pickupLocation?.lat),
+        lng: Number(data.pickupLocation?.lng),
+      };
+      let matchingStatus = "pending";
+      let candidateCount = 0;
+      let matchingError = "";
+      if (Number.isFinite(pickup.lat) && Number.isFinite(pickup.lng) && created?.id) {
+        try {
+          const matched = await withDispatchTimeout(
+            matchRideCandidates(db, {
+              rideId: created.id,
+              pickup,
+              dispatchSettings: created.dispatchSettings,
+            }),
+            20000,
+            "matchRideCandidates"
+          );
+          candidateCount = Number(matched?.candidateCount || 0);
+          matchingStatus = candidateCount ? "candidates_ready" : "no_candidates";
+          timer.mark("match_complete", { candidateCount, matchingStatus });
+        } catch (matchErr) {
+          matchingError = String(matchErr?.message || matchErr).slice(0, 200);
+          logger.error("createCustomerBooking_match_failed", {
+            rideId: created.id,
+            matchingError,
+          });
+        }
+      }
+
+      const latencyPayload = timer.finish({ rideId: created.id, matchingStatus, candidateCount });
       return sanitizeCallableResult({
         id: created.id,
         count: created.count,
         dispatchTraceId: String(data.dispatchTraceId || ""),
-        matchingStatus: "pending",
-        candidateCount: 0,
-        matchingError: "",
+        matchingStatus,
+        candidateCount,
+        matchingError,
         latencyMs: Number(latencyPayload?.totalMs) || 0,
       });
     } catch (err) {
@@ -356,9 +386,12 @@ exports.dispatchNewRideCandidates = onDocumentCreated(
     const rideId = event.params.rideId;
     const ride = event.data?.data() || {};
     if (String(ride.status || "") !== "searching_driver") return;
+    const liveSnap = await db.collection("rides").doc(rideId).get();
+    const live = liveSnap.exists ? liveSnap.data() || ride : ride;
+    if (String(live.matchingStatus || "") === "candidates_ready") return;
     const pickup = {
-      lat: Number(ride.pickupLocation?.lat),
-      lng: Number(ride.pickupLocation?.lng),
+      lat: Number(live.pickupLocation?.lat || ride.pickupLocation?.lat),
+      lng: Number(live.pickupLocation?.lng || ride.pickupLocation?.lng),
     };
     if (!Number.isFinite(pickup.lat) || !Number.isFinite(pickup.lng)) {
       await db.collection("rides").doc(rideId).set(
@@ -368,7 +401,7 @@ exports.dispatchNewRideCandidates = onDocumentCreated(
       return;
     }
     try {
-      await withDispatchTimeout(matchRideCandidates(db, { rideId, pickup }), 15000, "matchRideCandidates");
+      await withDispatchTimeout(matchRideCandidates(db, { rideId, pickup }), 25000, "matchRideCandidates");
     } catch (err) {
       const matchingError = String(err?.message || err).slice(0, 200);
       logger.error("dispatch_new_ride_match_failed", { rideId, matchingError });

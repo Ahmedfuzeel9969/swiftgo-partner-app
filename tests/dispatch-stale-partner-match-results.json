@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-09-16T10:17:50.675Z",
+  "summary": {
+    "pass": 2,
+    "fail": 0,
+    "total": 2
+  },
+  "results": [
+    {
+      "name": "stale-partner-pointer-still-invited",
+      "status": "PASS",
+      "detail": "source=geo_scoped",
+      "suite": "dispatch-stale-partner-match"
+    },
+    {
+      "name": "genuine-active-ride-still-excluded",
+      "status": "PASS",
+      "detail": "",
+      "suite": "dispatch-stale-partner-match"
+    }
+  ]
+}

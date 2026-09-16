@@ -133,6 +133,12 @@ async function main() {
     driverId: blocked,
     status: "offline",
   });
+  await db.doc("rides/ride-live-1").set({
+    driverId: driverA,
+    vehicleId: "veh-on-ride",
+    status: "in_progress",
+    userId: "cust-on-1",
+  });
   await db.doc("vehicles/veh-on-ride").set({
     ownerId: ownerUid,
     plate: "ON-RIDE",
@@ -231,6 +237,38 @@ async function main() {
     "DRIVER_HAS_ACTIVE_RIDE",
     "deny-in-ride"
   );
+
+  await db.doc("rides/ride-stale-done").set({
+    driverId: driverA,
+    vehicleId: "veh-on-stale",
+    status: "completed",
+  });
+  await db.doc(`partners/${driverA}`).set({ activeRideId: "ride-stale-done" }, { merge: true });
+  await db.doc("vehicles/veh-on-stale").set({
+    ownerId: ownerUid,
+    plate: "ON-STALE",
+    driverId: driverA,
+    status: "offline",
+    pinHash: "stalebeef",
+    activeRideId: "ride-stale-done",
+  });
+  try {
+    await setDriverOnlineLocation(db, {
+      driverUid: driverA,
+      vehicleId: "veh-on-stale",
+      lat: LAT,
+      lng: LNG,
+      trackingSessionId: SESSION,
+      driverName: "Online A",
+    });
+    const partner = (await db.doc(`partners/${driverA}`).get()).data() || {};
+    const veh = (await db.doc("vehicles/veh-on-stale").get()).data() || {};
+    const ok =
+      veh.status === "online" && !partner.activeRideId && !veh.activeRideId;
+    record("heal-stale-partner-pointer-on-online", ok ? "PASS" : "FAIL");
+  } catch (e) {
+    record("heal-stale-partner-pointer-on-online", "FAIL", e.message || String(e));
+  }
 
   await expectThrow(
     () =>

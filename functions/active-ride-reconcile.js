@@ -78,6 +78,27 @@ function classifyPointerRide(rideSnap, ctx) {
 }
 
 /**
+ * Matching must not treat leftover partner/vehicle pointers as busy.
+ * Returns the ride id only when it is a genuine active assignment.
+ */
+async function resolveMatchBusyRideId(db, { driverUid, vehicleActiveRideId, partnerActiveRideId }) {
+  const vehiclePtr = String(vehicleActiveRideId || "").trim();
+  const partnerPtr = String(partnerActiveRideId || "").trim();
+  const ids = [];
+  if (vehiclePtr) ids.push({ id: vehiclePtr, source: "vehicle" });
+  if (partnerPtr && partnerPtr !== vehiclePtr) ids.push({ id: partnerPtr, source: "partner" });
+  for (const item of ids) {
+    const snap = await db.collection("rides").doc(item.id).get();
+    const cls = classifyPointerRide(snap, {
+      driverUid,
+      pointerSource: item.source,
+    });
+    if (cls.block) return item.id;
+  }
+  return null;
+}
+
+/**
  * Pure evaluation for tests.
  * @param {{
  *   driverUid: string,
@@ -289,4 +310,5 @@ module.exports = {
   reconcileDriverAvailabilityInTx,
   healStaleDriverPointers,
   isDriverAvailableForRematch,
+  resolveMatchBusyRideId,
 };

@@ -21,6 +21,7 @@ const {
   gridCellId,
   nearestGoldenHotspot,
 } = require("./geo-cells");
+const { resolveMatchBusyRideId } = require("./active-ride-reconcile");
 
 /** Cap geo cell fan-out per ring so large admin radius cannot spawn thousands of queries. */
 const MAX_GEO_CELLS_PER_RING = 48;
@@ -172,11 +173,15 @@ async function loadAndSelectGeoCandidates(db, pickup, limit, opts = {}) {
           .collection("partners")
           .doc(d.driverId)
           .get()
-          .then((partner) => {
+          .then(async (partner) => {
             metrics.partnerDocsRead += 1;
             const p = partner.exists ? partner.data() || {} : {};
             d.accountStatus = p.accountStatus || "active";
-            if (p.activeRideId) d.activeRideId = d.activeRideId || p.activeRideId;
+            d.activeRideId = await resolveMatchBusyRideId(db, {
+              driverUid: d.driverId,
+              vehicleActiveRideId: d.activeRideId,
+              partnerActiveRideId: p.activeRideId,
+            });
           })
           .catch(() => {
             d.accountStatus = d.accountStatus || "active";

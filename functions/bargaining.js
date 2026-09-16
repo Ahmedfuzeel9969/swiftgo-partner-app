@@ -36,6 +36,7 @@ const {
   reconcileDriverAvailabilityInTx,
   healStaleDriverPointers,
   isDriverAvailableForRematch,
+  resolveMatchBusyRideId,
 } = require("./active-ride-reconcile");
 
 const CANCEL_REASON_KEYS = Object.freeze([
@@ -1314,10 +1315,14 @@ async function matchRideCandidates(
             .collection("partners")
             .doc(d.driverId)
             .get()
-            .then((partner) => {
+            .then(async (partner) => {
               const p = partner.exists ? partner.data() || {} : {};
               d.accountStatus = p.accountStatus || "active";
-              if (p.activeRideId) d.activeRideId = d.activeRideId || p.activeRideId;
+              d.activeRideId = await resolveMatchBusyRideId(db, {
+                driverUid: d.driverId,
+                vehicleActiveRideId: d.activeRideId,
+                partnerActiveRideId: p.activeRideId,
+              });
             })
             .catch(() => {
               d.accountStatus = d.accountStatus || "active";

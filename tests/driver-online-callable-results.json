@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-16T08:08:15.719Z",
+  "generatedAt": "2026-09-16T10:17:07.308Z",
   "summary": {
-    "pass": 9,
+    "pass": 10,
     "fail": 0,
     "blocked": 0,
-    "total": 9
+    "total": 10
   },
   "results": [
     {
@@ -53,6 +53,12 @@
       "name": "deny-in-ride",
       "status": "PASS",
       "detail": "DRIVER_HAS_ACTIVE_RIDE",
+      "suite": "driver-online-callable"
+    },
+    {
+      "name": "heal-stale-partner-pointer-on-online",
+      "status": "PASS",
+      "detail": "",
       "suite": "driver-online-callable"
     },
     {
