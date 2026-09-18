@@ -192,6 +192,7 @@ function applyPointerHealsInTx(tx, params) {
  *   partnerSnap: FirebaseFirestore.DocumentSnapshot,
  *   vehicleSnap?: FirebaseFirestore.DocumentSnapshot | null,
  *   healOnly?: boolean,
+ *   overwritePointers?: boolean,
  * }} opts
  */
 async function reconcileDriverAvailabilityInTx(tx, db, opts) {
@@ -228,11 +229,17 @@ async function reconcileDriverAvailabilityInTx(tx, db, opts) {
     activeRideSnap,
   });
 
-  applyPointerHealsInTx(tx, {
-    partnerRef: opts.partnerRef,
-    vehicleRef: opts.vehicleRef || null,
-    heals: evaluation.heals,
-  });
+  // Assignment overwrites partner/vehicle pointers in the same TX. Writing the
+  // heal first then assigning again is a Firestore double-write and aborts
+  // accept after matching already invited the driver.
+  const skipHealWrites = Boolean(opts.overwritePointers) && !evaluation.blocked;
+  if (!skipHealWrites) {
+    applyPointerHealsInTx(tx, {
+      partnerRef: opts.partnerRef,
+      vehicleRef: opts.vehicleRef || null,
+      heals: evaluation.heals,
+    });
+  }
 
   if (!opts.healOnly && evaluation.blocked) {
     const e = new Error("DRIVER_HAS_ACTIVE_RIDE");

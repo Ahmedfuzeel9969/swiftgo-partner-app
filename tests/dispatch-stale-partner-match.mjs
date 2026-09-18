@@ -25,7 +25,7 @@ try {
 }
 const db = admin.firestore(adminApp);
 const Timestamp = admin.firestore.Timestamp;
-const { matchRideCandidates, createCustomerBooking } = require(path.join(ROOT, "functions", "bargaining.js"));
+const { matchRideCandidates, createCustomerBooking, acceptCustomerInitialFareAsDriver } = require(path.join(ROOT, "functions", "bargaining.js"));
 const { locationGeoFields } = require(path.join(ROOT, "functions", "geo-cells.js"));
 
 const pickup = { lat: 24.8607, lng: 67.0011, address: "Pickup" };
@@ -89,6 +89,14 @@ async function main() {
       estimatedFare: 250,
     },
   });
+  const createdSnap = await db.doc(`rides/${created.id}`).get();
+  record(
+    "create-sets-matching-pending",
+    createdSnap.data()?.matchingStatus === "pending" && createdSnap.data()?.status === "searching_driver"
+      ? "PASS"
+      : "FAIL",
+    `matchingStatus=${createdSnap.data()?.matchingStatus || "∅"}`
+  );
 
   const matched = await matchRideCandidates(db, {
     rideId: created.id,
@@ -108,15 +116,35 @@ async function main() {
     ok ? `source=${matched.metrics?.source || ""}` : `count=${matched.candidateCount} invited=${invited}`
   );
 
-  const genuineId = `${prefix}-live`;
-  await db.doc(`rides/${genuineId}`).set({
-    userId: customerUid,
-    driverId: driverUid,
-    vehicleId,
-    status: "in_progress",
-  });
-  await db.doc(`partners/${driverUid}`).set({ activeRideId: genuineId }, { merge: true });
-  await db.doc(`vehicles/${vehicleId}`).set({ activeRideId: genuineId }, { merge: true });
+  let accepted = false;
+  let acceptError = "";
+  try {
+    const result = await acceptCustomerInitialFareAsDriver(db, {
+      rideId: created.id,
+      driverUid,
+      vehicleId,
+      ownerId: `${prefix}-owner`,
+      driverName: "Stale Pointer Driver",
+      vehiclePlate: "SPM-1",
+    });
+    accepted = Boolean(result?.assigned || result?.driverId === driverUid);
+  } catch (err) {
+    acceptError = String(err?.message || err);
+  }
+  const assignedRide = (await db.doc(`rides/${created.id}`).get()).data() || {};
+  const partnerAfter = (await db.doc(`partners/${driverUid}`).get()).data() || {};
+  const vehicleAfter = (await db.doc(`vehicles/${vehicleId}`).get()).data() || {};
+  const acceptOk =
+    accepted &&
+    assignedRide.status === "accepted" &&
+    assignedRide.driverId === driverUid &&
+    partnerAfter.activeRideId === created.id &&
+    vehicleAfter.activeRideId === created.id;
+  record(
+    "stale-partner-pointer-accept-completes-assignment",
+    acceptOk ? "PASS" : "FAIL",
+    acceptOk ? `ride=${created.id}` : acceptError || `status=${assignedRide.status || "∅"}`
+  );
 
   const createdBusy = await createCustomerBooking(db, {
     customerUid: `${customerUid}-2`,

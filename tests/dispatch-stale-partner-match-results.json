@@ -1,15 +1,27 @@
 {
-  "generatedAt": "2026-09-16T10:17:50.675Z",
+  "generatedAt": "2026-09-18T06:36:00.820Z",
   "summary": {
-    "pass": 2,
+    "pass": 4,
     "fail": 0,
-    "total": 2
+    "total": 4
   },
   "results": [
+    {
+      "name": "create-sets-matching-pending",
+      "status": "PASS",
+      "detail": "matchingStatus=pending",
+      "suite": "dispatch-stale-partner-match"
+    },
     {
       "name": "stale-partner-pointer-still-invited",
       "status": "PASS",
       "detail": "source=geo_scoped",
+      "suite": "dispatch-stale-partner-match"
+    },
+    {
+      "name": "stale-partner-pointer-accept-completes-assignment",
+      "status": "PASS",
+      "detail": "ride=XMOyvFCBNcrD6g35qerq",
       "suite": "dispatch-stale-partner-match"
     },
     {

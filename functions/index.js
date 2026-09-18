@@ -339,7 +339,7 @@ exports.createCustomerBooking = onCall(
               pickup,
               dispatchSettings: created.dispatchSettings,
             }),
-            20000,
+            5000,
             "matchRideCandidates"
           );
           candidateCount = Number(matched?.candidateCount || 0);
@@ -376,9 +376,10 @@ exports.createCustomerBooking = onCall(
 );
 
 /**
- * Match after a successful booking write. Keeping this work out of the booking
- * callable gives the customer an immediate searching state while preserving
- * server-authoritative geo matching and candidate writes.
+ * Match after a successful booking write. A short best-effort match still
+ * runs inside createCustomerBooking, but this trigger is the backup so a
+ * slow geo query cannot leave the customer without a ride id while the
+ * driver already holds an invitation.
  */
 exports.dispatchNewRideCandidates = onDocumentCreated(
   { document: "rides/{rideId}", region: "us-central1" },

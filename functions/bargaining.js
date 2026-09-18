@@ -687,6 +687,7 @@ async function createCustomerBooking(
       [CUSTOMER_RIDE_OWNER_FIELD]: customerUid,
       userId: customerUid,
       status: "searching_driver",
+      matchingStatus: "pending",
       dispatchTraceId: String(dispatchTraceId || "") || null,
       createdAt: FieldValue.serverTimestamp(),
       // Server-controlled search deadline — clients must not overwrite (rules deny).
@@ -1750,6 +1751,7 @@ async function finalizeAssignmentFromOffer(db, params) {
           vehicleRef,
           partnerSnap,
           vehicleSnap,
+          overwritePointers: true,
         });
 
         let finalFare = Math.round(Number(offer.fare) || 0);
@@ -1941,6 +1943,7 @@ async function acceptCustomerInitialFareAsDriver(db, params) {
         vehicleRef,
         partnerSnap,
         vehicleSnap,
+        overwritePointers: true,
       });
 
       const prev = offerSnap.exists ? offerSnap.data() : null;
