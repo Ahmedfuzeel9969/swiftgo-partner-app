@@ -96,7 +96,9 @@ async function testBootstrapInjection() {
 }
 
 async function testResolveIceWithTurn() {
-  const { resolveIceConfiguration } = await import("../customer-app/js/p2p-protocol.mjs");
+  const { resolveIceConfiguration, iceGatherTimeoutMs } = await import(
+    "../customer-app/js/p2p-protocol.mjs"
+  );
   const ice = resolveIceConfiguration({
     __SWIFTGO_P2P_ICE__: {
       turn: {
@@ -106,7 +108,13 @@ async function testResolveIceWithTurn() {
       },
     },
   });
-  return ice.hasTurn === true && ice.hasStun === true && ice.iceServers.length >= 2;
+  return (
+    ice.hasTurn === true &&
+    ice.hasStun === true &&
+    ice.iceServers.length >= 2 &&
+    iceGatherTimeoutMs(ice) === 10_000 &&
+    iceGatherTimeoutMs({ hasTurn: false }) === 4_000
+  );
 }
 
 async function main() {

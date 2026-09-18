@@ -99,7 +99,12 @@ export const P2P_RECONNECT_BASE_MS = 1_000;
 export const P2P_RECONNECT_MAX_MS = 30_000;
 export const P2P_RECONNECT_MAX_ATTEMPTS = 8;
 export const P2P_MAX_MESSAGE_BYTES = 2_048;
-export const P2P_MAX_SDP_CHARS = 16_384;
+/** Bundled SDP cap. Raised so TURN-relay offers/answers are not dropped. */
+export const P2P_MAX_SDP_CHARS = 65_536;
+/** ICE gather wait for STUN-only. Distinct from Super Admin idle Firebase backup (4s). */
+export const P2P_ICE_GATHER_TIMEOUT_MS = 4_000;
+/** ICE gather wait when TURN is present so relay candidates enter bundled SDP. */
+export const P2P_ICE_GATHER_TIMEOUT_TURN_MS = 10_000;
 export const P2P_SESSION_TTL_MS = 15 * 60_000;
 export const P2P_DATA_CHANNEL_LABEL = "swiftgo-loc-v1";
 export const P2P_BUFFERED_AMOUNT_HIGH = 64 * 1024;
@@ -191,6 +196,30 @@ export function resolveIceConfiguration(globalObj = typeof globalThis !== "undef
     iceServers,
     iceCandidatePoolSize: 0,
     hasStun: iceServers.some((s) => String(s.urls || "").includes("stun:")),
-    hasTurn: iceServers.some((s) => String(s.urls || "").includes("turn:")),
+    hasTurn: iceServersHaveTurn(iceServers),
   };
+}
+
+function iceUrlsHaveTurn(urls) {
+  const list = Array.isArray(urls) ? urls : urls != null ? [urls] : [];
+  return list.some((u) => {
+    const t = String(u || "").toLowerCase();
+    return t.startsWith("turn:") || t.startsWith("turns:");
+  });
+}
+
+function iceServersHaveTurn(iceServers) {
+  if (!Array.isArray(iceServers)) return false;
+  return iceServers.some((s) => iceUrlsHaveTurn(s?.urls));
+}
+
+/**
+ * Non-trickle ICE gather budget. Super Admin idle 4s/30s/60s policies are unchanged.
+ * @param {{ hasTurn?: boolean, iceServers?: object[] } | null} [iceConfig]
+ */
+export function iceGatherTimeoutMs(iceConfig) {
+  if (iceConfig?.hasTurn === true) return P2P_ICE_GATHER_TIMEOUT_TURN_MS;
+  return iceServersHaveTurn(iceConfig?.iceServers)
+    ? P2P_ICE_GATHER_TIMEOUT_TURN_MS
+    : P2P_ICE_GATHER_TIMEOUT_MS;
 }

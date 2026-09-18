@@ -22,8 +22,11 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import {
+  FIREBASE_BACKUP_READ_INTERVAL_MS,
   P2P_DIAG,
   P2P_FALLBACK_AFTER_MS,
+  P2P_ICE_GATHER_TIMEOUT_MS,
+  P2P_ICE_GATHER_TIMEOUT_TURN_MS,
   P2P_MAX_MESSAGE_BYTES,
   P2P_MAX_SDP_CHARS,
   P2P_PROTOCOL_VERSION,
@@ -31,6 +34,7 @@ import {
   P2P_STATE,
   buildIceServers,
   createPeerSessionId,
+  iceGatherTimeoutMs,
   nextReconnectDelayMs,
   resolveIceConfiguration,
 } from "../customer-app/js/p2p-protocol.mjs";
@@ -81,6 +85,7 @@ const {
   closeRidePeerSession,
   assignmentVersionFromRide,
   P2P_SESSION_TTL_MS,
+  P2P_MAX_SDP_CHARS: SERVER_P2P_MAX_SDP_CHARS,
 } = require(path.join(ROOT, "functions", "ride-peer-session.js"));
 
 function authCtx(overrides = {}) {
@@ -445,6 +450,31 @@ async function healthAndPeerTests() {
     assignmentVersion: 42,
     offerSdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n",
   });
+  record(
+    "38a-customer-keeps-server-assignmentVersion",
+    cust.getState().assignmentVersion === 42 ? "PASS" : "FAIL",
+    `av=${cust.getState().assignmentVersion}`
+  );
+
+  const custZero = createP2pPeerSession({
+    role: "customer",
+    RTCPeerConnection: MockRTCPeerConnection,
+    nowMs: timers.nowMs,
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  await custZero.startAsCustomer({
+    peerSessionId: "ps_testsession01",
+    trackingSessionId: "trk_abc",
+    assignmentVersion: 0,
+    offerSdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n",
+  });
+  record(
+    "38b-customer-does-not-coerce-missing-av-to-1",
+    custZero.getState().assignmentVersion === 0 ? "PASS" : "FAIL",
+    `av=${custZero.getState().assignmentVersion}`
+  );
+  await custZero.close();
   cust._setChannelOpenForTest(true);
   cust.evaluateHealth();
   record(
@@ -510,6 +540,7 @@ async function healthAndPeerTests() {
       seq: 1,
       observedAt: drvTimers.nowMs(),
       role: "customer",
+      ackKind: "loc",
     }),
     drvIds.generation
   );
@@ -1148,6 +1179,51 @@ function lifecycleStaticTests() {
   const rules = read("firestore.rules");
   const cf = read("functions/ride-peer-session.js");
   const idx = read("functions/index.js");
+
+  record(
+    "sdp-cap-client-server-match",
+    P2P_MAX_SDP_CHARS === 65_536 && SERVER_P2P_MAX_SDP_CHARS === 65_536 ? "PASS" : "FAIL",
+    `client=${P2P_MAX_SDP_CHARS} server=${SERVER_P2P_MAX_SDP_CHARS}`,
+    "static"
+  );
+  record(
+    "admin-p2p-fallback-untouched",
+    P2P_FALLBACK_AFTER_MS === 30_000 && proto.includes("P2P_FALLBACK_AFTER_MS = 30_000")
+      ? "PASS"
+      : "FAIL",
+    `ms=${P2P_FALLBACK_AFTER_MS}`,
+    "static"
+  );
+  record(
+    "admin-firebase-backup-untouched",
+    FIREBASE_BACKUP_READ_INTERVAL_MS === 4_000 &&
+      proto.includes("FIREBASE_BACKUP_READ_INTERVAL_MS = 4_000")
+      ? "PASS"
+      : "FAIL",
+    `ms=${FIREBASE_BACKUP_READ_INTERVAL_MS}`,
+    "static"
+  );
+  record(
+    "ice-gather-stun-vs-turn",
+    iceGatherTimeoutMs({ hasTurn: false }) === P2P_ICE_GATHER_TIMEOUT_MS &&
+      iceGatherTimeoutMs({ hasTurn: true }) === P2P_ICE_GATHER_TIMEOUT_TURN_MS &&
+      P2P_ICE_GATHER_TIMEOUT_MS === 4_000 &&
+      P2P_ICE_GATHER_TIMEOUT_TURN_MS === 10_000
+      ? "PASS"
+      : "FAIL",
+    `stun=${P2P_ICE_GATHER_TIMEOUT_MS} turn=${P2P_ICE_GATHER_TIMEOUT_TURN_MS}`,
+    "static"
+  );
+  record(
+    "super-admin-idle-p2p-policy-copy-untouched",
+    read("super-admin-panel/index.html").includes(
+      "سواری کے دوران 4s/30s/60s اور P2P policies بدل نہیں ہوتیں"
+    )
+      ? "PASS"
+      : "FAIL",
+    "",
+    "static"
+  );
 
   record(
     "52-ride-switch-closes-old-session",

@@ -10,7 +10,7 @@ const crypto = require("crypto");
 
 const P2P_PROTOCOL_VERSION = 1;
 const P2P_SESSION_TTL_MS = 15 * 60_000;
-const P2P_MAX_SDP_CHARS = 16_384;
+const P2P_MAX_SDP_CHARS = 65_536;
 const TRACKABLE = new Set(["accepted", "arrived", "in_progress"]);
 
 function isValidPeerSessionId(id) {

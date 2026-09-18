@@ -18,10 +18,34 @@ function answerIdentity(rideId, docData, fallbackVersion = 0) {
   const rid = String(rideId || "").trim();
   const sid = String(docData?.sessionId || "").trim();
   const tid = String(docData?.trackingSessionId || "").trim();
-  const av =
-    Number(docData?.assignmentVersion) ||
-    Math.max(1, Math.floor(Number(fallbackVersion) || 0));
+  const fromDoc = Math.floor(Number(docData?.assignmentVersion) || 0);
+  const fromFallback = Math.floor(Number(fallbackVersion) || 0);
+  const av = fromDoc >= 1 ? fromDoc : fromFallback >= 1 ? fromFallback : 0;
   return `${rid}|${sid}|${tid}|${av}`;
+}
+
+const SIGNALING_RETRY_DELAYS_MS = [0, 400, 800];
+
+function isNonRetryableSignalingError(err) {
+  const text = `${err?.code || ""} ${err?.message || ""} ${err?.details || ""}`;
+  return /STALE_ASSIGNMENT|VEHICLE_MISMATCH|AUTH_REQUIRED|INVALID_|NOT_RIDE_|NOT_SESSION_|RIDE_NOT_|ROTATED_SESSION|SESSION_EXPIRED|SESSION_NOT_FOUND|UNKNOWN_PROTOCOL|permission-denied|unauthenticated|invalid-argument|failed-precondition/.test(
+    text
+  );
+}
+
+async function retrySignalingCall(fn) {
+  let lastErr;
+  for (let i = 0; i < SIGNALING_RETRY_DELAYS_MS.length; i += 1) {
+    const delay = SIGNALING_RETRY_DELAYS_MS[i];
+    if (delay) await new Promise((r) => setTimeout(r, delay));
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (isNonRetryableSignalingError(err)) break;
+    }
+  }
+  throw lastErr;
 }
 
 /**
@@ -308,11 +332,13 @@ export function createCustomerP2pController(opts = {}) {
               ctrlCounters.staleAborts += 1;
               return;
             }
-            await sig.publishRidePeerAnswerClient?.({
-              rideId: capturedRideId,
-              answerSdp: sdp,
-              peerSessionId: meta.peerSessionId,
-            });
+            await retrySignalingCall(() =>
+              sig.publishRidePeerAnswerClient?.({
+                rideId: capturedRideId,
+                answerSdp: sdp,
+                peerSessionId: meta.peerSessionId,
+              })
+            );
             if (!isAnswerStillValid(gen, capturedRideId, docData) || localSession !== session) {
               ctrlCounters.staleAborts += 1;
               return;
@@ -327,7 +353,12 @@ export function createCustomerP2pController(opts = {}) {
         await localSession.startAsCustomer({
           peerSessionId: sid,
           trackingSessionId: String(docData.trackingSessionId || ""),
-          assignmentVersion: Number(docData.assignmentVersion) || expectedAssignmentVersion || 1,
+          assignmentVersion: (() => {
+            const fromDoc = Math.floor(Number(docData.assignmentVersion) || 0);
+            if (fromDoc >= 1) return fromDoc;
+            const fromExpected = Math.floor(Number(expectedAssignmentVersion) || 0);
+            return fromExpected >= 1 ? fromExpected : 0;
+          })(),
           offerSdp: offer,
         });
 

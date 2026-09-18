@@ -23,6 +23,7 @@ import {
   P2P_SEND_INTERVAL_MS,
   P2P_STATE,
   createPeerSessionId,
+  iceGatherTimeoutMs,
   isValidPeerSessionId,
   nextReconnectDelayMs,
   resolveIceConfiguration,
@@ -719,7 +720,15 @@ export function createP2pPeerSession(deps) {
     }
   }
 
+  function currentIceConfig() {
+    if (deps.iceConfig && Array.isArray(deps.iceConfig.iceServers)) {
+      return deps.iceConfig;
+    }
+    return resolveIceConfiguration();
+  }
+
   async function waitIceComplete(peer) {
+    const gatherTimeoutMs = iceGatherTimeoutMs(currentIceConfig());
     const before = String(peer.iceGatheringState || "");
     pushPipeline(
       "ice_gathering_state",
@@ -739,17 +748,24 @@ export function createP2pPeerSession(deps) {
       return;
     }
     await new Promise((resolve) => {
-      const done = () => {
-        if (peer.iceGatheringState === "complete") {
-          peer.removeEventListener("icegatheringstatechange", done);
-          resolve({ timedOut: false });
+      let settled = false;
+      let timer = 0;
+      const finish = (timedOut) => {
+        if (settled) return;
+        settled = true;
+        if (timer) {
+          clearT(timer);
+          timer = 0;
         }
+        peer.removeEventListener("icegatheringstatechange", onState);
+        resolve({ timedOut });
       };
-      peer.addEventListener("icegatheringstatechange", done);
-      setT(() => {
-        peer.removeEventListener("icegatheringstatechange", done);
-        resolve({ timedOut: true });
-      }, 4_000);
+      const onState = () => {
+        if (peer.iceGatheringState === "complete") finish(false);
+      };
+      peer.addEventListener("icegatheringstatechange", onState);
+      timer = setT(() => finish(true), gatherTimeoutMs);
+      onState();
     }).then((result) => {
       const timedOut = Boolean(result?.timedOut);
       const gatheringState = String(peer.iceGatheringState || "");
@@ -761,7 +777,7 @@ export function createP2pPeerSession(deps) {
             gatheringState,
             timedOut: true,
             candidates,
-            failureReason: "ice_gather_timeout_4s",
+            failureReason: `ice_gather_timeout_${gatherTimeoutMs}ms`,
           },
           P2P_DIAG.PIPELINE_ICE_GATHER_TIMEOUT
         );
@@ -873,7 +889,7 @@ export function createP2pPeerSession(deps) {
 
   function createPc(gen) {
     if (!Peer) throw new Error("RTC_UNAVAILABLE");
-    const ice = deps.iceConfig || resolveIceConfiguration();
+    const ice = currentIceConfig();
     pipe.setIceMeta({
       hasStun: Boolean(ice.hasStun),
       hasTurn: Boolean(ice.hasTurn),
@@ -1114,7 +1130,7 @@ export function createP2pPeerSession(deps) {
     channelEverOpened = false;
     peerSessionId = String(meta.peerSessionId || "");
     trackingSessionId = String(meta.trackingSessionId || "").trim();
-    assignmentVersion = Math.max(1, Math.floor(Number(meta.assignmentVersion) || 1));
+    assignmentVersion = Math.max(0, Math.floor(Number(meta.assignmentVersion) || 0));
     lastValidFixAt = null;
     lastAckAt = null;
     lastLocAckAt = null;

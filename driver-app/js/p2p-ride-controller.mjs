@@ -42,6 +42,30 @@ function serverOfferAssignmentVersion(av) {
   return n >= 1 ? n : undefined;
 }
 
+const SIGNALING_RETRY_DELAYS_MS = [0, 400, 800];
+
+function isNonRetryableSignalingError(err) {
+  const text = `${err?.code || ""} ${err?.message || ""} ${err?.details || ""}`;
+  return /STALE_ASSIGNMENT|VEHICLE_MISMATCH|AUTH_REQUIRED|INVALID_|NOT_RIDE_|NOT_SESSION_|RIDE_NOT_|ROTATED_SESSION|SESSION_EXPIRED|SESSION_NOT_FOUND|UNKNOWN_PROTOCOL|permission-denied|unauthenticated|invalid-argument|failed-precondition/.test(
+    text
+  );
+}
+
+async function retrySignalingCall(fn) {
+  let lastErr;
+  for (let i = 0; i < SIGNALING_RETRY_DELAYS_MS.length; i += 1) {
+    const delay = SIGNALING_RETRY_DELAYS_MS[i];
+    if (delay) await new Promise((r) => setTimeout(r, delay));
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (isNonRetryableSignalingError(err)) break;
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * @param {{
  *   onHealthyChange?: (healthy: boolean) => void,
@@ -391,7 +415,9 @@ export function createDriverP2pController(opts = {}) {
               };
               const offerAv = serverOfferAssignmentVersion(target.assignmentVersion);
               if (offerAv != null) offerPayload.assignmentVersion = offerAv;
-              const res = await sig.createRidePeerOfferClient?.(offerPayload);
+              const res = await retrySignalingCall(() =>
+                sig.createRidePeerOfferClient?.(offerPayload)
+              );
               if (!isStartCurrent(gen, attemptKey) || localSession !== session) return;
               const nextAv = Math.floor(Number(res?.assignmentVersion) || 0);
               if (nextAv >= 1) {
