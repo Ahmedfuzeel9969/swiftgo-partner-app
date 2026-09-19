@@ -543,8 +543,12 @@ export function createP2pPeerSession(deps) {
         firstValidEmitted = true;
         diag(P2P_DIAG.FIRST_VALID_FIX);
       }
-      deps.onLocationFix?.(validated.fix);
+      const accepted = deps.onLocationFix?.(validated.fix);
       if (role === "customer") {
+        if (accepted === false) {
+          evaluateHealth();
+          return;
+        }
         const ack = buildP2pAckMessage({
           peerSessionId,
           trackingSessionId,

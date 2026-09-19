@@ -1171,7 +1171,7 @@ exports.mirrorDriverLocationOnVehicleUpdate = onDocumentWritten(
     if (!after) return;
     const before = event.data?.before?.data();
 
-    if (after.activeRideId) {
+    if (after.activeRideId || String(after.status || "") === "in_ride") {
       const locSame =
         before?.location?.lat === after?.location?.lat &&
         before?.location?.lng === after?.location?.lng &&

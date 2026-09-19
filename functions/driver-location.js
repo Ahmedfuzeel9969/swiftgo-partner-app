@@ -294,9 +294,30 @@ async function seedDriverLocationFromVehicle(db, rideId, vehicleId) {
   });
 }
 
+async function resolveRideIdForVehicleMirror(db, vehicleId, vehicle) {
+  const fromVehicle = String(vehicle?.activeRideId || "").trim();
+  if (fromVehicle) return fromVehicle;
+  if (String(vehicle?.status || "") !== "in_ride") return "";
+  const driverId = String(vehicle?.driverId || "").trim();
+  if (!driverId) return "";
+  const partnerSnap = await db.collection("partners").doc(driverId).get();
+  const fromPartner = String(partnerSnap.data()?.activeRideId || "").trim();
+  if (!fromPartner) return "";
+  const rideSnap = await db.collection("rides").doc(fromPartner).get();
+  if (!rideSnap.exists) return "";
+  const ride = rideSnap.data() || {};
+  if (String(ride.driverId || "") !== driverId) return "";
+  if (String(ride.vehicleId || "") !== String(vehicleId)) return "";
+  if (!ACTIVE_RIDE_STATUSES.includes(String(ride.status || ""))) return "";
+  return fromPartner;
+}
+
 async function mirrorDriverLocationToRide(db, vehicleId, vehicle) {
-  // Trigger path: use immutable event snapshot for vehicle fields.
-  return mirrorRideLocationTransactional(db, vehicleId, vehicle || {}, {});
+  const rideId = await resolveRideIdForVehicleMirror(db, vehicleId, vehicle || {});
+  if (!rideId) {
+    return { mirrored: false, reason: "no_active_ride" };
+  }
+  return mirrorRideLocationTransactional(db, vehicleId, vehicle || {}, { rideId });
 }
 
 module.exports = {
@@ -304,6 +325,7 @@ module.exports = {
   buildDriverLocationPatch,
   seedDriverLocationFromVehicle,
   mirrorDriverLocationToRide,
+  resolveRideIdForVehicleMirror,
   mirrorRideLocationTransactional,
   trackingTargetForRide,
   previousEnvelopeFromRide,

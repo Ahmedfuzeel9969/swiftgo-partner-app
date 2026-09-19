@@ -296,7 +296,7 @@ function testStaticReassignmentSafeguards() {
   const checks = [
     ["sync-destroys-on-av-change", /reassignmentSessionDestroys|sessionAv !== nextAv/],
     ["watch-destroys-stale-session", /destroySessionIfAssignmentMismatch\(docAv\)/],
-    ["onLocationFix-stale-av-guard", /staleAssignmentFixes|fixAv !== expectedAssignmentVersion/],
+    ["onLocationFix-stale-av-guard", /staleAssignmentFixes|fixAv !== boundAv|fixAv !== expectedAssignmentVersion/],
     ["ride-flow-passes-assignmentVersion", /assignmentVersionFromRide/],
   ];
   for (const [name, re] of checks) {

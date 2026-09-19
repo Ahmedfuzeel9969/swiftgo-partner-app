@@ -185,8 +185,15 @@ export function createCustomerP2pController(opts = {}) {
     const offer = String(docData?.offer || "");
     if (!sid || !offer) return false;
     if (String(docData.state || "") === "closed") return false;
-    const docAv = Number(docData.assignmentVersion) || 0;
-    if (expectedAssignmentVersion > 0 && docAv > 0 && docAv !== expectedAssignmentVersion) {
+    // Signaling doc AV is server-authoritative. A locally hashed ride AV (especially
+    // when vehicleId was missing) must not veto answering a live offer.
+    const docAv = Math.floor(Number(docData.assignmentVersion) || 0);
+    const sessionAv = Math.floor(Number(session?.getState?.()?.assignmentVersion) || 0);
+    const boundSid = String(session?.getState?.()?.peerSessionId || boundSessionId || "");
+    if (sessionAv >= 1 && docAv >= 1 && boundSid && boundSid !== sid) {
+      return false;
+    }
+    if (sessionAv >= 1 && docAv >= 1 && sessionAv !== docAv) {
       return false;
     }
     return true;
@@ -302,15 +309,13 @@ export function createCustomerP2pController(opts = {}) {
             }
           },
           onLocationFix: (fix) => {
-            if (localSession !== session) return;
+            if (localSession !== session) return false;
             const fixAv = Math.floor(Number(fix?.assignmentVersion) || 0);
-            if (
-              expectedAssignmentVersion > 0 &&
-              fixAv > 0 &&
-              fixAv !== expectedAssignmentVersion
-            ) {
+            const sessionAv = Math.floor(Number(localSession.getState?.()?.assignmentVersion) || 0);
+            const boundAv = sessionAv >= 1 ? sessionAv : expectedAssignmentVersion;
+            if (boundAv > 0 && fixAv > 0 && fixAv !== boundAv) {
               ctrlCounters.staleAssignmentFixes += 1;
-              return;
+              return false;
             }
             try {
               getFieldDiagnostics()?.record("p2p_receive", {
@@ -324,6 +329,7 @@ export function createCustomerP2pController(opts = {}) {
               /* ignore */
             }
             arbiter.ingestP2p(fix, arbiter.getGeneration());
+            return true;
           },
           onLocalDescription: async (kind, sdp, meta) => {
             if (kind !== "answer") return;
@@ -406,9 +412,10 @@ export function createCustomerP2pController(opts = {}) {
       if (isOfferCurrent(docData, watchRideId)) {
         pendingOfferDoc = docData;
       } else if (
-        expectedAssignmentVersion > 0 &&
+        session &&
         docAv > 0 &&
-        docAv !== expectedAssignmentVersion
+        Math.floor(Number(session.getState?.()?.assignmentVersion) || 0) >= 1 &&
+        Math.floor(Number(session.getState?.()?.assignmentVersion) || 0) !== docAv
       ) {
         pendingOfferDoc = null;
         return;

@@ -63,7 +63,9 @@ import { assignmentVersionFromRide } from "../../shared/js/breadcrumb-schema.mjs
 
 function customerP2pSyncOpts(ride, isVisible) {
   const opts = { isVisible };
-  if (ride?.driverId || ride?.vehicleId) {
+  // Hash matches the server only when BOTH sides of driverId|vehicleId exist.
+  // `||` produced a different AV than ridePeerSessions and blocked answering.
+  if (ride?.driverId && ride?.vehicleId) {
     opts.assignmentVersion = assignmentVersionFromRide(ride);
   }
   return opts;

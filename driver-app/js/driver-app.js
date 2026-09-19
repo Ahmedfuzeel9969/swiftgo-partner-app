@@ -80,7 +80,7 @@ import { createRideCommChat } from "./p2p-comm-panel.mjs";
 import { P2P_STATE } from "./p2p-protocol.mjs";
 import { createDriverActiveRouteController } from "./driver-active-route.mjs";
 import { createBreadcrumbCollector } from "./breadcrumb-collector.mjs";
-import { assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
+import { assignmentVersionFromRide, assignmentVersionFromToken } from "./breadcrumb-schema.mjs";
 import { createRideLocationReportClient } from "./ride-location-report-client.mjs";
 import { logOnlineReadinessEvent } from "./online-readiness-diag.mjs";
 import { linkVehicleByPinClient } from "./pin-link-client.js";
@@ -665,10 +665,15 @@ function syncDriverP2pForActiveRide() {
     return;
   }
   // Presence affects Firebase checkpoint cadence only — not driver P2P transport.
-  driverP2p.syncForRide({
+  // Pass AV only when the ride identity is complete so loc can flush after offer.
+  const p2pStart = {
     ride,
     trackingSessionId: locationTrackingSessionId,
-  });
+  };
+  if (ride.driverId && ride.vehicleId) {
+    p2pStart.assignmentVersion = assignmentVersionFromRide(ride);
+  }
+  driverP2p.syncForRide(p2pStart);
   syncDriverRideCommChat();
 }
 
