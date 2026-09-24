@@ -2259,6 +2259,29 @@ button {
   transform: none;
 }
 
+.pin-skip-btn {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 0.55rem;
+  border: 1px solid rgba(16, 35, 27, 0.16);
+  border-radius: 16px;
+  background: #fff;
+  color: #24543c;
+  font-family: var(--urdu);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pin-skip-btn:hover {
+  background: #f4f8f6;
+}
+
+.pin-skip-btn:disabled {
+  opacity: 0.62;
+  cursor: progress;
+}
+
 /* ── Account blocked overlay ── */
 
 .account-blocked-overlay {

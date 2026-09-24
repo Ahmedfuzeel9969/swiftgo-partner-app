@@ -226,6 +226,7 @@ const els = {
   pinInput: document.getElementById("vehiclePinInput"),
   pinMessage: document.getElementById("vehiclePinMessage"),
   pinVerifyBtn: document.getElementById("vehiclePinVerifyBtn"),
+  pinSkipBtn: document.getElementById("vehiclePinSkipBtn"),
   roleOverlay: document.getElementById("roleSelectionOverlay"),
   roleMessage: document.getElementById("roleSelectionMessage"),
   selectDriverRoleBtn: document.getElementById("selectDriverRoleBtn"),
@@ -1022,7 +1023,7 @@ function paintDriverAvailabilityDiag() {
   } else if (activeRideRecoveryPending) {
     msg = ACTIVE_RIDE_RECOVERY_URDU;
   } else if (!linkedVehicle?.id) {
-    msg = "گاڑی منسلک نہیں — پہلے PIN سے لنک کریں";
+    msg = "گاڑی اختیاری ہے — آن لائن ہونے کے لیے PIN سے لنک کریں";
   } else if (onlineReadiness === ONLINE_READINESS.LOCATING) {
     msg = "لوکیشن حاصل ہو رہی ہے — میچنگ ابھی شروع نہیں ہوئی";
   } else if (onlineReadiness === ONLINE_READINESS.WRITING_GEO) {
@@ -1794,7 +1795,8 @@ async function routeDriver(vehicleId, sequence = authSequence, partner = null) {
         setLocationMessage(ACTIVE_RIDE_RECOVERY_URDU);
         return;
       }
-      showPinGate("");
+      showDriverMap();
+      paintDriverAvailabilityDiag();
     return;
   }
 
@@ -1900,7 +1902,18 @@ function setPinBusy(busy) {
     els.pinVerifyBtn.disabled = busy;
     els.pinVerifyBtn.textContent = busy ? "تصدیق ہو رہی ہے..." : "تصدیق کریں";
   }
+  if (els.pinSkipBtn) els.pinSkipBtn.disabled = busy;
   if (els.pinInput) els.pinInput.disabled = busy;
+}
+
+function skipVehiclePinGate() {
+  if (partnerAccountBlocked) {
+    showAccountBlockedOverlay();
+    return;
+  }
+  hidePinGate();
+  showDriverMap();
+  paintDriverAvailabilityDiag();
 }
 
 function showPinGate(message = "") {
@@ -3698,6 +3711,11 @@ async function changeLinkedVehicle() {
     return;
   }
 
+  if (!linkedVehicle?.id) {
+    showPinGate(t("pinCopy"));
+    return;
+  }
+
   const confirmed = window.confirm(t("changeVehicleConfirm"));
   if (!confirmed) return;
 
@@ -4829,6 +4847,7 @@ function boot() {
   els.pinLogoutBtn?.addEventListener("click", logoutPartner);
   els.blockedLogoutBtn?.addEventListener("click", logoutPartner);
   els.pinForm?.addEventListener("submit", verifyVehiclePin);
+  els.pinSkipBtn?.addEventListener("click", skipVehiclePinGate);
   els.pinInput?.addEventListener("input", () => setPinMessage(""));
   wirePartnerNavigation();
   initMobileNavDrawer();

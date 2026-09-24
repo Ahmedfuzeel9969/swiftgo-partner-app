@@ -752,12 +752,15 @@ assert(
   "Phase 25 real PIN verification and vehicle linking",
   driverHtml.includes('id="vehiclePinGate"') &&
     driverHtml.includes('id="vehiclePinForm"') &&
+    driverHtml.includes('id="vehiclePinSkipBtn"') &&
     driverAppJs.includes("linkVehicleByPinClient") &&
+    driverAppJs.includes("skipVehiclePinGate") &&
     !driverAppJs.includes('where("pin", "==", enteredPin)') &&
     driverAppJs.includes("غلط پن کوڈ! دوبارہ کوشش کریں") &&
     driverAppJs.includes("یہ گاڑی پہلے ہی زیر استعمال ہے") &&
     driverAppJs.includes("گاڑی کامیابی سے منسلک ہو گئی!") &&
     driverCss.includes(".pin-gate") &&
+    driverCss.includes(".pin-skip-btn") &&
     rules.includes("match /partners/{partnerId}") &&
     rules.includes("request.resource.data.driverId == request.auth.uid")
 );

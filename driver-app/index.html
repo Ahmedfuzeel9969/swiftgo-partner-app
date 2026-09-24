@@ -17,7 +17,7 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
-  <link rel="stylesheet" href="css/driver-style.css?v=driver_location_timeout_1" />
+  <link rel="stylesheet" href="css/driver-style.css?v=pin_optional_1" />
   <link rel="stylesheet" href="css/ride-radar.css?v=driver_offer_ui_1" />
   <link rel="stylesheet" href="css/driver-home.css?v=map_controls_1" />
 </head>
@@ -93,7 +93,7 @@
       <p class="pin-gate__eyebrow">Vehicle PIN</p>
       <h2 id="pinGateTitle" data-i18n="pinTitle">گاڑی کا PIN درج کریں</h2>
       <p class="pin-gate__copy" data-i18n="pinCopy">
-        مالک سے ملا ہوا 4 ہندسوں کا PIN درج کریں تاکہ گاڑی آپ کے اکاؤنٹ سے منسلک ہو جائے۔
+        گاڑی منسلک کرنا اختیاری ہے۔ مالک کا 4 ہندسوں کا PIN درج کریں، یا ابھی چھوڑ کر بعد میں لنک کریں۔
       </p>
       <form id="vehiclePinForm" novalidate>
         <input
@@ -106,10 +106,10 @@
           pattern="[0-9]{4}"
           placeholder="• • • •"
           aria-label="گاڑی کا 4 ہندسوں کا PIN"
-          required
         />
         <p class="pin-gate__message" id="vehiclePinMessage" role="status" aria-live="polite"></p>
         <button type="submit" class="pin-verify-btn" id="vehiclePinVerifyBtn" data-i18n="pinVerify">تصدیق کریں</button>
+        <button type="button" class="pin-skip-btn" id="vehiclePinSkipBtn" data-i18n="pinSkip">ابھی چھوڑیں</button>
       </form>
       <button type="button" class="partner-logout-btn" id="pinGateLogoutBtn" data-i18n="logout">لاگ آؤٹ</button>
     </div>
