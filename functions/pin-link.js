@@ -82,6 +82,8 @@ async function linkVehicleByPin(db, { driverUid, pin, driverName }) {
     partner.currentVehicleId && partner.currentVehicleId !== vehicleDoc.id
       ? partner.currentVehicleId
       : null;
+  const displacedDriverId =
+    vehicle.driverId && vehicle.driverId !== driverUid ? String(vehicle.driverId) : "";
 
   await db.runTransaction(async (tx) => {
     const partnerSnapTx = await tx.get(partnerRef);
@@ -119,6 +121,17 @@ async function linkVehicleByPin(db, { driverUid, pin, driverName }) {
         });
       }
     }
+    let displacedPartnerRef = null;
+    if (displacedDriverId) {
+      displacedPartnerRef = db.collection("partners").doc(displacedDriverId);
+      const displacedSnap = await tx.get(displacedPartnerRef);
+      if (
+        !displacedSnap.exists ||
+        String(displacedSnap.data()?.currentVehicleId || "") !== vehicleDoc.id
+      ) {
+        displacedPartnerRef = null;
+      }
+    }
     const vehicleUpdate = {
       driverId: driverUid,
       driverName: driverName || "SwiftGo Driver",
@@ -138,6 +151,13 @@ async function linkVehicleByPin(db, { driverUid, pin, driverName }) {
       vehicleUpdate.locationGridCell = geo.locationGridCell;
     }
     tx.update(vehicleDoc.ref, vehicleUpdate);
+    if (displacedPartnerRef) {
+      tx.set(
+        displacedPartnerRef,
+        { currentVehicleId: null, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+    }
     tx.set(
       partnerRef,
       {
@@ -168,6 +188,86 @@ async function linkVehicleByPin(db, { driverUid, pin, driverName }) {
   };
 }
 
+const ACTIVE_ASSIGNED = new Set(["accepted", "arrived", "in_progress"]);
+
+async function assertOwnerVehicle(db, ownerUid, vehicleId) {
+  if (!ownerUid) throw err("unauthenticated", "AUTH_REQUIRED");
+  const id = String(vehicleId || "").trim();
+  if (!id) throw err("invalid-argument", "MISSING_VEHICLE");
+  const ref = db.collection("vehicles").doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) throw err("not-found", "VEHICLE_NOT_FOUND");
+  const vehicle = snap.data() || {};
+  if (String(vehicle.ownerId || "") !== ownerUid) {
+    throw err("permission-denied", "NOT_VEHICLE_OWNER");
+  }
+  return { ref, vehicle };
+}
+
+async function releaseVehicleDriver(db, { ownerUid, vehicleId }) {
+  const { ref, vehicle } = await assertOwnerVehicle(db, ownerUid, vehicleId);
+  const driverId = String(vehicle.driverId || "").trim();
+  if (!driverId) return { ok: true, released: false, reason: "no_driver" };
+
+  const rideId = String(vehicle.activeRideId || "").trim();
+  if (rideId) {
+    const rideSnap = await db.collection("rides").doc(rideId).get();
+    const status = String(rideSnap.data()?.status || "");
+    if (rideSnap.exists && ACTIVE_ASSIGNED.has(status)) {
+      throw err("failed-precondition", "DRIVER_ON_ACTIVE_RIDE");
+    }
+  }
+
+  const partnerRef = db.collection("partners").doc(driverId);
+  await db.runTransaction(async (tx) => {
+    const partnerSnap = await tx.get(partnerRef);
+    const clearPartner =
+      partnerSnap.exists &&
+      String(partnerSnap.data()?.currentVehicleId || "") === ref.id;
+    tx.update(ref, {
+      driverId: FieldValue.delete(),
+      driverName: FieldValue.delete(),
+      activeRideId: FieldValue.delete(),
+      status: "offline",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    if (clearPartner) {
+      tx.set(
+        partnerRef,
+        { currentVehicleId: null, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+    }
+  });
+
+  return { ok: true, released: true, vehicleId: ref.id, driverId };
+}
+
+async function rotateVehiclePin(db, { ownerUid, vehicleId }) {
+  const { ref } = await assertOwnerVehicle(db, ownerUid, vehicleId);
+  const pin = String(1000 + Math.floor(Math.random() * 9000));
+  const pinHash = hashVehiclePin(pin);
+  const batch = db.batch();
+  batch.update(ref, {
+    pin,
+    pinHash,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  batch.set(
+    db.collection("vehicle_pins").doc(ref.id),
+    {
+      ownerId: ownerUid,
+      pin,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+  await batch.commit();
+  return { ok: true, vehicleId: ref.id, pin };
+}
+
 module.exports = {
   linkVehicleByPin,
+  releaseVehicleDriver,
+  rotateVehiclePin,
 };

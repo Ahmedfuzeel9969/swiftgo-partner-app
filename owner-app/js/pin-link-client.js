@@ -5,10 +5,22 @@
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
 import { getFirebase } from "./firebase.js";
 
-export async function linkVehicleByPinClient(pin) {
+async function callPin(name, data) {
   const { ready, functions } = getFirebase();
   if (!ready || !functions) throw new Error("FUNCTIONS_UNAVAILABLE");
-  const fn = httpsCallable(functions, "linkVehicleByPin");
-  const result = await fn({ pin: String(pin || "").trim() });
+  const fn = httpsCallable(functions, name);
+  const result = await fn(data);
   return result?.data || result;
+}
+
+export async function linkVehicleByPinClient(pin) {
+  return callPin("linkVehicleByPin", { pin: String(pin || "").trim() });
+}
+
+export async function releaseVehicleDriverClient(vehicleId) {
+  return callPin("releaseVehicleDriver", { vehicleId: String(vehicleId || "").trim() });
+}
+
+export async function rotateVehiclePinClient(vehicleId) {
+  return callPin("rotateVehiclePin", { vehicleId: String(vehicleId || "").trim() });
 }

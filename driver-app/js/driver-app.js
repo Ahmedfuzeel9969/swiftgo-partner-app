@@ -1446,6 +1446,16 @@ function startPartnerDocListener(uid, sequence) {
         return;
       }
 
+      const assignedVehicleId = String(partner?.currentVehicleId || "");
+      if (
+        linkedVehicle?.id &&
+        assignedVehicleId !== linkedVehicle.id &&
+        !activeExecutionRide?.id
+      ) {
+        void routeDriver(assignedVehicleId || null, authSequence, partner || {});
+        return;
+      }
+
       if (
         partner?.activeRideId &&
         !activeExecutionRide?.id &&

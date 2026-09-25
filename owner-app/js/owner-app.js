@@ -36,7 +36,11 @@ import {
 import { requestOwnerAccessClient } from "./owner-onboarding-client.js";
 import { requestRideSettlement } from "./settlement-client.js";
 import { hashVehiclePin } from "./pin-hash.js";
-import { linkVehicleByPinClient } from "./pin-link-client.js";
+import {
+  linkVehicleByPinClient,
+  releaseVehicleDriverClient,
+  rotateVehiclePinClient,
+} from "./pin-link-client.js";
 import { applyReducedMotionClass, initKeyboardInset, trapFocus } from "./a11y.js";
 import { initI18n, t } from "./i18n.js";
 import { wireLegalLinks, requestAccountDeletionClient } from "./trust.js";
@@ -1315,13 +1319,11 @@ async function regenerateVehiclePin(vehicle) {
   );
   if (!confirmed) return;
   try {
-    const pin = generateUniqueVehiclePin();
-    const pinHash = await hashVehiclePin(pin);
-    const { db } = getFirebase();
-    await updateDoc(doc(db, "vehicles", vehicle.id), { pinHash, pin });
-    await saveOwnerVehiclePin(vehicle.id, currentDriver.uid, pin);
+    const result = await rotateVehiclePinClient(vehicle.id);
+    const pin = String(result?.pin || "");
+    if (pin) ownerPinByVehicleId.set(vehicle.id, pin);
     renderOwnerVehicles();
-    setOwnerMessage(`نیا PIN: ${pin}`);
+    setOwnerMessage(pin ? `نیا PIN: ${pin}` : "نیا PIN بن گیا۔");
   } catch (error) {
     console.warn("[SwiftGo Owner] regenerate pin", error);
     setOwnerMessage("نیا PIN نہیں بن سکا۔ دوبارہ کوشش کریں۔");
@@ -1336,30 +1338,17 @@ async function revokeVehicleDriver(vehicle) {
   );
   if (!confirmed) return;
 
-  const { db } = getFirebase();
-  const release = {
-    status: "offline",
-    driverId: deleteField(),
-    driverName: deleteField(),
-  };
-  if (vehicle.activeRideId) {
-    release.activeRideId = deleteField();
-  }
-
   try {
-    await updateDoc(doc(db, "vehicles", vehicle.id), release);
-    try {
-      await updateDoc(doc(db, "partners", vehicle.driverId), {
-        currentVehicleId: null,
-        updatedAt: serverTimestamp(),
-      });
-    } catch (partnerError) {
-      console.warn("[SwiftGo Owner] clear driver currentVehicleId", partnerError);
-    }
+    await releaseVehicleDriverClient(vehicle.id);
     setOwnerMessage("ڈرائیور کا لنک ختم ہو گیا۔");
   } catch (error) {
     console.warn("[SwiftGo Owner] revoke driver", error);
-    setOwnerMessage("ڈرائیور ختم نہیں ہو سکا۔ دوبارہ کوشش کریں۔");
+    const blob = `${error?.code || ""} ${error?.message || ""}`;
+    setOwnerMessage(
+      blob.includes("DRIVER_ON_ACTIVE_RIDE")
+        ? "فعال سواری ختم ہونے سے پہلے ڈرائیور نہیں ہٹ سکتا۔"
+        : "ڈرائیور ختم نہیں ہو سکا۔ دوبارہ کوشش کریں۔"
+    );
   }
 }
 

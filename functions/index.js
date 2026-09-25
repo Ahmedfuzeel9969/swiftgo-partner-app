@@ -55,7 +55,7 @@ const {
   requestTouchesDiagnosticControls,
   isCallerAuthorizedForDiagnostic,
 } = require("./admin-claims");
-const { linkVehicleByPin } = require("./pin-link");
+const { linkVehicleByPin, releaseVehicleDriver, rotateVehiclePin } = require("./pin-link");
 const { setDriverOnlineLocation } = require("./driver-online");
 const {
   requestAccountDeletion: performAccountDeletionRequest,
@@ -220,6 +220,30 @@ exports.revokeAdminClaim = onCall({ region: "us-central1" }, async (request) => 
 exports.setAdminEmailBootstrap = onCall({ region: "us-central1" }, async (request) => {
   try {
     return await setAdminEmailBootstrap(db, request.auth, request.data?.enabled);
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+exports.releaseVehicleDriver = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await releaseVehicleDriver(db, {
+      ownerUid: request.auth.uid,
+      vehicleId: request.data?.vehicleId,
+    });
+  } catch (err) {
+    throw mapErr(err);
+  }
+});
+
+exports.rotateVehiclePin = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+  try {
+    return await rotateVehiclePin(db, {
+      ownerUid: request.auth.uid,
+      vehicleId: request.data?.vehicleId,
+    });
   } catch (err) {
     throw mapErr(err);
   }
